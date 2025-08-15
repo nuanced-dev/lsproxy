@@ -10,7 +10,7 @@
 </div>
 
 
-   
+
 ## <a name="what-is-lsproxy">What is lsproxy?</a>
 
 `lsproxy` offers IDE-like code analysis and navigation functionality in a docker container with a REST API.
@@ -32,7 +32,7 @@ For more info, please refer to our [API Reference](https://docs.lsproxy.dev/api-
 - 🌳 **Call & Type Hierarchies**: (Coming Soon) Query multi-hop code relationships computed by the language servers.
 - 🔄 **Procedural Refactoring**: (Coming Soon) Perform symbol operations like `rename`, `extract`, `auto import` through the API.
 - 🧩 **SDKs**: Libraries to get started calling `lsproxy` in popular languages.
-    
+
 
 ## <a name="getting-started">Getting started</a>
 The easiest way to get started is to run our tutorial! Check it out at [demo.lsproxy.dev](https://demo.lsproxy.dev)
@@ -119,18 +119,20 @@ We're building a community. Come hang out with us!
 - ✏️ [Start a GitHub Discussion](https://github.com/agentic-labs/lsproxy/discussions)
 - 🐦 [Follow us on Twitter](https://twitter.com/agentic_labs)
 - 🕴️ [Follow us on LinkedIn](https://www.linkedin.com/company/agentic-labs)
-  
+
 ## <a name="supported-languages">Supported languages</a>
 
 We're looking to add new language support or better language servers so let us know what you need!
 |Language|Server|URL|
 |:-|:-|:-|
 |C/C++|`clangd`|https://clangd.llvm.org/|
+|C#|`omnisharp`|https://github.com/OmniSharp/csharp-language-server-protocol|
 |Golang|`gopls`|https://github.com/golang/tools/tree/master/gopls|
 |Java|`jdtls`|https://github.com/eclipse-jdtls/eclipse.jdt.ls|
 |Javascript|`typescript-language-server`|https://github.com/typescript-language-server/typescript-language-server|
 |PHP|`phpactor`|https://github.com/phpactor/phpactor|
 |Python|`jedi-language-server`|https://github.com/pappasam/jedi-language-server|
+|Ruby|`sorbet`|https://sorbet.org/docs/lsp|
 |Rust|`rust-analyzer`|https://github.com/rust-lang/rust-analyzer|
 |Typescript|`typescript-language-server`|https://github.com/typescript-language-server/typescript-language-server|
 |Your Favorite Language | Awesome Language Server | https://github.com/agentic-labs/lsproxy/issues/new |
