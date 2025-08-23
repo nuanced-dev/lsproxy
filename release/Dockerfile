@@ -1,4 +1,5 @@
-FROM --platform=linux/$BUILDARCH rust:1.82.0-slim-bookworm AS builder
+FROM --platform=$BUILDPLATFORM rust:1.82.0-slim-bookworm AS builder
+ARG BUILDPLATFORM
 ARG BUILDARCH
 ARG TARGETPLATFORM
 ARG TARGETARCH
