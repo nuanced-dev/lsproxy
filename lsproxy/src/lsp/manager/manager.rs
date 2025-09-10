@@ -15,7 +15,7 @@ use crate::utils::workspace_documents::{
     GOLANG_FILE_PATTERNS, JAVA_FILE_PATTERNS, PHP_FILE_PATTERNS, PYTHON_FILE_PATTERNS,
     RUBY_FILE_PATTERNS, RUST_FILE_PATTERNS, TYPESCRIPT_AND_JAVASCRIPT_FILE_PATTERNS,
 };
-use log::{debug, error, warn};
+use log::{error, info, warn};
 use lsp_types::{GotoDefinitionResponse, Location, Position, Range};
 use notify::RecursiveMode;
 use notify_debouncer_mini::{new_debouncer, DebounceEventResult, DebouncedEvent};
@@ -129,7 +129,7 @@ impl Manager {
                 lsps.push(lsp);
             }
         }
-        debug!("Starting LSPs: {:?}", lsps);
+        info!("Starting LSPs: {:?}", lsps);
         lsps
     }
 
@@ -142,7 +142,7 @@ impl Manager {
             if self.get_client(lsp).is_some() {
                 continue;
             }
-            debug!("Starting {:?} LSP", lsp);
+            info!("Starting {:?} LSP", lsp);
             let mut client: Box<dyn LspClient> = match lsp {
                 SupportedLanguages::Python => Box::new(
                     JediClient::new(workspace_path, self.watch_events_sender.subscribe())
@@ -197,7 +197,7 @@ impl Manager {
                 .initialize(workspace_path.to_string())
                 .await
                 .map_err(|e| e.to_string())?;
-            debug!("Setting up workspace");
+            info!("Setting up workspace");
             client
                 .setup_workspace(workspace_path)
                 .await
