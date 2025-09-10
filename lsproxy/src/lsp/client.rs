@@ -3,7 +3,7 @@ use crate::lsp::process::Process;
 use crate::lsp::{ExpectedMessageKey, JsonRpcHandler, ProcessHandler};
 use crate::utils::file_utils::{detect_language_string, search_directories};
 use async_trait::async_trait;
-use log::{debug, error, warn};
+use log::{debug, error, info, warn};
 use lsp_types::{
     ClientCapabilities, DidOpenTextDocumentParams, DocumentSymbolClientCapabilities,
     GotoDefinitionParams, GotoDefinitionResponse, InitializeParams, InitializeResult, Location,
@@ -26,7 +26,7 @@ pub trait LspClient: Send {
         &mut self,
         root_path: String,
     ) -> Result<InitializeResult, Box<dyn Error + Send + Sync>> {
-        debug!("Initializing LSP client with root path: {:?}", root_path);
+        info!("Initializing LSP client with root path: {:?}", root_path);
         self.start_response_listener().await?;
 
         let params = self.get_initialize_params(root_path).await?;
@@ -35,7 +35,7 @@ pub trait LspClient: Send {
             .send_request("initialize", Some(serde_json::to_value(params)?))
             .await?;
         let init_result: InitializeResult = serde_json::from_value(result)?;
-        debug!("Initialization successful: {:?}", init_result);
+        info!("Initialization successful: {:?}", init_result);
         self.send_initialized().await?;
         Ok(init_result)
     }
