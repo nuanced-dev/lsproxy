@@ -1,0 +1,93 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Simple one-off local build for release/Dockerfile
+# Defaults for an ARM64 host
+
+IMAGE_DEFAULT="lsproxy:local"
+PLATFORM_DEFAULT="linux/arm64"
+DOCKERFILE_DEFAULT="release/Dockerfile"
+CONTEXT_DEFAULT="lsproxy"
+
+usage() {
+  cat <<EOF
+Usage: $(basename "$0") [--image name:tag] [--platform linux/arm64] [--no-cache] [--pull] [--context path]
+
+Builds the release image locally (single-arch) and loads it into Docker.
+
+Options:
+  --image      Image name:tag (default: ${IMAGE_DEFAULT})
+  --platform   Target platform (default: ${PLATFORM_DEFAULT})
+  --context    Build context path (default: ${CONTEXT_DEFAULT})
+  --no-cache   Disable build cache
+  --pull       Always attempt to pull newer base images
+  -h, --help   Show this help
+
+Examples:
+  $(basename "$0")
+  $(basename "$0") --image my/lsproxy:dev
+  $(basename "$0") --platform linux/arm64 --no-cache
+EOF
+}
+
+IMAGE="${IMAGE_DEFAULT}"
+PLATFORM="${PLATFORM_DEFAULT}"
+DOCKERFILE="${DOCKERFILE_DEFAULT}"
+CONTEXT="${CONTEXT_DEFAULT}"
+NO_CACHE=0
+PULL=0
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --image)
+      IMAGE="${2:?--image requires a value}"; shift 2;;
+    --platform)
+      PLATFORM="${2:?--platform requires a value}"; shift 2;;
+    --context)
+      CONTEXT="${2:?--context requires a value}"; shift 2;;
+    --no-cache)
+      NO_CACHE=1; shift;;
+    --pull)
+      PULL=1; shift;;
+    -h|--help)
+      usage; exit 0;;
+    *)
+      echo "Unknown arg: $1" >&2; usage; exit 1;;
+  esac
+done
+
+echo ">> Image:      ${IMAGE}"
+echo ">> Platform:   ${PLATFORM}"
+echo ">> Dockerfile: ${DOCKERFILE}"
+echo ">> Context:    ${CONTEXT}"
+
+# Ensure a buildx builder exists (Docker Desktop typically provides one by default).
+if ! docker buildx inspect nuanced-builder >/dev/null 2>&1; then
+  echo ">> Creating buildx builder 'nuanced-builder'..."
+  docker buildx create --name nuanced-builder --driver docker-container --use >/dev/null
+else
+  docker buildx use nuanced-builder >/dev/null
+fi
+
+# Compose build args
+BUILD_ARGS=(
+  --platform "${PLATFORM}"
+  -f "${DOCKERFILE}"
+  -t "${IMAGE}"
+  --load
+)
+
+if [[ ${NO_CACHE} -eq 1 ]]; then
+  BUILD_ARGS+=(--no-cache)
+fi
+
+if [[ ${PULL} -eq 1 ]]; then
+  BUILD_ARGS+=(--pull)
+fi
+
+echo ">> Building... this may take a while on first run"
+docker buildx build "${BUILD_ARGS[@]}" "${CONTEXT}"
+
+echo "\n✅ Built and loaded: ${IMAGE}"
+echo "Run: docker run --rm -it -p 4444:4444 ${IMAGE}"
+
