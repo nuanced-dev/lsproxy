@@ -205,7 +205,6 @@ COPY --from=builder /usr/src/bin/lsproxy /usr/local/bin/lsproxy-bin
 COPY ./src/ast_grep /usr/src/ast_grep
 
 EXPOSE 4444
-ENV RUST_LOG=info
 ENV RA_LOG="/tmp/rust-analyzer.log"
 
 RUN mkdir -p /mnt/workspace /usr/local/cargo /usr/src/app /usr/local/go /home/user/go \
