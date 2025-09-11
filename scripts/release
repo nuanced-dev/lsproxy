@@ -6,17 +6,18 @@ echo "Starting release process..."
 
 usage() {
   cat <<EOF
-Usage: $(basename "$0") <version> [--repo ghcr.io/owner/name]
+Usage: $(basename "$0") <version> [--repo ghcr.io/owner/name] [--no-build]
 
 Automates a release by:
-  - Verifying environment
-  - Building and pushing multi-arch Docker images (amd64, arm64)
-  - Creating a GitHub release (no assets, creates tag if missing)
+  - Verifies environment
+  - Builds multi-arch Docker images and pushes to ghcr.io (amd64, arm64) [can skip with --no-build]
+  - Creates a GitHub release (no assets, creates git tag if missing)
 
 Examples:
   $(basename "$0") 0.4.4
   $(basename "$0") v0.4.4
   $(basename "$0") 0.4.4 --repo ghcr.io/nuanced-dev/nuanced-lsproxy
+  $(basename "$0") 0.4.4 --no-build  # create release only without building Docker images
 EOF
 }
 
@@ -27,13 +28,19 @@ fi
 shift || true
 
 REPO_ARG=( )
-if [[ ${#} -gt 0 ]]; then
-  # allow optional --repo passthrough to build-multiarch
-  if [[ "${1:-}" == "--repo" ]]; then
-    REPO_ARG=(--repo "${2:?--repo requires a value}")
-    shift 2 || true
-  fi
-fi
+DO_BUILD=1
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --repo)
+      REPO_ARG=(--repo "${2:?--repo requires a value}"); shift 2;;
+    --no-build)
+      DO_BUILD=0; shift;;
+    -h|--help)
+      usage; exit 0;;
+    *)
+      echo "Unknown argument: $1" >&2; usage; exit 1;;
+  esac
+done
 
 # Normalize version (strip leading 'v' for assets, keep 'v' for tag)
 VERSION="${VERSION_RAW#v}"
@@ -55,9 +62,13 @@ if ! status="$(git status --porcelain)" || [[ -n "$status" ]]; then
   exit 1
 fi
 
-# Build and push multi-arch Docker images (lets build script handle GHCR login)
-echo "Building and pushing multi-arch Docker images..."
-# release/build-multiarch.sh "${TAG}" "${REPO_ARG[@]}"
+# Optionally build and push multi-arch Docker images (lets build script handle GHCR login)
+if [[ ${DO_BUILD} -eq 1 ]]; then
+  echo "Building and pushing multi-arch Docker images..."
+  release/build-multiarch.sh "${TAG}" "${REPO_ARG[@]}"
+else
+  echo "Skipping multi-arch Docker build (--no-build)."
+fi
 
 # Create GitHub release without artifacts
 echo "Creating GitHub release ${TAG} (no assets)..."
@@ -69,8 +80,8 @@ fi
 echo "Checking gh permissions..."
 scopes=" $(gh api -i user | grep X-Oauth-Scopes | cut -c17-),"
 for scope in repo workflow; do
-    if ! echo "$scopes" | grep -q " $scope,"; then
-        echo "Error: gh is missing 'repo' permission"
+    if ! echo "$scopes" | grep -q "$scope"; then
+        echo "Error: gh is missing '$scope' permission"
         exit 1
     fi
 done
@@ -80,7 +91,6 @@ if gh release view "${TAG}" >/dev/null 2>&1; then
   echo "Release ${TAG} already exists. Skipping creation."
 else
   gh release create "${TAG}" \
-    --target "$(git rev-parse HEAD)" \
     --title "Release ${VERSION}" \
     --generate-notes \
     --latest
