@@ -93,13 +93,47 @@ ENV GOROOT=/usr/local/go
 ENV GOPATH=/home/user/go
 ENV PATH=$GOPATH/bin:$GOROOT/bin:$PATH
 
-# Install ruby and ruby-lsp
-RUN apt update && apt install -y ruby-full \
-    && apt-get clean \
+# -----------------------------
+# Ruby via rbenv (multi-version)
+# -----------------------------
+# Build deps for Ruby
+RUN apt-get update && apt-get install -y \
+    zlib1g-dev \
+    autoconf \
+    bison \
+    libyaml-dev \
+    libreadline-dev \
+    libncurses5-dev \
+    libffi-dev \
+    libpq-dev \
+    libgdbm-dev \
     && rm -rf /var/lib/apt/lists/*
 
-RUN gem install ruby-lsp
+# Ensure home dir exists (we'll use a fixed path for rbenv)
+RUN mkdir -p /home/user
 
+# Tell rbenv explicitly where it lives (don't rely on $HOME during build)
+ENV RBENV_ROOT=/home/user/.rbenv
+ENV PATH="$RBENV_ROOT/bin:$RBENV_ROOT/shims:${PATH}"
+
+# Clone rbenv and ruby-build
+RUN git clone --depth 1 https://github.com/rbenv/rbenv.git "$RBENV_ROOT" && \
+    git clone --depth 1 https://github.com/rbenv/ruby-build.git "$RBENV_ROOT/plugins/ruby-build"
+
+# Optional: initialize rbenv for interactive shells
+RUN echo 'eval "$('"$RBENV_ROOT"'/bin/rbenv init -)"' >> /root/.bashrc && \
+    echo 'eval "$('"$RBENV_ROOT"'/bin/rbenv init -)"' >> /root/.profile
+
+# Install Ruby versions and gems
+RUN eval "$("$RBENV_ROOT"/bin/rbenv init -)" \
+    && rbenv install 3.4.2 && rbenv global 3.4.2 && rbenv exec gem install ruby-lsp sorbet && rbenv rehash \
+    && rbenv install 3.4.1 && rbenv shell 3.4.1 && rbenv exec gem install ruby-lsp sorbet && rbenv rehash \
+    && rbenv install 3.3.6 && rbenv shell 3.3.6 && rbenv exec gem install ruby-lsp sorbet && rbenv rehash \
+    && rbenv install 3.2.6 && rbenv shell 3.2.6 && rbenv exec gem install ruby-lsp sorbet && rbenv rehash \
+    && rbenv install 3.2.2 && rbenv shell 3.2.2 && rbenv exec gem install ruby-lsp sorbet && rbenv rehash \
+    && rbenv install 3.3.5 && rbenv shell 3.3.5 && rbenv exec gem install ruby-lsp sorbet && rbenv rehash
+
+# Keep the original HOME placement from your Dockerfile
 ENV HOME=/home/user
 
 # Download and run dotnet install script
@@ -118,7 +152,6 @@ RUN dotnet tool install --global csharp-ls
 
 # Add .NET tools to PATH
 ENV PATH="${PATH}:/home/user/.dotnet/tools"
-
 
 COPY Cargo.toml .
 

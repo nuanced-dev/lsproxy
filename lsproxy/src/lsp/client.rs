@@ -35,7 +35,7 @@ pub trait LspClient: Send {
             .send_request("initialize", Some(serde_json::to_value(params)?))
             .await?;
         let init_result: InitializeResult = serde_json::from_value(result)?;
-        info!("Initialization successful: {:?}", init_result);
+        debug!("Initialization successful: {:?}", init_result);
         self.send_initialized().await?;
         Ok(init_result)
     }

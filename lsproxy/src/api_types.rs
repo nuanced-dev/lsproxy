@@ -86,6 +86,8 @@ pub enum SupportedLanguages {
     PHP,
     #[serde(rename = "ruby")]
     Ruby,
+    #[serde(rename = "ruby_sorbet")]
+    RubySorbet,
 }
 
 /// A position within a text document, using 0-based indexing

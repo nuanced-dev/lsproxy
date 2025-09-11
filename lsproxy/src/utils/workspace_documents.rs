@@ -54,6 +54,7 @@ pub const RUBY_ROOT_FILES: &[&str] = &[
     ".gemspec",
 ];
 pub const RUBY_FILE_PATTERNS: &[&str] = &["**/*.rb", "**/*.erb"];
+pub const RUBY_SORBET_FILE_PATTERNS: &[&str] = &["**/sorbet/config"];
 pub const RUBY_EXTENSIONS: &[&str] = &["rb", "erb"];
 
 pub const RUST_ROOT_FILES: &[&str] = &["Cargo.toml"];

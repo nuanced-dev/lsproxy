@@ -4,6 +4,8 @@ use crate::{
 };
 use ignore::WalkBuilder;
 use log::{debug, error, warn};
+use std::fs::File;
+use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 use url::Url;
 
@@ -114,6 +116,26 @@ pub fn absolute_path_to_relative_path_string(path: &PathBuf) -> String {
         })
 }
 
+fn has_sorbet_type_annotation(path: &Path) -> bool {
+    if let Ok(file) = File::open(path) {
+        let reader = BufReader::new(file);
+        for line in reader.lines().take(10) {
+            // Only check first 10 lines for magic comments
+            if let Ok(line) = line {
+                let trimmed = line.trim();
+                if trimmed.starts_with("#") {
+                    let comment = trimmed[1..].trim();
+                    if comment.starts_with("typed:") {
+                        let type_level = comment["typed:".len()..].trim();
+                        return matches!(type_level, "true" | "strict" | "strong");
+                    }
+                }
+            }
+        }
+    }
+    false
+}
+
 pub fn detect_language(file_path: &str) -> Result<SupportedLanguages, LspManagerError> {
     let path = PathBuf::from(file_path);
     let extension = path
@@ -132,7 +154,14 @@ pub fn detect_language(file_path: &str) -> Result<SupportedLanguages, LspManager
         ext if JAVA_EXTENSIONS.contains(&ext) => Ok(SupportedLanguages::Java),
         ext if GOLANG_EXTENSIONS.contains(&ext) => Ok(SupportedLanguages::Golang),
         ext if PHP_EXTENSIONS.contains(&ext) => Ok(SupportedLanguages::PHP),
-        ext if RUBY_EXTENSIONS.contains(&ext) => Ok(SupportedLanguages::Ruby),
+        ext if RUBY_EXTENSIONS.contains(&ext) => {
+            let path = Path::new(file_path);
+            if has_sorbet_type_annotation(path) {
+                Ok(SupportedLanguages::RubySorbet)
+            } else {
+                Ok(SupportedLanguages::Ruby)
+            }
+        }
         _ => Err(LspManagerError::UnsupportedFileType(file_path.to_string())),
     }
 }
