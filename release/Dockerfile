@@ -170,12 +170,9 @@ RUN curl -O -L "https://go.dev/dl/go1.23.5.linux-${TARGETARCH}.tar.gz" && \
     rm go1.23.5.linux-${TARGETARCH}.tar.gz
 COPY --from=builder /usr/src/bin/gopls /usr/bin/gopls
 
-# Install ruby and ruby-lsp
-RUN apt update && apt install -y ruby-full \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
-
-RUN gem install ruby-lsp
+ENV GOROOT=/usr/local/go
+ENV GOPATH=/home/user/go
+ENV PATH=$GOPATH/bin:$GOROOT/bin:$PATH
 
 # Download and run dotnet install script
 RUN curl -fsSL https://builds.dotnet.microsoft.com/dotnet/scripts/v1/dotnet-install.sh -o dotnet-install.sh \
@@ -184,7 +181,6 @@ RUN curl -fsSL https://builds.dotnet.microsoft.com/dotnet/scripts/v1/dotnet-inst
     && ./dotnet-install.sh --channel 9.0 --install-dir /home/user/.dotnet \
     && rm dotnet-install.sh
 
-# Add .NET to PATH
 ENV PATH="${PATH}:/home/user/.dotnet"
 ENV DOTNET_ROOT=/home/user/.dotnet
 
@@ -194,9 +190,39 @@ RUN dotnet tool install --global csharp-ls
 # Add .NET tools to PATH
 ENV PATH="${PATH}:/home/user/.dotnet/tools"
 
-ENV GOROOT=/usr/local/go
-ENV GOPATH=/home/user/go
-ENV PATH=$GOPATH/bin:$GOROOT/bin:$PATH
+# Install Ruby, deps, and LSPs
+RUN apt-get update && apt-get install -y \
+    zlib1g-dev \
+    autoconf \
+    bison \
+    libyaml-dev \
+    libreadline-dev \
+    libncurses5-dev \
+    libffi-dev \
+    libpq-dev \
+    libgdbm-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV RBENV_ROOT=${HOME}/.rbenv
+ENV PATH="$RBENV_ROOT/bin:$RBENV_ROOT/shims:${PATH}"
+
+# Clone rbenv and ruby-build
+RUN git clone --depth 1 https://github.com/rbenv/rbenv.git "$RBENV_ROOT" && \
+    git clone --depth 1 https://github.com/rbenv/ruby-build.git "$RBENV_ROOT/plugins/ruby-build"
+
+# Initialize rbenv for interactive shells
+RUN echo 'eval "$('"$RBENV_ROOT"'/bin/rbenv init -)"' >> /root/.bashrc && \
+    echo 'eval "$('"$RBENV_ROOT"'/bin/rbenv init -)"' >> /root/.profile
+
+# Install Ruby versions and lsp gems
+RUN eval "$("$RBENV_ROOT"/bin/rbenv init -)" \
+    && rbenv install 3.4.2  && rbenv global 3.4.2  && rbenv exec gem install ruby-lsp sorbet  && rbenv rehash \
+    && rbenv install 3.4.1 && rbenv shell 3.4.1 && rbenv exec gem install ruby-lsp sorbet && rbenv rehash \
+    && rbenv install 3.3.6 && rbenv shell 3.3.6 && rbenv exec gem install ruby-lsp sorbet && rbenv rehash \
+    && rbenv install 3.3.5 && rbenv shell 3.3.5 && rbenv exec gem install ruby-lsp sorbet && rbenv rehash \
+    && rbenv install 3.2.6 && rbenv shell 3.2.6 && rbenv exec gem install ruby-lsp sorbet && rbenv rehash \
+    && rbenv install 3.2.2 && rbenv shell 3.2.2 && rbenv exec gem install ruby-lsp sorbet && rbenv rehash
+
 
 # Copy binary with -bin suffix
 COPY --from=builder /usr/src/bin/lsproxy /usr/local/bin/lsproxy-bin
@@ -215,6 +241,7 @@ RUN echo '#!/bin/bash' > /usr/local/bin/lsproxy \
     && env | while read -r line; do \
     echo "export $line" >> /usr/local/bin/lsproxy; \
     done \
+    && echo 'eval "$(rbenv init -)"' >> /usr/local/bin/lsproxy \
     && echo 'exec /usr/local/bin/lsproxy-bin "$@"' >> /usr/local/bin/lsproxy \
     && chmod +x /usr/local/bin/lsproxy
 
