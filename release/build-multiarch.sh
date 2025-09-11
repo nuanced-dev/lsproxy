@@ -14,7 +14,7 @@ Builds and pushes a multi-platform image for release/Dockerfile with:
 
 Examples:
   $(basename "$0") 0.3.1
-  $(basename "$0") v1.2.3 --repo ghcr.io/nuanced-dev/nuanced-lsproxy
+  $(basename "$0") 1.2.3 --repo ghcr.io/nuanced-dev/nuanced-lsproxy
 EOF
 }
 
