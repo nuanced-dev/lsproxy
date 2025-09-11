@@ -541,7 +541,7 @@
                 "java",
                 "golang",
                 "php",
-                "ruby_lsp",
+                "ruby",
                 "ruby_sorbet"
               ]
             }

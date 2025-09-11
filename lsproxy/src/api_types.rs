@@ -84,7 +84,7 @@ pub enum SupportedLanguages {
     Golang,
     #[serde(rename = "php")]
     PHP,
-    #[serde(rename = "ruby_lsp")]
+    #[serde(rename = "ruby")]
     Ruby,
     #[serde(rename = "ruby_sorbet")]
     RubySorbet,
