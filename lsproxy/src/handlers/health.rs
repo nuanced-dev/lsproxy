@@ -29,7 +29,8 @@ pub async fn health_check(data: Data<AppState>) -> HttpResponse {
         SupportedLanguages::Java,
         SupportedLanguages::Golang,
         SupportedLanguages::PHP,
-        SupportedLanguages::Ruby,
+        SupportedLanguages::RubyLSP,
+        SupportedLanguages::RubySorbet,
     ] {
         languages.insert(lang, data.manager.get_client(lang).is_some());
     }
