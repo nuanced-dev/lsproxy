@@ -210,10 +210,6 @@ ENV PATH="$RBENV_ROOT/bin:$RBENV_ROOT/shims:${PATH}"
 RUN git clone --depth 1 https://github.com/rbenv/rbenv.git "$RBENV_ROOT" && \
     git clone --depth 1 https://github.com/rbenv/ruby-build.git "$RBENV_ROOT/plugins/ruby-build"
 
-# Initialize rbenv for interactive shells
-RUN echo 'eval "$('"$RBENV_ROOT"'/bin/rbenv init -)"' >> /root/.bashrc && \
-    echo 'eval "$('"$RBENV_ROOT"'/bin/rbenv init -)"' >> /root/.profile
-
 # Install Ruby versions and lsp gems
 RUN eval "$("$RBENV_ROOT"/bin/rbenv init -)" \
     && rbenv install 3.4.2  && rbenv global 3.4.2  && rbenv exec gem install ruby-lsp sorbet  && rbenv rehash \
@@ -222,7 +218,6 @@ RUN eval "$("$RBENV_ROOT"/bin/rbenv init -)" \
     && rbenv install 3.3.5 && rbenv shell 3.3.5 && rbenv exec gem install ruby-lsp sorbet && rbenv rehash \
     && rbenv install 3.2.6 && rbenv shell 3.2.6 && rbenv exec gem install ruby-lsp sorbet && rbenv rehash \
     && rbenv install 3.2.2 && rbenv shell 3.2.2 && rbenv exec gem install ruby-lsp sorbet && rbenv rehash
-
 
 # Copy binary with -bin suffix
 COPY --from=builder /usr/src/bin/lsproxy /usr/local/bin/lsproxy-bin
