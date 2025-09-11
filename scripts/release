@@ -1,0 +1,89 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+echo "Starting release process..."
+
+usage() {
+  cat <<EOF
+Usage: $(basename "$0") <version> [--repo ghcr.io/owner/name]
+
+Automates a release by:
+  - Verifying environment
+  - Building and pushing multi-arch Docker images (amd64, arm64)
+  - Creating a GitHub release (no assets, creates tag if missing)
+
+Examples:
+  $(basename "$0") 0.4.4
+  $(basename "$0") v0.4.4
+  $(basename "$0") 0.4.4 --repo ghcr.io/nuanced-dev/nuanced-lsproxy
+EOF
+}
+
+VERSION_RAW="${1:-}"
+if [[ -z "${VERSION_RAW}" ]]; then
+  usage; exit 1
+fi
+shift || true
+
+REPO_ARG=( )
+if [[ ${#} -gt 0 ]]; then
+  # allow optional --repo passthrough to build-multiarch
+  if [[ "${1:-}" == "--repo" ]]; then
+    REPO_ARG=(--repo "${2:?--repo requires a value}")
+    shift 2 || true
+  fi
+fi
+
+# Normalize version (strip leading 'v' for assets, keep 'v' for tag)
+VERSION="${VERSION_RAW#v}"
+TAG="v${VERSION}"
+
+# Check for required dependencies
+echo "Checking required dependencies..."
+for cmd in git docker gh; do
+  if ! command -v "$cmd" &>/dev/null; then
+    echo "Error: $cmd is not installed or not in PATH" >&2
+    exit 1
+  fi
+done
+
+# Verify that the git working directory is not dirty
+echo "Checking git working directory is clean..."
+if ! status="$(git status --porcelain)" || [[ -n "$status" ]]; then
+  echo "Error: Git working directory is dirty. Please commit or stash your changes." >&2
+  exit 1
+fi
+
+# Build and push multi-arch Docker images (lets build script handle GHCR login)
+echo "Building and pushing multi-arch Docker images..."
+release/build-multiarch.sh "${TAG}" "${REPO_ARG[@]}"
+
+# Create GitHub release without artifacts
+echo "Creating GitHub release ${TAG} (no assets)..."
+if ! gh auth status >/dev/null 2>&1; then
+  echo "GitHub CLI is not authenticated. Run: gh auth login" >&2
+  exit 1
+fi
+
+echo "Checking gh permissions..."
+scopes=" $(gh api -i user | grep X-Oauth-Scopes | cut -c17-),"
+for scope in repo workflow; do
+    if ! echo "$scopes" | grep -q " $scope,"; then
+        echo "Error: gh is missing 'repo' permission"
+        exit 1
+    fi
+done
+
+echo "Creating GitHub ${TAG} release..."
+if gh release view "${TAG}" >/dev/null 2>&1; then
+  echo "Release ${TAG} already exists. Skipping creation."
+else
+  gh release create "${TAG}" \
+    --target "$(git rev-parse HEAD)" \
+    --title "Release ${VERSION}" \
+    --generate-notes \
+    --latest
+fi
+
+echo "Done. Images published and release created."
