@@ -57,7 +57,7 @@ fi
 
 # Build and push multi-arch Docker images (lets build script handle GHCR login)
 echo "Building and pushing multi-arch Docker images..."
-release/build-multiarch.sh "${TAG}" "${REPO_ARG[@]}"
+# release/build-multiarch.sh "${TAG}" "${REPO_ARG[@]}"
 
 # Create GitHub release without artifacts
 echo "Creating GitHub release ${TAG} (no assets)..."
