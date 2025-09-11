@@ -159,7 +159,7 @@ pub fn detect_language(file_path: &str) -> Result<SupportedLanguages, LspManager
             if has_sorbet_type_annotation(path) {
                 Ok(SupportedLanguages::RubySorbet)
             } else {
-                Ok(SupportedLanguages::RubyLSP)
+                Ok(SupportedLanguages::Ruby)
             }
         }
         _ => Err(LspManagerError::UnsupportedFileType(file_path.to_string())),

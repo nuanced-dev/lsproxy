@@ -85,7 +85,7 @@ pub enum SupportedLanguages {
     #[serde(rename = "php")]
     PHP,
     #[serde(rename = "ruby_lsp")]
-    RubyLSP,
+    Ruby,
     #[serde(rename = "ruby_sorbet")]
     RubySorbet,
 }

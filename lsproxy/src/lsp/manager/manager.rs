@@ -3,8 +3,8 @@ use crate::ast_grep::client::AstGrepClient;
 use crate::ast_grep::types::AstGrepMatch;
 use crate::lsp::client::LspClient;
 use crate::lsp::languages::{
-    CSharpClient, ClangdClient, GoplsClient, JdtlsClient, JediClient, PhpactorClient,
-    RubyLSPClient, RubySorbetClient, RustAnalyzerClient, TypeScriptLanguageClient,
+    CSharpClient, ClangdClient, GoplsClient, JdtlsClient, JediClient, PhpactorClient, RubyClient,
+    RubySorbetClient, RustAnalyzerClient, TypeScriptLanguageClient,
 };
 use crate::utils::file_utils::uri_to_relative_path_string;
 use crate::utils::file_utils::{
@@ -78,7 +78,7 @@ impl Manager {
             SupportedLanguages::Java,
             SupportedLanguages::Golang,
             SupportedLanguages::PHP,
-            SupportedLanguages::RubyLSP,
+            SupportedLanguages::Ruby,
             SupportedLanguages::RubySorbet,
         ] {
             let patterns = match lsp {
@@ -111,7 +111,7 @@ impl Manager {
                 SupportedLanguages::PHP => {
                     PHP_FILE_PATTERNS.iter().map(|&s| s.to_string()).collect()
                 }
-                SupportedLanguages::RubyLSP => {
+                SupportedLanguages::Ruby => {
                     RUBY_FILE_PATTERNS.iter().map(|&s| s.to_string()).collect()
                 }
                 SupportedLanguages::RubySorbet => RUBY_SORBET_FILE_PATTERNS
@@ -193,8 +193,8 @@ impl Manager {
                         .await
                         .map_err(|e| e.to_string())?,
                 ),
-                SupportedLanguages::RubyLSP => Box::new(
-                    RubyLSPClient::new(workspace_path, self.watch_events_sender.subscribe())
+                SupportedLanguages::Ruby => Box::new(
+                    RubyClient::new(workspace_path, self.watch_events_sender.subscribe())
                         .await
                         .map_err(|e| e.to_string())?,
                 ),

@@ -1,5 +1,5 @@
 use crate::{
-    lsp::languages::ruby_lsp::{choose_ruby_version, RBENV_ROOT},
+    lsp::languages::ruby::{choose_ruby_version, RBENV_ROOT},
     lsp::{JsonRpcHandler, LspClient, PendingRequests, ProcessHandler},
     utils::workspace_documents::{
         DidOpenConfiguration, WorkspaceDocumentsHandler, DEFAULT_EXCLUDE_PATTERNS,

@@ -15,7 +15,7 @@ use tokio::{process::Command, sync::broadcast::Receiver};
 
 pub const RBENV_ROOT: &str = "/home/user/.rbenv";
 
-pub struct RubyLSPClient {
+pub struct RubyClient {
     process: ProcessHandler,
     json_rpc: JsonRpcHandler,
     workspace_documents: WorkspaceDocumentsHandler,
@@ -23,7 +23,7 @@ pub struct RubyLSPClient {
 }
 
 #[async_trait]
-impl LspClient for RubyLSPClient {
+impl LspClient for RubyClient {
     fn get_process(&mut self) -> &mut ProcessHandler {
         &mut self.process
     }
@@ -121,7 +121,7 @@ pub fn rbenv_global() -> Option<String> {
         .filter(|s| !s.is_empty())
 }
 
-impl RubyLSPClient {
+impl RubyClient {
     pub async fn new(
         root_path: &str,
         watch_events_rx: Receiver<DebouncedEvent>,
