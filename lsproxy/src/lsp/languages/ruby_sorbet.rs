@@ -1,5 +1,4 @@
 use crate::{
-    lsp::languages::ruby::{choose_ruby_version, RBENV_ROOT},
     lsp::{JsonRpcHandler, LspClient, PendingRequests, ProcessHandler},
     utils::workspace_documents::{
         DidOpenConfiguration, WorkspaceDocumentsHandler, DEFAULT_EXCLUDE_PATTERNS,
@@ -10,8 +9,10 @@ use crate::{
 use async_trait::async_trait;
 use lsp_types::InitializeParams;
 use notify_debouncer_mini::DebouncedEvent;
-use std::{env, error::Error, path::Path, process::Stdio};
+use std::{env, error::Error, fs, path::Path, process::Stdio};
 use tokio::{process::Command, sync::broadcast::Receiver};
+
+pub const RBENV_ROOT: &str = "/home/user/.rbenv";
 
 pub struct RubySorbetClient {
     process: ProcessHandler,
@@ -50,6 +51,73 @@ impl LspClient for RubySorbetClient {
             ..Default::default()
         })
     }
+}
+
+pub fn choose_ruby_version(root_path: &str) -> Option<String> {
+    if let Some(ver) = detect_project_ruby_version(root_path) {
+        log::debug!("Detected Ruby version {}", ver);
+        if rbenv_version_installed(&ver) {
+            log::debug!("Detected Ruby version installed");
+            return Some(ver);
+        }
+
+        log::warn!("Detected Ruby version not installed");
+        if let Some(global) = rbenv_global() {
+            log::warn!("Defaulting to global Ruby version {}", global);
+            return Some(global);
+        }
+    }
+
+    log::warn!("No global Ruby version found; falling back to system Ruby");
+    return None;
+}
+
+pub fn rbenv_version_installed(ver: &str) -> bool {
+    Path::new(RBENV_ROOT).join("versions").join(ver).exists()
+}
+
+pub fn rbenv_global() -> Option<String> {
+    // ~/.rbenv/version contains the global version if set
+    fs::read_to_string(Path::new(RBENV_ROOT).join("version"))
+        .ok()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+}
+
+pub fn detect_project_ruby_version(root: &str) -> Option<String> {
+    // First attempt to use .ruby-version if available.
+    let rv = Path::new(root).join(".ruby-version");
+    if let Ok(s) = fs::read_to_string(&rv) {
+        let v = s.trim();
+        if !v.is_empty() {
+            return Some(v.to_string());
+        }
+    }
+    // Fallback to parsing the Ruby version from the Gemfile.lock, e.g. "RUBY VERSION\n  ruby 3.1.2p20".
+    let gl = Path::new(root).join("Gemfile.lock");
+    if let Ok(s) = fs::read_to_string(&gl) {
+        let mut in_ruby = false;
+        for line in s.lines() {
+            let t = line.trim();
+            if t == "RUBY VERSION" {
+                in_ruby = true;
+                continue;
+            }
+            if in_ruby {
+                if let Some(rest) = t.strip_prefix("ruby ") {
+                    let ver = rest
+                        .split(|c: char| !(c.is_ascii_digit() || c == '.'))
+                        .next()
+                        .unwrap_or("");
+                    if !ver.is_empty() {
+                        return Some(ver.to_string());
+                    }
+                }
+                break;
+            }
+        }
+    }
+    None
 }
 
 impl RubySorbetClient {
