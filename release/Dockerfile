@@ -191,17 +191,16 @@ RUN dotnet tool install --global csharp-ls
 ENV PATH="${PATH}:/home/user/.dotnet/tools"
 
 # Install Ruby, deps, and LSPs
-RUN apt-get update && apt-get install -y \
-    zlib1g-dev \
-    autoconf \
-    bison \
-    libyaml-dev \
-    libreadline-dev \
-    libncurses5-dev \
-    libffi-dev \
-    libpq-dev \
-    libgdbm-dev \
-    && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends \
+  build-essential pkg-config git curl \
+  autoconf bison libffi-dev libgdbm-dev libreadline-dev libncurses5-dev \
+  libyaml-dev zlib1g-dev libssl-dev \
+  libpq-dev default-libmysqlclient-dev libsqlite3-dev \
+  libxml2-dev libxslt1-dev libcurl4-openssl-dev \
+  imagemagick libmagickwand-dev libvips-dev \
+  libjpeg-dev libpng-dev libtiff-dev libwebp-dev \
+  protobuf-compiler libc-ares-dev libhiredis-dev \
+  && rm -rf /var/lib/apt/lists/*
 
 ENV RBENV_ROOT=${HOME}/.rbenv
 ENV PATH="$RBENV_ROOT/bin:$RBENV_ROOT/shims:${PATH}"
@@ -212,7 +211,8 @@ RUN git clone --depth 1 https://github.com/rbenv/rbenv.git "$RBENV_ROOT" && \
 
 # Install Ruby versions and lsp gems
 RUN eval "$("$RBENV_ROOT"/bin/rbenv init -)" \
-    && rbenv install 3.4.2  && rbenv global 3.4.2  && rbenv exec gem install ruby-lsp sorbet  && rbenv rehash \
+    && rbenv install 3.4.4  && rbenv global 3.4.4  && rbenv exec gem install ruby-lsp sorbet  && rbenv rehash \
+    && rbenv install 3.4.2  && rbenv shell 3.4.2  && rbenv exec gem install ruby-lsp sorbet  && rbenv rehash \
     && rbenv install 3.4.1 && rbenv shell 3.4.1 && rbenv exec gem install ruby-lsp sorbet && rbenv rehash \
     && rbenv install 3.3.6 && rbenv shell 3.3.6 && rbenv exec gem install ruby-lsp sorbet && rbenv rehash \
     && rbenv install 3.3.5 && rbenv shell 3.3.5 && rbenv exec gem install ruby-lsp sorbet && rbenv rehash \
