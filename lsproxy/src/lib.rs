@@ -18,6 +18,7 @@ use utoipa_swagger_ui::SwaggerUi;
 
 pub mod api_types;
 mod ast_grep;
+mod container;
 mod handlers;
 mod lsp;
 mod utils;
