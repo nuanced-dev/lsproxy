@@ -72,10 +72,7 @@ impl ContainerOrchestrator {
         // Pass through RUST_LOG from parent process, or default to "info"
         let rust_log = std::env::var("RUST_LOG").unwrap_or_else(|_| "info".to_string());
 
-        let mut env = vec![format!("RUST_LOG={}", rust_log)];
-
-        // Add language-specific environment variables
-        env.extend(Self::language_specific_env(&language));
+        let env = vec![format!("RUST_LOG={}", rust_log)];
 
         let config = Config {
             image: Some(image_name.clone()),
@@ -254,24 +251,6 @@ impl ContainerOrchestrator {
         }
         .to_string()
     }
-
-    /// Get language-specific environment variables
-    fn language_specific_env(language: &SupportedLanguages) -> Vec<String> {
-        match language {
-            SupportedLanguages::Golang => vec!["LSP_COMMAND=gopls".to_string()],
-            SupportedLanguages::Python => vec!["LSP_COMMAND=jedi-language-server".to_string()],
-            SupportedLanguages::TypeScriptJavaScript => {
-                vec!["LSP_COMMAND=typescript-language-server --stdio".to_string()]
-            }
-            SupportedLanguages::Ruby => vec!["LSP_COMMAND=ruby-lsp --use-launcher".to_string()],
-            SupportedLanguages::RubySorbet => vec!["LSP_COMMAND=srb tc --lsp".to_string()],
-            SupportedLanguages::Rust => vec!["LSP_COMMAND=rust-analyzer".to_string()],
-            SupportedLanguages::CPP => vec!["LSP_COMMAND=clangd".to_string()],
-            SupportedLanguages::Java => vec!["LSP_COMMAND=jdtls".to_string()],
-            SupportedLanguages::PHP => vec!["LSP_COMMAND=phpactor language-server".to_string()],
-            SupportedLanguages::CSharp => vec!["LSP_COMMAND=csharp-ls".to_string()],
-        }
-    }
 }
 
 #[cfg(test)]
@@ -314,16 +293,6 @@ mod tests {
             ContainerOrchestrator::language_slug(&SupportedLanguages::CSharp),
             "csharp"
         );
-    }
-
-    #[test]
-    fn test_language_specific_env() {
-        let env = ContainerOrchestrator::language_specific_env(&SupportedLanguages::Golang);
-        assert_eq!(env.len(), 1);
-        assert!(env[0].contains("gopls"));
-
-        let env = ContainerOrchestrator::language_specific_env(&SupportedLanguages::Ruby);
-        assert!(env[0].contains("ruby-lsp"));
     }
 
     // Integration tests - these require Docker to be running
