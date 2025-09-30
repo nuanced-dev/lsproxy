@@ -67,21 +67,18 @@ RUN mkdir -p /usr/src/bin && \
     ;; \
     esac
 
-# Runtime stage
-FROM debian:bookworm-slim
+# Runtime stage - minimal base without build tools
+FROM debian:bookworm-slim AS base-runtime
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV HOME=/home/user
 
-# Install common runtime dependencies (consolidated into single RUN)
+# Install minimal runtime dependencies only
 RUN apt-get update && apt-get install \
     -y --no-install-recommends \
-    pkg-config \
-    libssl3 \
     ca-certificates \
     git \
     curl \
-    build-essential \
     unzip \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
@@ -102,3 +99,23 @@ ENV WORKSPACE_PATH=/mnt/workspace
 
 # ENTRYPOINT is set here, CMD will be provided by language-specific images
 ENTRYPOINT ["/usr/local/bin/lsp-wrapper"]
+
+# Build-enabled variant for languages that need to compile native extensions
+# Use this as the base for:
+#   - Ruby (ruby-lsp, sorbet) - compiles native gem extensions
+#   - Python (jedi, pyright) - some packages have C extensions
+#   - TypeScript/JavaScript (typescript-language-server) - some npm packages build native modules
+#   - PHP (intelephense) - may need build tools for extensions
+#
+# For pure binary/JVM languages (Go, Rust, Java, C#), use base-runtime instead
+# to save ~300MB per image
+FROM base-runtime AS base-build
+
+# Add build tools for languages that compile native extensions (Ruby, Python, etc.)
+RUN apt-get update && apt-get install \
+    -y --no-install-recommends \
+    pkg-config \
+    libssl3 \
+    build-essential \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
