@@ -1,25 +1,39 @@
 # Golang LSP server container
-# Based on lsproxy-base with gopls installed
+# Multi-stage build to minimize image size
 
+# Builder stage: Install Go and build gopls
+FROM debian:bookworm-slim AS builder
+
+ARG GO_VERSION=1.23.4
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install curl for downloading Go
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends curl ca-certificates && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Download and install Go
+RUN curl -fsSL https://go.dev/dl/go${GO_VERSION}.linux-$(dpkg --print-architecture).tar.gz \
+    | tar -C /usr/local -xz
+
+ENV GOROOT=/usr/local/go
+ENV GOPATH=/tmp/go
+ENV PATH=$GOROOT/bin:$PATH
+
+# Build gopls
+RUN go install golang.org/x/tools/gopls@latest
+
+# Runtime stage: Use lsproxy-base and copy only what's needed
 FROM lsproxy-base:latest
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install Go and gopls, then clean up
-ARG GO_VERSION=1.23.4
-RUN curl -fsSL https://go.dev/dl/go${GO_VERSION}.linux-$(dpkg --print-architecture).tar.gz \
-    | tar -C /usr/local -xz && \
-    # Set Go environment temporarily
-    export GOROOT=/usr/local/go && \
-    export GOPATH=/tmp/go && \
-    export PATH=$GOPATH/bin:$GOROOT/bin:$PATH && \
-    # Install gopls
-    go install golang.org/x/tools/gopls@latest && \
-    # Move binary to final location
-    mv /tmp/go/bin/gopls /usr/local/bin/gopls && \
-    # Clean up Go build cache and modules
-    rm -rf /tmp/go && \
-    rm -rf /root/.cache/go-build
+# Copy Go toolchain from builder (gopls needs this at runtime)
+COPY --from=builder /usr/local/go /usr/local/go
+
+# Copy gopls binary from builder
+COPY --from=builder /tmp/go/bin/gopls /usr/local/bin/gopls
 
 # Set Go environment variables
 ENV GOROOT=/usr/local/go
