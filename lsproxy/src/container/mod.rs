@@ -5,7 +5,10 @@ use tokio::sync::Mutex;
 
 use crate::api_types::SupportedLanguages;
 
+pub mod http_client;
 pub mod orchestrator;
+
+pub use http_client::ContainerHttpClient;
 
 #[derive(Debug, Clone)]
 pub struct ContainerInfo {
