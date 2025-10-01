@@ -387,7 +387,7 @@ impl From<LocationLink> for FilePosition {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, ToSchema)]
+#[derive(Serialize, Deserialize, Debug, Clone, ToSchema, IntoParams)]
 #[serde(rename_all = "camelCase")]
 pub struct FindIdentifierRequest {
     /// The name of the identifier to search for.

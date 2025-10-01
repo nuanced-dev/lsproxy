@@ -20,6 +20,8 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 )]
 pub async fn health_check(data: Data<AppState>) -> HttpResponse {
     let mut languages = HashMap::new();
+
+    // Check which language containers are currently running
     for lang in [
         SupportedLanguages::Python,
         SupportedLanguages::TypeScriptJavaScript,
@@ -32,7 +34,8 @@ pub async fn health_check(data: Data<AppState>) -> HttpResponse {
         SupportedLanguages::Ruby,
         SupportedLanguages::RubySorbet,
     ] {
-        languages.insert(lang, data.manager.get_client(lang).is_some());
+        let container_available = data.orchestrator.get_container(&lang).await.is_some();
+        languages.insert(lang, container_available);
     }
 
     HttpResponse::Ok().json(HealthResponse {
