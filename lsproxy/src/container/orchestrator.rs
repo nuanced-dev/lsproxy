@@ -52,8 +52,13 @@ impl ContainerOrchestrator {
         let port = port_listener.local_addr()?.port();
 
         // Configure container with read-write workspace mount
+        // When running in Docker, we need the original host path, not our container's mount point
+        // Docker interprets mount sources from the host's perspective when using the Docker socket
+        let mount_source = std::env::var("HOST_WORKSPACE_PATH")
+            .unwrap_or_else(|_| workspace_path.to_string());
+
         let host_config = HostConfig {
-            binds: Some(vec![format!("{}:/workspace:rw", workspace_path)]),
+            binds: Some(vec![format!("{}:/mnt/workspace:rw", mount_source)]),
             port_bindings: Some({
                 let mut ports = HashMap::new();
                 ports.insert(
@@ -105,7 +110,16 @@ impl ContainerOrchestrator {
         // Now that container is starting and will bind to the port, we can release our reservation
         drop(port_listener);
 
-        let endpoint = format!("http://{}:{}", host, port);
+        // Build endpoint URL for HTTP requests
+        // When running in Docker, use host.docker.internal to reach sibling containers
+        // Otherwise use 127.0.0.1 for local development
+        let request_host = if host == "0.0.0.0" {
+            std::env::var("DOCKER_HOST_INTERNAL")
+                .unwrap_or_else(|_| "host.docker.internal".to_string())
+        } else {
+            host.clone()
+        };
+        let endpoint = format!("http://{}:{}", request_host, port);
 
         let info = ContainerInfo {
             container_id: container_id.clone(),

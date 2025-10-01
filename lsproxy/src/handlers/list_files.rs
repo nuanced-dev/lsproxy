@@ -12,7 +12,7 @@ struct ListFilesResponse {
 /// List all files in the workspace
 #[utoipa::path(
     get,
-    path = "/file/list-files",
+    path = "/workspace/list-files",
     tag = "file",
     responses(
         (status = 200, description = "Files listed successfully"),

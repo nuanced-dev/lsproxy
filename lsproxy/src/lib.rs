@@ -214,8 +214,8 @@ pub async fn run_server_with_port_and_host(
                     api_scope.service(resource(path).route(post().to(find_references))),
                 ("/symbol/find-referenced-symbols", Some(Method::Post)) =>
                     api_scope.service(resource(path).route(post().to(find_referenced_symbols))),
-                ("/symbol/find-identifier", Some(Method::Post)) =>
-                    api_scope.service(resource(path).route(post().to(find_identifier))),
+                ("/symbol/find-identifier", Some(Method::Get)) =>
+                    api_scope.service(resource(path).route(get().to(find_identifier))),
                 ("/symbol/definitions-in-file", Some(Method::Get)) =>
                     api_scope.service(resource(path).route(get().to(definitions_in_file))),
                 ("/workspace/list-files", Some(Method::Get)) =>

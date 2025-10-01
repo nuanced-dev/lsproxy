@@ -14,7 +14,7 @@ struct ReadSourceResponse {
 /// Read source code from a file
 #[utoipa::path(
     post,
-    path = "/file/read-source",
+    path = "/workspace/read-source-code",
     tag = "file",
     request_body = ReadSourceCodeRequest,
     responses(

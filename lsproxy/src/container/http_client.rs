@@ -15,7 +15,7 @@ pub struct ContainerHttpClient {
 impl ContainerHttpClient {
     pub fn new(endpoint: &str) -> Self {
         Self {
-            base_url: format!("http://{}", endpoint),
+            base_url: endpoint.to_string(),
             client: reqwest::Client::new(),
         }
     }
