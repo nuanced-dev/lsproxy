@@ -1,6 +1,5 @@
 use crate::api_types::{CodeContext, ErrorResponse, FileRange, Position, Range};
 use crate::handlers::error::IntoHttpResponse;
-use crate::handlers::utils;
 use crate::manager::{LspManagerError, Manager};
 use crate::utils::file_utils::uri_to_relative_path_string;
 use actix_web::web::{Data, Json};
@@ -49,26 +48,7 @@ pub async fn find_definition(
         info.position.path, info.position.position.line, info.position.position.character
     );
 
-    let file_identifiers = match data.manager.get_file_identifiers(&info.position.path).await {
-        Ok(identifiers) => identifiers,
-        Err(e) => {
-            error!("Failed to get file identifiers: {:?}", e);
-            return HttpResponse::InternalServerError().json(ErrorResponse {
-                error: format!("Failed to get file identifiers: {}", e),
-            });
-        }
-    };
-    let identifier =
-        match utils::find_identifier_at_position(file_identifiers, &info.position).await {
-            Ok(identifier) => identifier,
-            Err(e) => {
-                error!("Failed to find definition from position: {:?}", e);
-                return HttpResponse::BadRequest().json(ErrorResponse {
-                    error: format!("Failed to find definition from position: {}", e),
-                });
-            }
-        };
-
+    // Call LSP directly (no ast-grep for identifier detection)
     let definitions = match data
         .manager
         .find_definition(
@@ -98,6 +78,19 @@ pub async fn find_definition(
         None
     };
 
+    // Create a placeholder identifier from the request position
+    let placeholder_identifier = crate::api_types::Identifier {
+        name: String::from("(identifier)"),
+        kind: None,
+        file_range: crate::api_types::FileRange {
+            path: info.position.path.clone(),
+            range: crate::api_types::Range {
+                start: info.position.position.clone(),
+                end: info.position.position.clone(),
+            },
+        },
+    };
+
     HttpResponse::Ok().json(DefinitionResponse {
         raw_response: if info.include_raw_response {
             Some(serde_json::to_value(&definitions).unwrap())
@@ -112,7 +105,7 @@ pub async fn find_definition(
             GotoDefinitionResponse::Link(links) => links.iter().map(|l| l.clone().into()).collect(),
         },
         source_code_context,
-        selected_identifier: identifier,
+        selected_identifier: placeholder_identifier,
     })
 }
 

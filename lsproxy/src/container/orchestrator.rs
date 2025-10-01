@@ -111,15 +111,37 @@ impl ContainerOrchestrator {
         drop(port_listener);
 
         // Build endpoint URL for HTTP requests
-        // When running in Docker, use host.docker.internal to reach sibling containers
-        // Otherwise use 127.0.0.1 for local development
-        let request_host = if host == "0.0.0.0" {
-            std::env::var("DOCKER_HOST_INTERNAL")
-                .unwrap_or_else(|_| "host.docker.internal".to_string())
+        // For Docker-in-Docker sibling container communication, we need to use the container's
+        // IP address on the Docker network instead of going through host port mappings.
+        // Inspect the container to get its IP address.
+        let container_info = self.docker.inspect_container(&container_id, None).await?;
+        let request_host = if let Some(network_settings) = container_info.network_settings {
+            if let Some(networks) = network_settings.networks {
+                // Try to find the bridge network (default) or any network with an IP
+                networks
+                    .get("bridge")
+                    .or_else(|| networks.values().next())
+                    .and_then(|network| network.ip_address.clone())
+                    .filter(|ip| !ip.is_empty())
+                    .unwrap_or_else(|| {
+                        log::warn!(
+                            "Could not find container IP, falling back to host.docker.internal"
+                        );
+                        "host.docker.internal".to_string()
+                    })
+            } else {
+                log::warn!("No networks found, falling back to host.docker.internal");
+                "host.docker.internal".to_string()
+            }
         } else {
-            host.clone()
+            log::warn!("No network settings found, falling back to host.docker.internal");
+            "host.docker.internal".to_string()
         };
-        let endpoint = format!("http://{}:{}", request_host, port);
+
+        // For container-to-container communication on Docker network, use port 8080 (internal port)
+        // not the host-mapped port
+        let internal_port = 8080;
+        let endpoint = format!("http://{}:{}", request_host, internal_port);
 
         let info = ContainerInfo {
             container_id: container_id.clone(),

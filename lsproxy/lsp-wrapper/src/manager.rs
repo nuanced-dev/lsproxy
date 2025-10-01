@@ -1,19 +1,19 @@
 /// Simplified Manager for lsp-wrapper
 ///
 /// Unlike the main LSProxy Manager that orchestrates multiple language servers,
-/// this Manager wraps a single LSP process and provides the same interface
-/// that handlers expect.
-
+/// this Manager wraps a single LSP client for the configured language.
 use crate::api_types::{get_mount_dir, Identifier, Symbol};
 use crate::ast_grep::client::AstGrepClient;
 use crate::ast_grep::types::AstGrepMatch;
-use crate::lsp_process::{JsonRpcMessage, LspProcess};
+use crate::lsp::client::LspClient;
 use crate::utils::file_utils::{absolute_path_to_relative_path_string, uri_to_relative_path_string};
+use crate::utils::workspace_documents::WorkspaceDocuments;
 use ignore::WalkBuilder;
 use log::{error, warn};
-use lsp_types::{GotoDefinitionResponse, Location, Position};
+use lsp_types::{GotoDefinitionResponse, Location, Position, Range};
 use std::sync::Arc;
 use thiserror::Error;
+use tokio::sync::Mutex;
 
 #[derive(Error, Debug)]
 pub enum LspManagerError {
@@ -37,15 +37,18 @@ pub enum LspManagerError {
 }
 
 pub struct Manager {
-    lsp_process: Arc<LspProcess>,
+    // Box<dyn LspClient> for polymorphism - supports any language client
+    // Mutex for interior mutability (LSP client needs &mut self)
+    // Arc for shared ownership across actix-web handlers
+    client: Arc<Mutex<Box<dyn LspClient>>>,
     ast_grep: AstGrepClient,
     workspace_path: String,
 }
 
 impl Manager {
-    pub fn new(lsp_process: Arc<LspProcess>, workspace_path: String) -> Self {
+    pub fn new(client: Arc<Mutex<Box<dyn LspClient>>>, workspace_path: String) -> Self {
         Self {
-            lsp_process,
+            client,
             ast_grep: AstGrepClient::new(),
             workspace_path,
         }
@@ -162,33 +165,14 @@ impl Manager {
         let full_path = get_mount_dir().join(file_path);
         let full_path_str = full_path.to_str().unwrap_or_default();
 
-        // Call LSP textDocument/definition
-        let params = serde_json::json!({
-            "textDocument": {
-                "uri": format!("file://{}", full_path_str)
-            },
-            "position": {
-                "line": position.line,
-                "character": position.character
-            }
-        });
-
-        let request = JsonRpcMessage {
-            jsonrpc: "2.0".to_string(),
-            id: Some(1),
-            method: Some("textDocument/definition".to_string()),
-            params: Some(params),
-            result: None,
-            error: None,
-        };
-
-        let response = self.lsp_process.send_request(&request).await.map_err(|e| {
-            LspManagerError::InternalError(format!("Definition retrieval failed: {}", e))
-        })?;
-
-        let mut definition: GotoDefinitionResponse = serde_json::from_value(response).map_err(|e| {
-            LspManagerError::InternalError(format!("Failed to parse definition response: {}", e))
-        })?;
+        // Call LSP textDocument/definition directly (like base implementation)
+        let mut locked_client = self.client.lock().await;
+        let mut definition = locked_client
+            .text_document_definition(full_path_str, position)
+            .await
+            .map_err(|e| {
+                LspManagerError::InternalError(format!("Definition retrieval failed: {}", e))
+            })?;
 
         // Sort the locations if there are multiple
         match &mut definition {
@@ -240,35 +224,13 @@ impl Manager {
         let full_path_str = full_path.to_str().unwrap_or_default();
 
         // Call LSP textDocument/references
-        let params = serde_json::json!({
-            "textDocument": {
-                "uri": format!("file://{}", full_path_str)
-            },
-            "position": {
-                "line": position.line,
-                "character": position.character
-            },
-            "context": {
-                "includeDeclaration": true
-            }
-        });
-
-        let request = JsonRpcMessage {
-            jsonrpc: "2.0".to_string(),
-            id: Some(1),
-            method: Some("textDocument/references".to_string()),
-            params: Some(params),
-            result: None,
-            error: None,
-        };
-
-        let response = self.lsp_process.send_request(&request).await.map_err(|e| {
-            LspManagerError::InternalError(format!("References retrieval failed: {}", e))
-        })?;
-
-        let mut locations: Vec<Location> = serde_json::from_value(response).map_err(|e| {
-            LspManagerError::InternalError(format!("Failed to parse references response: {}", e))
-        })?;
+        let mut locked_client = self.client.lock().await;
+        let mut locations = locked_client
+            .text_document_reference(full_path_str, position)
+            .await
+            .map_err(|e| {
+                LspManagerError::InternalError(format!("References retrieval failed: {}", e))
+            })?;
 
         // Sort locations
         locations.sort_by(|a, b| {
@@ -300,7 +262,7 @@ impl Manager {
         let full_path = get_mount_dir().join(file_path);
         let full_path_str = full_path.to_str().unwrap_or_default();
 
-        // Get the symbol and its references
+        // Get the symbol and its references using ast-grep
         let (_, references_to_symbols) = match self
             .ast_grep
             .get_symbol_and_references(full_path_str, &position, full_scan)
@@ -316,40 +278,18 @@ impl Manager {
         };
 
         let mut definitions = Vec::new();
+        let mut locked_client = self.client.lock().await;
 
-        // Get direct definitions for each reference
+        // Get LSP definitions for each reference
         for ast_match in references_to_symbols.iter() {
             let lsp_position = lsp_types::Position::from(ast_match);
 
-            let params = serde_json::json!({
-                "textDocument": {
-                    "uri": format!("file://{}", full_path_str)
-                },
-                "position": {
-                    "line": lsp_position.line,
-                    "character": lsp_position.character
-                }
-            });
-
-            let request = JsonRpcMessage {
-                jsonrpc: "2.0".to_string(),
-                id: Some(1),
-                method: Some("textDocument/definition".to_string()),
-                params: Some(params),
-                result: None,
-                error: None,
-            };
-
-            match self.lsp_process.send_request(&request).await {
-                Ok(response) => {
-                    match serde_json::from_value::<GotoDefinitionResponse>(response) {
-                        Ok(definition) => {
-                            definitions.push((ast_match.clone(), definition));
-                        }
-                        Err(e) => {
-                            warn!("Failed to parse definition response: {}", e);
-                        }
-                    }
+            match locked_client
+                .text_document_definition(full_path_str, lsp_position)
+                .await
+            {
+                Ok(definition) => {
+                    definitions.push((ast_match.clone(), definition));
                 }
                 Err(e) => {
                     warn!(
@@ -373,40 +313,21 @@ impl Manager {
     pub async fn read_source_code(
         &self,
         file_path: &str,
-        range: Option<lsp_types::Range>,
+        range: Option<Range>,
     ) -> Result<String, LspManagerError> {
-        use std::fs;
-
         let full_path = get_mount_dir().join(file_path);
-        let content = fs::read_to_string(&full_path).map_err(|e| {
-            LspManagerError::InternalError(format!("Failed to read file: {}", e))
-        })?;
-
-        if let Some(range) = range {
-            let lines: Vec<&str> = content.lines().collect();
-            let start_line = range.start.line as usize;
-            let end_line = range.end.line as usize;
-
-            if start_line >= lines.len() {
-                return Err(LspManagerError::InternalError(format!(
-                    "Start line {} is out of bounds",
-                    start_line
-                )));
-            }
-
-            let end_line = end_line.min(lines.len() - 1);
-            Ok(lines[start_line..=end_line].join("\n"))
-        } else {
-            Ok(content)
-        }
+        let mut locked_client = self.client.lock().await;
+        locked_client
+            .get_workspace_documents()
+            .read_text_document(&full_path, range)
+            .await
+            .map_err(|e| {
+                LspManagerError::InternalError(format!("Source code retrieval failed: {}", e))
+            })
     }
 
     /// For health check - in lsp-wrapper, we always have a client
     pub fn get_client(&self, _lang: crate::api_types::SupportedLanguages) -> Option<()> {
         Some(())
-    }
-
-    pub fn get_lsp_process(&self) -> &Arc<LspProcess> {
-        &self.lsp_process
     }
 }

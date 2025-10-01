@@ -95,12 +95,97 @@ impl LspProcess {
         // Start the response listener task
         Self::start_response_listener(stdout, pending_requests.clone());
 
-        Ok(Self {
+        let process = Self {
             child,
             stdin: Arc::new(Mutex::new(stdin)),
             request_id: Arc::new(Mutex::new(0)),
             pending_requests,
-        })
+        };
+
+        // Initialize the LSP server (matching main lsproxy's LspClient::initialize pattern)
+        process.initialize(workspace_path).await?;
+
+        Ok(process)
+    }
+
+    /// Initialize the LSP server - mirrors main lsproxy's LspClient::initialize
+    async fn initialize(&self, workspace_path: &str) -> Result<(), std::io::Error> {
+        info!("Initializing LSP server with root path: {:?}", workspace_path);
+
+        // Build initialize params (matching get_initialize_params + get_capabilities)
+        let params = serde_json::json!({
+            "processId": std::process::id(),
+            "rootUri": format!("file://{}", workspace_path),
+            "capabilities": {
+                "textDocument": {
+                    "documentSymbol": {
+                        "dynamicRegistration": false,
+                        "hierarchicalDocumentSymbolSupport": true
+                    },
+                    "publishDiagnostics": {
+                        "relatedInformation": false,
+                        "tagSupport": { "valueSet": [] },
+                        "codeDescriptionSupport": false,
+                        "dataSupport": false,
+                        "versionSupport": false
+                    }
+                },
+                "experimental": {
+                    "serverStatusNotification": true
+                }
+            },
+            "workspaceFolders": [{
+                "uri": format!("file://{}", workspace_path),
+                "name": "workspace"
+            }]
+        });
+
+        // Send initialize request and wait for response
+        let initialize_request = JsonRpcMessage {
+            jsonrpc: "2.0".to_string(),
+            id: None, // send_request will assign ID
+            method: Some("initialize".to_string()),
+            params: Some(params),
+            result: None,
+            error: None,
+        };
+
+        match self.send_request(&initialize_request).await {
+            Ok(result) => {
+                debug!("Initialization successful: {:?}", result);
+                // Send initialized notification (matching send_initialized)
+                self.send_initialized().await?;
+                Ok(())
+            }
+            Err(e) => {
+                error!("Failed to initialize LSP server: {}", e);
+                Err(std::io::Error::new(std::io::ErrorKind::Other, e))
+            }
+        }
+    }
+
+    /// Send initialized notification - mirrors main lsproxy's send_initialized
+    async fn send_initialized(&self) -> Result<(), std::io::Error> {
+        debug!("Sending 'initialized' notification");
+
+        let notification = JsonRpcMessage {
+            jsonrpc: "2.0".to_string(),
+            id: None, // Notifications have no ID
+            method: Some("initialized".to_string()),
+            params: Some(serde_json::json!({})),
+            result: None,
+            error: None,
+        };
+
+        let notification_json = serde_json::to_string(&notification)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+        let message = format!("Content-Length: {}\r\n\r\n{}", notification_json.len(), notification_json);
+
+        let mut stdin = self.stdin.lock().await;
+        stdin.write_all(message.as_bytes()).await?;
+        stdin.flush().await?;
+
+        Ok(())
     }
 
     /// Send a JSON-RPC request to the LSP server and wait for response
@@ -156,57 +241,73 @@ impl LspProcess {
     }
 
     /// Background task that reads from LSP stdout and routes responses
+    /// Uses the same reading pattern as lsproxy/src/lsp/process.rs
     fn start_response_listener(stdout: ChildStdout, pending_requests: PendingRequests) {
         tokio::spawn(async move {
             let mut reader = BufReader::new(stdout);
-            let mut buffer = String::new();
+            let mut buffer = Vec::new();
 
             loop {
-                buffer.clear();
+                let mut content_length: Option<usize> = None;
 
-                // Read Content-Length header
-                if reader.read_line(&mut buffer).await.is_err() {
-                    error!("Failed to read from LSP stdout");
-                    break;
-                }
+                // Read headers until we find Content-Length and empty line
+                loop {
+                    let n = match reader.read_until(b'\n', &mut buffer).await {
+                        Ok(n) => n,
+                        Err(e) => {
+                            error!("Failed to read from LSP stdout: {}", e);
+                            return;
+                        }
+                    };
 
-                if buffer.trim().is_empty() {
-                    continue;
-                }
+                    if n == 0 {
+                        buffer.clear();
+                        continue;
+                    }
 
-                // Parse Content-Length
-                let content_length = if let Some(len_str) = buffer.strip_prefix("Content-Length: ") {
-                    match len_str.trim().parse::<usize>() {
-                        Ok(len) => len,
-                        Err(_) => {
-                            error!("Invalid Content-Length: {}", buffer);
-                            continue;
+                    let line = String::from_utf8_lossy(&buffer[buffer.len() - n..]);
+
+                    // Check if this is the empty line separator
+                    if line.trim().is_empty() && content_length.is_some() {
+                        break; // Ready to read JSON body
+                    } else if line.starts_with("Content-Length: ") {
+                        match line.trim_start_matches("Content-Length: ").trim().parse::<usize>() {
+                            Ok(len) => content_length = Some(len),
+                            Err(_) => {
+                                error!("Invalid Content-Length: {}", line);
+                                buffer.clear();
+                                continue;
+                            }
                         }
                     }
-                } else {
-                    continue;
-                };
-
-                // Read empty line
-                buffer.clear();
-                if reader.read_line(&mut buffer).await.is_err() {
-                    break;
+                    buffer.clear();
                 }
 
                 // Read JSON body
-                let mut json_buffer = vec![0u8; content_length];
-                if reader.read_exact(&mut json_buffer).await.is_err() {
-                    error!("Failed to read JSON body");
+                let length = match content_length {
+                    Some(len) => len,
+                    None => {
+                        error!("Missing Content-Length header");
+                        continue;
+                    }
+                };
+
+                debug!("Reading JSON body of length: {}", length);
+                let mut json_buffer = vec![0u8; length];
+                if let Err(e) = reader.read_exact(&mut json_buffer).await {
+                    error!("Failed to read JSON body: {}", e);
                     break;
                 }
 
                 let json_str = match String::from_utf8(json_buffer) {
                     Ok(s) => s,
-                    Err(_) => {
-                        error!("Invalid UTF-8 in JSON body");
+                    Err(e) => {
+                        error!("Invalid UTF-8 in JSON body: {}", e);
                         continue;
                     }
                 };
+
+                debug!("Read JSON string of length: {}", json_str.len());
 
                 // Parse JSON-RPC message
                 let message: JsonRpcMessage = match serde_json::from_str(&json_str) {

@@ -41,8 +41,8 @@ COPY --from=builder /opt/jedi-venv /opt/jedi-venv
 # Add jedi-language-server to PATH
 ENV PATH="/opt/jedi-venv/bin:${PATH}"
 
-# Set workspace path
-WORKDIR /workspace
+# Set workspace path (must match mount point)
+WORKDIR /mnt/workspace
 
 # CMD provides the language-specific command to lsp-wrapper ENTRYPOINT
 CMD ["--lsp-command", "jedi-language-server"]
