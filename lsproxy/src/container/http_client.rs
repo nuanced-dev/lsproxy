@@ -4,9 +4,7 @@
 /// server containers, replacing the direct LSP process management.
 
 use crate::api_types::*;
-use crate::ast_grep::types::AstGrepMatch;
-use lsp_types::{GotoDefinitionResponse, Location};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use std::error::Error;
 
 pub struct ContainerHttpClient {
@@ -38,7 +36,7 @@ impl ContainerHttpClient {
     pub async fn find_definition(
         &self,
         request: &GetDefinitionRequest,
-    ) -> Result<GotoDefinitionResponse, Box<dyn Error + Send + Sync>> {
+    ) -> Result<DefinitionResponse, Box<dyn Error + Send + Sync>> {
         let url = format!("{}/symbol/find-definition", self.base_url);
         let response = self.client.post(&url).json(request).send().await?;
 
@@ -47,15 +45,14 @@ impl ContainerHttpClient {
             return Err(format!("Definition request failed: {}", error_text).into());
         }
 
-        let result: DefinitionResponse = response.json().await?;
-        Ok(result.definition)
+        Ok(response.json().await?)
     }
 
     /// Find references for a symbol
     pub async fn find_references(
         &self,
         request: &GetReferencesRequest,
-    ) -> Result<Vec<Location>, Box<dyn Error + Send + Sync>> {
+    ) -> Result<ReferencesResponse, Box<dyn Error + Send + Sync>> {
         let url = format!("{}/symbol/find-references", self.base_url);
         let response = self.client.post(&url).json(request).send().await?;
 
@@ -64,15 +61,14 @@ impl ContainerHttpClient {
             return Err(format!("References request failed: {}", error_text).into());
         }
 
-        let result: ReferencesResponse = response.json().await?;
-        Ok(result.references)
+        Ok(response.json().await?)
     }
 
     /// Find identifier by name and optional position
     pub async fn find_identifier(
         &self,
         request: &FindIdentifierRequest,
-    ) -> Result<Vec<Identifier>, Box<dyn Error + Send + Sync>> {
+    ) -> Result<IdentifierResponse, Box<dyn Error + Send + Sync>> {
         let url = format!("{}/symbol/find-identifier", self.base_url);
         let response = self.client.post(&url).json(request).send().await?;
 
@@ -81,14 +77,13 @@ impl ContainerHttpClient {
             return Err(format!("Find identifier request failed: {}", error_text).into());
         }
 
-        let result: IdentifierResponse = response.json().await?;
-        Ok(result.identifiers)
+        Ok(response.json().await?)
     }
 
     /// Find referenced symbols within a function
     pub async fn find_referenced_symbols(
         &self,
-        request: &FindReferencedSymbolsRequest,
+        request: &GetReferencedSymbolsRequest,
     ) -> Result<ReferencedSymbolsResponse, Box<dyn Error + Send + Sync>> {
         let url = format!("{}/symbol/find-referenced-symbols", self.base_url);
         let response = self.client.post(&url).json(request).send().await?;
@@ -114,8 +109,8 @@ impl ContainerHttpClient {
             return Err(format!("Definitions in file request failed: {}", error_text).into());
         }
 
-        let result: FileSymbolsResponse = response.json().await?;
-        Ok(result.symbols)
+        // Response is directly Vec<Symbol>
+        Ok(response.json().await?)
     }
 
     /// List all files in workspace

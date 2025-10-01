@@ -204,7 +204,7 @@ pub struct Identifier {
     pub kind: Option<String>,
 }
 
-#[derive(Deserialize, ToSchema, IntoParams)]
+#[derive(Serialize, Deserialize, ToSchema, IntoParams)]
 pub struct GetDefinitionRequest {
     pub position: FilePosition,
 
@@ -222,7 +222,7 @@ pub struct GetDefinitionRequest {
     pub include_raw_response: bool,
 }
 
-#[derive(Deserialize, ToSchema, IntoParams)]
+#[derive(Serialize, Deserialize, ToSchema, IntoParams)]
 pub struct GetReferencesRequest {
     pub identifier_position: FilePosition,
 
@@ -246,7 +246,7 @@ pub struct GetReferencesRequest {
 /// The response will include all symbols that are referenced from that input symbol.
 /// For example, if the position points to a function name, the response will include
 /// all symbols referenced within that function's implementation.
-#[derive(Deserialize, ToSchema, IntoParams)]
+#[derive(Serialize, Deserialize, ToSchema, IntoParams)]
 pub struct GetReferencedSymbolsRequest {
     /// Whether to use the more permissive rules to find referenced symbols. This will be not just
     /// code that is executed but also things like type hints and chained indirection.
@@ -260,7 +260,7 @@ pub struct GetReferencedSymbolsRequest {
 }
 
 /// Request to get the symbols in a file.
-#[derive(Deserialize, ToSchema, IntoParams)]
+#[derive(Serialize, Deserialize, ToSchema, IntoParams)]
 pub struct FileSymbolsRequest {
     /// The path to the file to get the symbols for, relative to the root of the workspace.
     #[schema(example = "src/main.py")]
