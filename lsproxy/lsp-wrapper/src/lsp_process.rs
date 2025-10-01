@@ -58,7 +58,7 @@ impl Clone for PendingRequests {
 /// Manages the LSP server process and handles JSON-RPC communication
 pub struct LspProcess {
     child: Child,
-    stdin: ChildStdin,
+    stdin: Arc<Mutex<ChildStdin>>,
     request_id: Arc<Mutex<u64>>,
     pending_requests: PendingRequests,
 }
@@ -97,15 +97,16 @@ impl LspProcess {
 
         Ok(Self {
             child,
-            stdin,
+            stdin: Arc::new(Mutex::new(stdin)),
             request_id: Arc::new(Mutex::new(0)),
             pending_requests,
         })
     }
 
     /// Send a JSON-RPC request to the LSP server and wait for response
+    /// This method can be called concurrently - the lock is only held briefly during the write
     pub async fn send_request(
-        &mut self,
+        &self,
         request: &JsonRpcMessage,
     ) -> Result<serde_json::Value, Box<dyn Error + Send + Sync>> {
         // Assign an ID if not present
@@ -128,8 +129,13 @@ impl LspProcess {
         let message = format!("Content-Length: {}\r\n\r\n{}", request_json.len(), request_json);
 
         debug!("Sending request {}: {}", id, request_json);
-        self.stdin.write_all(message.as_bytes()).await?;
-        self.stdin.flush().await?;
+
+        // Lock stdin only for the write operation (brief)
+        {
+            let mut stdin = self.stdin.lock().await;
+            stdin.write_all(message.as_bytes()).await?;
+            stdin.flush().await?;
+        } // Lock released here
 
         // Wait for response
         let response = response_receiver

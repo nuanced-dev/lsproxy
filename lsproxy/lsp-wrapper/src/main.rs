@@ -1,7 +1,7 @@
 use actix_web::{web, App, HttpResponse, HttpServer, Responder};
 use clap::Parser;
 use log::{error, info};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
@@ -33,7 +33,8 @@ struct Args {
 
 /// Application state shared across handlers
 struct AppState {
-    lsp_process: Arc<Mutex<LspProcess>>,
+    lsp_process: Arc<LspProcess>,
+    workspace_path: String,
 }
 
 /// Health check endpoint - simple version that just returns OK
@@ -46,13 +47,21 @@ struct ErrorResponse {
     error: String,
 }
 
-/// LSP JSON-RPC endpoint
+/// Request body for definition/references endpoints
+#[derive(Deserialize)]
+struct PositionRequest {
+    file_path: String,
+    line: u32,
+    character: u32,
+}
+
+/// LSP JSON-RPC endpoint (legacy, for direct JSON-RPC access)
 /// Accepts LSP requests and forwards them to the LSP server process
 async fn lsp_handler(
     data: web::Data<AppState>,
     request: web::Json<JsonRpcMessage>,
 ) -> impl Responder {
-    let mut lsp = data.lsp_process.lock().await;
+    let lsp = &data.lsp_process;
 
     match lsp.send_request(&request.0).await {
         Ok(response) => HttpResponse::Ok().json(response),
@@ -60,6 +69,83 @@ async fn lsp_handler(
             error!("LSP request failed: {}", e);
             HttpResponse::InternalServerError().json(ErrorResponse {
                 error: format!("LSP error: {}", e),
+            })
+        }
+    }
+}
+
+/// High-level endpoint for textDocument/definition
+async fn definition_handler(
+    data: web::Data<AppState>,
+    request: web::Json<PositionRequest>,
+) -> impl Responder {
+    let lsp = &data.lsp_process;
+
+    let params = serde_json::json!({
+        "textDocument": {
+            "uri": format!("file://{}", request.file_path)
+        },
+        "position": {
+            "line": request.line,
+            "character": request.character
+        }
+    });
+
+    let json_rpc_request = JsonRpcMessage {
+        jsonrpc: "2.0".to_string(),
+        id: Some(1),
+        method: Some("textDocument/definition".to_string()),
+        params: Some(params),
+        result: None,
+        error: None,
+    };
+
+    match lsp.send_request(&json_rpc_request).await {
+        Ok(response) => HttpResponse::Ok().json(response),
+        Err(e) => {
+            error!("Definition request failed: {}", e);
+            HttpResponse::InternalServerError().json(ErrorResponse {
+                error: format!("Definition error: {}", e),
+            })
+        }
+    }
+}
+
+/// High-level endpoint for textDocument/references
+async fn references_handler(
+    data: web::Data<AppState>,
+    request: web::Json<PositionRequest>,
+) -> impl Responder {
+    let lsp = &data.lsp_process;
+
+    let params = serde_json::json!({
+        "textDocument": {
+            "uri": format!("file://{}", request.file_path)
+        },
+        "position": {
+            "line": request.line,
+            "character": request.character
+        },
+        "context": {
+            "includeDeclaration": true
+        }
+    });
+
+    let json_rpc_request = JsonRpcMessage {
+        jsonrpc: "2.0".to_string(),
+        id: Some(1),
+        method: Some("textDocument/references".to_string()),
+        params: Some(params),
+        result: None,
+        error: None,
+    };
+
+    match lsp.send_request(&json_rpc_request).await {
+        Ok(response) => HttpResponse::Ok().json(response),
+        Err(e) => {
+            error!("References request failed: {}", e);
+            HttpResponse::InternalServerError().json(ErrorResponse {
+                error: format!("References error: {}", e),
             })
         }
     }
@@ -82,7 +168,7 @@ async fn main() -> std::io::Result<()> {
 
     // Start the LSP server process
     let lsp_process = match LspProcess::new(&args.lsp_command, &lsp_args_refs, &args.workspace_path).await {
-        Ok(process) => Arc::new(Mutex::new(process)),
+        Ok(process) => process,
         Err(e) => {
             error!("Failed to start LSP server: {}", e);
             return Err(e);
@@ -91,7 +177,10 @@ async fn main() -> std::io::Result<()> {
 
     info!("LSP server started successfully");
 
-    let app_state = web::Data::new(AppState { lsp_process });
+    let app_state = web::Data::new(AppState {
+        lsp_process: Arc::new(lsp_process),
+        workspace_path: args.workspace_path.clone(),
+    });
 
     // Start HTTP server
     HttpServer::new(move || {
