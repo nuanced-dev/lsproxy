@@ -4,14 +4,14 @@
 /// this Manager wraps a single LSP process and provides the same interface
 /// that handlers expect.
 
-use crate::api_types::{get_mount_dir, Identifier, Position, Symbol};
+use crate::api_types::{get_mount_dir, Identifier, Symbol};
 use crate::ast_grep::client::AstGrepClient;
 use crate::ast_grep::types::AstGrepMatch;
 use crate::lsp_process::{JsonRpcMessage, LspProcess};
 use crate::utils::file_utils::{absolute_path_to_relative_path_string, uri_to_relative_path_string};
 use ignore::WalkBuilder;
 use log::{error, warn};
-use lsp_types::{GotoDefinitionResponse, Location};
+use lsp_types::{GotoDefinitionResponse, Location, Position};
 use std::sync::Arc;
 use thiserror::Error;
 

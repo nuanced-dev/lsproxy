@@ -1,5 +1,5 @@
 use crate::{
-    api_types::SupportedLanguages,
+    api_types::{get_mount_dir, SupportedLanguages},
     manager::LspManagerError,
 };
 use std::env;
