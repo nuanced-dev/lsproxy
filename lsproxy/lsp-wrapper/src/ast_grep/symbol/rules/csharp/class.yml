@@ -1,0 +1,8 @@
+id: class
+language: csharp
+rule:
+  kind: identifier
+  pattern: $NAME
+  inside:
+    kind: class_declaration
+    pattern: $CONTEXT

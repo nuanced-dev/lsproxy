@@ -1,0 +1,17 @@
+id: function
+language: python
+rule:
+  kind: identifier
+  pattern: $NAME
+  any:
+  - inside:
+      kind: function_definition
+      inside:
+        kind: decorated_definition
+        pattern: $CONTEXT
+  - inside:
+      kind: function_definition
+      pattern: $CONTEXT
+      not:
+        inside:
+          kind: decorated_definition

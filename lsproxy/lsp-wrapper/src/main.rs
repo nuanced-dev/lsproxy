@@ -1,12 +1,17 @@
 use actix_web::{web, App, HttpResponse, HttpServer, Responder};
 use clap::Parser;
 use log::{error, info};
-use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use tokio::sync::Mutex;
 
+mod api_types;
+mod ast_grep;
+mod handlers;
 mod lsp_process;
-use lsp_process::{JsonRpcMessage, LspProcess};
+mod manager;
+mod utils;
+
+use lsp_process::LspProcess;
+use manager::Manager;
 
 /// HTTP wrapper for LSP servers
 /// Provides HTTP endpoints for LSP JSON-RPC communication
@@ -32,123 +37,13 @@ struct Args {
 }
 
 /// Application state shared across handlers
-struct AppState {
-    lsp_process: Arc<LspProcess>,
-    workspace_path: String,
+pub struct AppState {
+    pub manager: Manager,
 }
 
 /// Health check endpoint - simple version that just returns OK
 async fn health() -> impl Responder {
     HttpResponse::Ok().body("ok")
-}
-
-#[derive(Serialize)]
-struct ErrorResponse {
-    error: String,
-}
-
-/// Request body for definition/references endpoints
-#[derive(Deserialize)]
-struct PositionRequest {
-    file_path: String,
-    line: u32,
-    character: u32,
-}
-
-/// LSP JSON-RPC endpoint (legacy, for direct JSON-RPC access)
-/// Accepts LSP requests and forwards them to the LSP server process
-async fn lsp_handler(
-    data: web::Data<AppState>,
-    request: web::Json<JsonRpcMessage>,
-) -> impl Responder {
-    let lsp = &data.lsp_process;
-
-    match lsp.send_request(&request.0).await {
-        Ok(response) => HttpResponse::Ok().json(response),
-        Err(e) => {
-            error!("LSP request failed: {}", e);
-            HttpResponse::InternalServerError().json(ErrorResponse {
-                error: format!("LSP error: {}", e),
-            })
-        }
-    }
-}
-
-/// High-level endpoint for textDocument/definition
-async fn definition_handler(
-    data: web::Data<AppState>,
-    request: web::Json<PositionRequest>,
-) -> impl Responder {
-    let lsp = &data.lsp_process;
-
-    let params = serde_json::json!({
-        "textDocument": {
-            "uri": format!("file://{}", request.file_path)
-        },
-        "position": {
-            "line": request.line,
-            "character": request.character
-        }
-    });
-
-    let json_rpc_request = JsonRpcMessage {
-        jsonrpc: "2.0".to_string(),
-        id: Some(1),
-        method: Some("textDocument/definition".to_string()),
-        params: Some(params),
-        result: None,
-        error: None,
-    };
-
-    match lsp.send_request(&json_rpc_request).await {
-        Ok(response) => HttpResponse::Ok().json(response),
-        Err(e) => {
-            error!("Definition request failed: {}", e);
-            HttpResponse::InternalServerError().json(ErrorResponse {
-                error: format!("Definition error: {}", e),
-            })
-        }
-    }
-}
-
-/// High-level endpoint for textDocument/references
-async fn references_handler(
-    data: web::Data<AppState>,
-    request: web::Json<PositionRequest>,
-) -> impl Responder {
-    let lsp = &data.lsp_process;
-
-    let params = serde_json::json!({
-        "textDocument": {
-            "uri": format!("file://{}", request.file_path)
-        },
-        "position": {
-            "line": request.line,
-            "character": request.character
-        },
-        "context": {
-            "includeDeclaration": true
-        }
-    });
-
-    let json_rpc_request = JsonRpcMessage {
-        jsonrpc: "2.0".to_string(),
-        id: Some(1),
-        method: Some("textDocument/references".to_string()),
-        params: Some(params),
-        result: None,
-        error: None,
-    };
-
-    match lsp.send_request(&json_rpc_request).await {
-        Ok(response) => HttpResponse::Ok().json(response),
-        Err(e) => {
-            error!("References request failed: {}", e);
-            HttpResponse::InternalServerError().json(ErrorResponse {
-                error: format!("References error: {}", e),
-            })
-        }
-    }
 }
 
 #[actix_web::main]
@@ -177,17 +72,22 @@ async fn main() -> std::io::Result<()> {
 
     info!("LSP server started successfully");
 
-    let app_state = web::Data::new(AppState {
-        lsp_process: Arc::new(lsp_process),
-        workspace_path: args.workspace_path.clone(),
-    });
+    let manager = Manager::new(Arc::new(lsp_process), args.workspace_path.clone());
+
+    let app_state = web::Data::new(AppState { manager });
 
     // Start HTTP server
     HttpServer::new(move || {
         App::new()
             .app_data(app_state.clone())
             .route("/health", web::get().to(health))
-            .route("/lsp", web::post().to(lsp_handler))
+            .route("/symbol/find-identifier", web::post().to(handlers::find_identifier::find_identifier))
+            .route("/symbol/find-definition", web::post().to(handlers::find_definition::find_definition))
+            .route("/symbol/find-references", web::post().to(handlers::find_references::find_references))
+            .route("/symbol/find-referenced-symbols", web::post().to(handlers::find_referenced_symbols::find_referenced_symbols))
+            .route("/symbol/definitions-in-file", web::post().to(handlers::definitions_in_file::definitions_in_file))
+            .route("/file/list-files", web::get().to(handlers::list_files::list_files))
+            .route("/file/read-source", web::post().to(handlers::read_source_code::read_source_code))
     })
     .bind(("0.0.0.0", args.port))?
     .run()

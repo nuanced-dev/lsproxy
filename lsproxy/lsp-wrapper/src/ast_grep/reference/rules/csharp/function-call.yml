@@ -1,0 +1,23 @@
+id: function-call
+language: csharp
+rule:
+  kind: identifier
+  pattern: $NAME
+  any:
+    - inside:
+        kind: invocation_expression
+    - inside:
+        kind: member_access_expression
+        field: name
+        inside:
+          kind: invocation_expression
+    - inside:
+        kind: generic_name
+        inside:
+          kind: member_access_expression
+          inside:
+            kind: invocation_expression
+    - inside:
+        kind: generic_name
+        inside:
+          kind: invocation_expression
