@@ -41,8 +41,9 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# Copy lsp-wrapper source
+# Copy lsp-wrapper source and ast-grep configs
 COPY lsproxy/lsp-wrapper .
+COPY lsproxy/src/ast_grep /usr/src/ast_grep
 
 # Build lsp-wrapper with appropriate target
 RUN mkdir -p /usr/src/bin && \
@@ -83,6 +84,21 @@ RUN apt-get update && apt-get install \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
+# Install ast-grep CLI (version 0.39 to match Cargo.toml)
+RUN ARCH=$(dpkg --print-architecture) && \
+    if [ "$ARCH" = "amd64" ]; then \
+        ASTGREP_ARCH="x86_64"; \
+    elif [ "$ARCH" = "arm64" ]; then \
+        ASTGREP_ARCH="aarch64"; \
+    else \
+        echo "Unsupported architecture: $ARCH" && exit 1; \
+    fi && \
+    curl -L "https://github.com/ast-grep/ast-grep/releases/download/0.39.0/app-${ASTGREP_ARCH}-unknown-linux-gnu.zip" -o /tmp/ast-grep.zip && \
+    unzip /tmp/ast-grep.zip -d /tmp/ast-grep && \
+    mv /tmp/ast-grep/sg /usr/local/bin/ast-grep && \
+    chmod +x /usr/local/bin/ast-grep && \
+    rm -rf /tmp/ast-grep.zip /tmp/ast-grep
+
 # Create workspace directory with proper permissions
 RUN mkdir -p /mnt/workspace && \
     chmod 755 /mnt/workspace
@@ -90,6 +106,9 @@ RUN mkdir -p /mnt/workspace && \
 # Copy lsp-wrapper binary from builder
 COPY --from=builder /usr/src/bin/lsp-wrapper /usr/local/bin/lsp-wrapper
 RUN chmod +x /usr/local/bin/lsp-wrapper
+
+# Copy ast-grep configs from builder
+COPY --from=builder /usr/src/ast_grep /usr/src/ast_grep
 
 # Default port for LSP wrapper HTTP server
 EXPOSE 8080
