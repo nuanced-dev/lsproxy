@@ -74,30 +74,19 @@ FROM debian:bookworm-slim AS base-runtime
 ENV DEBIAN_FRONTEND=noninteractive
 ENV HOME=/home/user
 
-# Install minimal runtime dependencies only
+# Install runtime dependencies including Python for ast-grep-cli
 RUN apt-get update && apt-get install \
     -y --no-install-recommends \
     ca-certificates \
     git \
     curl \
-    unzip \
+    python3 \
+    python3-pip \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Install ast-grep CLI (version 0.39 to match Cargo.toml)
-RUN ARCH=$(dpkg --print-architecture) && \
-    if [ "$ARCH" = "amd64" ]; then \
-        ASTGREP_ARCH="x86_64"; \
-    elif [ "$ARCH" = "arm64" ]; then \
-        ASTGREP_ARCH="aarch64"; \
-    else \
-        echo "Unsupported architecture: $ARCH" && exit 1; \
-    fi && \
-    curl -L "https://github.com/ast-grep/ast-grep/releases/download/0.39.0/app-${ASTGREP_ARCH}-unknown-linux-gnu.zip" -o /tmp/ast-grep.zip && \
-    unzip /tmp/ast-grep.zip -d /tmp/ast-grep && \
-    mv /tmp/ast-grep/sg /usr/local/bin/ast-grep && \
-    chmod +x /usr/local/bin/ast-grep && \
-    rm -rf /tmp/ast-grep.zip /tmp/ast-grep
+# Install ast-grep CLI via pip (simpler and more reliable than binary)
+RUN pip3 install --no-cache-dir ast-grep-cli --break-system-packages
 
 # Create workspace directory with proper permissions
 RUN mkdir -p /mnt/workspace && \
