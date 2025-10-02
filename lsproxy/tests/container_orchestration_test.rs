@@ -269,11 +269,11 @@ async fn test_container_spawn_on_request() -> Result<(), Box<dyn std::error::Err
     let mut fixture = ContainerFixture::new().await?;
     fixture.start_service().await?;
 
-    // Verify no Python containers initially
+    // With eager initialization, Python container should be spawned during service startup
     let initial_containers = fixture.get_python_containers().await?;
-    assert!(initial_containers.is_empty(), "Expected no Python containers initially");
+    assert_eq!(initial_containers.len(), 1, "Expected exactly one Python container after service startup");
 
-    // Make a request that requires Python container
+    // Make a request - should use the existing container
     let client = Client::builder()
         .timeout(Duration::from_secs(30))
         .build()?;
@@ -290,13 +290,13 @@ async fn test_container_spawn_on_request() -> Result<(), Box<dyn std::error::Err
         .send()
         .await?;
 
-    // Request should complete (may return error about invalid position, but that's OK)
+    // Request should complete successfully
     assert!(response.status().is_success() || response.status().is_client_error());
 
-    // Verify Python container was spawned
-    sleep(Duration::from_secs(2)).await; // Give container time to start
-    let spawned_containers = fixture.get_python_containers().await?;
-    assert!(!spawned_containers.is_empty(), "Expected Python container to be spawned");
+    // Verify the same container is still being used (no new containers spawned)
+    let containers_after_request = fixture.get_python_containers().await?;
+    assert_eq!(containers_after_request.len(), 1, "Expected same container to be reused");
+    assert_eq!(containers_after_request[0], initial_containers[0], "Expected same container ID");
 
     fixture.cleanup().await?;
     Ok(())

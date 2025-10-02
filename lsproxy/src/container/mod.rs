@@ -56,6 +56,64 @@ impl ContainerOrchestrator {
         })
     }
 
+    /// Initialize workspace by detecting languages and spawning containers upfront
+    /// This matches the behavior of the original Manager::start_langservers()
+    pub async fn initialize_workspace(&self, workspace_path: &str) -> Result<(), OrchestratorError> {
+        use crate::utils::file_utils::search_files;
+        use crate::utils::workspace_documents::*;
+        use std::path::Path;
+
+        let languages = vec![
+            (SupportedLanguages::Python, PYTHON_FILE_PATTERNS.to_vec()),
+            (SupportedLanguages::TypeScriptJavaScript, TYPESCRIPT_AND_JAVASCRIPT_FILE_PATTERNS.to_vec()),
+            (SupportedLanguages::Rust, RUST_FILE_PATTERNS.to_vec()),
+            (SupportedLanguages::CPP, C_AND_CPP_FILE_PATTERNS.to_vec()),
+            (SupportedLanguages::CSharp, CSHARP_FILE_PATTERNS.to_vec()),
+            (SupportedLanguages::Java, JAVA_FILE_PATTERNS.to_vec()),
+            (SupportedLanguages::Golang, GOLANG_FILE_PATTERNS.to_vec()),
+            (SupportedLanguages::PHP, PHP_FILE_PATTERNS.to_vec()),
+            (SupportedLanguages::Ruby, RUBY_FILE_PATTERNS.to_vec()),
+            (SupportedLanguages::RubySorbet, RUBY_SORBET_FILE_PATTERNS.to_vec()),
+        ];
+
+        let mut detected_languages = Vec::new();
+
+        // Detect languages by searching for matching files
+        for (language, patterns) in languages {
+            let pattern_strings: Vec<String> = patterns.iter().map(|&s| s.to_string()).collect();
+            let exclude_patterns: Vec<String> = DEFAULT_EXCLUDE_PATTERNS.iter().map(|&s| s.to_string()).collect();
+
+            match search_files(Path::new(workspace_path), pattern_strings, exclude_patterns, true) {
+                Ok(files) if !files.is_empty() => {
+                    detected_languages.push(language);
+                }
+                _ => {}
+            }
+        }
+
+        log::info!("Detected languages in workspace: {:?}", detected_languages);
+
+        // Spawn containers for all detected languages
+        for language in detected_languages {
+            if self.get_container(&language).await.is_some() {
+                continue; // Container already exists
+            }
+
+            log::info!("Spawning container for {:?}", language);
+            match self.spawn_container(language.clone(), workspace_path).await {
+                Ok(info) => {
+                    log::info!("Successfully spawned container for {:?} at {}", language, info.endpoint);
+                }
+                Err(e) => {
+                    log::error!("Failed to spawn container for {:?}: {}", language, e);
+                    return Err(e);
+                }
+            }
+        }
+
+        Ok(())
+    }
+
     /// Get the Docker client
     pub fn docker(&self) -> &Docker {
         &self.docker

@@ -126,6 +126,12 @@ pub async fn initialize_app_state_with_mount_dir(
     // Initialize container orchestrator
     let orchestrator = Arc::new(container::ContainerOrchestrator::new().await?);
 
+    // Initialize workspace: detect languages and spawn containers upfront
+    // This matches the original Manager::start_langservers() behavior
+    info!("Initializing workspace and spawning language containers...");
+    orchestrator.initialize_workspace(&workspace_path).await?;
+    info!("Workspace initialization complete");
+
     Ok(Data::new(AppState {
         orchestrator,
         workspace_path,
