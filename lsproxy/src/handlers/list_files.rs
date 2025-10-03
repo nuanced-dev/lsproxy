@@ -1,6 +1,7 @@
 use crate::AppState;
 use actix_web::web::Data;
 use actix_web::HttpResponse;
+use ignore::WalkBuilder;
 use log::{error, info};
 use serde::Serialize;
 
@@ -22,29 +23,34 @@ struct ListFilesResponse {
 pub async fn list_files(data: Data<AppState>) -> HttpResponse {
     info!("Received list files request");
 
-    // Get all running containers and collect their files
-    let all_containers = data.orchestrator.all_containers().await;
+    let mut files = Vec::new();
+    let workspace_path = &data.workspace_path;
 
-    if all_containers.is_empty() {
-        // No containers running yet - return empty list
-        return HttpResponse::Ok().json(ListFilesResponse { files: vec![] });
-    }
-
-    let mut all_files = Vec::new();
-
-    for (_lang, container_info) in all_containers {
-        let client = crate::container::ContainerHttpClient::new(&container_info.endpoint);
-        match client.list_files().await {
-            Ok(files) => all_files.extend(files),
+    // Walk the workspace directory directly (no container calls needed)
+    for result in WalkBuilder::new(workspace_path)
+        .hidden(false)      // Skip hidden files
+        .git_ignore(false)  // Don't filter by gitignore - list all workspace files
+        .git_exclude(false) // Don't use git exclude rules
+        .build()
+    {
+        match result {
+            Ok(entry) => {
+                if entry.file_type().map_or(false, |ft| ft.is_file()) {
+                    if let Ok(relative) = entry.path().strip_prefix(workspace_path) {
+                        if let Some(rel_str) = relative.to_str() {
+                            files.push(rel_str.to_string());
+                        }
+                    }
+                }
+            }
             Err(e) => {
-                error!("Failed to list files from container {}: {}", container_info.container_id, e);
+                error!("Error walking workspace: {}", e);
             }
         }
     }
 
-    // Deduplicate files
-    all_files.sort();
-    all_files.dedup();
+    files.sort();
+    files.dedup();
 
-    HttpResponse::Ok().json(ListFilesResponse { files: all_files })
+    HttpResponse::Ok().json(ListFilesResponse { files })
 }
