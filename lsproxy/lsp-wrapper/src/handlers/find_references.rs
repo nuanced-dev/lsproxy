@@ -4,8 +4,8 @@ use log::{error, info};
 use lsp_types::{Location, Position as LspPosition};
 
 use crate::api_types::{
-    CodeContext, ErrorResponse, FilePosition, FileRange, GetReferencesRequest, Position, Range,
-    ReferencesResponse,
+    get_mount_dir, CodeContext, ErrorResponse, FilePosition, FileRange, GetReferencesRequest,
+    Position, Range, ReferencesResponse,
 };
 use crate::handlers::error::IntoHttpResponse;
 use crate::handlers::utils;
@@ -144,12 +144,12 @@ async fn find_and_filter_references(
         )
         .await?;
 
-    let files = manager.list_files().await?;
+    let mount_dir = get_mount_dir();
     let mut filtered_refs: Vec<_> = references
         .into_iter()
         .filter(|reference| {
             let path = uri_to_relative_path_string(&reference.uri);
-            files.contains(&path)
+            mount_dir.join(&path).exists()
         })
         .collect();
 

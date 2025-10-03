@@ -1,5 +1,5 @@
 use crate::api_types::{
-    ErrorResponse, FilePosition, GetReferencedSymbolsRequest, Identifier, Position,
+    get_mount_dir, ErrorResponse, FilePosition, GetReferencedSymbolsRequest, Identifier, Position,
     ReferenceWithSymbolDefinitions, ReferencedSymbolsResponse,
 };
 use crate::utils::file_utils::uri_to_relative_path_string;
@@ -110,18 +110,8 @@ pub async fn find_referenced_symbols(
             })
             .collect();
 
-    // First get the workspace files
-    let files = match data.manager.list_files().await {
-        Ok(files) => files,
-        Err(e) => {
-            error!("Failed to list workspace files: {:?}", e);
-            return HttpResponse::InternalServerError().json(ErrorResponse {
-                error: format!("Failed to list workspace files: {}", e),
-            });
-        }
-    };
-
-    // Then categorize the definitions
+    // Categorize the definitions
+    let mount_dir = get_mount_dir();
     let mut workspace_symbols = Vec::new();
     let mut external_symbols = Vec::new();
     let mut not_found = Vec::new();
@@ -131,10 +121,10 @@ pub async fn find_referenced_symbols(
             not_found.push(identifier);
         } else {
             // Check if any definition is in workspace files
-            let has_internal_definition = definitions.iter().any(|def| files.contains(&def.path));
+            let has_internal_definition = definitions.iter().any(|def| mount_dir.join(&def.path).exists());
             if has_internal_definition {
                 let mut symbols_with_definitions = Vec::new();
-                for def in definitions.iter().filter(|def| files.contains(&def.path)) {
+                for def in definitions.iter().filter(|def| mount_dir.join(&def.path).exists()) {
                     if let Ok(symbol) = data
                         .manager
                         .get_symbol_from_position(

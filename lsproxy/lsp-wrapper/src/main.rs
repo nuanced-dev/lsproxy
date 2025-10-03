@@ -109,8 +109,6 @@ async fn main() -> std::io::Result<()> {
             .route("/symbol/find-references", web::post().to(handlers::find_references::find_references))
             .route("/symbol/find-referenced-symbols", web::post().to(handlers::find_referenced_symbols::find_referenced_symbols))
             .route("/symbol/definitions-in-file", web::post().to(handlers::definitions_in_file::definitions_in_file))
-            .route("/workspace/list-files", web::get().to(handlers::list_files::list_files))
-            .route("/workspace/read-source-code", web::post().to(handlers::read_source_code::read_source_code))
     })
     .bind(("0.0.0.0", args.port))?
     .run()

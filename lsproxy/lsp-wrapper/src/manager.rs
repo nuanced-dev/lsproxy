@@ -6,9 +6,8 @@ use crate::api_types::{get_mount_dir, Identifier, Symbol};
 use crate::ast_grep::client::AstGrepClient;
 use crate::ast_grep::types::AstGrepMatch;
 use crate::lsp::client::LspClient;
-use crate::utils::file_utils::{absolute_path_to_relative_path_string, uri_to_relative_path_string};
+use crate::utils::file_utils::uri_to_relative_path_string;
 use crate::utils::workspace_documents::WorkspaceDocuments;
-use ignore::WalkBuilder;
 use log::{error, warn};
 use lsp_types::{GotoDefinitionResponse, Location, Position, Range};
 use std::sync::Arc;
@@ -54,44 +53,13 @@ impl Manager {
         }
     }
 
-    pub async fn list_files(&self) -> Result<Vec<String>, LspManagerError> {
-        let mut files = Vec::new();
-
-        for result in WalkBuilder::new(&self.workspace_path)
-            .hidden(true)
-            .parents(true)
-            .git_ignore(true)
-            .build()
-        {
-            match result {
-                Ok(entry) => {
-                    if entry.file_type().map_or(false, |ft| ft.is_file()) {
-                        if let Ok(relative) = entry.path().strip_prefix(&self.workspace_path) {
-                            if let Some(rel_str) = relative.to_str() {
-                                files.push(rel_str.to_string());
-                            }
-                        }
-                    }
-                }
-                Err(e) => {
-                    error!("Error walking workspace: {}", e);
-                }
-            }
-        }
-
-        Ok(files)
-    }
-
     pub async fn get_file_identifiers(
         &self,
         file_path: &str,
     ) -> Result<Vec<Identifier>, LspManagerError> {
         let full_path = get_mount_dir().join(file_path);
-        let workspace_files = self.list_files().await.map_err(|e| {
-            LspManagerError::InternalError(format!("Workspace file retrieval failed: {}", e))
-        })?;
 
-        if !workspace_files.contains(&file_path.to_string()) {
+        if !full_path.exists() {
             return Err(LspManagerError::FileNotFound(file_path.to_string()));
         }
 
@@ -112,11 +80,8 @@ impl Manager {
         file_path: &str,
     ) -> Result<Vec<AstGrepMatch>, LspManagerError> {
         let full_path = get_mount_dir().join(file_path);
-        let workspace_files = self.list_files().await.map_err(|e| {
-            LspManagerError::InternalError(format!("Workspace file retrieval failed: {}", e))
-        })?;
 
-        if !workspace_files.contains(&file_path.to_string()) {
+        if !full_path.exists() {
             return Err(LspManagerError::FileNotFound(file_path.to_string()));
         }
 
@@ -154,15 +119,11 @@ impl Manager {
         file_path: &str,
         position: Position,
     ) -> Result<GotoDefinitionResponse, LspManagerError> {
-        let workspace_files = self.list_files().await.map_err(|e| {
-            LspManagerError::InternalError(format!("Workspace file retrieval failed: {}", e))
-        })?;
+        let full_path = get_mount_dir().join(file_path);
 
-        if !workspace_files.contains(&file_path.to_string()) {
+        if !full_path.exists() {
             return Err(LspManagerError::FileNotFound(file_path.to_string()));
         }
-
-        let full_path = get_mount_dir().join(file_path);
         let full_path_str = full_path.to_str().unwrap_or_default();
 
         // Call LSP textDocument/definition directly (like base implementation)
@@ -212,15 +173,11 @@ impl Manager {
         file_path: &str,
         position: Position,
     ) -> Result<Vec<Location>, LspManagerError> {
-        let workspace_files = self.list_files().await.map_err(|e| {
-            LspManagerError::InternalError(format!("Workspace file retrieval failed: {}", e))
-        })?;
+        let full_path = get_mount_dir().join(file_path);
 
-        if !workspace_files.contains(&file_path.to_string()) {
+        if !full_path.exists() {
             return Err(LspManagerError::FileNotFound(file_path.to_string()));
         }
-
-        let full_path = get_mount_dir().join(file_path);
         let full_path_str = full_path.to_str().unwrap_or_default();
 
         // Call LSP textDocument/references
@@ -251,15 +208,11 @@ impl Manager {
         position: Position,
         full_scan: bool,
     ) -> Result<Vec<(AstGrepMatch, GotoDefinitionResponse)>, LspManagerError> {
-        let workspace_files = self.list_files().await.map_err(|e| {
-            LspManagerError::InternalError(format!("Workspace file retrieval failed: {}", e))
-        })?;
+        let full_path = get_mount_dir().join(file_path);
 
-        if !workspace_files.iter().any(|f| f == file_path) {
+        if !full_path.exists() {
             return Err(LspManagerError::FileNotFound(file_path.to_string()));
         }
-
-        let full_path = get_mount_dir().join(file_path);
         let full_path_str = full_path.to_str().unwrap_or_default();
 
         // Get the symbol and its references using ast-grep
