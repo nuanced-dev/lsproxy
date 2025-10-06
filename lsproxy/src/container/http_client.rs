@@ -102,7 +102,7 @@ impl ContainerHttpClient {
         request: &FileSymbolsRequest,
     ) -> Result<Vec<Symbol>, Box<dyn Error + Send + Sync>> {
         let url = format!("{}/symbol/definitions-in-file", self.base_url);
-        let response = self.client.post(&url).json(request).send().await?;
+        let response = self.client.get(&url).query(request).send().await?;
 
         if !response.status().is_success() {
             let error_text = response.text().await?;

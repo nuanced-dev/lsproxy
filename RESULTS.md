@@ -154,6 +154,98 @@ Benefits:
 - Easy to add/update languages
 ```
 
+## Workspace Operations Refactor
+
+### Overview
+
+Refactored workspace operations (`list-files` and `read-source-code`) to live exclusively in the base Rust service, removing unnecessary complexity from LSP wrapper containers.
+
+### Key Changes
+
+#### 1. List Files - Direct Filesystem Walking
+
+**Before**: Aggregated files by calling all language containers via HTTP
+```rust
+// Get all containers and call each one
+for container in all_containers {
+    client.list_files().await
+}
+```
+
+**After**: Walks workspace filesystem directly in base service
+```rust
+// Walk /mnt/workspace directly
+for result in WalkBuilder::new(workspace_path)
+    .hidden(false)
+    .git_ignore(false)  // Don't filter by gitignore
+    .git_exclude(false)
+    .build()
+{
+    // Collect files
+}
+```
+
+**Benefits**:
+- ✅ No container HTTP calls needed
+- ✅ Faster (no network overhead)
+- ✅ Simpler (one implementation)
+- ✅ Fixes gitignore filtering issue that was causing empty results
+
+#### 2. Read Source Code - Direct File Reading
+
+**Before**: Proxied to language container based on file extension
+```rust
+let client = container_proxy::get_client_for_file(&orchestrator, &path).await?;
+client.read_source(&request).await
+```
+
+**After**: Reads file directly from filesystem in base service
+```rust
+let file_path = PathBuf::from(&workspace_path).join(&request.path);
+
+// Security: path traversal check
+let canonical_file = std::fs::canonicalize(&file_path)?;
+if !canonical_file.starts_with(&canonical_workspace) {
+    return Err("Invalid path");
+}
+
+// Read file
+tokio::fs::read_to_string(&file_path).await
+```
+
+**Benefits**:
+- ✅ No container routing needed
+- ✅ Language-agnostic (no file extension matching)
+- ✅ Path traversal protection
+- ✅ Supports range requests
+
+### Root Cause Resolution
+
+The original issue with `list-files` returning empty was:
+1. LSP wrapper used `WalkBuilder` with `.git_ignore(true)`
+2. This filtered out test files in non-git workspaces
+3. Base service aggregated empty results from all containers
+
+New implementation:
+1. Base service walks `/mnt/workspace` directly
+2. No gitignore filtering (shows all files)
+3. No container calls needed
+4. ✅ Simpler, faster, and actually works!
+
+### Endpoint Distribution
+
+**Base Service Endpoints (Language-Agnostic)**:
+- `GET /v1/system/health` - System status
+- `GET /v1/workspace/list-files` - List all workspace files ✨ (refactored)
+- `POST /v1/workspace/read-source-code` - Read file content ✨ (refactored)
+
+**LSP Wrapper Endpoints (Language-Specific)**:
+- `POST /v1/symbol/find-definition` - LSP textDocument/definition
+- `POST /v1/symbol/find-references` - LSP textDocument/references
+- `POST /v1/symbol/definitions-in-file` - LSP textDocument/documentSymbol
+- `POST /v1/symbol/find-referenced-symbols` - ast-grep analysis
+- `POST /v1/symbol/find-identifier` - Symbol search
+
 ## Summary
 
 | Metric | Before | After | Improvement |
@@ -164,3 +256,4 @@ Benefits:
 | **Memory usage** | All languages in memory | Only active languages | **Lower** |
 | **Failure isolation** | Single point of failure | Per-language isolation | **More reliable** |
 | **Update flexibility** | Rebuild entire image | Update individual languages | **More flexible** |
+| **Workspace operations** | N containers × HTTP overhead | Direct filesystem access | **Faster & simpler** |

@@ -109,7 +109,7 @@ mod test {
         let state = initialize_app_state().await?;
 
         // Test finding all occurrences of 'graph' without position
-        let mock_request = Json(FindIdentifierRequest {
+        let mock_request = Query(FindIdentifierRequest {
             path: String::from("main.py"),
             name: String::from("graph"),
             position: None,
@@ -137,7 +137,7 @@ mod test {
         let state = initialize_app_state().await?;
 
         // Test finding exact occurrence of 'AStarGraph' at its definition
-        let mock_request = Json(FindIdentifierRequest {
+        let mock_request = Query(FindIdentifierRequest {
             path: String::from("graph.py"),
             name: String::from("AStarGraph"),
             position: Some(Position {
@@ -172,7 +172,7 @@ mod test {
         let state = initialize_app_state().await?;
 
         // Test finding all occurrences of 'path' in PathfinderDisplay.tsx
-        let mock_request = Json(FindIdentifierRequest {
+        let mock_request = Query(FindIdentifierRequest {
             path: String::from("src/PathfinderDisplay.tsx"),
             name: String::from("path"),
             position: None,
@@ -200,7 +200,7 @@ mod test {
         let state = initialize_app_state().await?;
 
         // Test finding closest matches for 'maze' near but not exactly at a position
-        let mock_request = Json(FindIdentifierRequest {
+        let mock_request = Query(FindIdentifierRequest {
             path: String::from("src/PathfinderDisplay.tsx"),
             name: String::from("maze"),
             position: Some(Position {
@@ -230,7 +230,7 @@ mod test {
         let _context = TestContext::setup(&python_sample_path(), false).await?;
         let state = initialize_app_state().await?;
 
-        let mock_request = Json(FindIdentifierRequest {
+        let mock_request = Query(FindIdentifierRequest {
             path: String::from("nonexistent.py"),
             name: String::from("identifier"),
             position: None,
@@ -254,7 +254,7 @@ mod test {
         let _context = TestContext::setup(&python_sample_path(), false).await?;
         let state = initialize_app_state().await?;
 
-        let mock_request = Json(FindIdentifierRequest {
+        let mock_request = Query(FindIdentifierRequest {
             path: String::from("main.py"),
             name: String::from("nonexistent_identifier"),
             position: None,

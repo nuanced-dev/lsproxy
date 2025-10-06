@@ -4,6 +4,22 @@
 
 This document summarizes the comprehensive endpoint response validation performed on the containerized LSProxy architecture across all 10 supported languages.
 
+## Building the Service
+
+The LSProxy service should be built using the multi-stage Dockerfile:
+
+```bash
+# Build the main service
+docker build -f dockerfiles/service.Dockerfile -t lsproxy-service:latest .
+
+# Build language containers (if needed)
+docker build -f dockerfiles/python.Dockerfile -t lsproxy-python:latest .
+docker build -f dockerfiles/typescript.Dockerfile -t lsproxy-typescript:latest .
+# ... etc for other languages
+```
+
+**Important**: Use `dockerfiles/service.Dockerfile`, NOT `lsproxy/Dockerfile`. The service Dockerfile is a proper multi-stage build optimized for the containerized architecture.
+
 ## Test Scope
 
 - **Languages Tested**: Python, TypeScript, JavaScript, Golang, Rust, Java, PHP, C#, C++, Ruby

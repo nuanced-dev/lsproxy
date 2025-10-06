@@ -1,16 +1,16 @@
 use crate::api_types::{ErrorResponse, FindIdentifierRequest, IdentifierResponse};
 use crate::handlers::container_proxy;
 use crate::AppState;
-use actix_web::web::{Data, Query};
+use actix_web::web::{Data, Json};
 use actix_web::HttpResponse;
 use log::{error, info};
 
 /// Find an identifier by name
 #[utoipa::path(
-    get,
+    post,
     path = "/symbol/find-identifier",
     tag = "symbol",
-    params(FindIdentifierRequest),
+    request_body = FindIdentifierRequest,
     responses(
         (status = 200, description = "Identifier found successfully", body = IdentifierResponse),
         (status = 400, description = "Bad request"),
@@ -19,7 +19,7 @@ use log::{error, info};
 )]
 pub async fn find_identifier(
     data: Data<AppState>,
-    info: Query<FindIdentifierRequest>,
+    info: Json<FindIdentifierRequest>,
 ) -> HttpResponse {
     info!(
         "Received find identifier request for file: {}, name: {}",
