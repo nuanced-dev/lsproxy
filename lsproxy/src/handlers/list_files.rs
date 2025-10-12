@@ -3,12 +3,6 @@ use actix_web::web::Data;
 use actix_web::HttpResponse;
 use ignore::WalkBuilder;
 use log::{error, info};
-use serde::Serialize;
-
-#[derive(Serialize)]
-struct ListFilesResponse {
-    files: Vec<String>,
-}
 
 /// List all files in the workspace
 #[utoipa::path(
@@ -52,5 +46,5 @@ pub async fn list_files(data: Data<AppState>) -> HttpResponse {
     files.sort();
     files.dedup();
 
-    HttpResponse::Ok().json(ListFilesResponse { files })
+    HttpResponse::Ok().json(files)
 }

@@ -119,7 +119,7 @@ test_endpoint "List Files" \
     "/workspace/list-files" \
     "" \
     "200" \
-    "jq -e '.files | type == \"array\"' > /dev/null"
+    "jq -e 'type == \"array\"' > /dev/null"
 
 echo
 
