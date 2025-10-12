@@ -1,0 +1,9 @@
+id: method
+language: go
+rule:
+  kind: field_identifier
+  pattern: $NAME
+  inside:
+    kind: method_declaration
+    field: name
+    pattern: $CONTEXT

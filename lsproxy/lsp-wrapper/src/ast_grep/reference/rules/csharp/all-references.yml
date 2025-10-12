@@ -1,0 +1,32 @@
+id: all-references
+language: csharp
+rule:
+  kind: identifier
+  pattern: $NAME
+  not:
+    any:
+      - inside:
+          any:
+            - kind: delegate_declaration
+            - kind: interface_declaration
+            - kind: class_declaration
+            - kind: struct_declaration
+            - kind: method_declaration
+            - kind: enum_declaration
+            - kind: enum_member_declaration
+            - kind: property_declaration
+            - kind: namespace_declaration
+            - kind: using_directive
+            - kind: qualified_name
+              inside:
+                kind: using_directive
+            - kind: qualified_name
+              inside:
+                kind: qualified_name
+                inside:
+                  kind: using_directive
+      - inside:
+          any:
+           - kind: variable_declarator
+           - kind: parameter
+          field: name

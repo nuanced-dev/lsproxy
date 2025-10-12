@@ -1,0 +1,7 @@
+id: class-instantiation
+language: csharp
+rule:
+  kind: identifier
+  pattern: $NAME
+  inside:
+    kind: object_creation_expression

@@ -1,0 +1,216 @@
+{
+  "<main>:sample_project/js/astar_search.js:1:1:manhattan": {
+    "filepath": "sample_project/js/astar_search.js",
+    "start": "1:0",
+    "end": "3:1",
+    "callers": [
+      "<main>:sample_project/js/astar_search.js:5:1:aStar",
+      "<main>:sample_project/js/astar_search.js:37:15:<anonymous>"
+    ],
+    "callees": [
+      "<native>:Math.abs"
+    ]
+  },
+  "<main>:sample_project/js/astar_search.js:5:1:aStar": {
+    "filepath": "sample_project/js/astar_search.js",
+    "start": "5:0",
+    "end": "59:1",
+    "callers": [
+      "<main>:sample_project/js/astar_search.js:5:1:aStar",
+      "<main>:sample_project/js/astar_search.js"
+    ],
+    "callees": [
+      "<main>:sample_project/js/astar_search.js:1:1:manhattan",
+      "<main>:sample_project/js/astar_search.js:18:26:<anonymous>",
+      "<main>:sample_project/js/astar_search.js:5:1:aStar",
+      "<main>:sample_project/js/astar_search.js:34:14:<anonymous>",
+      "<main>:sample_project/js/astar_search.js:37:15:<anonymous>",
+      "<native>:Array",
+      "<native>:Array.prototype.fill",
+      "<native>:Array.prototype.filter",
+      "<native>:Array.prototype.forEach"
+    ]
+  },
+  "<main>:sample_project/js/astar_search.js:18:26:<anonymous>": {
+    "filepath": "sample_project/js/astar_search.js",
+    "start": "18:25",
+    "end": "27:9",
+    "callers": [
+      "<main>:sample_project/js/astar_search.js:5:1:aStar",
+      "<main>:sample_project/js/astar_search.js:18:26:<anonymous>"
+    ],
+    "callees": [
+      "<main>:sample_project/js/astar_search.js:18:26:<anonymous>",
+      "<native>:Array.prototype.concat"
+    ]
+  },
+  "<main>:sample_project/js/astar_search.js:22:44:<anonymous>": {
+    "filepath": "sample_project/js/astar_search.js",
+    "start": "22:43",
+    "end": "22:58",
+    "callers": [],
+    "callees": []
+  },
+  "<main>:sample_project/js/astar_search.js:23:23:<anonymous>": {
+    "filepath": "sample_project/js/astar_search.js",
+    "start": "23:22",
+    "end": "25:17",
+    "callers": [],
+    "callees": []
+  },
+  "<main>:sample_project/js/astar_search.js:34:14:<anonymous>": {
+    "filepath": "sample_project/js/astar_search.js",
+    "start": "34:13",
+    "end": "36:50",
+    "callers": [
+      "<main>:sample_project/js/astar_search.js:5:1:aStar"
+    ],
+    "callees": []
+  },
+  "<main>:sample_project/js/astar_search.js:37:15:<anonymous>": {
+    "filepath": "sample_project/js/astar_search.js",
+    "start": "37:14",
+    "end": "44:5",
+    "callers": [
+      "<main>:sample_project/js/astar_search.js:5:1:aStar"
+    ],
+    "callees": [
+      "<main>:sample_project/js/astar_search.js:1:1:manhattan"
+    ]
+  },
+  "<main>:sample_project/js/astar_search.js:49:42:<anonymous>": {
+    "filepath": "sample_project/js/astar_search.js",
+    "start": "49:41",
+    "end": "49:56",
+    "callers": [],
+    "callees": []
+  },
+  "<main>:sample_project/js/astar_search.js:50:15:<anonymous>": {
+    "filepath": "sample_project/js/astar_search.js",
+    "start": "50:14",
+    "end": "52:9",
+    "callers": [],
+    "callees": []
+  },
+  "<main>:sample_project/js/functions.js:3:17:<anonymous>": {
+    "filepath": "sample_project/js/functions.js",
+    "start": "3:16",
+    "end": "5:3",
+    "callers": [],
+    "callees": []
+  },
+  "<main>:sample_project/js/functions.js:10:18:<anonymous>": {
+    "filepath": "sample_project/js/functions.js",
+    "start": "10:17",
+    "end": "10:25",
+    "callers": [],
+    "callees": []
+  },
+  "<main>:sample_project/js/functions.js:14:1:topLevelStandardFunction": {
+    "filepath": "sample_project/js/functions.js",
+    "start": "14:0",
+    "end": "14:38",
+    "callers": [],
+    "callees": []
+  },
+  "<main>:sample_project/js/functions.js:17:28:<anonymous>": {
+    "filepath": "sample_project/js/functions.js",
+    "start": "17:27",
+    "end": "17:35",
+    "callers": [],
+    "callees": []
+  },
+  "<main>:sample_project/js/functions.js:20:31:namedInnerFuncExpr": {
+    "filepath": "sample_project/js/functions.js",
+    "start": "20:30",
+    "end": "20:62",
+    "callers": [],
+    "callees": []
+  },
+  "<main>:sample_project/js/functions.js:24:20:<anonymous>": {
+    "filepath": "sample_project/js/functions.js",
+    "start": "24:19",
+    "end": "24:27",
+    "callers": [],
+    "callees": []
+  },
+  "<main>:sample_project/js/functions.js:27:30:exampleFuncInner": {
+    "filepath": "sample_project/js/functions.js",
+    "start": "27:29",
+    "end": "29:1",
+    "callers": [],
+    "callees": []
+  },
+  "<main>:sample_project/js/functions.js:32:30:<anonymous>": {
+    "filepath": "sample_project/js/functions.js",
+    "start": "32:29",
+    "end": "34:1",
+    "callers": [],
+    "callees": []
+  },
+  "<main>:sample_project/js/methods.js:2:1:MyClassExample": {
+    "filepath": "sample_project/js/methods.js",
+    "start": "2:0",
+    "end": "14:1",
+    "callers": [],
+    "callees": []
+  },
+  "<main>:sample_project/js/methods.js:3:3:classMethodRegular": {
+    "filepath": "sample_project/js/methods.js",
+    "start": "3:2",
+    "end": "3:25",
+    "callers": [],
+    "callees": []
+  },
+  "<main>:sample_project/js/methods.js:5:10:staticClassMethod": {
+    "filepath": "sample_project/js/methods.js",
+    "start": "5:9",
+    "end": "5:31",
+    "callers": [],
+    "callees": []
+  },
+  "<main>:sample_project/js/methods.js:7:3:getterMethod": {
+    "filepath": "sample_project/js/methods.js",
+    "start": "7:2",
+    "end": "9:3",
+    "callers": [],
+    "callees": []
+  },
+  "<main>:sample_project/js/methods.js:11:3:setterMethod": {
+    "filepath": "sample_project/js/methods.js",
+    "start": "11:2",
+    "end": "13:3",
+    "callers": [],
+    "callees": []
+  },
+  "<main>:sample_project/js/methods.js:18:3:shorthandObjMethod": {
+    "filepath": "sample_project/js/methods.js",
+    "start": "18:2",
+    "end": "18:25",
+    "callers": [],
+    "callees": []
+  },
+  "<main>:sample_project/js/methods.js:20:3:generatorShorthandMethod": {
+    "filepath": "sample_project/js/methods.js",
+    "start": "20:2",
+    "end": "20:32",
+    "callers": [],
+    "callees": []
+  },
+  "<main>:sample_project/js/methods.js:22:3:asyncShorthandMethod": {
+    "filepath": "sample_project/js/methods.js",
+    "start": "22:2",
+    "end": "22:33",
+    "callers": [],
+    "callees": []
+  },
+  "<main>:sample_project/js/astar_search.js": {
+    "filepath": "sample_project/js/astar_search.js",
+    "start": "1:0",
+    "end": "72:36",
+    "callers": [],
+    "callees": [
+      "<main>:sample_project/js/astar_search.js:5:1:aStar"
+    ]
+  }
+}

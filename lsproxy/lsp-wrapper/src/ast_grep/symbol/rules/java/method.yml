@@ -1,0 +1,9 @@
+id: method
+language: java
+
+rule:
+  kind: identifier
+  pattern: $NAME
+  inside:
+    kind: method_declaration
+    pattern: $CONTEXT
