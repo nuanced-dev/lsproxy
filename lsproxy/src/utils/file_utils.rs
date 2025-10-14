@@ -200,8 +200,8 @@ pub fn search_directories_sequential(
                 }
                 if path.is_dir() {
                     dirs.push(path);
-                } else {
-                    dirs.push(path.parent().unwrap().to_path_buf());
+                } else if let Some(parent) = path.parent() {
+                    dirs.push(parent.to_path_buf());
                 }
             }
             Err(err) => error!("Error: {}", err),
