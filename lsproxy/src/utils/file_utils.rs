@@ -130,8 +130,15 @@ pub fn search_files_parallel(
                             .map(|p| p.matches_path(path))
                             .unwrap_or(false)
                     }) && path.is_file() {
-                        if let Ok(mut files) = files.lock() {
-                            files.push(path.to_path_buf());
+                        match files.lock() {
+                            Ok(mut guard) => {
+                                guard.push(path.to_path_buf());
+                            }
+                            Err(poisoned) => {
+                                error!("Mutex poisoned, recovering data: {}", poisoned);
+                                let mut guard = poisoned.into_inner();
+                                guard.push(path.to_path_buf());
+                            }
                         }
                     }
                 }
@@ -141,10 +148,19 @@ pub fn search_files_parallel(
         })
     });
 
-    let files = Arc::try_unwrap(files)
-        .unwrap()
-        .into_inner()
-        .unwrap();
+    // Handle Arc unwrap failure
+    let mutex = Arc::try_unwrap(files).map_err(|_| {
+        std::io::Error::new(
+            std::io::ErrorKind::Other,
+            "Failed to unwrap Arc: still has outstanding references",
+        )
+    })?;
+
+    // Handle mutex into_inner failure (poisoned mutex)
+    let files = mutex.into_inner().unwrap_or_else(|poisoned| {
+        error!("Mutex was poisoned during parallel search, recovering data");
+        poisoned.into_inner()
+    });
 
     Ok(files)
 }
@@ -236,11 +252,22 @@ pub fn search_directories_parallel(
                             .map(|p| p.matches_path(&path))
                             .unwrap_or(false)
                     }) {
-                        if let Ok(mut dirs) = dirs.lock() {
-                            if path.is_dir() {
-                                dirs.push(path);
-                            } else if let Some(parent) = path.parent() {
-                                dirs.push(parent.to_path_buf());
+                        match dirs.lock() {
+                            Ok(mut guard) => {
+                                if path.is_dir() {
+                                    guard.push(path);
+                                } else if let Some(parent) = path.parent() {
+                                    guard.push(parent.to_path_buf());
+                                }
+                            }
+                            Err(poisoned) => {
+                                error!("Mutex poisoned, recovering data: {}", poisoned);
+                                let mut guard = poisoned.into_inner();
+                                if path.is_dir() {
+                                    guard.push(path);
+                                } else if let Some(parent) = path.parent() {
+                                    guard.push(parent.to_path_buf());
+                                }
                             }
                         }
                     }
@@ -251,10 +278,19 @@ pub fn search_directories_parallel(
         })
     });
 
-    let dirs = Arc::try_unwrap(dirs)
-        .unwrap()
-        .into_inner()
-        .unwrap();
+    // Handle Arc unwrap failure
+    let mutex = Arc::try_unwrap(dirs).map_err(|_| {
+        std::io::Error::new(
+            std::io::ErrorKind::Other,
+            "Failed to unwrap Arc: still has outstanding references",
+        )
+    })?;
+
+    // Handle mutex into_inner failure (poisoned mutex)
+    let dirs = mutex.into_inner().unwrap_or_else(|poisoned| {
+        error!("Mutex was poisoned during parallel search, recovering data");
+        poisoned.into_inner()
+    });
 
     Ok(dirs
         .into_iter()
