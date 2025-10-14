@@ -47,6 +47,64 @@ pub fn search_files(
     Ok(files)
 }
 
+pub fn search_files_parallel(
+    path: &std::path::Path,
+    include_patterns: Vec<String>,
+    exclude_patterns: Vec<String>,
+    respect_gitignore: bool,
+) -> std::io::Result<Vec<std::path::PathBuf>> {
+    use std::sync::{Arc, Mutex};
+
+    let files = Arc::new(Mutex::new(Vec::new()));
+    let include_patterns = Arc::new(include_patterns);
+
+    let walker = WalkBuilder::new(path)
+        .git_ignore(respect_gitignore)
+        .filter_entry(move |entry| {
+            let path = entry.path();
+            let is_excluded = exclude_patterns.iter().any(|pattern| {
+                glob::Pattern::new(pattern)
+                    .map(|p| p.matches_path(path))
+                    .unwrap_or(false)
+            });
+            !is_excluded
+        })
+        .build_parallel();
+
+    walker.run(|| {
+        let files = Arc::clone(&files);
+        let include_patterns = Arc::clone(&include_patterns);
+
+        Box::new(move |result| {
+            use ignore::WalkState;
+
+            match result {
+                Ok(entry) => {
+                    let path = entry.path();
+                    if include_patterns.iter().any(|pattern| {
+                        glob::Pattern::new(pattern)
+                            .map(|p| p.matches_path(path))
+                            .unwrap_or(false)
+                    }) && path.is_file() {
+                        if let Ok(mut files) = files.lock() {
+                            files.push(path.to_path_buf());
+                        }
+                    }
+                }
+                Err(err) => error!("Error: {}", err),
+            }
+            WalkState::Continue
+        })
+    });
+
+    let files = Arc::try_unwrap(files)
+        .unwrap()
+        .into_inner()
+        .unwrap();
+
+    Ok(files)
+}
+
 pub fn search_directories(
     root_path: &std::path::Path,
     include_patterns: Vec<String>,
@@ -74,6 +132,71 @@ pub fn search_directories(
             Err(err) => error!("Error: {}", err),
         }
     }
+    Ok(dirs
+        .into_iter()
+        .collect::<std::collections::HashSet<_>>()
+        .into_iter()
+        .collect())
+}
+
+pub fn search_directories_parallel(
+    root_path: &std::path::Path,
+    include_patterns: Vec<String>,
+    exclude_patterns: Vec<String>,
+) -> std::io::Result<Vec<PathBuf>> {
+    use std::sync::{Arc, Mutex};
+
+    let dirs = Arc::new(Mutex::new(Vec::new()));
+    let include_patterns = Arc::new(include_patterns);
+
+    let walker = WalkBuilder::new(root_path)
+        .git_ignore(true)
+        .filter_entry(move |entry| {
+            let path = entry.path();
+            let is_excluded = exclude_patterns.iter().any(|pattern| {
+                glob::Pattern::new(pattern)
+                    .map(|p| p.matches_path(path))
+                    .unwrap_or(false)
+            });
+            !is_excluded
+        })
+        .build_parallel();
+
+    walker.run(|| {
+        let dirs = Arc::clone(&dirs);
+        let include_patterns = Arc::clone(&include_patterns);
+
+        Box::new(move |result| {
+            use ignore::WalkState;
+
+            match result {
+                Ok(entry) => {
+                    let path = entry.path().to_path_buf();
+                    if include_patterns.iter().any(|pattern| {
+                        glob::Pattern::new(pattern)
+                            .map(|p| p.matches_path(&path))
+                            .unwrap_or(false)
+                    }) {
+                        if let Ok(mut dirs) = dirs.lock() {
+                            if path.is_dir() {
+                                dirs.push(path);
+                            } else if let Some(parent) = path.parent() {
+                                dirs.push(parent.to_path_buf());
+                            }
+                        }
+                    }
+                }
+                Err(err) => error!("Error: {}", err),
+            }
+            WalkState::Continue
+        })
+    });
+
+    let dirs = Arc::try_unwrap(dirs)
+        .unwrap()
+        .into_inner()
+        .unwrap();
+
     Ok(dirs
         .into_iter()
         .collect::<std::collections::HashSet<_>>()
