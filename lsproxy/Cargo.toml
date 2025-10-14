@@ -43,6 +43,11 @@ futures-util = "0.3"
 [dev-dependencies]
 tempfile = "3.8.1"
 reqwest = { version = "0.11", features = ["blocking", "json"] }
+criterion = "0.5"
+
+[[bench]]
+name = "file_walk_bench"
+harness = false
 
 [profile.release]
 incremental = true

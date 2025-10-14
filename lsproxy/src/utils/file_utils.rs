@@ -16,7 +16,52 @@ use super::workspace_documents::{
     TYPESCRIPT_AND_JAVASCRIPT_EXTENSIONS, TYPESCRIPT_EXTENSIONS,
 };
 
+/// Estimates the number of entries in a directory tree by doing a quick initial scan
+fn estimate_directory_size(path: &std::path::Path) -> usize {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::Arc;
+
+    let count = Arc::new(AtomicUsize::new(0));
+    let walker = WalkBuilder::new(path)
+        .max_depth(Some(3)) // Only scan 3 levels deep for estimation
+        .build_parallel();
+
+    walker.run(|| {
+        let count = Arc::clone(&count);
+        Box::new(move |result| {
+            if result.is_ok() {
+                count.fetch_add(1, Ordering::Relaxed);
+            }
+            ignore::WalkState::Continue
+        })
+    });
+
+    let sample_count = count.load(Ordering::Relaxed);
+    // Extrapolate based on 3-level sample
+    // This is a heuristic - adjust multiplier based on typical directory structure
+    sample_count * 10
+}
+
+// Threshold for switching to parallel mode (estimated entries)
+const PARALLEL_THRESHOLD: usize = 500;
+
+/// Adaptive search that automatically chooses sequential or parallel based on workload
 pub fn search_files(
+    path: &std::path::Path,
+    include_patterns: Vec<String>,
+    exclude_patterns: Vec<String>,
+    respect_gitignore: bool,
+) -> std::io::Result<Vec<std::path::PathBuf>> {
+    let estimated_size = estimate_directory_size(path);
+
+    if estimated_size < PARALLEL_THRESHOLD {
+        search_files_sequential(path, include_patterns, exclude_patterns, respect_gitignore)
+    } else {
+        search_files_parallel(path, include_patterns, exclude_patterns, respect_gitignore)
+    }
+}
+
+pub fn search_files_sequential(
     path: &std::path::Path,
     include_patterns: Vec<String>,
     exclude_patterns: Vec<String>,
@@ -24,7 +69,6 @@ pub fn search_files(
 ) -> std::io::Result<Vec<std::path::PathBuf>> {
     let mut files = Vec::new();
     let walk = build_walk(path, exclude_patterns, respect_gitignore);
-    // println!("Searching for {:?}",include_patterns);
     for result in walk {
         match result {
             Ok(entry) => {
@@ -105,7 +149,22 @@ pub fn search_files_parallel(
     Ok(files)
 }
 
+/// Adaptive search for directories that automatically chooses sequential or parallel based on workload
 pub fn search_directories(
+    root_path: &std::path::Path,
+    include_patterns: Vec<String>,
+    exclude_patterns: Vec<String>,
+) -> std::io::Result<Vec<PathBuf>> {
+    let estimated_size = estimate_directory_size(root_path);
+
+    if estimated_size < PARALLEL_THRESHOLD {
+        search_directories_sequential(root_path, include_patterns, exclude_patterns)
+    } else {
+        search_directories_parallel(root_path, include_patterns, exclude_patterns)
+    }
+}
+
+pub fn search_directories_sequential(
     root_path: &std::path::Path,
     include_patterns: Vec<String>,
     exclude_patterns: Vec<String>,
