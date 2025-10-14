@@ -1,3 +1,3 @@
-pub mod python;
+pub mod generic;
 
-pub use python::JediClient;
+pub use generic::GenericLspClient;

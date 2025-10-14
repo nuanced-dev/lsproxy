@@ -1,6 +1,6 @@
 use actix_web::{web, App, HttpResponse, HttpServer, Responder};
 use clap::Parser;
-use log::{error, info};
+use log::{error, info, warn};
 use std::sync::Arc;
 
 mod api_types;
@@ -11,9 +11,14 @@ mod manager;
 mod utils;
 
 use lsp::client::LspClient;
-use lsp::languages::JediClient;
+use lsp::languages::GenericLspClient;
 use lsp::process::ProcessHandler;
 use manager::Manager;
+use utils::workspace_documents::{
+    DidOpenConfiguration, PHP_FILE_PATTERNS, PYTHON_FILE_PATTERNS, RUBY_FILE_PATTERNS,
+    TYPESCRIPT_AND_JAVASCRIPT_FILE_PATTERNS, RUST_FILE_PATTERNS, GOLANG_FILE_PATTERNS,
+    JAVA_FILE_PATTERNS, C_AND_CPP_FILE_PATTERNS, CSHARP_FILE_PATTERNS,
+};
 
 /// HTTP wrapper for LSP servers
 /// Provides HTTP endpoints for LSP JSON-RPC communication
@@ -81,11 +86,50 @@ async fn main() -> std::io::Result<()> {
         std::io::Error::new(std::io::ErrorKind::Other, e)
     })?;
 
-    // Create JediClient (hardcoded for Python container, but manager abstracts over all clients)
-    let mut jedi_client = JediClient::new(process_handler, args.workspace_path.clone());
+    // Create appropriate client based on LSP command
+    // Detect language and configure file patterns + didOpen behavior
+    let (file_patterns, did_open_config) = if args.lsp_command.contains("phpactor") {
+        // PHP: Phpactor requires explicit didOpen notifications
+        (PHP_FILE_PATTERNS.to_vec(), DidOpenConfiguration::Lazy)
+    } else if args.lsp_command.contains("jedi") || args.lsp_command.contains("pyright") {
+        // Python: Jedi/Pyright index workspace automatically
+        (PYTHON_FILE_PATTERNS.to_vec(), DidOpenConfiguration::None)
+    } else if args.lsp_command.contains("ruby-lsp") || args.lsp_command.contains("solargraph") {
+        // Ruby: ruby-lsp indexes automatically
+        (RUBY_FILE_PATTERNS.to_vec(), DidOpenConfiguration::None)
+    } else if args.lsp_command.contains("typescript-language-server") || args.lsp_command.contains("tsserver") {
+        // TypeScript/JavaScript: tsserver indexes automatically
+        (TYPESCRIPT_AND_JAVASCRIPT_FILE_PATTERNS.to_vec(), DidOpenConfiguration::None)
+    } else if args.lsp_command.contains("rust-analyzer") {
+        // Rust: rust-analyzer indexes automatically
+        (RUST_FILE_PATTERNS.to_vec(), DidOpenConfiguration::None)
+    } else if args.lsp_command.contains("gopls") {
+        // Go: gopls indexes automatically
+        (GOLANG_FILE_PATTERNS.to_vec(), DidOpenConfiguration::None)
+    } else if args.lsp_command.contains("jdtls") {
+        // Java: Eclipse JDT.LS indexes automatically
+        (JAVA_FILE_PATTERNS.to_vec(), DidOpenConfiguration::None)
+    } else if args.lsp_command.contains("clangd") {
+        // C/C++: clangd indexes automatically
+        (C_AND_CPP_FILE_PATTERNS.to_vec(), DidOpenConfiguration::None)
+    } else if args.lsp_command.contains("csharp-ls") || args.lsp_command.contains("omnisharp") {
+        // C#: OmniSharp indexes automatically
+        (CSHARP_FILE_PATTERNS.to_vec(), DidOpenConfiguration::None)
+    } else {
+        // Default: assume workspace indexing (most LSP servers do this)
+        warn!("Unknown LSP command '{}', defaulting to None configuration", args.lsp_command);
+        (vec!["**/*"], DidOpenConfiguration::None)
+    };
+
+    let mut client: Box<dyn LspClient> = Box::new(GenericLspClient::new(
+        process_handler,
+        args.workspace_path.clone(),
+        file_patterns.iter().map(|&s| s.to_string()).collect(),
+        did_open_config,
+    ));
 
     // Initialize the LSP server
-    jedi_client.initialize(args.workspace_path.clone()).await.map_err(|e| {
+    client.initialize(args.workspace_path.clone()).await.map_err(|e| {
         error!("Failed to initialize LSP server: {}", e);
         std::io::Error::new(std::io::ErrorKind::Other, e)
     })?;
@@ -93,7 +137,7 @@ async fn main() -> std::io::Result<()> {
     info!("LSP server started and initialized successfully");
 
     let manager = Manager::new(
-        Arc::new(tokio::sync::Mutex::new(Box::new(jedi_client) as Box<dyn lsp::client::LspClient>)),
+        Arc::new(tokio::sync::Mutex::new(client)),
         args.workspace_path.clone(),
     );
 

@@ -206,6 +206,7 @@ pub trait LspClient: Send {
 
         // If needed, read the document text and send didOpen
         if needs_open {
+            info!("Sending textDocument/didOpen for {}", file_path);
             let document_text = self
                 .get_workspace_documents()
                 .read_text_document(&PathBuf::from(file_path), None)
@@ -266,6 +267,7 @@ pub trait LspClient: Send {
 
         // If needed, read the document text and send didOpen
         if needs_open {
+            info!("Sending textDocument/didOpen for {}", file_path);
             let document_text = self
                 .get_workspace_documents()
                 .read_text_document(&PathBuf::from(file_path), None)
