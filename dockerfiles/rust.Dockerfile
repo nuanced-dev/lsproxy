@@ -28,7 +28,7 @@ ENV PATH=/usr/local/cargo/bin:$PATH
 ENV RA_LOG="/tmp/rust-analyzer.log"
 
 # Set workspace path
-WORKDIR /workspace
+WORKDIR /mnt/workspace
 
 # CMD provides the language-specific command to lsp-wrapper ENTRYPOINT
 CMD ["--lsp-command", "rust-analyzer"]

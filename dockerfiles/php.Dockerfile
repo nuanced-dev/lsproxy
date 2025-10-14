@@ -53,7 +53,7 @@ COPY --from=builder /usr/src/phpactor /usr/src/phpactor
 ENV PATH="/usr/src/phpactor/bin:${PATH}"
 
 # Set workspace path
-WORKDIR /workspace
+WORKDIR /mnt/workspace
 
 # CMD provides the language-specific command to lsp-wrapper ENTRYPOINT
 CMD ["--lsp-command", "phpactor", "--lsp-arg=language-server"]

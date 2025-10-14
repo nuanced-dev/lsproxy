@@ -77,7 +77,7 @@ ENV PATH="$RBENV_ROOT/bin:$RBENV_ROOT/shims:${PATH}"
 COPY --from=builder /opt/rbenv /opt/rbenv
 
 # Set workspace path
-WORKDIR /workspace
+WORKDIR /mnt/workspace
 
 # CMD provides the language-specific command to lsp-wrapper ENTRYPOINT
 CMD ["--lsp-command", "ruby-lsp", "--lsp-arg=--use-launcher"]

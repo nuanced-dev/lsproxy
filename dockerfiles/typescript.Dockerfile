@@ -33,12 +33,15 @@ RUN apt-get update && \
 
 # Copy global npm packages from builder
 COPY --from=builder /usr/lib/node_modules /usr/lib/node_modules
-COPY --from=builder /usr/bin/typescript-language-server /usr/bin/typescript-language-server
-COPY --from=builder /usr/bin/tsc /usr/bin/tsc
-COPY --from=builder /usr/bin/tsserver /usr/bin/tsserver
+
+# Create symlinks for binaries (instead of copying them)
+# This preserves import.meta.url path resolution
+RUN ln -s /usr/lib/node_modules/typescript-language-server/lib/cli.mjs /usr/bin/typescript-language-server && \
+    ln -s /usr/lib/node_modules/typescript/bin/tsc /usr/bin/tsc && \
+    ln -s /usr/lib/node_modules/typescript/bin/tsserver /usr/bin/tsserver
 
 # Set workspace path
-WORKDIR /workspace
+WORKDIR /mnt/workspace
 
 # CMD provides the language-specific command to lsp-wrapper ENTRYPOINT
 CMD ["--lsp-command", "typescript-language-server", "--lsp-arg=--stdio"]

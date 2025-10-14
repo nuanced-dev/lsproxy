@@ -41,7 +41,7 @@ ENV GOPATH=/home/user/go
 ENV PATH=$GOPATH/bin:$GOROOT/bin:$PATH
 
 # Set workspace path
-WORKDIR /workspace
+WORKDIR /mnt/workspace
 
 # CMD provides the language-specific command to lsp-wrapper ENTRYPOINT
 # gopls args match existing LSProxy configuration

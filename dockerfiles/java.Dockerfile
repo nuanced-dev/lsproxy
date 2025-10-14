@@ -45,7 +45,7 @@ ENV PATH=${JAVA_HOME}/bin:/opt/jdtls/bin:${PATH}
 RUN chmod -R +rw /opt/jdtls/config_*
 
 # Set workspace path
-WORKDIR /workspace
+WORKDIR /mnt/workspace
 
 # Note: jdtls is invoked via java command with many args, handled by lsp-wrapper
 # The actual command is: java -Declipse.application=org.eclipse.jdt.ls.core.id1 ... -jar <launcher> -configuration /opt/jdtls/config_linux -data <workspace>
