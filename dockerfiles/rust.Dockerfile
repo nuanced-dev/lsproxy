@@ -10,7 +10,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN rustup component add rust-analyzer rustfmt
 
 # Runtime stage: Use slim base (Rust doesn't need build tools at runtime)
-FROM lsproxy-base:latest
+FROM lsproxy-base-runtime:latest
 
 ENV DEBIAN_FRONTEND=noninteractive
 
