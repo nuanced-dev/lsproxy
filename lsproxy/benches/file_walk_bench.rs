@@ -6,6 +6,12 @@ use std::path::Path;
 fn benchmark_file_walk(c: &mut Criterion) {
     let mut group = c.benchmark_group("file_walk");
 
+    // Configure for slower operations (300-600ms per iteration)
+    // Reduce sample size to 10 for large directory benchmarks
+    group.sample_size(10);
+    // Set measurement time to 10s (plenty of headroom for 10 samples × 600ms = 6s)
+    group.measurement_time(std::time::Duration::from_secs(10));
+
     // Get the benchmark path from environment variable or use current directory
     let benchmark_path = std::env::var("BENCH_PATH")
         .unwrap_or_else(|_| ".".to_string());
