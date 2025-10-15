@@ -44,6 +44,7 @@ futures-util = "0.3"
 tempfile = "3.8.1"
 reqwest = { version = "0.11", features = ["blocking", "json"] }
 criterion = "0.5"
+serial_test = "3.0"
 
 [[bench]]
 name = "file_walk_bench"
