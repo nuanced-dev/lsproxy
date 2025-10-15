@@ -83,9 +83,9 @@ RUN npm install -g typescript-language-server typescript
 
 # Install go and Gopls
 ARG TARGETARCH
-RUN curl -O -L "https://go.dev/dl/go1.23.5.linux-${TARGETARCH}.tar.gz" && \
-    tar -C /usr/local -xzf go1.23.5.linux-${TARGETARCH}.tar.gz && \
-    rm go1.23.5.linux-${TARGETARCH}.tar.gz && \
+RUN curl -O -L "https://go.dev/dl/go1.24.2.linux-${TARGETARCH}.tar.gz" && \
+    tar -C /usr/local -xzf go1.24.2.linux-${TARGETARCH}.tar.gz && \
+    rm go1.24.2.linux-${TARGETARCH}.tar.gz && \
     /usr/local/go/bin/go install golang.org/x/tools/gopls@latest && \
     cp ~/go/bin/gopls /usr/bin/gopls
 
