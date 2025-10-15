@@ -1,7 +1,4 @@
-use lsproxy::utils::file_utils::{
-    search_files_sequential, search_files_parallel,
-    search_directories_sequential, search_directories_parallel,
-};
+use lsproxy::utils::file_utils::{search_paths_parallel, search_paths_sequential, FileType};
 use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -117,19 +114,21 @@ fn test_all_implementations_return_same_results_small() {
     let include_patterns = vec!["**/*.rs".to_string()];
     let exclude_patterns: Vec<String> = vec![];
 
-    let seq_results = search_files_sequential(
+    let seq_results = search_paths_sequential(
         test_dir.path(),
         include_patterns.clone(),
         exclude_patterns.clone(),
         false,
+        FileType::File,
     )
     .unwrap();
 
-    let par_mutex_results = search_files_parallel(
+    let par_mutex_results = search_paths_parallel(
         test_dir.path(),
         include_patterns.clone(),
         exclude_patterns.clone(),
         false,
+        FileType::File,
     )
     .unwrap();
 
@@ -149,19 +148,21 @@ fn test_all_implementations_return_same_results_medium() {
     let include_patterns = vec!["**/*.rs".to_string()];
     let exclude_patterns: Vec<String> = vec![];
 
-    let seq_results = search_files_sequential(
+    let seq_results = search_paths_sequential(
         test_dir.path(),
         include_patterns.clone(),
         exclude_patterns.clone(),
         false,
+        FileType::File,
     )
     .unwrap();
 
-    let par_mutex_results = search_files_parallel(
+    let par_mutex_results = search_paths_parallel(
         test_dir.path(),
         include_patterns.clone(),
         exclude_patterns.clone(),
         false,
+        FileType::File,
     )
     .unwrap();
 
@@ -180,19 +181,21 @@ fn test_all_implementations_return_same_results_large() {
     let include_patterns = vec!["**/*.rs".to_string()];
     let exclude_patterns: Vec<String> = vec![];
 
-    let seq_results = search_files_sequential(
+    let seq_results = search_paths_sequential(
         test_dir.path(),
         include_patterns.clone(),
         exclude_patterns.clone(),
         false,
+        FileType::File,
     )
     .unwrap();
 
-    let par_mutex_results = search_files_parallel(
+    let par_mutex_results = search_paths_parallel(
         test_dir.path(),
         include_patterns.clone(),
         exclude_patterns.clone(),
         false,
+        FileType::File,
     )
     .unwrap();
 
@@ -211,19 +214,21 @@ fn test_with_exclude_patterns() {
     let include_patterns = vec!["**/*.rs".to_string()];
     let exclude_patterns = vec!["**/tests/**".to_string()];
 
-    let seq_results = search_files_sequential(
+    let seq_results = search_paths_sequential(
         test_dir.path(),
         include_patterns.clone(),
         exclude_patterns.clone(),
         false,
+        FileType::File,
     )
     .unwrap();
 
-    let par_results = search_files_parallel(
+    let par_results = search_paths_parallel(
         test_dir.path(),
         include_patterns.clone(),
         exclude_patterns.clone(),
         false,
+        FileType::File,
     )
     .unwrap();
 
@@ -233,7 +238,11 @@ fn test_with_exclude_patterns() {
     assert_eq!(seq, par);
 
     // Should exclude 30 test files, leaving 120
-    assert_eq!(seq.len(), 120, "Expected 120 .rs files after excluding tests");
+    assert_eq!(
+        seq.len(),
+        120,
+        "Expected 120 .rs files after excluding tests"
+    );
 }
 
 #[test]
@@ -242,19 +251,21 @@ fn test_multiple_include_patterns() {
     let include_patterns = vec!["**/*.rs".to_string(), "**/*.toml".to_string()];
     let exclude_patterns: Vec<String> = vec![];
 
-    let seq_results = search_files_sequential(
+    let seq_results = search_paths_sequential(
         test_dir.path(),
         include_patterns.clone(),
         exclude_patterns.clone(),
         false,
+        FileType::File,
     )
     .unwrap();
 
-    let par_results = search_files_parallel(
+    let par_results = search_paths_parallel(
         test_dir.path(),
         include_patterns.clone(),
         exclude_patterns.clone(),
         false,
+        FileType::File,
     )
     .unwrap();
 
@@ -273,17 +284,21 @@ fn test_directories_all_implementations_match() {
     let include_patterns = vec!["**/*.rs".to_string()];
     let exclude_patterns: Vec<String> = vec![];
 
-    let seq_results = search_directories_sequential(
+    let seq_results = search_paths_sequential(
         test_dir.path(),
         include_patterns.clone(),
         exclude_patterns.clone(),
+        true,
+        FileType::Dir,
     )
     .unwrap();
 
-    let par_mutex_results = search_directories_parallel(
+    let par_mutex_results = search_paths_parallel(
         test_dir.path(),
         include_patterns.clone(),
         exclude_patterns.clone(),
+        true,
+        FileType::Dir,
     )
     .unwrap();
 
@@ -300,19 +315,21 @@ fn test_empty_directory() {
     let include_patterns = vec!["**/*.rs".to_string()];
     let exclude_patterns: Vec<String> = vec![];
 
-    let seq_results = search_files_sequential(
+    let seq_results = search_paths_sequential(
         test_dir.path(),
         include_patterns.clone(),
         exclude_patterns.clone(),
         false,
+        FileType::File,
     )
     .unwrap();
 
-    let par_results = search_files_parallel(
+    let par_results = search_paths_parallel(
         test_dir.path(),
         include_patterns.clone(),
         exclude_patterns.clone(),
         false,
+        FileType::File,
     )
     .unwrap();
 
@@ -326,19 +343,21 @@ fn test_no_matching_files() {
     let include_patterns = vec!["**/*.xyz".to_string()]; // Non-existent extension
     let exclude_patterns: Vec<String> = vec![];
 
-    let seq_results = search_files_sequential(
+    let seq_results = search_paths_sequential(
         test_dir.path(),
         include_patterns.clone(),
         exclude_patterns.clone(),
         false,
+        FileType::File,
     )
     .unwrap();
 
-    let par_results = search_files_parallel(
+    let par_results = search_paths_parallel(
         test_dir.path(),
         include_patterns.clone(),
         exclude_patterns.clone(),
         false,
+        FileType::File,
     )
     .unwrap();
 
@@ -356,11 +375,12 @@ fn test_parallel_handles_large_directory() {
     let exclude_patterns: Vec<String> = vec![];
 
     let start = Instant::now();
-    let par_results = search_files_parallel(
+    let par_results = search_paths_parallel(
         test_dir.path(),
         include_patterns.clone(),
         exclude_patterns.clone(),
         false,
+        FileType::File,
     )
     .unwrap();
     let par_duration = start.elapsed();
@@ -386,11 +406,12 @@ fn test_sequential_fast_on_small() {
     let exclude_patterns: Vec<String> = vec![];
 
     let start = Instant::now();
-    let seq_results = search_files_sequential(
+    let seq_results = search_paths_sequential(
         test_dir.path(),
         include_patterns.clone(),
         exclude_patterns.clone(),
         false,
+        FileType::File,
     )
     .unwrap();
     let seq_duration = start.elapsed();
@@ -414,11 +435,12 @@ fn test_deterministic_results() {
 
     let mut results = vec![];
     for _ in 0..3 {
-        let result = search_files_parallel(
+        let result = search_paths_parallel(
             test_dir.path(),
             include_patterns.clone(),
             exclude_patterns.clone(),
             false,
+            FileType::File,
         )
         .unwrap();
         results.push(normalize_paths(result));
