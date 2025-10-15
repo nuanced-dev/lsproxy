@@ -1,4 +1,4 @@
-use crate::utils::file_utils::search_files;
+use crate::utils::file_utils::{search_paths, FileType};
 use log::{debug, error, warn};
 use lsp_types::Range;
 use notify_debouncer_mini::DebouncedEvent;
@@ -284,7 +284,7 @@ impl WorkspaceDocuments for WorkspaceDocumentsHandler {
             drop(cache_read);
             let (include_patterns, exclude_patterns) = self.patterns.read().await.clone();
             let file_paths =
-                search_files(&self.root_path, include_patterns, exclude_patterns, true)
+                search_paths(&self.root_path, include_patterns, exclude_patterns, true, FileType::File)
                     .unwrap_or_else(|err| {
                         error!("Error searching files: {}", err);
                         Vec::new()

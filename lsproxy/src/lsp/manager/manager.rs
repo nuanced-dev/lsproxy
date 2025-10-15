@@ -8,7 +8,7 @@ use crate::lsp::languages::{
 };
 use crate::utils::file_utils::uri_to_relative_path_string;
 use crate::utils::file_utils::{
-    absolute_path_to_relative_path_string, detect_language, search_files,
+    absolute_path_to_relative_path_string, detect_language, search_paths, FileType,
 };
 use crate::utils::workspace_documents::{
     WorkspaceDocuments, CSHARP_FILE_PATTERNS, C_AND_CPP_FILE_PATTERNS, DEFAULT_EXCLUDE_PATTERNS,
@@ -155,7 +155,7 @@ impl Manager {
                     .map(|&s| s.to_string())
                     .collect(),
             };
-            if !search_files(
+            if !search_paths(
                 Path::new(root_path),
                 patterns,
                 DEFAULT_EXCLUDE_PATTERNS
@@ -163,6 +163,7 @@ impl Manager {
                     .map(|s| s.to_string())
                     .collect(),
                 true,
+                FileType::File,
             )
             .map_err(|e| warn!("Error searching files: {}", e))
             .unwrap_or_default()

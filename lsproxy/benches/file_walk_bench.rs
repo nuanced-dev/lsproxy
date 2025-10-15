@@ -1,5 +1,5 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use lsproxy::utils::file_utils::{search_paths_parallel, search_paths_sequential, FileType};
+use lsproxy::utils::file_utils::{search_paths, search_paths_sequential, FileType};
 use std::path::Path;
 
 /// Comprehensive benchmark for TypeScript, Go, and Rust files
@@ -56,7 +56,7 @@ fn benchmark_file_walk(c: &mut Criterion) {
 
     group.bench_function("parallel", |b| {
         b.iter(|| {
-            black_box(search_paths_parallel(
+            black_box(search_paths(
                 search_path,
                 include_patterns.clone(),
                 exclude_patterns.clone(),

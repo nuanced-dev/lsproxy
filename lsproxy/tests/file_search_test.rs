@@ -1,4 +1,4 @@
-use lsproxy::utils::file_utils::{search_paths_parallel, search_paths_sequential, FileType};
+use lsproxy::utils::file_utils::{search_paths, search_paths_sequential, FileType};
 use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -123,7 +123,7 @@ fn test_all_implementations_return_same_results_small() {
     )
     .unwrap();
 
-    let par_mutex_results = search_paths_parallel(
+    let par_mutex_results = search_paths(
         test_dir.path(),
         include_patterns.clone(),
         exclude_patterns.clone(),
@@ -157,7 +157,7 @@ fn test_all_implementations_return_same_results_medium() {
     )
     .unwrap();
 
-    let par_mutex_results = search_paths_parallel(
+    let par_mutex_results = search_paths(
         test_dir.path(),
         include_patterns.clone(),
         exclude_patterns.clone(),
@@ -190,7 +190,7 @@ fn test_all_implementations_return_same_results_large() {
     )
     .unwrap();
 
-    let par_mutex_results = search_paths_parallel(
+    let par_mutex_results = search_paths(
         test_dir.path(),
         include_patterns.clone(),
         exclude_patterns.clone(),
@@ -223,7 +223,7 @@ fn test_with_exclude_patterns() {
     )
     .unwrap();
 
-    let par_results = search_paths_parallel(
+    let par_results = search_paths(
         test_dir.path(),
         include_patterns.clone(),
         exclude_patterns.clone(),
@@ -260,7 +260,7 @@ fn test_multiple_include_patterns() {
     )
     .unwrap();
 
-    let par_results = search_paths_parallel(
+    let par_results = search_paths(
         test_dir.path(),
         include_patterns.clone(),
         exclude_patterns.clone(),
@@ -293,7 +293,7 @@ fn test_directories_all_implementations_match() {
     )
     .unwrap();
 
-    let par_mutex_results = search_paths_parallel(
+    let par_mutex_results = search_paths(
         test_dir.path(),
         include_patterns.clone(),
         exclude_patterns.clone(),
@@ -324,7 +324,7 @@ fn test_empty_directory() {
     )
     .unwrap();
 
-    let par_results = search_paths_parallel(
+    let par_results = search_paths(
         test_dir.path(),
         include_patterns.clone(),
         exclude_patterns.clone(),
@@ -352,7 +352,7 @@ fn test_no_matching_files() {
     )
     .unwrap();
 
-    let par_results = search_paths_parallel(
+    let par_results = search_paths(
         test_dir.path(),
         include_patterns.clone(),
         exclude_patterns.clone(),
@@ -375,7 +375,7 @@ fn test_parallel_handles_large_directory() {
     let exclude_patterns: Vec<String> = vec![];
 
     let start = Instant::now();
-    let par_results = search_paths_parallel(
+    let par_results = search_paths(
         test_dir.path(),
         include_patterns.clone(),
         exclude_patterns.clone(),
@@ -435,7 +435,7 @@ fn test_deterministic_results() {
 
     let mut results = vec![];
     for _ in 0..3 {
-        let result = search_paths_parallel(
+        let result = search_paths(
             test_dir.path(),
             include_patterns.clone(),
             exclude_patterns.clone(),

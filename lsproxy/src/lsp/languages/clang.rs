@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 use std::process::Stdio;
 
 use crate::lsp::{ExpectedMessageKey, JsonRpc, Process};
-use crate::utils::file_utils::{search_directories, search_files};
+use crate::utils::file_utils::{search_paths, FileType};
 use crate::utils::workspace_documents::DidOpenConfiguration;
 use crate::{
     lsp::{JsonRpcHandler, LspClient, PendingRequests, ProcessHandler},
@@ -57,11 +57,12 @@ impl LspClient for ClangdClient {
         &mut self,
         root_path: &str,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        let compile_db_files = search_files(
+        let compile_db_files = search_paths(
             Path::new(root_path),
             vec![String::from("**/compile_commands.json")],
             vec![String::from("**/.git")],
             false,
+            FileType::File,
         )?;
 
         if compile_db_files.is_empty() {
@@ -191,7 +192,7 @@ fn find_include_dirs(project_root: &Path, cmakelists_files: &[PathBuf]) -> Vec<S
         .map(|&s| s.to_string())
         .collect();
 
-    if let Ok(dirs) = search_directories(project_root, include_patterns, exclude_patterns) {
+    if let Ok(dirs) = search_paths(project_root, include_patterns, exclude_patterns, true, FileType::Dir) {
         for dir in dirs {
             // Only add the directory itself, not its subdirectories
             if dir.is_dir() {
@@ -222,7 +223,7 @@ fn find_source_files(project_root: &Path) -> Vec<String> {
         .map(|&s| s.to_string())
         .collect();
 
-    match search_files(project_root, include_patterns, exclude_patterns, true) {
+    match search_paths(project_root, include_patterns, exclude_patterns, true, FileType::File) {
         Ok(files) => files
             .into_iter()
             .map(|file| file.to_string_lossy().into_owned())
@@ -241,7 +242,7 @@ fn generate_compile_commands(
 
     // Find CMakeLists.txt files
     debug!("Finding CMakeLists.txt files...");
-    let cmakelists_files = search_files(
+    let cmakelists_files = search_paths(
         project_path,
         vec!["**/CMakeLists.txt".to_string()],
         DEFAULT_EXCLUDE_PATTERNS
@@ -249,6 +250,7 @@ fn generate_compile_commands(
             .map(|&s| s.to_string())
             .collect(),
         true,
+        FileType::File,
     )?;
 
     // Parse CMakeLists.txt for compiler flags and C++ standard
