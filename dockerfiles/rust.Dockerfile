@@ -27,6 +27,9 @@ ENV PATH=/usr/local/cargo/bin:$PATH
 # Set rust-analyzer log path
 ENV RA_LOG="/tmp/rust-analyzer.log"
 
+# Set language for lsp-wrapper configuration
+ENV LSP_LANGUAGE="rust"
+
 # Set workspace path
 WORKDIR /mnt/workspace
 

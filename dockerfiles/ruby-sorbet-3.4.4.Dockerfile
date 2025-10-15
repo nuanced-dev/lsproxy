@@ -16,6 +16,9 @@ RUN eval "$("$RBENV_ROOT"/bin/rbenv init -)" && \
     rbenv exec gem install sorbet && \
     rbenv rehash
 
+# Set language for lsp-wrapper configuration
+ENV LSP_LANGUAGE="ruby"
+
 # Set workspace path
 WORKDIR /workspace
 

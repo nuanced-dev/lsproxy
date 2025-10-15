@@ -76,6 +76,9 @@ ENV RBENV_ROOT=/opt/rbenv
 ENV PATH="$RBENV_ROOT/bin:$RBENV_ROOT/shims:${PATH}"
 COPY --from=builder /opt/rbenv /opt/rbenv
 
+# Set language for lsp-wrapper configuration
+ENV LSP_LANGUAGE="ruby"
+
 # Set workspace path
 WORKDIR /mnt/workspace
 

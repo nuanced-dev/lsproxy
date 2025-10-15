@@ -44,6 +44,9 @@ COPY --from=builder /root/.dotnet/tools /opt/dotnet/tools
 ENV PATH="/opt/dotnet:/opt/dotnet/tools:${PATH}"
 ENV DOTNET_ROOT=/opt/dotnet
 
+# Set language for lsp-wrapper configuration
+ENV LSP_LANGUAGE="csharp"
+
 # Set workspace path
 WORKDIR /mnt/workspace
 

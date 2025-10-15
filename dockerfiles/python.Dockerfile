@@ -41,6 +41,9 @@ COPY --from=builder /opt/jedi-venv /opt/jedi-venv
 # Add jedi-language-server to PATH
 ENV PATH="/opt/jedi-venv/bin:${PATH}"
 
+# Set language for lsp-wrapper configuration
+ENV LSP_LANGUAGE="python"
+
 # Set workspace path (must match mount point)
 WORKDIR /mnt/workspace
 

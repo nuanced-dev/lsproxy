@@ -13,6 +13,9 @@ RUN apt-get update && \
     && apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
+# Set language for lsp-wrapper configuration
+ENV LSP_LANGUAGE="cpp"
+
 # Set workspace path
 WORKDIR /mnt/workspace
 

@@ -40,6 +40,9 @@ ENV GOROOT=/usr/local/go
 ENV GOPATH=/home/user/go
 ENV PATH=$GOPATH/bin:$GOROOT/bin:$PATH
 
+# Set language for lsp-wrapper configuration
+ENV LSP_LANGUAGE="go"
+
 # Set workspace path
 WORKDIR /mnt/workspace
 

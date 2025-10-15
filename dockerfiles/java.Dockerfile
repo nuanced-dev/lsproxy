@@ -44,6 +44,9 @@ ENV PATH=${JAVA_HOME}/bin:/opt/jdtls/bin:${PATH}
 # Set permissions on jdtls config directories
 RUN chmod -R +rw /opt/jdtls/config_*
 
+# Set language for lsp-wrapper configuration
+ENV LSP_LANGUAGE="java"
+
 # Set workspace path
 WORKDIR /mnt/workspace
 

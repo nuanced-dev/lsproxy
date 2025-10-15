@@ -52,6 +52,9 @@ COPY --from=builder /usr/src/phpactor /usr/src/phpactor
 # Add Phpactor to PATH
 ENV PATH="/usr/src/phpactor/bin:${PATH}"
 
+# Set language for lsp-wrapper configuration
+ENV LSP_LANGUAGE="php"
+
 # Set workspace path
 WORKDIR /mnt/workspace
 

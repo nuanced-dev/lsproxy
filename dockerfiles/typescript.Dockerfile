@@ -40,6 +40,9 @@ RUN ln -s /usr/lib/node_modules/typescript-language-server/lib/cli.mjs /usr/bin/
     ln -s /usr/lib/node_modules/typescript/bin/tsc /usr/bin/tsc && \
     ln -s /usr/lib/node_modules/typescript/bin/tsserver /usr/bin/tsserver
 
+# Set language for lsp-wrapper configuration
+ENV LSP_LANGUAGE="typescript"
+
 # Set workspace path
 WORKDIR /mnt/workspace
 
