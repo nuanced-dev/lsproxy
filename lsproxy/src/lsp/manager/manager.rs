@@ -70,7 +70,9 @@ impl Manager {
     fn parse_language(lang: &str) -> Option<SupportedLanguages> {
         match lang.trim().to_lowercase().as_str() {
             "python" => Some(SupportedLanguages::Python),
-            "typescript_javascript" | "typescript" | "javascript" => Some(SupportedLanguages::TypeScriptJavaScript),
+            "typescript_javascript" | "typescript" | "javascript" => {
+                Some(SupportedLanguages::TypeScriptJavaScript)
+            }
             "rust" => Some(SupportedLanguages::Rust),
             "cpp" | "c++" => Some(SupportedLanguages::CPP),
             "csharp" | "c#" => Some(SupportedLanguages::CSharp),
@@ -84,20 +86,17 @@ impl Manager {
     }
 
     /// Reads and parses the ENABLED_LANGUAGES environment variable.
-    /// Returns None if not set (all languages allowed), or Some(HashSet) with allowed languages.
-    fn get_allowed_languages() -> Option<std::collections::HashSet<SupportedLanguages>> {
-        std::env::var("ENABLED_LANGUAGES").ok().map(|langs| {
-            langs
-                .split(',')
-                .filter_map(Self::parse_language)
-                .collect()
-        })
+    /// Returns None if not set (all languages enabled), or Some(HashSet) with enabled languages.
+    fn get_enabled_languages() -> Option<std::collections::HashSet<SupportedLanguages>> {
+        std::env::var("ENABLED_LANGUAGES")
+            .ok()
+            .map(|langs| langs.split(',').filter_map(Self::parse_language).collect())
     }
 
     /// Detects the languages in the workspace by searching for files that match the language server's file patterns, before LSPs are started.
     /// If ENABLED_LANGUAGES is set, only searches for those languages.
     fn detect_languages_in_workspace(&self, root_path: &str) -> Vec<SupportedLanguages> {
-        let allowed_languages = Self::get_allowed_languages();
+        let enabled_languages = Self::get_enabled_languages();
 
         let mut lsps = Vec::new();
         for lsp in [
@@ -112,9 +111,9 @@ impl Manager {
             SupportedLanguages::Ruby,
             SupportedLanguages::RubySorbet,
         ] {
-            // Skip if not in allowed languages (when LSPROXY_ALLOWED_LANGS is set)
-            if let Some(ref allowed) = allowed_languages {
-                if !allowed.contains(&lsp) {
+            // Skip if not in enabled languages (when ENABLED_LANGUAGES is set)
+            if let Some(ref enabled) = enabled_languages {
+                if !enabled.contains(&lsp) {
                     continue;
                 }
             }
@@ -653,16 +652,16 @@ mod tests {
 
     #[test]
     #[serial]
-    fn test_get_allowed_languages_not_set() {
+    fn test_get_enabled_languages_not_set() {
         std::env::remove_var("ENABLED_LANGUAGES");
-        assert_eq!(Manager::get_allowed_languages(), None);
+        assert_eq!(Manager::get_enabled_languages(), None);
     }
 
     #[test]
     #[serial]
-    fn test_get_allowed_languages_single() {
+    fn test_get_enabled_languages_single() {
         std::env::set_var("ENABLED_LANGUAGES", "python");
-        let result = Manager::get_allowed_languages();
+        let result = Manager::get_enabled_languages();
         assert!(result.is_some());
         let langs = result.unwrap();
         assert_eq!(langs.len(), 1);
@@ -672,9 +671,9 @@ mod tests {
 
     #[test]
     #[serial]
-    fn test_get_allowed_languages_multiple() {
+    fn test_get_enabled_languages_multiple() {
         std::env::set_var("ENABLED_LANGUAGES", "python,rust,typescript");
-        let result = Manager::get_allowed_languages();
+        let result = Manager::get_enabled_languages();
         assert!(result.is_some());
         let langs = result.unwrap();
         assert_eq!(langs.len(), 3);
@@ -686,9 +685,9 @@ mod tests {
 
     #[test]
     #[serial]
-    fn test_get_allowed_languages_with_spaces() {
+    fn test_get_enabled_languages_with_spaces() {
         std::env::set_var("ENABLED_LANGUAGES", " python , rust , go ");
-        let result = Manager::get_allowed_languages();
+        let result = Manager::get_enabled_languages();
         assert!(result.is_some());
         let langs = result.unwrap();
         assert_eq!(langs.len(), 3);
@@ -700,9 +699,9 @@ mod tests {
 
     #[test]
     #[serial]
-    fn test_get_allowed_languages_with_invalid() {
+    fn test_get_enabled_languages_with_invalid() {
         std::env::set_var("ENABLED_LANGUAGES", "python,invalid,rust");
-        let result = Manager::get_allowed_languages();
+        let result = Manager::get_enabled_languages();
         assert!(result.is_some());
         let langs = result.unwrap();
         assert_eq!(langs.len(), 2); // invalid is filtered out
@@ -713,9 +712,9 @@ mod tests {
 
     #[test]
     #[serial]
-    fn test_get_allowed_languages_empty_string() {
+    fn test_get_enabled_languages_empty_string() {
         std::env::set_var("ENABLED_LANGUAGES", "");
-        let result = Manager::get_allowed_languages();
+        let result = Manager::get_enabled_languages();
         assert!(result.is_some());
         let langs = result.unwrap();
         assert_eq!(langs.len(), 0); // Empty set
@@ -724,9 +723,9 @@ mod tests {
 
     #[test]
     #[serial]
-    fn test_get_allowed_languages_all_invalid() {
+    fn test_get_enabled_languages_all_invalid() {
         std::env::set_var("ENABLED_LANGUAGES", "invalid1,invalid2");
-        let result = Manager::get_allowed_languages();
+        let result = Manager::get_enabled_languages();
         assert!(result.is_some());
         let langs = result.unwrap();
         assert_eq!(langs.len(), 0); // All filtered out
