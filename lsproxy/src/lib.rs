@@ -20,7 +20,7 @@ pub mod api_types;
 mod ast_grep;
 mod handlers;
 mod lsp;
-mod utils;
+pub mod utils;
 
 use crate::api_types::{
     get_mount_dir, set_global_mount_dir, CodeContext, DefinitionResponse, ErrorResponse,

@@ -43,6 +43,7 @@ futures-util = "0.3"
 [dev-dependencies]
 tempfile = "3.8.1"
 reqwest = { version = "0.11", features = ["blocking", "json"] }
+serial_test = "3.0"
 
 [profile.release]
 incremental = true

@@ -16,73 +16,37 @@ use super::workspace_documents::{
     TYPESCRIPT_AND_JAVASCRIPT_EXTENSIONS, TYPESCRIPT_EXTENSIONS,
 };
 
-pub fn search_files(
+#[derive(Clone, Copy)]
+pub enum FileType {
+    Dir,
+    File,
+}
+
+impl FileType {
+    /// Get the effective path that should be added, if possible.
+    fn accept(self, path: &Path) -> Option<&Path> {
+        match self {
+            Self::Dir if path.is_dir() => Some(path),
+            Self::Dir if path.is_file() => path.parent(),
+            Self::File if path.is_file() => Some(path),
+            _ => None,
+        }
+    }
+}
+
+pub fn search_paths(
     path: &std::path::Path,
     include_patterns: Vec<String>,
     exclude_patterns: Vec<String>,
     respect_gitignore: bool,
+    file_type: FileType,
 ) -> std::io::Result<Vec<std::path::PathBuf>> {
-    let mut files = Vec::new();
-    let walk = build_walk(path, exclude_patterns, respect_gitignore);
-    // println!("Searching for {:?}",include_patterns);
-    for result in walk {
-        match result {
-            Ok(entry) => {
-                let path = entry.path();
-                if !include_patterns.iter().any(|pattern| {
-                    glob::Pattern::new(pattern)
-                        .map(|p| p.matches_path(path))
-                        .unwrap_or(false)
-                }) {
-                    continue;
-                }
-                if path.is_file() {
-                    files.push(path.to_path_buf());
-                }
-            }
-            Err(err) => error!("Error: {}", err),
-        }
-    }
+    use std::sync::{Arc, Mutex};
 
-    Ok(files)
-}
+    let paths = Arc::new(Mutex::new(Vec::new()));
+    let include_patterns = Arc::new(include_patterns);
 
-pub fn search_directories(
-    root_path: &std::path::Path,
-    include_patterns: Vec<String>,
-    exclude_patterns: Vec<String>,
-) -> std::io::Result<Vec<PathBuf>> {
-    let mut dirs = Vec::new();
-    let walk = build_walk(root_path, exclude_patterns, true);
-    for result in walk {
-        match result {
-            Ok(entry) => {
-                let path = entry.path().to_path_buf();
-                if !include_patterns.iter().any(|pattern| {
-                    glob::Pattern::new(pattern)
-                        .map(|p| p.matches_path(&path))
-                        .unwrap_or(false)
-                }) {
-                    continue;
-                }
-                if path.is_dir() {
-                    dirs.push(path);
-                } else {
-                    dirs.push(path.parent().unwrap().to_path_buf());
-                }
-            }
-            Err(err) => error!("Error: {}", err),
-        }
-    }
-    Ok(dirs
-        .into_iter()
-        .collect::<std::collections::HashSet<_>>()
-        .into_iter()
-        .collect())
-}
-
-fn build_walk(path: &Path, exclude_patterns: Vec<String>, respect_gitignore: bool) -> ignore::Walk {
-    let walk = WalkBuilder::new(path)
+    let walker = WalkBuilder::new(path)
         .git_ignore(respect_gitignore)
         .filter_entry(move |entry| {
             let path = entry.path();
@@ -93,8 +57,69 @@ fn build_walk(path: &Path, exclude_patterns: Vec<String>, respect_gitignore: boo
             });
             !is_excluded
         })
-        .build();
-    walk
+        .build_parallel();
+
+    walker.run(|| {
+        let paths = Arc::clone(&paths);
+        let include_patterns = Arc::clone(&include_patterns);
+
+        Box::new(move |result| {
+            use ignore::WalkState;
+
+            match result {
+                Ok(entry) => {
+                    let path = entry.path();
+
+                    if !include_patterns.iter().any(|pattern| {
+                        glob::Pattern::new(pattern)
+                            .map(|p| p.matches_path(path))
+                            .unwrap_or(false)
+                    }) {
+                        return WalkState::Continue;
+                    }
+
+                    let path = if let Some(path) = file_type.accept(path) {
+                        path
+                    } else {
+                        return WalkState::Continue;
+                    };
+
+                    match paths.lock() {
+                        Ok(mut guard) => {
+                            guard.push(path.to_path_buf());
+                        }
+                        Err(poisoned) => {
+                            error!("Mutex poisoned, recovering data: {}", poisoned);
+                            let mut guard = poisoned.into_inner();
+                            guard.push(path.to_path_buf());
+                        }
+                    }
+                }
+                Err(err) => error!("Error: {}", err),
+            }
+            WalkState::Continue
+        })
+    });
+
+    // Handle Arc unwrap failure
+    let mutex = Arc::try_unwrap(paths).map_err(|_| {
+        std::io::Error::new(
+            std::io::ErrorKind::Other,
+            "Failed to unwrap Arc: still has outstanding references",
+        )
+    })?;
+
+    // Handle mutex into_inner failure (poisoned mutex)
+    let paths = mutex.into_inner().unwrap_or_else(|poisoned| {
+        error!("Mutex was poisoned during parallel search, recovering data");
+        poisoned.into_inner()
+    });
+
+    Ok(paths
+        .into_iter()
+        .collect::<std::collections::HashSet<_>>()
+        .into_iter()
+        .collect())
 }
 
 pub fn uri_to_relative_path_string(uri: &Url) -> String {

@@ -8,7 +8,7 @@ use crate::lsp::languages::{
 };
 use crate::utils::file_utils::uri_to_relative_path_string;
 use crate::utils::file_utils::{
-    absolute_path_to_relative_path_string, detect_language, search_files,
+    absolute_path_to_relative_path_string, detect_language, search_paths, FileType,
 };
 use crate::utils::workspace_documents::{
     WorkspaceDocuments, CSHARP_FILE_PATTERNS, C_AND_CPP_FILE_PATTERNS, DEFAULT_EXCLUDE_PATTERNS,
@@ -66,8 +66,38 @@ impl Manager {
         })
     }
 
+    /// Parses a language string into a SupportedLanguages enum value
+    fn parse_language(lang: &str) -> Option<SupportedLanguages> {
+        match lang.trim().to_lowercase().as_str() {
+            "python" => Some(SupportedLanguages::Python),
+            "typescript_javascript" | "typescript" | "javascript" => {
+                Some(SupportedLanguages::TypeScriptJavaScript)
+            }
+            "rust" => Some(SupportedLanguages::Rust),
+            "cpp" | "c++" => Some(SupportedLanguages::CPP),
+            "csharp" | "c#" => Some(SupportedLanguages::CSharp),
+            "java" => Some(SupportedLanguages::Java),
+            "golang" | "go" => Some(SupportedLanguages::Golang),
+            "php" => Some(SupportedLanguages::PHP),
+            "ruby" => Some(SupportedLanguages::Ruby),
+            "ruby_sorbet" | "sorbet" => Some(SupportedLanguages::RubySorbet),
+            _ => None,
+        }
+    }
+
+    /// Reads and parses the ENABLED_LANGUAGES environment variable.
+    /// Returns None if not set (all languages enabled), or Some(HashSet) with enabled languages.
+    fn get_enabled_languages() -> Option<std::collections::HashSet<SupportedLanguages>> {
+        std::env::var("ENABLED_LANGUAGES")
+            .ok()
+            .map(|langs| langs.split(',').filter_map(Self::parse_language).collect())
+    }
+
     /// Detects the languages in the workspace by searching for files that match the language server's file patterns, before LSPs are started.
+    /// If ENABLED_LANGUAGES is set, only searches for those languages.
     fn detect_languages_in_workspace(&self, root_path: &str) -> Vec<SupportedLanguages> {
+        let enabled_languages = Self::get_enabled_languages();
+
         let mut lsps = Vec::new();
         for lsp in [
             SupportedLanguages::Python,
@@ -81,6 +111,12 @@ impl Manager {
             SupportedLanguages::Ruby,
             SupportedLanguages::RubySorbet,
         ] {
+            // Skip if not in enabled languages (when ENABLED_LANGUAGES is set)
+            if let Some(ref enabled) = enabled_languages {
+                if !enabled.contains(&lsp) {
+                    continue;
+                }
+            }
             let patterns = match lsp {
                 SupportedLanguages::Python => PYTHON_FILE_PATTERNS
                     .iter()
@@ -119,7 +155,7 @@ impl Manager {
                     .map(|&s| s.to_string())
                     .collect(),
             };
-            if !search_files(
+            if !search_paths(
                 Path::new(root_path),
                 patterns,
                 DEFAULT_EXCLUDE_PATTERNS
@@ -127,6 +163,7 @@ impl Manager {
                     .map(|s| s.to_string())
                     .collect(),
                 true,
+                FileType::File,
             )
             .map_err(|e| warn!("Error searching files: {}", e))
             .unwrap_or_default()
@@ -521,3 +558,144 @@ impl fmt::Display for LspManagerError {
 }
 
 impl std::error::Error for LspManagerError {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serial_test::serial;
+
+    #[test]
+    fn test_parse_language() {
+        // Valid languages with case insensitivity and whitespace
+        assert_eq!(
+            Manager::parse_language("python"),
+            Some(SupportedLanguages::Python)
+        );
+        assert_eq!(
+            Manager::parse_language("PYTHON"),
+            Some(SupportedLanguages::Python)
+        );
+        assert_eq!(
+            Manager::parse_language(" python "),
+            Some(SupportedLanguages::Python)
+        );
+
+        // Language aliases
+        assert_eq!(
+            Manager::parse_language("typescript"),
+            Some(SupportedLanguages::TypeScriptJavaScript)
+        );
+        assert_eq!(
+            Manager::parse_language("javascript"),
+            Some(SupportedLanguages::TypeScriptJavaScript)
+        );
+        assert_eq!(
+            Manager::parse_language("typescript_javascript"),
+            Some(SupportedLanguages::TypeScriptJavaScript)
+        );
+        assert_eq!(
+            Manager::parse_language("golang"),
+            Some(SupportedLanguages::Golang)
+        );
+        assert_eq!(
+            Manager::parse_language("go"),
+            Some(SupportedLanguages::Golang)
+        );
+        assert_eq!(
+            Manager::parse_language("cpp"),
+            Some(SupportedLanguages::CPP)
+        );
+        assert_eq!(
+            Manager::parse_language("c++"),
+            Some(SupportedLanguages::CPP)
+        );
+        assert_eq!(
+            Manager::parse_language("csharp"),
+            Some(SupportedLanguages::CSharp)
+        );
+        assert_eq!(
+            Manager::parse_language("c#"),
+            Some(SupportedLanguages::CSharp)
+        );
+        assert_eq!(
+            Manager::parse_language("ruby_sorbet"),
+            Some(SupportedLanguages::RubySorbet)
+        );
+        assert_eq!(
+            Manager::parse_language("sorbet"),
+            Some(SupportedLanguages::RubySorbet)
+        );
+
+        // All supported languages
+        assert_eq!(
+            Manager::parse_language("rust"),
+            Some(SupportedLanguages::Rust)
+        );
+        assert_eq!(
+            Manager::parse_language("java"),
+            Some(SupportedLanguages::Java)
+        );
+        assert_eq!(
+            Manager::parse_language("php"),
+            Some(SupportedLanguages::PHP)
+        );
+        assert_eq!(
+            Manager::parse_language("ruby"),
+            Some(SupportedLanguages::Ruby)
+        );
+
+        // Invalid inputs
+        assert_eq!(Manager::parse_language("invalid"), None);
+        assert_eq!(Manager::parse_language(""), None);
+        assert_eq!(Manager::parse_language("c"), None);
+    }
+
+    #[test]
+    #[serial]
+    fn test_get_enabled_languages() {
+        // Not set - should return None
+        std::env::remove_var("ENABLED_LANGUAGES");
+        assert_eq!(Manager::get_enabled_languages(), None);
+
+        // Single language
+        std::env::set_var("ENABLED_LANGUAGES", "python");
+        let result = Manager::get_enabled_languages().unwrap();
+        assert_eq!(result.len(), 1);
+        assert!(result.contains(&SupportedLanguages::Python));
+
+        // Multiple languages
+        std::env::set_var("ENABLED_LANGUAGES", "python,rust,typescript");
+        let result = Manager::get_enabled_languages().unwrap();
+        assert_eq!(result.len(), 3);
+        assert!(result.contains(&SupportedLanguages::Python));
+        assert!(result.contains(&SupportedLanguages::Rust));
+        assert!(result.contains(&SupportedLanguages::TypeScriptJavaScript));
+
+        // With whitespace (should be trimmed)
+        std::env::set_var("ENABLED_LANGUAGES", " python , rust , go ");
+        let result = Manager::get_enabled_languages().unwrap();
+        assert_eq!(result.len(), 3);
+        assert!(result.contains(&SupportedLanguages::Python));
+        assert!(result.contains(&SupportedLanguages::Rust));
+        assert!(result.contains(&SupportedLanguages::Golang));
+
+        // With invalid entries (should be filtered out)
+        std::env::set_var("ENABLED_LANGUAGES", "python,invalid,rust");
+        let result = Manager::get_enabled_languages().unwrap();
+        assert_eq!(result.len(), 2);
+        assert!(result.contains(&SupportedLanguages::Python));
+        assert!(result.contains(&SupportedLanguages::Rust));
+
+        // Empty string
+        std::env::set_var("ENABLED_LANGUAGES", "");
+        let result = Manager::get_enabled_languages().unwrap();
+        assert_eq!(result.len(), 0);
+
+        // All invalid
+        std::env::set_var("ENABLED_LANGUAGES", "invalid1,invalid2");
+        let result = Manager::get_enabled_languages().unwrap();
+        assert_eq!(result.len(), 0);
+
+        std::env::remove_var("ENABLED_LANGUAGES");
+    }
+}

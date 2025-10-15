@@ -1,7 +1,7 @@
 use crate::lsp::json_rpc::JsonRpc;
 use crate::lsp::process::Process;
 use crate::lsp::{ExpectedMessageKey, JsonRpcHandler, ProcessHandler};
-use crate::utils::file_utils::{detect_language_string, search_directories};
+use crate::utils::file_utils::{detect_language_string, search_paths, FileType};
 use async_trait::async_trait;
 use log::{debug, error, info, warn};
 use lsp_types::{
@@ -361,7 +361,7 @@ pub trait LspClient: Send {
             .map(|&s| s.to_string())
             .collect();
 
-        match search_directories(Path::new(&root_path), include_patterns, exclude_patterns) {
+        match search_paths(Path::new(&root_path), include_patterns, exclude_patterns, true, FileType::Dir) {
             Ok(dirs) => {
                 for dir in dirs {
                     let folder_path = Path::new(&root_path).join(&dir);

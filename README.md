@@ -80,6 +80,44 @@ services:
     volumes:
       - ${WORKSPACE_PATH}:/mnt/workspace
 ```
+
+#### Limiting Language Servers
+By default, `lsproxy` automatically detects and starts language servers for all [supported languages](#supported-languages) found in your workspace. You can limit which language servers are enabled using the `ENABLED_LANGUAGES` environment variable:
+
+```bash
+docker run -p 4444:4444 -v $WORKSPACE_PATH:/mnt/workspace -e ENABLED_LANGUAGES=python,typescript,rust agenticlabs/lsproxy
+```
+
+```dockerfile
+services:
+  lsproxy:
+    image: agenticlabs/lsproxy
+    ports:
+      - "4444:4444"
+    environment:
+      - ENABLED_LANGUAGES=python,typescript,rust
+    volumes:
+      - ${WORKSPACE_PATH}:/mnt/workspace
+```
+
+**Supported language names** (case-insensitive):
+- `python` - Python
+- `typescript`, `javascript` - TypeScript/JavaScript
+- `rust` - Rust
+- `cpp`, `c++` - C/C++
+- `csharp`, `c#` - C#
+- `java` - Java
+- `golang`, `go` - Go
+- `php` - PHP
+- `ruby` - Ruby
+- `sorbet`, `ruby_sorbet` - Ruby with Sorbet
+
+**Note**: Only language servers for languages that both:
+1. Are listed in `ENABLED_LANGUAGES`, AND
+2. Have matching source files in your workspace
+
+will be started. This can speed up initialization time for large polyglot repositories.
+
 ### Configure an existing system
 You can also configure an existing system to run `lsproxy`. Add the following line in your dockerfile or run it as part of a startup script
 ```bash
