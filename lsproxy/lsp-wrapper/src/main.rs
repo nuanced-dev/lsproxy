@@ -148,6 +148,46 @@ async fn main() -> std::io::Result<()> {
         std::io::Error::new(std::io::ErrorKind::Other, e)
     })?;
 
+    // Java-specific: Wait for ServiceReady notification
+    if language.as_str() == "java" {
+        use lsp::ExpectedMessageKey;
+        info!("Java: waiting for ServiceReady notification. This may take up to 3 minutes...");
+
+        let mut notification_rx = client
+            .get_pending_requests()
+            .add_notification(ExpectedMessageKey {
+                method: "language/status".to_string(),
+                params: serde_json::json!({
+                    "type": "ServiceReady",
+                    "message": "ServiceReady"
+                }),
+            })
+            .await
+            .map_err(|e| {
+                error!("Failed to add ServiceReady notification listener: {}", e);
+                std::io::Error::new(std::io::ErrorKind::Other, e)
+            })?;
+
+        tokio::time::timeout(
+            std::time::Duration::from_secs(180),
+            notification_rx.recv()
+        )
+        .await
+        .map_err(|_| {
+            error!("Timeout waiting for Java ServiceReady notification");
+            std::io::Error::new(
+                std::io::ErrorKind::TimedOut,
+                "Timeout waiting for Java ServiceReady notification after 180 seconds",
+            )
+        })?
+        .map_err(|e| {
+            error!("Error receiving ServiceReady notification: {}", e);
+            std::io::Error::new(std::io::ErrorKind::Other, e)
+        })?;
+
+        info!("Java: ServiceReady notification received!");
+    }
+
     // Setup workspace (e.g., rust-analyzer/reloadWorkspace)
     client.setup_workspace(&args.workspace_path).await.map_err(|e| {
         error!("Failed to setup workspace: {}", e);

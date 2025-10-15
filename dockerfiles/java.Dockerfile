@@ -47,9 +47,13 @@ RUN chmod -R +rw /opt/jdtls/config_*
 # Set language for lsp-wrapper configuration
 ENV LSP_LANGUAGE="java"
 
+# Copy and setup Java-specific entrypoint script
+COPY dockerfiles/entrypoints/java-entrypoint.sh /usr/local/bin/java-entrypoint.sh
+RUN chmod +x /usr/local/bin/java-entrypoint.sh
+
 # Set workspace path
 WORKDIR /mnt/workspace
 
-# Note: jdtls is invoked via java command with many args, handled by lsp-wrapper
-# The actual command is: java -Declipse.application=org.eclipse.jdt.ls.core.id1 ... -jar <launcher> -configuration /opt/jdtls/config_linux -data <workspace>
-CMD ["--lsp-command", "java", "--lsp-arg=-Declipse.application=org.eclipse.jdt.ls.core.id1", "--lsp-arg=-Dosgi.bundles.defaultStartLevel=4", "--lsp-arg=-Declipse.product=org.eclipse.jdt.ls.core.product", "--lsp-arg=-Dlog.protocol=true", "--lsp-arg=-Dlog.level=ALL", "--lsp-arg=-Xmx1g", "--lsp-arg=--add-modules=ALL-SYSTEM", "--lsp-arg=--add-opens", "--lsp-arg=java.base/java.util=ALL-UNNAMED", "--lsp-arg=--add-opens", "--lsp-arg=java.base/java.lang=ALL-UNNAMED"]
+# Use custom entrypoint that finds launcher jar and sets up jdtls workspace
+ENTRYPOINT ["/usr/local/bin/java-entrypoint.sh"]
+CMD []
