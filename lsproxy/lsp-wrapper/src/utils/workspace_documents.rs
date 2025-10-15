@@ -112,7 +112,9 @@ pub const PHP_EXTENSIONS: &[&str] = &["php", "phtml", "phps", "php5", "php7", "p
 
 #[derive(Clone, PartialEq)]
 pub enum DidOpenConfiguration {
+    /// Open files on-demand when first accessed
     Lazy,
+    /// Never send didOpen, assume LSP indexes workspace automatically
     None,
 }
 

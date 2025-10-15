@@ -6,12 +6,16 @@ use crate::utils::workspace_documents::{
     DidOpenConfiguration, WorkspaceDocumentsHandler, DEFAULT_EXCLUDE_PATTERNS,
 };
 use async_trait::async_trait;
+use lsp_types::InitializeParams;
+use std::error::Error;
 
 pub struct GenericLspClient {
     process: ProcessHandler,
     json_rpc: JsonRpcHandler,
     workspace_documents: WorkspaceDocumentsHandler,
     pending_requests: PendingRequests,
+    initialization_options: Option<serde_json::Value>,
+    setup_workspace_method: Option<String>,
 }
 
 #[async_trait]
@@ -34,6 +38,31 @@ impl LspClient for GenericLspClient {
 
     fn get_pending_requests(&mut self) -> &mut PendingRequests {
         &mut self.pending_requests
+    }
+
+    async fn get_initialize_params(
+        &mut self,
+        root_path: String,
+    ) -> Result<InitializeParams, Box<dyn Error + Send + Sync>> {
+        let workspace_folders = self.find_workspace_folders(root_path.clone()).await?;
+        Ok(InitializeParams {
+            capabilities: self.get_capabilities(),
+            workspace_folders: Some(workspace_folders),
+            root_uri: Some(lsp_types::Url::from_file_path(&root_path).unwrap()),
+            initialization_options: self.initialization_options.clone(),
+            ..Default::default()
+        })
+    }
+
+    async fn setup_workspace(
+        &mut self,
+        _root_path: &str,
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
+        if let Some(method) = self.setup_workspace_method.clone() {
+            log::info!("Calling setup workspace method: {}", method);
+            self.send_request(&method, None).await?;
+        }
+        Ok(())
     }
 }
 
@@ -65,6 +94,20 @@ impl GenericLspClient {
             json_rpc: json_rpc_handler,
             workspace_documents,
             pending_requests: PendingRequests::new(),
+            initialization_options: None,
+            setup_workspace_method: None,
         }
+    }
+
+    /// Set initialization options for the LSP server (e.g., Rust cargo.sysroot)
+    pub fn with_initialization_options(mut self, options: serde_json::Value) -> Self {
+        self.initialization_options = Some(options);
+        self
+    }
+
+    /// Set setup workspace method to call after initialization (e.g., rust-analyzer/reloadWorkspace)
+    pub fn with_setup_workspace_method(mut self, method: String) -> Self {
+        self.setup_workspace_method = Some(method);
+        self
     }
 }

@@ -86,51 +86,71 @@ async fn main() -> std::io::Result<()> {
         std::io::Error::new(std::io::ErrorKind::Other, e)
     })?;
 
-    // Create appropriate client based on LSP command
-    // Detect language and configure file patterns + didOpen behavior
-    let (file_patterns, did_open_config) = if args.lsp_command.contains("phpactor") {
-        // PHP: Phpactor requires explicit didOpen notifications
-        (PHP_FILE_PATTERNS.to_vec(), DidOpenConfiguration::Lazy)
-    } else if args.lsp_command.contains("jedi") || args.lsp_command.contains("pyright") {
-        // Python: Jedi/Pyright index workspace automatically
-        (PYTHON_FILE_PATTERNS.to_vec(), DidOpenConfiguration::None)
-    } else if args.lsp_command.contains("ruby-lsp") || args.lsp_command.contains("solargraph") {
-        // Ruby: ruby-lsp indexes automatically
-        (RUBY_FILE_PATTERNS.to_vec(), DidOpenConfiguration::None)
-    } else if args.lsp_command.contains("typescript-language-server") || args.lsp_command.contains("tsserver") {
-        // TypeScript/JavaScript: tsserver indexes automatically
-        (TYPESCRIPT_AND_JAVASCRIPT_FILE_PATTERNS.to_vec(), DidOpenConfiguration::None)
-    } else if args.lsp_command.contains("rust-analyzer") {
-        // Rust: rust-analyzer indexes automatically
-        (RUST_FILE_PATTERNS.to_vec(), DidOpenConfiguration::None)
-    } else if args.lsp_command.contains("gopls") {
-        // Go: gopls indexes automatically
-        (GOLANG_FILE_PATTERNS.to_vec(), DidOpenConfiguration::None)
-    } else if args.lsp_command.contains("jdtls") {
-        // Java: Eclipse JDT.LS indexes automatically
-        (JAVA_FILE_PATTERNS.to_vec(), DidOpenConfiguration::None)
-    } else if args.lsp_command.contains("clangd") {
-        // C/C++: clangd indexes automatically
-        (C_AND_CPP_FILE_PATTERNS.to_vec(), DidOpenConfiguration::None)
-    } else if args.lsp_command.contains("csharp-ls") || args.lsp_command.contains("omnisharp") {
-        // C#: OmniSharp indexes automatically
-        (CSHARP_FILE_PATTERNS.to_vec(), DidOpenConfiguration::None)
-    } else {
-        // Default: assume workspace indexing (most LSP servers do this)
-        warn!("Unknown LSP command '{}', defaulting to None configuration", args.lsp_command);
-        (vec!["**/*"], DidOpenConfiguration::None)
+    // Get language from LSP_LANGUAGE environment variable (required)
+    let language = std::env::var("LSP_LANGUAGE").map_err(|_| {
+        error!("LSP_LANGUAGE environment variable is not set");
+        std::io::Error::new(
+            std::io::ErrorKind::Other,
+            "LSP_LANGUAGE environment variable is required but not set",
+        )
+    })?;
+
+    info!("Language detected: {}", language);
+
+    // Configure based on language
+    let (file_patterns, did_open_config) = match language.as_str() {
+        "php" => (PHP_FILE_PATTERNS.to_vec(), DidOpenConfiguration::Lazy),
+        "python" => (PYTHON_FILE_PATTERNS.to_vec(), DidOpenConfiguration::None),
+        "ruby" => (RUBY_FILE_PATTERNS.to_vec(), DidOpenConfiguration::None),
+        "typescript" | "javascript" => (TYPESCRIPT_AND_JAVASCRIPT_FILE_PATTERNS.to_vec(), DidOpenConfiguration::None),
+        "rust" => (RUST_FILE_PATTERNS.to_vec(), DidOpenConfiguration::None),
+        "go" | "golang" => (GOLANG_FILE_PATTERNS.to_vec(), DidOpenConfiguration::None),
+        "java" => (JAVA_FILE_PATTERNS.to_vec(), DidOpenConfiguration::None),
+        "cpp" | "c" => (C_AND_CPP_FILE_PATTERNS.to_vec(), DidOpenConfiguration::None),
+        "csharp" => (CSHARP_FILE_PATTERNS.to_vec(), DidOpenConfiguration::None),
+        _ => {
+            error!("Unknown language '{}'. Supported languages: php, python, ruby, typescript, javascript, rust, go, golang, java, cpp, c, csharp", language);
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                format!("Unsupported language: {}", language),
+            ));
+        }
     };
 
-    let mut client: Box<dyn LspClient> = Box::new(GenericLspClient::new(
+    // Create base client
+    let mut base_client = GenericLspClient::new(
         process_handler,
         args.workspace_path.clone(),
         file_patterns.iter().map(|&s| s.to_string()).collect(),
         did_open_config,
-    ));
+    );
+
+    // Apply language-specific initialization and setup
+    match language.as_str() {
+        "rust" => {
+            info!("Configuring Rust with initialization options and setup workspace");
+            base_client = base_client
+                .with_initialization_options(serde_json::json!({
+                    "cargo": {
+                        "sysroot": serde_json::Value::Null
+                    }
+                }))
+                .with_setup_workspace_method("rust-analyzer/reloadWorkspace".to_string());
+        }
+        _ => {}
+    }
+
+    let mut client: Box<dyn LspClient> = Box::new(base_client);
 
     // Initialize the LSP server
     client.initialize(args.workspace_path.clone()).await.map_err(|e| {
         error!("Failed to initialize LSP server: {}", e);
+        std::io::Error::new(std::io::ErrorKind::Other, e)
+    })?;
+
+    // Setup workspace (e.g., rust-analyzer/reloadWorkspace)
+    client.setup_workspace(&args.workspace_path).await.map_err(|e| {
+        error!("Failed to setup workspace: {}", e);
         std::io::Error::new(std::io::ErrorKind::Other, e)
     })?;
 
