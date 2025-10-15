@@ -1,5 +1,5 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use lsproxy::utils::file_utils::{search_files_sequential, search_files_parallel};
+use lsproxy::utils::file_utils::{search_paths_parallel, search_paths_sequential, FileType};
 use std::path::Path;
 
 /// Comprehensive benchmark for TypeScript, Go, and Rust files
@@ -13,8 +13,7 @@ fn benchmark_file_walk(c: &mut Criterion) {
     group.measurement_time(std::time::Duration::from_secs(10));
 
     // Get the benchmark path from environment variable or use current directory
-    let benchmark_path = std::env::var("BENCH_PATH")
-        .unwrap_or_else(|_| ".".to_string());
+    let benchmark_path = std::env::var("BENCH_PATH").unwrap_or_else(|_| ".".to_string());
     let search_path = Path::new(&benchmark_path);
 
     if !search_path.exists() {
@@ -45,22 +44,24 @@ fn benchmark_file_walk(c: &mut Criterion) {
 
     group.bench_function("sequential", |b| {
         b.iter(|| {
-            black_box(search_files_sequential(
+            black_box(search_paths_sequential(
                 search_path,
                 include_patterns.clone(),
                 exclude_patterns.clone(),
                 true,
+                FileType::File,
             ))
         })
     });
 
     group.bench_function("parallel", |b| {
         b.iter(|| {
-            black_box(search_files_parallel(
+            black_box(search_paths_parallel(
                 search_path,
                 include_patterns.clone(),
                 exclude_patterns.clone(),
                 true,
+                FileType::File,
             ))
         })
     });

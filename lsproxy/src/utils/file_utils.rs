@@ -16,6 +16,24 @@ use super::workspace_documents::{
     TYPESCRIPT_AND_JAVASCRIPT_EXTENSIONS, TYPESCRIPT_EXTENSIONS,
 };
 
+#[derive(Clone, Copy)]
+pub enum FileType {
+    Dir,
+    File,
+}
+
+impl FileType {
+    /// Get the effective path that should be added, if possible.
+    fn accept(self, path: &Path) -> Option<&Path> {
+        match self {
+            Self::Dir if path.is_dir() => Some(path),
+            Self::Dir if path.is_file() => path.parent(),
+            Self::File if path.is_file() => Some(path),
+            _ => None,
+        }
+    }
+}
+
 /// Estimates the number of entries in a directory tree by doing a quick initial scan
 fn estimate_directory_size(path: &std::path::Path) -> usize {
     use std::sync::atomic::{AtomicUsize, Ordering};
@@ -55,19 +73,59 @@ pub fn search_files(
     let estimated_size = estimate_directory_size(path);
 
     if estimated_size < PARALLEL_THRESHOLD {
-        search_files_sequential(path, include_patterns, exclude_patterns, respect_gitignore)
+        search_paths_sequential(
+            path,
+            include_patterns,
+            exclude_patterns,
+            respect_gitignore,
+            FileType::File,
+        )
     } else {
-        search_files_parallel(path, include_patterns, exclude_patterns, respect_gitignore)
+        search_paths_parallel(
+            path,
+            include_patterns,
+            exclude_patterns,
+            respect_gitignore,
+            FileType::File,
+        )
     }
 }
 
-pub fn search_files_sequential(
+/// Adaptive search for directories that automatically chooses sequential or parallel based on workload
+pub fn search_directories(
+    root_path: &std::path::Path,
+    include_patterns: Vec<String>,
+    exclude_patterns: Vec<String>,
+) -> std::io::Result<Vec<PathBuf>> {
+    let estimated_size = estimate_directory_size(root_path);
+
+    if estimated_size < PARALLEL_THRESHOLD {
+        search_paths_sequential(
+            root_path,
+            include_patterns,
+            exclude_patterns,
+            true,
+            FileType::Dir,
+        )
+    } else {
+        search_paths_parallel(
+            root_path,
+            include_patterns,
+            exclude_patterns,
+            true,
+            FileType::Dir,
+        )
+    }
+}
+
+pub fn search_paths_sequential(
     path: &std::path::Path,
     include_patterns: Vec<String>,
     exclude_patterns: Vec<String>,
     respect_gitignore: bool,
+    file_type: FileType,
 ) -> std::io::Result<Vec<std::path::PathBuf>> {
-    let mut files = Vec::new();
+    let mut paths = Vec::new();
     let walk = build_walk(path, exclude_patterns, respect_gitignore);
     for result in walk {
         match result {
@@ -80,26 +138,34 @@ pub fn search_files_sequential(
                 }) {
                     continue;
                 }
-                if path.is_file() {
-                    files.push(path.to_path_buf());
-                }
+                let path = if let Some(path) = file_type.accept(path) {
+                    path
+                } else {
+                    continue;
+                };
+                paths.push(path.to_path_buf());
             }
             Err(err) => error!("Error: {}", err),
         }
     }
 
-    Ok(files)
+    Ok(paths
+        .into_iter()
+        .collect::<std::collections::HashSet<_>>()
+        .into_iter()
+        .collect())
 }
 
-pub fn search_files_parallel(
+pub fn search_paths_parallel(
     path: &std::path::Path,
     include_patterns: Vec<String>,
     exclude_patterns: Vec<String>,
     respect_gitignore: bool,
+    file_type: FileType,
 ) -> std::io::Result<Vec<std::path::PathBuf>> {
     use std::sync::{Arc, Mutex};
 
-    let files = Arc::new(Mutex::new(Vec::new()));
+    let paths = Arc::new(Mutex::new(Vec::new()));
     let include_patterns = Arc::new(include_patterns);
 
     let walker = WalkBuilder::new(path)
@@ -116,7 +182,7 @@ pub fn search_files_parallel(
         .build_parallel();
 
     walker.run(|| {
-        let files = Arc::clone(&files);
+        let paths = Arc::clone(&paths);
         let include_patterns = Arc::clone(&include_patterns);
 
         Box::new(move |result| {
@@ -125,150 +191,29 @@ pub fn search_files_parallel(
             match result {
                 Ok(entry) => {
                     let path = entry.path();
-                    if include_patterns.iter().any(|pattern| {
+
+                    if !include_patterns.iter().any(|pattern| {
                         glob::Pattern::new(pattern)
                             .map(|p| p.matches_path(path))
                             .unwrap_or(false)
-                    }) && path.is_file() {
-                        match files.lock() {
-                            Ok(mut guard) => {
-                                guard.push(path.to_path_buf());
-                            }
-                            Err(poisoned) => {
-                                error!("Mutex poisoned, recovering data: {}", poisoned);
-                                let mut guard = poisoned.into_inner();
-                                guard.push(path.to_path_buf());
-                            }
-                        }
-                    }
-                }
-                Err(err) => error!("Error: {}", err),
-            }
-            WalkState::Continue
-        })
-    });
-
-    // Handle Arc unwrap failure
-    let mutex = Arc::try_unwrap(files).map_err(|_| {
-        std::io::Error::new(
-            std::io::ErrorKind::Other,
-            "Failed to unwrap Arc: still has outstanding references",
-        )
-    })?;
-
-    // Handle mutex into_inner failure (poisoned mutex)
-    let files = mutex.into_inner().unwrap_or_else(|poisoned| {
-        error!("Mutex was poisoned during parallel search, recovering data");
-        poisoned.into_inner()
-    });
-
-    Ok(files)
-}
-
-/// Adaptive search for directories that automatically chooses sequential or parallel based on workload
-pub fn search_directories(
-    root_path: &std::path::Path,
-    include_patterns: Vec<String>,
-    exclude_patterns: Vec<String>,
-) -> std::io::Result<Vec<PathBuf>> {
-    let estimated_size = estimate_directory_size(root_path);
-
-    if estimated_size < PARALLEL_THRESHOLD {
-        search_directories_sequential(root_path, include_patterns, exclude_patterns)
-    } else {
-        search_directories_parallel(root_path, include_patterns, exclude_patterns)
-    }
-}
-
-pub fn search_directories_sequential(
-    root_path: &std::path::Path,
-    include_patterns: Vec<String>,
-    exclude_patterns: Vec<String>,
-) -> std::io::Result<Vec<PathBuf>> {
-    let mut dirs = Vec::new();
-    let walk = build_walk(root_path, exclude_patterns, true);
-    for result in walk {
-        match result {
-            Ok(entry) => {
-                let path = entry.path().to_path_buf();
-                if !include_patterns.iter().any(|pattern| {
-                    glob::Pattern::new(pattern)
-                        .map(|p| p.matches_path(&path))
-                        .unwrap_or(false)
-                }) {
-                    continue;
-                }
-                if path.is_dir() {
-                    dirs.push(path);
-                } else if let Some(parent) = path.parent() {
-                    dirs.push(parent.to_path_buf());
-                }
-            }
-            Err(err) => error!("Error: {}", err),
-        }
-    }
-    Ok(dirs
-        .into_iter()
-        .collect::<std::collections::HashSet<_>>()
-        .into_iter()
-        .collect())
-}
-
-pub fn search_directories_parallel(
-    root_path: &std::path::Path,
-    include_patterns: Vec<String>,
-    exclude_patterns: Vec<String>,
-) -> std::io::Result<Vec<PathBuf>> {
-    use std::sync::{Arc, Mutex};
-
-    let dirs = Arc::new(Mutex::new(Vec::new()));
-    let include_patterns = Arc::new(include_patterns);
-
-    let walker = WalkBuilder::new(root_path)
-        .git_ignore(true)
-        .filter_entry(move |entry| {
-            let path = entry.path();
-            let is_excluded = exclude_patterns.iter().any(|pattern| {
-                glob::Pattern::new(pattern)
-                    .map(|p| p.matches_path(path))
-                    .unwrap_or(false)
-            });
-            !is_excluded
-        })
-        .build_parallel();
-
-    walker.run(|| {
-        let dirs = Arc::clone(&dirs);
-        let include_patterns = Arc::clone(&include_patterns);
-
-        Box::new(move |result| {
-            use ignore::WalkState;
-
-            match result {
-                Ok(entry) => {
-                    let path = entry.path().to_path_buf();
-                    if include_patterns.iter().any(|pattern| {
-                        glob::Pattern::new(pattern)
-                            .map(|p| p.matches_path(&path))
-                            .unwrap_or(false)
                     }) {
-                        match dirs.lock() {
-                            Ok(mut guard) => {
-                                if path.is_dir() {
-                                    guard.push(path);
-                                } else if let Some(parent) = path.parent() {
-                                    guard.push(parent.to_path_buf());
-                                }
-                            }
-                            Err(poisoned) => {
-                                error!("Mutex poisoned, recovering data: {}", poisoned);
-                                let mut guard = poisoned.into_inner();
-                                if path.is_dir() {
-                                    guard.push(path);
-                                } else if let Some(parent) = path.parent() {
-                                    guard.push(parent.to_path_buf());
-                                }
-                            }
+                        return WalkState::Continue;
+                    }
+
+                    let path = if let Some(path) = file_type.accept(path) {
+                        path
+                    } else {
+                        return WalkState::Continue;
+                    };
+
+                    match paths.lock() {
+                        Ok(mut guard) => {
+                            guard.push(path.to_path_buf());
+                        }
+                        Err(poisoned) => {
+                            error!("Mutex poisoned, recovering data: {}", poisoned);
+                            let mut guard = poisoned.into_inner();
+                            guard.push(path.to_path_buf());
                         }
                     }
                 }
@@ -279,7 +224,7 @@ pub fn search_directories_parallel(
     });
 
     // Handle Arc unwrap failure
-    let mutex = Arc::try_unwrap(dirs).map_err(|_| {
+    let mutex = Arc::try_unwrap(paths).map_err(|_| {
         std::io::Error::new(
             std::io::ErrorKind::Other,
             "Failed to unwrap Arc: still has outstanding references",
@@ -287,12 +232,12 @@ pub fn search_directories_parallel(
     })?;
 
     // Handle mutex into_inner failure (poisoned mutex)
-    let dirs = mutex.into_inner().unwrap_or_else(|poisoned| {
+    let paths = mutex.into_inner().unwrap_or_else(|poisoned| {
         error!("Mutex was poisoned during parallel search, recovering data");
         poisoned.into_inner()
     });
 
-    Ok(dirs
+    Ok(paths
         .into_iter()
         .collect::<std::collections::HashSet<_>>()
         .into_iter()
