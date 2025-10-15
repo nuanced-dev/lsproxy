@@ -1,5 +1,4 @@
-use lsproxy::utils::file_utils::{search_paths, search_paths_sequential, FileType};
-use std::collections::HashSet;
+use lsproxy::utils::file_utils::{search_paths, FileType};
 use std::fs;
 use std::path::{Path, PathBuf};
 use tempfile::TempDir;
@@ -26,11 +25,6 @@ impl TestDirectory {
             fs::create_dir_all(parent).unwrap();
         }
         fs::write(&full_path, "test content").unwrap();
-    }
-
-    fn create_dir(&self, path: &str) {
-        let full_path = self.root.join(path);
-        fs::create_dir_all(full_path).unwrap();
     }
 
     fn path(&self) -> &Path {
@@ -102,331 +96,137 @@ fn create_large_test_directory() -> TestDirectory {
     test_dir
 }
 
-/// Helper to sort and compare PathBuf vectors
+/// Helper to sort PathBuf vectors
 fn normalize_paths(mut paths: Vec<PathBuf>) -> Vec<PathBuf> {
     paths.sort();
     paths
 }
 
 #[test]
-fn test_all_implementations_return_same_results_small() {
+fn test_search_files_counts() {
+    // Small directory (< 100 files)
     let test_dir = create_small_test_directory();
-    let include_patterns = vec!["**/*.rs".to_string()];
-    let exclude_patterns: Vec<String> = vec![];
-
-    let seq_results = search_paths_sequential(
+    let results = search_paths(
         test_dir.path(),
-        include_patterns.clone(),
-        exclude_patterns.clone(),
+        vec!["**/*.rs".to_string()],
+        vec![],
         false,
         FileType::File,
     )
     .unwrap();
+    assert_eq!(results.len(), 6, "Expected 6 .rs files in small directory");
 
-    let par_mutex_results = search_paths(
-        test_dir.path(),
-        include_patterns.clone(),
-        exclude_patterns.clone(),
-        false,
-        FileType::File,
-    )
-    .unwrap();
-
-    // Normalize (sort) all results for comparison
-    let seq = normalize_paths(seq_results);
-    let par_mutex = normalize_paths(par_mutex_results);
-
-    assert_eq!(seq, par_mutex, "Sequential and parallel results differ");
-
-    // Verify we found the expected files
-    assert_eq!(seq.len(), 6, "Expected 6 .rs files");
-}
-
-#[test]
-fn test_all_implementations_return_same_results_medium() {
+    // Medium directory (100-500 files)
     let test_dir = create_medium_test_directory();
-    let include_patterns = vec!["**/*.rs".to_string()];
-    let exclude_patterns: Vec<String> = vec![];
-
-    let seq_results = search_paths_sequential(
+    let results = search_paths(
         test_dir.path(),
-        include_patterns.clone(),
-        exclude_patterns.clone(),
+        vec!["**/*.rs".to_string()],
+        vec![],
         false,
         FileType::File,
     )
     .unwrap();
+    // 20 modules * 5 files + 20 mod.rs + 30 tests = 150 files
+    assert_eq!(results.len(), 150, "Expected 150 .rs files in medium directory");
 
-    let par_mutex_results = search_paths(
-        test_dir.path(),
-        include_patterns.clone(),
-        exclude_patterns.clone(),
-        false,
-        FileType::File,
-    )
-    .unwrap();
-
-    let seq = normalize_paths(seq_results);
-    let par_mutex = normalize_paths(par_mutex_results);
-
-    assert_eq!(seq, par_mutex);
-
-    // Should find 20 modules * 5 files + 20 mod.rs + 30 tests = 150 files
-    assert_eq!(seq.len(), 150, "Expected 150 .rs files");
-}
-
-#[test]
-fn test_all_implementations_return_same_results_large() {
+    // Large directory (> 500 files) with performance check
     let test_dir = create_large_test_directory();
-    let include_patterns = vec!["**/*.rs".to_string()];
-    let exclude_patterns: Vec<String> = vec![];
-
-    let seq_results = search_paths_sequential(
+    let start = std::time::Instant::now();
+    let results = search_paths(
         test_dir.path(),
-        include_patterns.clone(),
-        exclude_patterns.clone(),
+        vec!["**/*.rs".to_string()],
+        vec![],
         false,
         FileType::File,
     )
     .unwrap();
-
-    let par_mutex_results = search_paths(
-        test_dir.path(),
-        include_patterns.clone(),
-        exclude_patterns.clone(),
-        false,
-        FileType::File,
-    )
-    .unwrap();
-
-    let seq = normalize_paths(seq_results);
-    let par_mutex = normalize_paths(par_mutex_results);
-
-    assert_eq!(seq, par_mutex);
-
-    // Should find 50 * 10 * (1 mod.rs + 3 files) + 100 tests = 2100 files
-    assert_eq!(seq.len(), 2100, "Expected 2100 .rs files");
+    let duration = start.elapsed();
+    // 50 * 10 * (1 mod.rs + 3 files) + 100 tests = 2100 files
+    assert_eq!(results.len(), 2100, "Expected 2100 .rs files in large directory");
+    // Sanity check: should complete within reasonable time (< 5 seconds)
+    assert!(
+        duration.as_secs() < 5,
+        "Search took too long: {:?}",
+        duration
+    );
 }
 
 #[test]
-fn test_with_exclude_patterns() {
+fn test_pattern_features() {
     let test_dir = create_medium_test_directory();
-    let include_patterns = vec!["**/*.rs".to_string()];
-    let exclude_patterns = vec!["**/tests/**".to_string()];
 
-    let seq_results = search_paths_sequential(
+    // Exclude patterns
+    let results = search_paths(
         test_dir.path(),
-        include_patterns.clone(),
-        exclude_patterns.clone(),
+        vec!["**/*.rs".to_string()],
+        vec!["**/tests/**".to_string()],
         false,
         FileType::File,
     )
     .unwrap();
-
-    let par_results = search_paths(
-        test_dir.path(),
-        include_patterns.clone(),
-        exclude_patterns.clone(),
-        false,
-        FileType::File,
-    )
-    .unwrap();
-
-    let seq = normalize_paths(seq_results);
-    let par = normalize_paths(par_results);
-
-    assert_eq!(seq, par);
-
     // Should exclude 30 test files, leaving 120
     assert_eq!(
-        seq.len(),
+        results.len(),
         120,
         "Expected 120 .rs files after excluding tests"
     );
-}
 
-#[test]
-fn test_multiple_include_patterns() {
+    // Multiple include patterns
     let test_dir = create_small_test_directory();
-    let include_patterns = vec!["**/*.rs".to_string(), "**/*.toml".to_string()];
-    let exclude_patterns: Vec<String> = vec![];
-
-    let seq_results = search_paths_sequential(
+    let results = search_paths(
         test_dir.path(),
-        include_patterns.clone(),
-        exclude_patterns.clone(),
+        vec!["**/*.rs".to_string(), "**/*.toml".to_string()],
+        vec![],
         false,
         FileType::File,
     )
     .unwrap();
-
-    let par_results = search_paths(
-        test_dir.path(),
-        include_patterns.clone(),
-        exclude_patterns.clone(),
-        false,
-        FileType::File,
-    )
-    .unwrap();
-
-    let seq = normalize_paths(seq_results);
-    let par = normalize_paths(par_results);
-
-    assert_eq!(seq, par);
-
     // Should find 6 .rs files + 1 .toml file = 7 files
-    assert_eq!(seq.len(), 7, "Expected 7 files (.rs and .toml)");
+    assert_eq!(results.len(), 7, "Expected 7 files (.rs and .toml)");
 }
 
 #[test]
-fn test_directories_all_implementations_match() {
+fn test_file_type_directory() {
     let test_dir = create_medium_test_directory();
-    let include_patterns = vec!["**/*.rs".to_string()];
-    let exclude_patterns: Vec<String> = vec![];
-
-    let seq_results = search_paths_sequential(
+    let results = search_paths(
         test_dir.path(),
-        include_patterns.clone(),
-        exclude_patterns.clone(),
+        vec!["**/*.rs".to_string()],
+        vec![],
         true,
         FileType::Dir,
     )
     .unwrap();
-
-    let par_mutex_results = search_paths(
-        test_dir.path(),
-        include_patterns.clone(),
-        exclude_patterns.clone(),
-        true,
-        FileType::Dir,
-    )
-    .unwrap();
-
-    // Convert to HashSets for comparison (order doesn't matter for directories)
-    let seq_set: HashSet<_> = seq_results.into_iter().collect();
-    let par_mutex_set: HashSet<_> = par_mutex_results.into_iter().collect();
-
-    assert_eq!(seq_set, par_mutex_set);
+    // Should find directories containing .rs files
+    assert!(!results.is_empty(), "Expected to find directories");
 }
 
 #[test]
-fn test_empty_directory() {
+fn test_edge_cases() {
+    // Empty directory
     let test_dir = TestDirectory::new();
-    let include_patterns = vec!["**/*.rs".to_string()];
-    let exclude_patterns: Vec<String> = vec![];
-
-    let seq_results = search_paths_sequential(
+    let results = search_paths(
         test_dir.path(),
-        include_patterns.clone(),
-        exclude_patterns.clone(),
+        vec!["**/*.rs".to_string()],
+        vec![],
         false,
         FileType::File,
     )
     .unwrap();
+    assert_eq!(results.len(), 0, "Expected no files in empty directory");
 
-    let par_results = search_paths(
-        test_dir.path(),
-        include_patterns.clone(),
-        exclude_patterns.clone(),
-        false,
-        FileType::File,
-    )
-    .unwrap();
-
-    assert_eq!(seq_results.len(), 0);
-    assert_eq!(par_results.len(), 0);
-}
-
-#[test]
-fn test_no_matching_files() {
+    // No matching files
     let test_dir = create_small_test_directory();
-    let include_patterns = vec!["**/*.xyz".to_string()]; // Non-existent extension
-    let exclude_patterns: Vec<String> = vec![];
-
-    let seq_results = search_paths_sequential(
+    let results = search_paths(
         test_dir.path(),
-        include_patterns.clone(),
-        exclude_patterns.clone(),
+        vec!["**/*.xyz".to_string()], // Non-existent extension
+        vec![],
         false,
         FileType::File,
     )
     .unwrap();
-
-    let par_results = search_paths(
-        test_dir.path(),
-        include_patterns.clone(),
-        exclude_patterns.clone(),
-        false,
-        FileType::File,
-    )
-    .unwrap();
-
-    assert_eq!(seq_results.len(), 0);
-    assert_eq!(par_results.len(), 0);
+    assert_eq!(results.len(), 0, "Expected no files with non-existent extension");
 }
 
-/// Performance characteristic test: Parallel should handle large directories reasonably
-#[test]
-fn test_parallel_handles_large_directory() {
-    use std::time::Instant;
-
-    let test_dir = create_large_test_directory();
-    let include_patterns = vec!["**/*.rs".to_string()];
-    let exclude_patterns: Vec<String> = vec![];
-
-    let start = Instant::now();
-    let par_results = search_paths(
-        test_dir.path(),
-        include_patterns.clone(),
-        exclude_patterns.clone(),
-        false,
-        FileType::File,
-    )
-    .unwrap();
-    let par_duration = start.elapsed();
-
-    // Just verify it completes and returns correct count
-    assert_eq!(par_results.len(), 2100);
-
-    // Sanity check: should complete within reasonable time (< 5 seconds)
-    assert!(
-        par_duration.as_secs() < 5,
-        "Parallel search took too long: {:?}",
-        par_duration
-    );
-}
-
-/// Performance characteristic test: Sequential should be fast on small directories
-#[test]
-fn test_sequential_fast_on_small() {
-    use std::time::Instant;
-
-    let test_dir = create_small_test_directory();
-    let include_patterns = vec!["**/*.rs".to_string()];
-    let exclude_patterns: Vec<String> = vec![];
-
-    let start = Instant::now();
-    let seq_results = search_paths_sequential(
-        test_dir.path(),
-        include_patterns.clone(),
-        exclude_patterns.clone(),
-        false,
-        FileType::File,
-    )
-    .unwrap();
-    let seq_duration = start.elapsed();
-
-    assert_eq!(seq_results.len(), 6);
-
-    // Should be very fast on small directories (< 100ms)
-    assert!(
-        seq_duration.as_millis() < 100,
-        "Sequential search took too long: {:?}",
-        seq_duration
-    );
-}
-
-/// Consistency test: Run multiple times to ensure deterministic results
 #[test]
 fn test_deterministic_results() {
     let test_dir = create_medium_test_directory();

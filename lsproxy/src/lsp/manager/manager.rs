@@ -565,7 +565,8 @@ mod tests {
     use serial_test::serial;
 
     #[test]
-    fn test_parse_language_valid() {
+    fn test_parse_language() {
+        // Valid languages with case insensitivity and whitespace
         assert_eq!(
             Manager::parse_language("python"),
             Some(SupportedLanguages::Python)
@@ -578,10 +579,8 @@ mod tests {
             Manager::parse_language(" python "),
             Some(SupportedLanguages::Python)
         );
-    }
 
-    #[test]
-    fn test_parse_language_typescript_aliases() {
+        // Language aliases
         assert_eq!(
             Manager::parse_language("typescript"),
             Some(SupportedLanguages::TypeScriptJavaScript)
@@ -594,10 +593,6 @@ mod tests {
             Manager::parse_language("typescript_javascript"),
             Some(SupportedLanguages::TypeScriptJavaScript)
         );
-    }
-
-    #[test]
-    fn test_parse_language_golang_aliases() {
         assert_eq!(
             Manager::parse_language("golang"),
             Some(SupportedLanguages::Golang)
@@ -606,10 +601,6 @@ mod tests {
             Manager::parse_language("go"),
             Some(SupportedLanguages::Golang)
         );
-    }
-
-    #[test]
-    fn test_parse_language_cpp_aliases() {
         assert_eq!(
             Manager::parse_language("cpp"),
             Some(SupportedLanguages::CPP)
@@ -618,10 +609,6 @@ mod tests {
             Manager::parse_language("c++"),
             Some(SupportedLanguages::CPP)
         );
-    }
-
-    #[test]
-    fn test_parse_language_csharp_aliases() {
         assert_eq!(
             Manager::parse_language("csharp"),
             Some(SupportedLanguages::CSharp)
@@ -630,10 +617,6 @@ mod tests {
             Manager::parse_language("c#"),
             Some(SupportedLanguages::CSharp)
         );
-    }
-
-    #[test]
-    fn test_parse_language_ruby_sorbet_aliases() {
         assert_eq!(
             Manager::parse_language("ruby_sorbet"),
             Some(SupportedLanguages::RubySorbet)
@@ -642,10 +625,26 @@ mod tests {
             Manager::parse_language("sorbet"),
             Some(SupportedLanguages::RubySorbet)
         );
-    }
 
-    #[test]
-    fn test_parse_language_invalid() {
+        // All supported languages
+        assert_eq!(
+            Manager::parse_language("rust"),
+            Some(SupportedLanguages::Rust)
+        );
+        assert_eq!(
+            Manager::parse_language("java"),
+            Some(SupportedLanguages::Java)
+        );
+        assert_eq!(
+            Manager::parse_language("php"),
+            Some(SupportedLanguages::PHP)
+        );
+        assert_eq!(
+            Manager::parse_language("ruby"),
+            Some(SupportedLanguages::Ruby)
+        );
+
+        // Invalid inputs
         assert_eq!(Manager::parse_language("invalid"), None);
         assert_eq!(Manager::parse_language(""), None);
         assert_eq!(Manager::parse_language("c"), None);
@@ -653,83 +652,50 @@ mod tests {
 
     #[test]
     #[serial]
-    fn test_get_enabled_languages_not_set() {
+    fn test_get_enabled_languages() {
+        // Not set - should return None
         std::env::remove_var("ENABLED_LANGUAGES");
         assert_eq!(Manager::get_enabled_languages(), None);
-    }
 
-    #[test]
-    #[serial]
-    fn test_get_enabled_languages_single() {
+        // Single language
         std::env::set_var("ENABLED_LANGUAGES", "python");
-        let result = Manager::get_enabled_languages();
-        assert!(result.is_some());
-        let langs = result.unwrap();
-        assert_eq!(langs.len(), 1);
-        assert!(langs.contains(&SupportedLanguages::Python));
-        std::env::remove_var("ENABLED_LANGUAGES");
-    }
+        let result = Manager::get_enabled_languages().unwrap();
+        assert_eq!(result.len(), 1);
+        assert!(result.contains(&SupportedLanguages::Python));
 
-    #[test]
-    #[serial]
-    fn test_get_enabled_languages_multiple() {
+        // Multiple languages
         std::env::set_var("ENABLED_LANGUAGES", "python,rust,typescript");
-        let result = Manager::get_enabled_languages();
-        assert!(result.is_some());
-        let langs = result.unwrap();
-        assert_eq!(langs.len(), 3);
-        assert!(langs.contains(&SupportedLanguages::Python));
-        assert!(langs.contains(&SupportedLanguages::Rust));
-        assert!(langs.contains(&SupportedLanguages::TypeScriptJavaScript));
-        std::env::remove_var("ENABLED_LANGUAGES");
-    }
+        let result = Manager::get_enabled_languages().unwrap();
+        assert_eq!(result.len(), 3);
+        assert!(result.contains(&SupportedLanguages::Python));
+        assert!(result.contains(&SupportedLanguages::Rust));
+        assert!(result.contains(&SupportedLanguages::TypeScriptJavaScript));
 
-    #[test]
-    #[serial]
-    fn test_get_enabled_languages_with_spaces() {
+        // With whitespace (should be trimmed)
         std::env::set_var("ENABLED_LANGUAGES", " python , rust , go ");
-        let result = Manager::get_enabled_languages();
-        assert!(result.is_some());
-        let langs = result.unwrap();
-        assert_eq!(langs.len(), 3);
-        assert!(langs.contains(&SupportedLanguages::Python));
-        assert!(langs.contains(&SupportedLanguages::Rust));
-        assert!(langs.contains(&SupportedLanguages::Golang));
-        std::env::remove_var("ENABLED_LANGUAGES");
-    }
+        let result = Manager::get_enabled_languages().unwrap();
+        assert_eq!(result.len(), 3);
+        assert!(result.contains(&SupportedLanguages::Python));
+        assert!(result.contains(&SupportedLanguages::Rust));
+        assert!(result.contains(&SupportedLanguages::Golang));
 
-    #[test]
-    #[serial]
-    fn test_get_enabled_languages_with_invalid() {
+        // With invalid entries (should be filtered out)
         std::env::set_var("ENABLED_LANGUAGES", "python,invalid,rust");
-        let result = Manager::get_enabled_languages();
-        assert!(result.is_some());
-        let langs = result.unwrap();
-        assert_eq!(langs.len(), 2); // invalid is filtered out
-        assert!(langs.contains(&SupportedLanguages::Python));
-        assert!(langs.contains(&SupportedLanguages::Rust));
-        std::env::remove_var("ENABLED_LANGUAGES");
-    }
+        let result = Manager::get_enabled_languages().unwrap();
+        assert_eq!(result.len(), 2);
+        assert!(result.contains(&SupportedLanguages::Python));
+        assert!(result.contains(&SupportedLanguages::Rust));
 
-    #[test]
-    #[serial]
-    fn test_get_enabled_languages_empty_string() {
+        // Empty string
         std::env::set_var("ENABLED_LANGUAGES", "");
-        let result = Manager::get_enabled_languages();
-        assert!(result.is_some());
-        let langs = result.unwrap();
-        assert_eq!(langs.len(), 0); // Empty set
-        std::env::remove_var("ENABLED_LANGUAGES");
-    }
+        let result = Manager::get_enabled_languages().unwrap();
+        assert_eq!(result.len(), 0);
 
-    #[test]
-    #[serial]
-    fn test_get_enabled_languages_all_invalid() {
+        // All invalid
         std::env::set_var("ENABLED_LANGUAGES", "invalid1,invalid2");
-        let result = Manager::get_enabled_languages();
-        assert!(result.is_some());
-        let langs = result.unwrap();
-        assert_eq!(langs.len(), 0); // All filtered out
+        let result = Manager::get_enabled_languages().unwrap();
+        assert_eq!(result.len(), 0);
+
         std::env::remove_var("ENABLED_LANGUAGES");
     }
 }

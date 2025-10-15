@@ -34,44 +34,6 @@ impl FileType {
     }
 }
 
-pub fn search_paths_sequential(
-    path: &std::path::Path,
-    include_patterns: Vec<String>,
-    exclude_patterns: Vec<String>,
-    respect_gitignore: bool,
-    file_type: FileType,
-) -> std::io::Result<Vec<std::path::PathBuf>> {
-    let mut paths = Vec::new();
-    let walk = build_walk(path, exclude_patterns, respect_gitignore);
-    for result in walk {
-        match result {
-            Ok(entry) => {
-                let path = entry.path();
-                if !include_patterns.iter().any(|pattern| {
-                    glob::Pattern::new(pattern)
-                        .map(|p| p.matches_path(path))
-                        .unwrap_or(false)
-                }) {
-                    continue;
-                }
-                let path = if let Some(path) = file_type.accept(path) {
-                    path
-                } else {
-                    continue;
-                };
-                paths.push(path.to_path_buf());
-            }
-            Err(err) => error!("Error: {}", err),
-        }
-    }
-
-    Ok(paths
-        .into_iter()
-        .collect::<std::collections::HashSet<_>>()
-        .into_iter()
-        .collect())
-}
-
 pub fn search_paths(
     path: &std::path::Path,
     include_patterns: Vec<String>,
@@ -158,22 +120,6 @@ pub fn search_paths(
         .collect::<std::collections::HashSet<_>>()
         .into_iter()
         .collect())
-}
-
-fn build_walk(path: &Path, exclude_patterns: Vec<String>, respect_gitignore: bool) -> ignore::Walk {
-    let walk = WalkBuilder::new(path)
-        .git_ignore(respect_gitignore)
-        .filter_entry(move |entry| {
-            let path = entry.path();
-            let is_excluded = exclude_patterns.iter().any(|pattern| {
-                glob::Pattern::new(pattern)
-                    .map(|p| p.matches_path(path))
-                    .unwrap_or(false)
-            });
-            !is_excluded
-        })
-        .build();
-    walk
 }
 
 pub fn uri_to_relative_path_string(uri: &Url) -> String {
