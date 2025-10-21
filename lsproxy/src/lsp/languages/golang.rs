@@ -1,13 +1,16 @@
 use crate::{
     lsp::{JsonRpcHandler, LspClient, PendingRequests, ProcessHandler},
-    utils::workspace_documents::{
-        DidOpenConfiguration, WorkspaceDocumentsHandler, DEFAULT_EXCLUDE_PATTERNS,
-        GOLANG_FILE_PATTERNS, GOLANG_ROOT_FILES,
+    utils::{
+        file_utils::{search_paths, FileType},
+        workspace_documents::{
+            DidOpenConfiguration, WorkspaceDocumentsHandler, DEFAULT_EXCLUDE_PATTERNS,
+            GOLANG_FILE_PATTERNS, GOLANG_ROOT_FILES,
+        },
     },
 };
 use async_trait::async_trait;
-use log::error;
-use lsp_types::InitializeParams;
+use log::{error, info, warn};
+use lsp_types::{InitializeParams, Url, WorkspaceFolder};
 use notify_debouncer_mini::DebouncedEvent;
 use std::{error::Error, path::Path, process::Stdio};
 use tokio::{process::Command, sync::broadcast::Receiver};
@@ -46,6 +49,88 @@ impl LspClient for GoplsClient {
             root_uri: workspace_folders.first().map(|f| f.uri.clone()), // <--------- Not default behavior
             ..Default::default()
         })
+    }
+
+    async fn find_workspace_folders(
+        &mut self,
+        root_path: String,
+    ) -> Result<Vec<WorkspaceFolder>, Box<dyn Error + Send + Sync>> {
+        // Step 1: Check for go.work file at the root path
+        let go_work_path = Path::new(&root_path).join("go.work");
+
+        if go_work_path.exists() {
+            info!(
+                "Found go.work file at {:?}, using single workspace mode",
+                go_work_path
+            );
+            // Use ONLY the go.work workspace - this prevents gopls from
+            // creating multiple build scopes for each module
+            if let Ok(uri) = Url::from_file_path(&root_path) {
+                return Ok(vec![WorkspaceFolder {
+                    uri,
+                    name: Path::new(&root_path)
+                        .file_name()
+                        .and_then(|n| n.to_str())
+                        .unwrap_or("workspace")
+                        .to_string(),
+                }]);
+            }
+        }
+
+        // Step 2: No go.work found - fall back to finding individual go.mod directories.
+        info!("No go.work file found, searching for go.mod directories");
+        let mut workspace_folders: Vec<WorkspaceFolder> = Vec::new();
+        let include_patterns = vec!["**/go.mod".to_string()];
+        let exclude_patterns = DEFAULT_EXCLUDE_PATTERNS
+            .iter()
+            .map(|&s| s.to_string())
+            .collect();
+
+        match search_paths(
+            Path::new(&root_path),
+            include_patterns,
+            exclude_patterns,
+            true,
+            FileType::Dir,
+        ) {
+            Ok(dirs) => {
+                for dir in dirs {
+                    let folder_path = Path::new(&root_path).join(&dir);
+                    if let Ok(uri) = Url::from_file_path(&folder_path) {
+                        workspace_folders.push(WorkspaceFolder {
+                            uri,
+                            name: folder_path
+                                .file_name()
+                                .and_then(|n| n.to_str())
+                                .unwrap_or("")
+                                .to_string(),
+                        });
+                    }
+                }
+            }
+            Err(e) => return Err(Box::new(e)),
+        }
+
+        // Step 3: Fallback if nothing found - use root path itself
+        if workspace_folders.is_empty() {
+            warn!("No go.mod directories found. Using root path as workspace.");
+            if let Ok(uri) = Url::from_file_path(&root_path) {
+                workspace_folders.push(WorkspaceFolder {
+                    uri,
+                    name: Path::new(&root_path)
+                        .file_name()
+                        .and_then(|n| n.to_str())
+                        .unwrap_or("workspace")
+                        .to_string(),
+                });
+            }
+        }
+
+        info!(
+            "Found {} workspace folder(s) for gopls",
+            workspace_folders.len()
+        );
+        Ok(workspace_folders)
     }
 }
 impl GoplsClient {
