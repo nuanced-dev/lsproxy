@@ -117,17 +117,18 @@ impl LspClient for GoplsClient {
 
         // Step 3: Fallback if nothing found - use root path itself
         if workspace_folders.is_empty() {
-            warn!("No go.mod directories found. Using root path as workspace.");
-            if let Ok(uri) = Url::from_file_path(&root_path) {
-                workspace_folders.push(WorkspaceFolder {
-                    uri,
-                    name: Path::new(&root_path)
-                        .file_name()
-                        .and_then(|n| n.to_str())
-                        .unwrap_or("workspace")
-                        .to_string(),
-                });
-            }
+            warn!("No go.mod files found. Using root path as workspace.");
+            let uri = Url::from_file_path(&root_path)
+                .map_err(|_| format!("Failed to create URL from root path: {}", root_path))?;
+
+            workspace_folders.push(WorkspaceFolder {
+                uri,
+                name: Path::new(&root_path)
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or("workspace")
+                    .to_string(),
+            });
         }
 
         info!(
