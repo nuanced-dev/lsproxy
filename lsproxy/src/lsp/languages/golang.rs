@@ -78,8 +78,9 @@ impl LspClient for GoplsClient {
             }]);
         }
 
-        // Step 2: No go.work found - fall back to finding individual go.mod directories.
-        info!("No go.work file found, searching for go.mod directories");
+        // Step 2: No go.work found - fall back to finding individual go.mod files
+        // and using their parent directories as workspace folders.
+        info!("No go.work file found, searching for go.mod files");
         let mut workspace_folders: Vec<WorkspaceFolder> = Vec::new();
         let include_patterns = vec!["**/go.mod".to_string()];
         let exclude_patterns = DEFAULT_EXCLUDE_PATTERNS
@@ -92,20 +93,22 @@ impl LspClient for GoplsClient {
             include_patterns,
             exclude_patterns,
             true,
-            FileType::Dir,
+            FileType::File,  // Search for go.mod FILES, not directories
         ) {
-            Ok(dirs) => {
-                for dir in dirs {
-                    let folder_path = Path::new(&root_path).join(&dir);
-                    if let Ok(uri) = Url::from_file_path(&folder_path) {
-                        workspace_folders.push(WorkspaceFolder {
-                            uri,
-                            name: folder_path
-                                .file_name()
-                                .and_then(|n| n.to_str())
-                                .unwrap_or("")
-                                .to_string(),
-                        });
+            Ok(go_mod_files) => {
+                // For each go.mod file, use its parent directory as a workspace folder
+                for go_mod_file in go_mod_files {
+                    if let Some(module_dir) = go_mod_file.parent() {
+                        if let Ok(uri) = Url::from_file_path(module_dir) {
+                            workspace_folders.push(WorkspaceFolder {
+                                uri,
+                                name: module_dir
+                                    .file_name()
+                                    .and_then(|n| n.to_str())
+                                    .unwrap_or("")
+                                    .to_string(),
+                            });
+                        }
                     }
                 }
             }
