@@ -65,16 +65,17 @@ impl LspClient for GoplsClient {
             );
             // Use ONLY the go.work workspace - this prevents gopls from
             // creating multiple build scopes for each module
-            if let Ok(uri) = Url::from_file_path(&root_path) {
-                return Ok(vec![WorkspaceFolder {
-                    uri,
-                    name: Path::new(&root_path)
-                        .file_name()
-                        .and_then(|n| n.to_str())
-                        .unwrap_or("workspace")
-                        .to_string(),
-                }]);
-            }
+            let uri = Url::from_file_path(&root_path)
+                .map_err(|_| format!("Failed to create URL from root path: {}", root_path))?;
+
+            return Ok(vec![WorkspaceFolder {
+                uri,
+                name: Path::new(&root_path)
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or("workspace")
+                    .to_string(),
+            }]);
         }
 
         // Step 2: No go.work found - fall back to finding individual go.mod directories.
