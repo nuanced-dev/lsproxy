@@ -1,25 +1,28 @@
 use crate::{
     lsp::{JsonRpcHandler, LspClient, PendingRequests, ProcessHandler},
-    utils::{
-        file_utils::{search_paths, FileType},
-        workspace_documents::{
-            DidOpenConfiguration, WorkspaceDocumentsHandler, DEFAULT_EXCLUDE_PATTERNS,
-            GOLANG_FILE_PATTERNS, GOLANG_ROOT_FILES,
-        },
+    utils::workspace_documents::{
+        DidOpenConfiguration, WorkspaceDocumentsHandler, DEFAULT_EXCLUDE_PATTERNS,
+        GOLANG_FILE_PATTERNS, GOLANG_ROOT_FILES,
     },
 };
 use async_trait::async_trait;
 use log::{error, info, warn};
 use lsp_types::{InitializeParams, Url, WorkspaceFolder};
 use notify_debouncer_mini::DebouncedEvent;
-use std::{error::Error, path::Path, process::Stdio};
+use std::{
+    error::Error,
+    path::{Path, PathBuf},
+    process::Stdio,
+};
 use tokio::{process::Command, sync::broadcast::Receiver};
+
 pub struct GoplsClient {
     process: ProcessHandler,
     json_rpc: JsonRpcHandler,
     workspace_documents: WorkspaceDocumentsHandler,
     pending_requests: PendingRequests,
 }
+
 #[async_trait]
 impl LspClient for GoplsClient {
     fn get_process(&mut self) -> &mut ProcessHandler {
@@ -43,10 +46,12 @@ impl LspClient for GoplsClient {
         root_path: String,
     ) -> Result<InitializeParams, Box<dyn Error + Send + Sync>> {
         let workspace_folders = self.find_workspace_folders(root_path.clone()).await?;
+
         Ok(InitializeParams {
             capabilities: self.get_capabilities(),
-            workspace_folders: Some(workspace_folders.clone()),
-            root_uri: workspace_folders.first().map(|f| f.uri.clone()), // <--------- Not default behavior
+            // Prefer workspaceFolders; do not also set root_uri.
+            workspace_folders: Some(workspace_folders),
+            root_uri: None,
             ..Default::default()
         })
     }
@@ -55,22 +60,19 @@ impl LspClient for GoplsClient {
         &mut self,
         root_path: String,
     ) -> Result<Vec<WorkspaceFolder>, Box<dyn Error + Send + Sync>> {
-        // Step 1: Check for go.work file at the root path
-        let go_work_path = Path::new(&root_path).join("go.work");
+        let root = PathBuf::from(&root_path);
 
-        if go_work_path.exists() {
+        // 1) Nearest ancestor with go.work
+        if let Some(work_root) = nearest_ancestor_with(&root, "go.work") {
             info!(
-                "Found go.work file at {:?}, using single workspace mode",
-                go_work_path
+                "Using nearest go.work at {:?} as single workspace root",
+                work_root
             );
-            // Use ONLY the go.work workspace - this prevents gopls from
-            // creating multiple build scopes for each module
-            let uri = Url::from_file_path(&root_path)
-                .map_err(|_| format!("Failed to create URL from root path: {}", root_path))?;
-
+            let uri = Url::from_file_path(&work_root)
+                .map_err(|_| format!("Failed to create URL from path: {}", work_root.display()))?;
             return Ok(vec![WorkspaceFolder {
                 uri,
-                name: Path::new(&root_path)
+                name: work_root
                     .file_name()
                     .and_then(|n| n.to_str())
                     .unwrap_or("workspace")
@@ -78,66 +80,42 @@ impl LspClient for GoplsClient {
             }]);
         }
 
-        // Step 2: No go.work found - fall back to finding individual go.mod files
-        // and using their parent directories as workspace folders.
-        info!("No go.work file found, searching for go.mod files");
-        let mut workspace_folders: Vec<WorkspaceFolder> = Vec::new();
-        let include_patterns = vec!["**/go.mod".to_string()];
-        let exclude_patterns = DEFAULT_EXCLUDE_PATTERNS
-            .iter()
-            .map(|&s| s.to_string())
-            .collect();
-
-        match search_paths(
-            Path::new(&root_path),
-            include_patterns,
-            exclude_patterns,
-            true,
-            FileType::File,  // Search for go.mod FILES, not directories
-        ) {
-            Ok(go_mod_files) => {
-                // For each go.mod file, use its parent directory as a workspace folder
-                for go_mod_file in go_mod_files {
-                    if let Some(module_dir) = go_mod_file.parent() {
-                        if let Ok(uri) = Url::from_file_path(module_dir) {
-                            workspace_folders.push(WorkspaceFolder {
-                                uri,
-                                name: module_dir
-                                    .file_name()
-                                    .and_then(|n| n.to_str())
-                                    .unwrap_or("")
-                                    .to_string(),
-                            });
-                        }
-                    }
-                }
-            }
-            Err(e) => return Err(Box::new(e)),
-        }
-
-        // Step 3: Fallback if nothing found - use root path itself
-        if workspace_folders.is_empty() {
-            warn!("No go.mod files found. Using root path as workspace.");
-            let uri = Url::from_file_path(&root_path)
-                .map_err(|_| format!("Failed to create URL from root path: {}", root_path))?;
-
-            workspace_folders.push(WorkspaceFolder {
+        // 2) Nearest ancestor with go.mod
+        if let Some(mod_root) = nearest_ancestor_with(&root, "go.mod") {
+            info!(
+                "No go.work found; using nearest go.mod at {:?} as single workspace root",
+                mod_root
+            );
+            let uri = Url::from_file_path(&mod_root)
+                .map_err(|_| format!("Failed to create URL from path: {}", mod_root.display()))?;
+            return Ok(vec![WorkspaceFolder {
                 uri,
-                name: Path::new(&root_path)
+                name: mod_root
                     .file_name()
                     .and_then(|n| n.to_str())
                     .unwrap_or("workspace")
                     .to_string(),
-            });
+            }]);
         }
 
-        info!(
-            "Found {} workspace folder(s) for gopls",
-            workspace_folders.len()
+        // 3) Fallback: use the provided root_path
+        warn!(
+            "No go.work or go.mod found in ancestors. Falling back to provided root: {}",
+            root.display()
         );
-        Ok(workspace_folders)
+        let uri = Url::from_file_path(&root)
+            .map_err(|_| format!("Failed to create URL from root path: {}", root.display()))?;
+        Ok(vec![WorkspaceFolder {
+            uri,
+            name: root
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or("workspace")
+                .to_string(),
+        }])
     }
 }
+
 impl GoplsClient {
     pub async fn new(
         root_path: &str,
@@ -157,10 +135,13 @@ impl GoplsClient {
                 error!("Failed to start gopls process: {}", e);
                 Box::new(e) as Box<dyn std::error::Error + Send + Sync>
             })?;
+
         let process_handler = ProcessHandler::new(process)
             .await
             .map_err(|e| format!("Failed to create ProcessHandler: {}", e))?;
+
         let json_rpc_handler = JsonRpcHandler::new();
+
         let workspace_documents = WorkspaceDocumentsHandler::new(
             Path::new(root_path),
             GOLANG_FILE_PATTERNS
@@ -174,7 +155,9 @@ impl GoplsClient {
             watch_events_rx,
             DidOpenConfiguration::Lazy,
         );
+
         let pending_requests = PendingRequests::new();
+
         Ok(Self {
             process: process_handler,
             json_rpc: json_rpc_handler,
@@ -182,4 +165,31 @@ impl GoplsClient {
             pending_requests,
         })
     }
+}
+
+/// Walk upward from `start` to filesystem root, returning the first directory
+/// that contains a child named `needle` (e.g., "go.work" or "go.mod").
+fn nearest_ancestor_with(start: &Path, needle: &str) -> Option<PathBuf> {
+    let mut cur = start;
+
+    // If `start` is a file path, prefer its parent.
+    if cur.is_file() {
+        cur = cur.parent()?;
+    }
+
+    let mut dir = cur.to_path_buf();
+    loop {
+        let candidate = dir.join(needle);
+        if candidate.exists() {
+            return Some(dir);
+        }
+
+        // Stop at filesystem root
+        if let Some(parent) = dir.parent() {
+            dir = parent.to_path_buf();
+        } else {
+            break;
+        }
+    }
+    None
 }
