@@ -18,6 +18,7 @@ use utoipa_swagger_ui::SwaggerUi;
 
 pub mod api_types;
 mod ast_grep;
+mod container;
 mod handlers;
 mod lsp;
 pub mod utils;
@@ -32,7 +33,6 @@ use crate::handlers::{
     definitions_in_file, find_definition, find_referenced_symbols, find_references, health_check,
     list_files,
 };
-use crate::lsp::manager::Manager;
 // use crate::utils::doc_utils::make_code_sample;
 
 pub fn check_mount_dir() -> std::io::Result<()> {
@@ -96,7 +96,8 @@ pub fn check_mount_dir() -> std::io::Result<()> {
 pub struct ApiDoc;
 
 pub struct AppState {
-    manager: Arc<Manager>,
+    orchestrator: Arc<container::ContainerOrchestrator>,
+    workspace_path: String,
 }
 
 pub async fn initialize_app_state() -> Result<Data<AppState>, Box<dyn std::error::Error>> {
@@ -120,14 +121,21 @@ pub async fn initialize_app_state_with_mount_dir(
     }
 
     let mount_dir_path = get_mount_dir();
-    let mount_dir = mount_dir_path.to_string_lossy();
+    let workspace_path = mount_dir_path.to_string_lossy().to_string();
 
-    // Create and initialize manager before wrapping in Arc
-    let mut manager = Manager::new(&mount_dir).await?;
-    manager.start_langservers(&mount_dir).await?;
-    let manager = Arc::new(manager);
+    // Initialize container orchestrator
+    let orchestrator = Arc::new(container::ContainerOrchestrator::new().await?);
 
-    Ok(Data::new(AppState { manager }))
+    // Initialize workspace: detect languages and spawn containers upfront
+    // This matches the original Manager::start_langservers() behavior
+    info!("Initializing workspace and spawning language containers...");
+    orchestrator.initialize_workspace(&workspace_path).await?;
+    info!("Workspace initialization complete");
+
+    Ok(Data::new(AppState {
+        orchestrator,
+        workspace_path,
+    }))
 }
 
 // Helper enum for cleaner matching

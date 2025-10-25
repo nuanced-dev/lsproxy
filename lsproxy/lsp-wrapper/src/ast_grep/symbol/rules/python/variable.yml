@@ -1,0 +1,25 @@
+id: variable
+language: python
+utils:
+  variable_def:
+    kind: assignment
+    inside:
+      kind: expression_statement
+      pattern: $CONTEXT
+      any:
+      - inside:
+          kind: module
+      - inside:
+          kind: block
+          inside:
+            kind: class_definition
+rule:
+    kind: identifier
+    pattern: $NAME
+    any:
+      - inside:
+          matches: variable_def
+      - inside:
+          kind: pattern_list
+          inside:
+            matches: variable_def

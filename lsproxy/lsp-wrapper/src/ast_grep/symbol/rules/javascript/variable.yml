@@ -1,0 +1,20 @@
+id: variable
+language: javascript
+rule:
+  kind: identifier
+  pattern: $NAME
+  inside:
+    pattern: $CONTEXT
+    kind: variable_declarator
+    not:
+        has:
+          any:
+            - kind: function_declaration
+            - kind: arrow_function
+    inside:
+      kind: lexical_declaration 
+      inside:
+        any:
+          - kind: export_statement
+          - kind: program
+    field: name

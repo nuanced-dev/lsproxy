@@ -1,0 +1,9 @@
+id: class
+language: java
+
+rule:
+  kind: identifier
+  pattern: $NAME
+  inside:
+    kind: class_declaration
+    pattern: $CONTEXT

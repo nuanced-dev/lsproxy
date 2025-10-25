@@ -1,0 +1,18 @@
+id: field
+language: csharp
+rule:
+  kind: identifier
+  pattern: $NAME
+  any:
+    - inside:
+        kind: variable_declarator
+        inside:
+          kind: variable_declaration
+          inside:
+            kind: field_declaration
+            pattern: $CONTEXT
+    - inside:
+        kind: variable_declaration
+        inside:
+          kind: event_field_declaration
+          pattern: $CONTEXT
