@@ -84,7 +84,6 @@ echo
 echo -e "${BLUE}Starting service container...${NC}"
 docker run -d \
     --name lsproxy-service \
-    --add-host=host.docker.internal:host-gateway \
     -p 4444:4444 \
     -v /var/run/docker.sock:/var/run/docker.sock \
     -v "$WORKSPACE_PATH:/mnt/workspace" \

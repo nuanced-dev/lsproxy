@@ -74,7 +74,7 @@ async fn main() -> std::io::Result<()> {
         .current_dir(&args.workspace_path)
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::inherit()) // Inherit stderr so it shows in docker logs
         .spawn()
         .map_err(|e| {
             error!("Failed to spawn LSP server process: {}", e);
@@ -106,7 +106,7 @@ async fn main() -> std::io::Result<()> {
         "rust" => (RUST_FILE_PATTERNS.to_vec(), DidOpenConfiguration::None),
         "go" | "golang" => (GOLANG_FILE_PATTERNS.to_vec(), DidOpenConfiguration::None),
         "java" => (JAVA_FILE_PATTERNS.to_vec(), DidOpenConfiguration::None),
-        "cpp" | "c" => (C_AND_CPP_FILE_PATTERNS.to_vec(), DidOpenConfiguration::None),
+        "cpp" | "c" => (C_AND_CPP_FILE_PATTERNS.to_vec(), DidOpenConfiguration::Lazy),
         "csharp" => (CSHARP_FILE_PATTERNS.to_vec(), DidOpenConfiguration::None),
         _ => {
             error!("Unknown language '{}'. Supported languages: php, python, ruby, typescript, javascript, rust, go, golang, java, cpp, c, csharp", language);
@@ -136,6 +136,13 @@ async fn main() -> std::io::Result<()> {
                     }
                 }))
                 .with_setup_workspace_method("rust-analyzer/reloadWorkspace".to_string());
+        }
+        "cpp" | "c" => {
+            info!("Configuring C/C++ with clangd initialization options");
+            base_client = base_client
+                .with_initialization_options(serde_json::json!({
+                    "clangdFileStatus": true
+                }));
         }
         _ => {}
     }

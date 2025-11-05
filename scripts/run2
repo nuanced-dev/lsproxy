@@ -132,7 +132,6 @@ docker rm -f lsproxy-service 2>/dev/null || true
 # Run the application with new containerized architecture
 docker run --rm \
     --name lsproxy-service \
-    --add-host=host.docker.internal:host-gateway \
     -p 4444:4444 \
     -v /var/run/docker.sock:/var/run/docker.sock \
     -v "$WORKSPACE_PATH:/mnt/workspace" \

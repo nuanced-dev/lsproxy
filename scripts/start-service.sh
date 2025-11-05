@@ -109,7 +109,6 @@ fi
 
 DOCKER_RUN_CMD="$DOCKER_RUN_CMD \
     --name lsproxy-service \
-    --add-host=host.docker.internal:host-gateway \
     -p ${PORT}:4444 \
     -v /var/run/docker.sock:/var/run/docker.sock \
     -v \"${WORKSPACE_PATH}:/mnt/workspace\" \

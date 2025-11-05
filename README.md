@@ -98,6 +98,75 @@ for symbol in symbols:
     print(f"{symbol.name} is defined in {file_path}")
 ```
 
+## <a name="local-development">Local Development with Container Orchestration</a>
+
+For contributors and developers working on lsproxy, we use a container orchestration architecture where each language runs in its own container.
+
+### Quick Start
+
+```bash
+# 1. Build all containers (one-time setup)
+./scripts/build-all-containers.sh
+
+# 2. Start the service
+./scripts/start-service.sh
+
+# 3. Run tests
+./scripts/test-all-endpoints.sh
+```
+
+See [QUICKSTART.md](QUICKSTART.md) for detailed instructions.
+
+### Architecture
+
+LSProxy uses a **service container** that dynamically spawns **language-specific containers**:
+
+- **Service Container** (187MB): Orchestrates language containers, routes requests
+- **Language Containers** (0.7-2.5GB each): Run language-specific LSP servers
+
+When you start the service with a workspace, it:
+1. Detects which languages are present
+2. Spawns only the needed language containers
+3. Routes API requests to the appropriate container
+
+### Development Workflow
+
+```bash
+# Start service with your workspace
+./scripts/start-service.sh /path/to/your/project --logs
+
+# In another terminal, make changes and test
+curl http://localhost:4444/v1/system/health | jq
+
+# Run comprehensive tests
+./scripts/test-all-endpoints.sh
+
+# Check what's running
+docker ps --filter "name=lsproxy-"
+
+# View logs
+docker logs -f lsproxy-service
+
+# Stop when done
+docker rm -f lsproxy-service
+```
+
+### Available Scripts
+
+| Script | Purpose |
+|--------|---------|
+| `scripts/start-service.sh` | Start LSProxy service with workspace |
+| `scripts/build-all-containers.sh` | Build all language containers |
+| `scripts/test-all-endpoints.sh` | Test all endpoints for all languages |
+| `scripts/test-container-lifecycle.sh` | Test container orchestration |
+
+### Documentation
+
+- [QUICKSTART.md](QUICKSTART.md) - Get running in 3 minutes
+- [TESTING.md](TESTING.md) - Comprehensive testing guide
+- [NEXT_STEPS.md](NEXT_STEPS.md) - Development roadmap
+- [CLEANUP.md](CLEANUP.md) - Cleanup and optimization tasks
+
 ## <a name="contributing">Building products with lsproxy</a>
 
 If you're building AI coding agents or code RAG, or would like to use `lsproxy` in a commercial product, please reach out!
