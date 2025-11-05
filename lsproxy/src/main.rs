@@ -59,8 +59,22 @@ async fn main() -> std::io::Result<()> {
         .await
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
 
+    // Get orchestrator reference for shutdown handling
+    let orchestrator = app_state.orchestrator();
+
     // Run the server with specified host
     info!("Starting on port {}", cli.port);
 
-    run_server_with_port_and_host(app_state, cli.port, &cli.host).await
+    // Run the server and wait for it to complete
+    let server_result = run_server_with_port_and_host(app_state, cli.port, &cli.host).await;
+
+    // After server stops (due to signal or error), cleanup all containers
+    info!("Server stopped, cleaning up containers...");
+    if let Err(e) = orchestrator.cleanup_all().await {
+        error!("Error during container cleanup: {}", e);
+    } else {
+        info!("All containers cleaned up successfully");
+    }
+
+    server_result
 }

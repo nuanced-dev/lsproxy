@@ -100,6 +100,13 @@ pub struct AppState {
     workspace_path: String,
 }
 
+impl AppState {
+    /// Get a reference to the orchestrator for shutdown handling
+    pub fn orchestrator(&self) -> Arc<container::ContainerOrchestrator> {
+        Arc::clone(&self.orchestrator)
+    }
+}
+
 pub async fn initialize_app_state() -> Result<Data<AppState>, Box<dyn std::error::Error>> {
     initialize_app_state_with_mount_dir(None).await
 }
