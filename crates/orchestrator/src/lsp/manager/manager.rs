@@ -1,6 +1,6 @@
 use crate::api_types::{get_mount_dir, Identifier, SupportedLanguages, Symbol};
 use crate::ast_grep::client::AstGrepClient;
-use crate::ast_grep::types::AstGrepMatch;
+use lsproxy_common::ast_grep::types::AstGrepMatch;
 use crate::lsp::client::LspClient;
 use crate::lsp::languages::{
     CSharpClient, ClangdClient, GoplsClient, JdtlsClient, JediClient, PhpactorClient, RubyClient,
