@@ -79,10 +79,18 @@ impl ContainerOrchestrator {
 
         let env = vec![format!("RUST_LOG={}", rust_log)];
 
+        // Label containers with parent ID for watchdog cleanup
+        let mut labels = HashMap::new();
+        labels.insert("lsproxy.role".to_string(), "language-server".to_string());
+        if let Some(parent_id) = ContainerOrchestrator::get_own_container_id() {
+            labels.insert("lsproxy.parent".to_string(), parent_id);
+        }
+
         let config = Config {
             image: Some(image_name.clone()),
             env: Some(env),
             host_config: Some(host_config),
+            labels: Some(labels),
             exposed_ports: Some({
                 let mut ports = HashMap::new();
                 ports.insert("8080/tcp".to_string(), HashMap::new());

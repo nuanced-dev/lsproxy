@@ -133,6 +133,13 @@ pub async fn initialize_app_state_with_mount_dir(
     // Initialize container orchestrator
     let orchestrator = Arc::new(container::ContainerOrchestrator::new().await?);
 
+    // Spawn watchdog container to monitor this service
+    // The watchdog will cleanup language containers if this service dies unexpectedly
+    info!("Spawning watchdog container...");
+    if let Err(e) = orchestrator.spawn_watchdog().await {
+        warn!("Failed to spawn watchdog (will continue without it): {}", e);
+    }
+
     // Initialize workspace: detect languages and spawn containers upfront
     // This matches the original Manager::start_langservers() behavior
     info!("Initializing workspace and spawning language containers...");

@@ -56,6 +56,39 @@ impl ContainerOrchestrator {
         })
     }
 
+    /// Get this service container's own ID
+    /// Returns None if not running in a container
+    pub fn get_own_container_id() -> Option<String> {
+        // Docker sets HOSTNAME to the container ID (short form)
+        // We can also get the full ID from /proc/self/cgroup
+        if let Ok(hostname) = std::env::var("HOSTNAME") {
+            // Validate it looks like a container ID (12 hex chars)
+            if hostname.len() >= 12 && hostname.chars().all(|c| c.is_ascii_hexdigit()) {
+                return Some(hostname);
+            }
+        }
+
+        // Fallback: Parse container ID from cgroup (Linux only)
+        #[cfg(target_os = "linux")]
+        {
+            if let Ok(cgroup) = std::fs::read_to_string("/proc/self/cgroup") {
+                // Look for docker container ID in cgroup path
+                // Format: .../docker/<container_id>/...
+                for line in cgroup.lines() {
+                    if let Some(docker_part) = line.split("docker/").nth(1) {
+                        if let Some(id) = docker_part.split('/').next() {
+                            if id.len() >= 12 {
+                                return Some(id.to_string());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        None
+    }
+
     /// Initialize workspace by detecting languages and spawning containers upfront
     /// This matches the behavior of the original Manager::start_langservers()
     pub async fn initialize_workspace(&self, workspace_path: &str) -> Result<(), OrchestratorError> {
@@ -153,6 +186,75 @@ impl ContainerOrchestrator {
 
             self.docker.remove_container(&info.container_id, Some(remove_options)).await?;
             log::info!("Removed container {} for {:?}", info.container_id, language);
+        }
+
+        Ok(())
+    }
+
+    /// Spawn a watchdog container to monitor this service and cleanup on unexpected death
+    /// Returns the watchdog container ID
+    pub async fn spawn_watchdog(&self) -> Result<String, OrchestratorError> {
+        use bollard::container::{Config, CreateContainerOptions};
+        use bollard::models::HostConfig;
+
+        let parent_id = Self::get_own_container_id()
+            .ok_or_else(|| OrchestratorError::Network("Cannot determine own container ID for watchdog".to_string()))?;
+
+        log::info!("Spawning watchdog to monitor parent container: {}", parent_id);
+
+        let watchdog_name = format!("lsproxy-watchdog-{}", &parent_id[..12]);
+
+        // Check if watchdog already exists
+        if let Ok(_) = self.docker.inspect_container(&watchdog_name, None).await {
+            log::info!("Watchdog already exists: {}", watchdog_name);
+            return Ok(watchdog_name);
+        }
+
+        let config = Config {
+            image: Some("lsproxy-watchdog:latest".to_string()),
+            env: Some(vec![
+                format!("PARENT_CONTAINER_ID={}", parent_id)
+            ]),
+            host_config: Some(HostConfig {
+                binds: Some(vec![
+                    "/var/run/docker.sock:/var/run/docker.sock".to_string()
+                ]),
+                auto_remove: Some(true), // Auto-remove container when it exits
+                ..Default::default()
+            }),
+            ..Default::default()
+        };
+
+        let options = CreateContainerOptions {
+            name: watchdog_name.clone(),
+            ..Default::default()
+        };
+
+        let container = self.docker.create_container(Some(options), config).await?;
+        self.docker.start_container::<String>(&container.id, None).await?;
+
+        log::info!("Watchdog spawned: {} (monitoring {})", watchdog_name, parent_id);
+
+        Ok(watchdog_name)
+    }
+
+    /// Stop the watchdog container
+    pub async fn stop_watchdog(&self) -> Result<(), OrchestratorError> {
+        use bollard::container::RemoveContainerOptions;
+
+        if let Some(parent_id) = Self::get_own_container_id() {
+            let watchdog_name = format!("lsproxy-watchdog-{}", &parent_id[..12]);
+
+            // Try to remove the watchdog (force=true handles running containers)
+            let remove_options = RemoveContainerOptions {
+                force: true,
+                ..Default::default()
+            };
+
+            match self.docker.remove_container(&watchdog_name, Some(remove_options)).await {
+                Ok(_) => log::info!("Stopped watchdog: {}", watchdog_name),
+                Err(e) => log::debug!("Watchdog removal failed (may not exist): {}", e),
+            }
         }
 
         Ok(())

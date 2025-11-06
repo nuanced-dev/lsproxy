@@ -66,8 +66,13 @@ echo -e "${YELLOW}Step 1: Building service image${NC}"
 build_container "service" || { echo -e "${RED}Failed to build service image${NC}"; exit 1; }
 echo
 
+# Build watchdog image (monitors service container)
+echo -e "${YELLOW}Step 2: Building watchdog image${NC}"
+build_container "watchdog" || { echo -e "${RED}Failed to build watchdog image${NC}"; exit 1; }
+echo
+
 # Build language images
-echo -e "${YELLOW}Step 2: Building language containers${NC}"
+echo -e "${YELLOW}Step 3: Building language containers${NC}"
 
 if [ "$PARALLEL" = true ]; then
     echo -e "${BLUE}Building in parallel (see /tmp/build-*.log for progress)${NC}"
