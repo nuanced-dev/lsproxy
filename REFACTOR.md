@@ -1,7 +1,8 @@
 # LSProxy Code Refactoring Plan
 
-**Status**: 🟡 In Progress - Phase 1 Complete
+**Status**: 🟡 In Progress - Phase 1 Complete, Ready for Phase 2
 **Last Updated**: 2025-11-06
+**Strategy**: Get everything working first (Phases 1-3), then optimize with deduplication (Phase 4)
 
 ## Overview
 
@@ -183,79 +184,7 @@ cd ../wrapper && cargo test
 
 ---
 
-### Phase 2: Extract Common Code ⬜ Not Started
-
-**Goal**: Move duplicated code to `common` crate
-
-#### Step 2.1: Move Identical Files
-
-- [ ] Move `ast_grep/types.rs` to `common`
-  - [ ] Update imports in orchestrator
-  - [ ] Update imports in wrapper
-  - [ ] Test: `cargo test`
-
-- [ ] Move `handlers/utils.rs` to `common`
-  - [ ] Update imports in orchestrator
-  - [ ] Update imports in wrapper
-  - [ ] Test: `cargo test`
-
-- [ ] Move `lsp/json_rpc.rs` to `common`
-  - [ ] Update imports in orchestrator
-  - [ ] Update imports in wrapper
-  - [ ] Test: `cargo test`
-
-- [ ] Move `lsp/process.rs` to `common`
-  - [ ] Update imports in orchestrator
-  - [ ] Update imports in wrapper
-  - [ ] Test: `cargo test`
-
-#### Step 2.2: Consolidate Near-Identical Files
-
-- [ ] Consolidate `api_types.rs`
-  - [ ] Compare both versions line-by-line
-  - [ ] Identify differences
-  - [ ] Create unified version in `common`
-  - [ ] Update imports in orchestrator
-  - [ ] Update imports in wrapper
-  - [ ] Test: `cargo test`
-  - [ ] Test: Integration tests pass
-
-- [ ] Consolidate `utils/file_utils.rs`
-  - [ ] Compare both versions
-  - [ ] Create unified version in `common`
-  - [ ] Update imports in orchestrator
-  - [ ] Update imports in wrapper
-  - [ ] Test: `cargo test`
-
-- [ ] Consolidate `utils/workspace_documents.rs`
-  - [ ] Compare both versions
-  - [ ] Create unified version in `common`
-  - [ ] Update imports in orchestrator
-  - [ ] Update imports in wrapper
-  - [ ] Test: `cargo test`
-
-#### Step 2.3: Handle Special Cases
-
-- [ ] Handle `ast_grep/client.rs` (has differences)
-  - [ ] Analyze differences between versions
-  - [ ] Determine if consolidation is possible
-  - [ ] Use feature flags if needed
-  - [ ] Document decision in this file
-
-**Validation After Phase 2**:
-```bash
-# All tests should pass
-cd lsproxy
-cargo test
-cargo build
-
-# Integration tests
-cd lsproxy && cargo test
-```
-
----
-
-### Phase 3: Update Build System ⬜ Not Started
+### Phase 2: Update Build System ⬜ Not Started
 
 **Goal**: Update Docker builds and scripts to use new structure
 
@@ -309,7 +238,7 @@ cd lsproxy && cargo test
 
 ---
 
-### Phase 4: Documentation and Cleanup ⬜ Not Started
+### Phase 3: Documentation and Cleanup ⬜ Not Started
 
 **Goal**: Update documentation and remove obsolete files
 
@@ -354,15 +283,118 @@ cd lsproxy && cargo test
 
 ---
 
+### Phase 4: Code Deduplication (Future Work) ⬜ Not Started
+
+**Goal**: Eliminate ~1,833 lines of duplicated code between orchestrator and wrapper
+
+**Strategy**: This phase is deferred until after the system is fully working with the new structure. The circular dependencies between files make this complex, so we'll tackle it once everything else is stable.
+
+**Rationale**:
+- Phase 1-3 provide the main benefits: clear architecture, workspace management, better naming
+- Code duplication is a maintenance issue but not critical for functionality
+- Safer to have a working system first, then optimize
+
+#### Step 4.1: Move Identical Files
+
+**Identical files (475 lines)** - byte-for-byte identical, can be moved as-is:
+
+- [ ] Move `lsp/json_rpc.rs` to `common` (155 lines) - NO dependencies on other crates
+  - [ ] Update imports in orchestrator
+  - [ ] Update imports in wrapper
+  - [ ] Test: `cargo test`
+
+- [ ] Move `lsp/process.rs` to `common` (66 lines) - Only std/external dependencies
+  - [ ] Update imports in orchestrator
+  - [ ] Update imports in wrapper
+  - [ ] Test: `cargo test`
+
+- [ ] Move `handlers/utils.rs` to `common` (66 lines) - Depends on api_types
+  - [ ] Ensure api_types is in common first
+  - [ ] Update imports in orchestrator
+  - [ ] Update imports in wrapper
+  - [ ] Test: `cargo test`
+
+- [ ] Move `ast_grep/types.rs` to `common` (188 lines) - Depends on api_types, file_utils
+  - [ ] Ensure dependencies are in common first
+  - [ ] Update imports in orchestrator
+  - [ ] Update imports in wrapper
+  - [ ] Test: `cargo test`
+
+#### Step 4.2: Consolidate Near-Identical Files
+
+**Near-identical files (1,358 lines)** - 99% similar, need reconciliation:
+
+- [ ] Consolidate `api_types.rs` (632 lines each)
+  - [ ] Compare both versions line-by-line with diff
+  - [ ] Document differences (likely version drift)
+  - [ ] Create unified version in `common`
+  - [ ] Update imports in orchestrator
+  - [ ] Update imports in wrapper
+  - [ ] Test: `cargo test`
+  - [ ] Test: Integration tests pass
+
+- [ ] Consolidate `utils/file_utils.rs` (192 vs 193 lines)
+  - [ ] Compare both versions
+  - [ ] Identify the 1-line difference
+  - [ ] Create unified version in `common`
+  - [ ] Update imports in orchestrator
+  - [ ] Update imports in wrapper
+  - [ ] Test: `cargo test`
+
+- [ ] Consolidate `utils/workspace_documents.rs` (534 vs 536 lines)
+  - [ ] Compare both versions
+  - [ ] Identify the 2-line difference
+  - [ ] Create unified version in `common`
+  - [ ] Update imports in orchestrator
+  - [ ] Update imports in wrapper
+  - [ ] Test: `cargo test`
+
+#### Step 4.3: Handle Special Cases
+
+- [ ] Analyze `ast_grep/client.rs` (264 vs 275 lines)
+  - [ ] Determine if differences are intentional
+  - [ ] Consider using feature flags if both versions needed
+  - [ ] Document decision: consolidate, keep separate, or feature-flag
+  - [ ] Implement chosen solution
+
+#### Step 4.4: Validation
+
+**After Phase 4 completion**:
+```bash
+# All tests should pass
+cargo test
+cargo build
+
+# Integration tests
+./scripts/test-container-lifecycle.sh
+./scripts/test-watchdog.sh
+./scripts/test-all-endpoints.sh
+
+# Verify no duplication remains
+# Compare file counts and line counts in orchestrator vs wrapper
+```
+
+**Success Metrics**:
+- ✅ ~1,833 lines of duplication eliminated
+- ✅ Single source of truth for shared types
+- ✅ All tests passing
+- ✅ Docker builds working
+- ✅ No behavioral changes
+
+---
+
 ## Benefits
 
-1. ✅ **Eliminates ~1,833 lines of duplication** - Single source of truth
-2. ✅ **Clear architectural separation** - Three distinct purposes
-3. ✅ **Workspace dependency management** - Shared versions, easier updates
-4. ✅ **Clearer naming** - Purpose is obvious from crate names
-5. ✅ **Standard Rust structure** - Follows community best practices
-6. ✅ **Build efficiency** - Parallel builds, shared artifacts
-7. ✅ **Independent testing** - Can test common code separately
+### Immediate Benefits (Phases 1-3):
+1. ✅ **Clear architectural separation** - Three distinct purposes (orchestrator, wrapper, common)
+2. ✅ **Workspace dependency management** - Shared versions, easier updates
+3. ✅ **Clearer naming** - Purpose is obvious from crate names
+4. ✅ **Standard Rust structure** - Follows community best practices
+5. ✅ **Build efficiency** - Parallel builds, shared artifacts
+
+### Future Benefits (Phase 4 - Deferred):
+6. ⏸️ **Eliminates ~1,833 lines of duplication** - Single source of truth (Phase 4)
+7. ⏸️ **Independent testing** - Can test common code separately (Phase 4)
 
 ## Breaking Changes
 
@@ -396,10 +428,12 @@ After each phase:
 
 ## Notes
 
-- Phase 1 is the safest - just structure, no behavior change
-- Phase 2 requires careful attention to type differences
-- Phase 3 is when Docker builds are affected
+- **Phase 1** (✅ Complete): Safest change - just structure, no behavior change
+- **Phase 2** (Next): Update Docker builds to use new structure
+- **Phase 3** (Next): Update documentation and remove obsolete files
+- **Phase 4** (Deferred): Code deduplication - complex due to circular dependencies, tackled after system is working
 - Each phase should be a separate commit for easy rollback
+- Tests must pass after each phase before proceeding to the next
 
 ## References
 
