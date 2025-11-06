@@ -1,9 +1,7 @@
 # Base LSProxy service - lightweight HTTP proxy that orchestrates language containers
 # Multi-stage build to minimize image size
 
-FROM rust:1.82.0-slim-bookworm AS builder
-
-WORKDIR /usr/src/app
+FROM rust:1.83.0-slim-bookworm AS builder
 
 # Install build dependencies
 RUN apt-get update && \
@@ -14,11 +12,17 @@ RUN apt-get update && \
     && apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# Copy source code
-COPY lsproxy/Cargo.toml lsproxy/Cargo.lock ./
-COPY lsproxy/src ./src
+# Copy workspace structure for orchestrator build
+# Need to copy all workspace members even though we're only building orchestrator
+WORKDIR /usr/src
+COPY Cargo.toml Cargo.lock ./
+COPY crates/common crates/common/
+COPY crates/orchestrator crates/orchestrator/
+# Copy wrapper stub to satisfy workspace
+COPY crates/wrapper/Cargo.toml crates/wrapper/Cargo.toml
+COPY crates/wrapper/src crates/wrapper/src/
 
-# Build release binary
+# Build release binary from workspace
 RUN cargo build --release --bin lsproxy
 
 # Runtime stage - minimal base
@@ -35,7 +39,7 @@ RUN apt-get update && apt-get install \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy binary from builder
-COPY --from=builder /usr/src/app/target/release/lsproxy /usr/local/bin/lsproxy
+COPY --from=builder /usr/src/target/release/lsproxy /usr/local/bin/lsproxy
 
 # Create workspace directory
 RUN mkdir -p /mnt/workspace && \

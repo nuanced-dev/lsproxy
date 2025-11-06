@@ -4,7 +4,7 @@
 /// this Manager wraps a single LSP client for the configured language.
 use crate::api_types::{get_mount_dir, Identifier, Symbol};
 use crate::ast_grep::client::AstGrepClient;
-use lsproxy_common::ast_grep::types::AstGrepMatch;
+use crate::ast_grep::types::AstGrepMatch;
 use crate::lsp::client::LspClient;
 use crate::utils::file_utils::uri_to_relative_path_string;
 use crate::utils::workspace_documents::WorkspaceDocuments;

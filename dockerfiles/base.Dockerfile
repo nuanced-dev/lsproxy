@@ -2,13 +2,11 @@
 # Contains lsp-wrapper binary and common system dependencies
 # Supports linux/amd64 and linux/arm64
 
-FROM --platform=$BUILDPLATFORM rust:1.82.0-slim-bookworm AS builder
+FROM --platform=$BUILDPLATFORM rust:1.83.0-slim-bookworm AS builder
 ARG BUILDPLATFORM
 ARG BUILDARCH
 ARG TARGETPLATFORM
 ARG TARGETARCH
-
-WORKDIR /usr/src/app
 
 # Set up cross-compilation tools and target based on build/target platform
 RUN apt-get update && \
@@ -41,28 +39,34 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# Copy lsp-wrapper source and ast-grep configs
-COPY lsproxy/lsp-wrapper .
-COPY lsproxy/src/ast_grep /usr/src/ast_grep
+# Copy workspace structure for wrapper build
+# Need to copy all workspace members even though we're only building wrapper
+WORKDIR /usr/src
+COPY Cargo.toml Cargo.lock ./
+COPY crates/common crates/common/
+COPY crates/wrapper crates/wrapper/
+# Copy orchestrator stub to satisfy workspace (we need ast_grep configs anyway)
+COPY crates/orchestrator/Cargo.toml crates/orchestrator/Cargo.toml
+COPY crates/orchestrator/src crates/orchestrator/src/
 
-# Build lsp-wrapper with appropriate target
+# Build lsp-wrapper binary from workspace
 RUN mkdir -p /usr/src/bin && \
     case "$TARGETPLATFORM" in \
     "linux/amd64") \
     if [ "$BUILDARCH" = "arm64" ]; then \
-    cargo build --release --target x86_64-unknown-linux-gnu && \
+    cargo build --release --bin lsp-wrapper --target x86_64-unknown-linux-gnu && \
     cp target/x86_64-unknown-linux-gnu/release/lsp-wrapper /usr/src/bin/lsp-wrapper; \
     elif [ "$BUILDARCH" = "amd64" ]; then \
-    cargo build --release && \
+    cargo build --release --bin lsp-wrapper && \
     cp target/release/lsp-wrapper /usr/src/bin/lsp-wrapper; \
     fi \
     ;; \
     "linux/arm64") \
     if [ "$BUILDARCH" = "amd64" ]; then \
-    cargo build --release --target aarch64-unknown-linux-gnu && \
+    cargo build --release --bin lsp-wrapper --target aarch64-unknown-linux-gnu && \
     cp target/aarch64-unknown-linux-gnu/release/lsp-wrapper /usr/src/bin/lsp-wrapper; \
     elif [ "$BUILDARCH" = "arm64" ]; then \
-    cargo build --release && \
+    cargo build --release --bin lsp-wrapper && \
     cp target/release/lsp-wrapper /usr/src/bin/lsp-wrapper; \
     fi \
     ;; \
@@ -96,8 +100,8 @@ RUN mkdir -p /mnt/workspace && \
 COPY --from=builder /usr/src/bin/lsp-wrapper /usr/local/bin/lsp-wrapper
 RUN chmod +x /usr/local/bin/lsp-wrapper
 
-# Copy ast-grep configs from builder
-COPY --from=builder /usr/src/ast_grep /usr/src/ast_grep
+# Copy ast-grep configs from builder (located in orchestrator source)
+COPY --from=builder /usr/src/crates/orchestrator/src/ast_grep /usr/src/ast_grep
 
 # Default port for LSP wrapper HTTP server
 EXPOSE 8080

@@ -1,0 +1,27 @@
+# Rust build artifacts
+target/
+**/target/
+
+# Git
+.git/
+.gitignore
+
+# Documentation and temporary files
+*.md
+!README.md
+*.log
+*.tmp
+
+# Test scripts (old)
+scripts/test-php-only.sh
+scripts/test-ruby-only.sh
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
