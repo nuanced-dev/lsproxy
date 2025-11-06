@@ -1,0 +1,31 @@
+[package]
+name = "lsproxy-wrapper"
+version = "0.1.0"
+edition.workspace = true
+
+[[bin]]
+name = "lsp-wrapper"
+path = "src/main.rs"
+
+[dependencies]
+lsproxy-common.workspace = true
+actix-web.workspace = true
+tokio.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+log.workspace = true
+env_logger.workspace = true
+clap.workspace = true
+thiserror.workspace = true
+lsp-types.workspace = true
+async-trait.workspace = true
+glob.workspace = true
+ignore.workspace = true
+
+# Wrapper-specific
+ast-grep = { version = "0.39", default-features = false }
+url = "2.5"
+strum = "0.26"
+strum_macros = "0.26"
+utoipa = "5.3"
+notify-debouncer-mini = "0.4"

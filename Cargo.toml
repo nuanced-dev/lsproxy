@@ -1,9 +1,18 @@
-[package]
-name = "lsp-wrapper"
-version = "0.1.0"
-edition = "2021"
+[workspace]
+members = [
+    "crates/common",
+    "crates/orchestrator",
+    "crates/wrapper",
+]
+resolver = "2"
 
-[dependencies]
+[workspace.package]
+version = "0.4.5"
+edition = "2021"
+authors = ["Agentic Labs"]
+
+[workspace.dependencies]
+# Shared dependencies
 actix-web = "4.0"
 tokio = { version = "1.0", features = ["full", "process"] }
 serde = { version = "1.0", features = ["derive"] }
@@ -12,13 +21,10 @@ log = "0.4"
 env_logger = "0.10"
 clap = { version = "4.3", features = ["derive"] }
 thiserror = "1.0"
-ast-grep = { version = "0.39", default-features = false }
-ignore = "0.4"
 lsp-types = "0.95"
-url = "2.5"
-strum = "0.26"
-strum_macros = "0.26"
-utoipa = "5.3"
 async-trait = "0.1"
 glob = "0.3"
-notify-debouncer-mini = "0.4"
+ignore = "0.4"
+
+# Common crate (internal)
+lsproxy-common = { path = "crates/common" }
