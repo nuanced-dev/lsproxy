@@ -1,0 +1,23 @@
+id: all-references
+language: python
+rule:
+  kind: identifier
+  pattern: $NAME
+  not:
+    any:
+      - inside:
+          any:
+            - kind: function_definition
+            - kind: class_definition
+            - kind: return_statement
+            - kind: parameters
+      - inside:
+          any:
+            - kind: assignment
+            - kind: augmented_assignment
+          field: left
+      - inside:
+          any:
+            - kind: default_parameter
+            - kind: typed_default_parameter
+          field: name

@@ -1,0 +1,14 @@
+id: method
+language: tsx
+rule:
+    pattern: $NAME
+    kind: property_identifier
+    inside:
+      any:
+      - kind: method_definition
+      - kind: public_field_definition
+        has:
+          any:
+            - kind: arrow_function
+            - kind: function_expression
+      pattern: $CONTEXT

@@ -1,0 +1,32 @@
+id: local-variable
+language: tsx
+utils:
+  global_variable:
+    kind: variable_declarator
+    not:
+        has:
+          any:
+            - kind: function_declaration
+            - kind: arrow_function
+    inside:
+      any:
+        - kind: lexical_declaration 
+          inside:
+            kind: export_statement
+            pattern: $CONTEXT
+        - kind: lexical_declaration
+          pattern: $CONTEXT
+          inside:
+            kind: program
+rule:
+  pattern: $NAME
+  any:
+    - kind: identifier
+      inside:
+        kind: variable_declarator
+        field: name
+        not:
+          any:
+            - matches: global_variable
+            - has:
+                kind: arrow_function

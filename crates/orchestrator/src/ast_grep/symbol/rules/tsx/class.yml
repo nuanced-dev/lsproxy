@@ -1,0 +1,10 @@
+id: class
+language: tsx
+rule:
+  kind: type_identifier
+  pattern: $NAME
+  inside:
+    any:
+      - kind: class_declaration
+      - kind: class
+    pattern: $CONTEXT

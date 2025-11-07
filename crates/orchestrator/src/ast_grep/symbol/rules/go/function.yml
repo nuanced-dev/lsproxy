@@ -1,0 +1,9 @@
+id: function
+language: go
+rule:
+  kind: identifier
+  pattern: $NAME
+  inside:
+    kind: function_declaration
+    field: name
+    pattern: $CONTEXT

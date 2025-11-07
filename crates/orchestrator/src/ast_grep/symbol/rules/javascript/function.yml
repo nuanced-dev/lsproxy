@@ -1,0 +1,44 @@
+id: function
+language: javascript
+rule:
+  pattern: $NAME
+  any:
+    - kind: identifier
+      inside:
+        any:
+          - kind: function_declaration
+          - kind: function_expression
+            not:
+              inside:
+                any:
+                  - kind: assignment_expression
+                  - kind: pair
+          - kind: generator_function
+          - kind: generator_function_declaration
+          - kind: variable_declarator
+            inside:
+              kind: lexical_declaration
+            has:
+              kind: arrow_function
+          - kind: assignment_expression
+            has:
+              any:
+                - kind: arrow_function
+        pattern: $CONTEXT
+    - kind: property_identifier
+      inside:
+        any:
+          - kind: pair
+            has:
+              any:
+                - kind: function_expression
+                - kind: arrow_function
+            pattern: $CONTEXT
+          - kind: member_expression
+            inside:
+              kind: assignment_expression
+              has:
+                any:
+                  - kind: arrow_function
+                  - kind: function_expression
+              pattern: $CONTEXT
