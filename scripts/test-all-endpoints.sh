@@ -3,7 +3,20 @@
 set -e
 
 # Comprehensive LSProxy test script that validates all endpoints for all languages
+#
+# This script automatically starts the LSProxy service if it's not already running.
+# If the service is already running, it uses the existing containers.
+#
 # Usage: ./scripts/test-all-endpoints.sh [workspace_path] [--no-cleanup]
+#
+# Arguments:
+#   workspace_path  Path to workspace (default: sample_project/all)
+#   --no-cleanup    Don't stop containers after tests (useful for debugging)
+#
+# Behavior:
+#   - If service is NOT running: Starts containers, runs tests, stops containers
+#   - If service IS running: Runs tests, leaves containers running
+#   - With --no-cleanup: Runs tests, always leaves containers running
 
 # Colors
 GREEN='\033[0;32m'
@@ -28,11 +41,15 @@ TOTAL_TESTS=0
 PASSED_TESTS=0
 FAILED_TESTS=0
 
+# Track if we started the service (to know if we should clean it up)
+STARTED_SERVICE=false
+
 # Cleanup function
 cleanup() {
     local exit_code=$?
 
-    if [ "$CLEANUP_ON_EXIT" = true ]; then
+    # Only cleanup if we started the service AND cleanup is enabled
+    if [ "$CLEANUP_ON_EXIT" = true ] && [ "$STARTED_SERVICE" = true ]; then
         echo
         echo -e "${BLUE}=========================================${NC}"
         echo -e "${BLUE}  Cleaning up containers...${NC}"
@@ -50,10 +67,13 @@ cleanup() {
             echo "$ORPHANS" | xargs docker rm -f > /dev/null 2>&1 || true
             echo -e "${GREEN}✓ Orphaned containers cleaned${NC}"
         fi
-    else
+    elif [ "$CLEANUP_ON_EXIT" = false ]; then
         echo
         echo -e "${YELLOW}Skipping cleanup (--no-cleanup specified)${NC}"
         echo -e "${YELLOW}To clean up manually, run: ./scripts/stop-service.sh --force${NC}"
+    elif [ "$STARTED_SERVICE" = false ]; then
+        echo
+        echo -e "${YELLOW}Leaving existing containers running (tests used pre-existing service)${NC}"
     fi
 
     exit $exit_code
@@ -262,6 +282,42 @@ test_find_referenced_symbols_enhanced() {
         return 1
     fi
 }
+
+# Check if service is already running, start it if not
+echo -e "${BLUE}=========================================${NC}"
+echo -e "${BLUE}  LSProxy Service Check${NC}"
+echo -e "${BLUE}=========================================${NC}"
+
+if docker ps --filter "name=lsproxy-service" --format '{{.Names}}' | grep -q "lsproxy-service"; then
+    echo -e "${GREEN}✓ Service already running${NC}"
+    echo -e "${YELLOW}  Using existing containers (will not clean up on exit)${NC}"
+    STARTED_SERVICE=false
+else
+    echo -e "${YELLOW}Service not running, starting containers...${NC}"
+    echo -e "${YELLOW}  Workspace: $WORKSPACE_PATH${NC}"
+
+    # Check if workspace exists
+    if [ ! -d "$WORKSPACE_PATH" ]; then
+        echo -e "${RED}✗ ERROR: Workspace not found: $WORKSPACE_PATH${NC}"
+        echo -e "${YELLOW}  Usage: $0 [workspace_path] [--no-cleanup]${NC}"
+        exit 1
+    fi
+
+    # Start the service using start-service.sh
+    if ! ./scripts/start-service.sh "$WORKSPACE_PATH" > /tmp/test-service-startup.log 2>&1; then
+        echo -e "${RED}✗ ERROR: Failed to start service${NC}"
+        echo -e "${YELLOW}  Check logs: tail -50 /tmp/test-service-startup.log${NC}"
+        exit 1
+    fi
+
+    echo -e "${GREEN}✓ Service started successfully${NC}"
+    STARTED_SERVICE=true
+
+    # Give containers a moment to fully initialize
+    echo -e "${YELLOW}  Waiting for services to initialize...${NC}"
+    sleep 5
+fi
+echo
 
 # Main test execution
 echo -e "${BLUE}=========================================${NC}"
