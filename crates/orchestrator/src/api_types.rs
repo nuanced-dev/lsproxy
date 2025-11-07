@@ -165,7 +165,7 @@ impl From<lsp_types::Position> for Position {
 /// ```python
 /// user = User("John", 30)
 /// _______^
-/// ```
+/// ```text
 /// This would contain:
 /// - The reference location and name ("User" at line 0)
 /// - The symbol definition(s) (e.g. "class User" in models.py)
@@ -288,7 +288,7 @@ pub struct WorkspaceSymbolsRequest {
 /// Points to the start position of the symbol's identifier.
 ///
 /// e.g. for the definition of `User` on line 5 of `src/main.py` with the code:
-/// ```
+/// ```text
 /// 0: class User:
 /// _________^
 /// 1:     def __init__(self, name, age):
@@ -297,7 +297,7 @@ pub struct WorkspaceSymbolsRequest {
 /// 4:
 /// 5: user = User("John", 30)
 /// __________^
-/// ```
+/// ```text
 /// The definition(s) will be `[{"path": "src/main.py", "line": 0, "character": 6}]`.
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize, ToSchema)]
 pub struct DefinitionResponse {
@@ -319,7 +319,7 @@ pub struct DefinitionResponse {
 /// Points to the start position of the symbol's identifier.
 ///
 /// e.g. for the references of `User` on line 0 character 6 of `src/main.py` with the code:
-/// ```
+/// ```text
 /// 0: class User:
 /// 1:     def __init__(self, name, age):
 /// 2:         self.name = name
@@ -329,7 +329,7 @@ pub struct DefinitionResponse {
 /// _________^
 /// 6:
 /// 7: print(user.name)
-/// ```
+/// ```text
 /// The references will be `[{"path": "src/main.py", "line": 5, "character": 7}]`.
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize, ToSchema)]
 pub struct ReferencesResponse {

@@ -3,6 +3,10 @@ name = "lsproxy-wrapper"
 version = "0.1.0"
 edition.workspace = true
 
+[lib]
+name = "lsproxy_wrapper"
+path = "src/lib.rs"
+
 [[bin]]
 name = "lsp-wrapper"
 path = "src/main.rs"
@@ -29,3 +33,6 @@ strum = "0.26"
 strum_macros = "0.26"
 utoipa = "5.3"
 notify-debouncer-mini = "0.4"
+
+[dev-dependencies]
+tempfile = "3.8"
