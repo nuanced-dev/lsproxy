@@ -1,5 +1,5 @@
 use super::{ContainerInfo, ContainerOrchestrator, OrchestratorError};
-use crate::api_types::SupportedLanguages;
+use lsproxy_common::api_types::SupportedLanguages;
 use bollard::container::{Config, CreateContainerOptions, LogsOptions};
 use bollard::models::{HostConfig, PortBinding};
 use futures_util::stream::StreamExt;

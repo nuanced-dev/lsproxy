@@ -3,18 +3,15 @@ use clap::Parser;
 use log::{error, info, warn};
 use std::sync::Arc;
 
-mod api_types;
-mod ast_grep;
 mod handlers;
 mod lsp;
 mod manager;
-mod utils;
 
 use lsp::client::LspClient;
 use lsp::languages::GenericLspClient;
 use lsp::process::ProcessHandler;
 use manager::Manager;
-use utils::workspace_documents::{
+use lsproxy_common::utils::workspace_documents::{
     DidOpenConfiguration, PHP_FILE_PATTERNS, PYTHON_FILE_PATTERNS, RUBY_FILE_PATTERNS,
     TYPESCRIPT_AND_JAVASCRIPT_FILE_PATTERNS, RUST_FILE_PATTERNS, GOLANG_FILE_PATTERNS,
     JAVA_FILE_PATTERNS, C_AND_CPP_FILE_PATTERNS, CSHARP_FILE_PATTERNS,

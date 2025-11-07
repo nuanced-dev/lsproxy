@@ -6,9 +6,9 @@
 /// - Making HTTP requests to container
 /// - Returning responses
 
-use crate::api_types::*;
+use lsproxy_common::api_types::*;
 use crate::container::{ContainerHttpClient, ContainerOrchestrator};
-use crate::utils::file_utils::detect_language;
+use lsproxy_common::utils::file_utils::detect_language;
 use log::{error, info};
 use std::sync::Arc;
 

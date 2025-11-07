@@ -7,7 +7,7 @@ use tokio::sync::broadcast::Receiver;
 
 use crate::lsp::{JsonRpcHandler, LspClient, PendingRequests, ProcessHandler};
 
-use crate::utils::workspace_documents::{
+use lsproxy_common::utils::workspace_documents::{
     DidOpenConfiguration, WorkspaceDocumentsHandler, DEFAULT_EXCLUDE_PATTERNS,
     PYTHON_FILE_PATTERNS, PYTHON_ROOT_FILES,
 };

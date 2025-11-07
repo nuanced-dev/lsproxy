@@ -1,4 +1,4 @@
-use crate::api_types::{ErrorResponse, ReadSourceCodeRequest};
+use lsproxy_common::api_types::{ErrorResponse, ReadSourceCodeRequest};
 use crate::AppState;
 use actix_web::web::{Data, Json};
 use actix_web::HttpResponse;

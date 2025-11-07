@@ -1,4 +1,4 @@
-use crate::api_types::{set_thread_local_mount_dir, unset_thread_local_mount_dir};
+use lsproxy_common::api_types::{set_thread_local_mount_dir, unset_thread_local_mount_dir};
 use std::path::PathBuf;
 
 /// Get the workspace root directory (lsproxy project root)

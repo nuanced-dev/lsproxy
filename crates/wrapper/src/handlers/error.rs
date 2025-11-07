@@ -1,4 +1,4 @@
-use crate::api_types::ErrorResponse;
+use lsproxy_common::api_types::ErrorResponse;
 use crate::manager::LspManagerError;
 use actix_web::HttpResponse;
 

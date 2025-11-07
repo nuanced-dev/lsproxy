@@ -7,12 +7,10 @@ use lsp_types::InitializeResult;
 use notify_debouncer_mini::DebouncedEvent;
 use tokio::{process::Command, sync::broadcast::Receiver};
 
-use crate::{
-    lsp::{ExpectedMessageKey, JsonRpcHandler, LspClient, PendingRequests, ProcessHandler},
-    utils::workspace_documents::{
-        DidOpenConfiguration, WorkspaceDocumentsHandler, DEFAULT_EXCLUDE_PATTERNS,
-        JAVA_FILE_PATTERNS, JAVA_ROOT_FILES,
-    },
+use crate::lsp::{ExpectedMessageKey, JsonRpcHandler, LspClient, PendingRequests, ProcessHandler};
+use lsproxy_common::utils::workspace_documents::{
+    DidOpenConfiguration, WorkspaceDocumentsHandler, DEFAULT_EXCLUDE_PATTERNS,
+    JAVA_FILE_PATTERNS, JAVA_ROOT_FILES,
 };
 
 pub struct JdtlsClient {

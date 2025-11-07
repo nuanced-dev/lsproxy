@@ -1,7 +1,0 @@
-id: all-identifiers
-language: ruby
-rule:
-    pattern: $NAME
-    any:
-    - kind: identifier
-    - kind: constant

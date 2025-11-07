@@ -1,6 +1,0 @@
-id: attribute-usage
-language: php
-rule:
-  kind: name
-  inside:
-    kind: attribute

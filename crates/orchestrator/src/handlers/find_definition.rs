@@ -1,4 +1,4 @@
-use crate::api_types::{DefinitionResponse, ErrorResponse, GetDefinitionRequest};
+use lsproxy_common::api_types::{DefinitionResponse, ErrorResponse, GetDefinitionRequest};
 use crate::handlers::container_proxy;
 use crate::AppState;
 use actix_web::web::{Data, Json};

@@ -3,7 +3,7 @@
 /// This client provides a simple interface to make HTTP requests to language
 /// server containers, replacing the direct LSP process management.
 
-use crate::api_types::*;
+use lsproxy_common::api_types::*;
 use serde::Deserialize;
 use std::error::Error;
 

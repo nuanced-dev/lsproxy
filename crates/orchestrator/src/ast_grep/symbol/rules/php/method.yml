@@ -1,8 +1,0 @@
-id: method
-language: php
-rule:
-  kind: name
-  pattern: $NAME
-  inside:
-    kind: method_declaration
-    pattern: $CONTEXT

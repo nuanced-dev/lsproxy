@@ -1,7 +1,7 @@
 use crate::lsp::json_rpc::JsonRpc;
 use crate::lsp::process::Process;
 use crate::lsp::{ExpectedMessageKey, JsonRpcHandler, ProcessHandler};
-use crate::utils::file_utils::{detect_language_string, search_directories};
+use lsproxy_common::utils::file_utils::{detect_language_string, search_directories};
 use async_trait::async_trait;
 use log::{debug, error, info, warn};
 use lsp_types::{
@@ -14,7 +14,7 @@ use lsp_types::{
 use std::error::Error;
 use std::path::{Path, PathBuf};
 
-use crate::utils::workspace_documents::{
+use lsproxy_common::utils::workspace_documents::{
     DidOpenConfiguration, WorkspaceDocuments, WorkspaceDocumentsHandler, DEFAULT_EXCLUDE_PATTERNS,
 };
 

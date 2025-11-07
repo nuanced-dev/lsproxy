@@ -1,8 +1,0 @@
-id: enum
-language: csharp
-rule:
-  kind: identifier
-  pattern: $NAME
-  inside:
-    kind: enum_declaration
-    pattern: $CONTEXT

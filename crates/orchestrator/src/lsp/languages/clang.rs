@@ -7,10 +7,11 @@ use std::path::{Path, PathBuf};
 use std::process::Stdio;
 
 use crate::lsp::{ExpectedMessageKey, JsonRpc, Process};
-use crate::utils::file_utils::{search_directories, search_files};
-use crate::utils::workspace_documents::DidOpenConfiguration;
-use crate::{
-    lsp::{JsonRpcHandler, LspClient, PendingRequests, ProcessHandler},
+use lsproxy_common::utils::file_utils::{search_directories, search_files};
+use lsproxy_common::utils::workspace_documents::DidOpenConfiguration;
+use crate::lsp::{JsonRpcHandler, LspClient, PendingRequests, ProcessHandler};
+use lsproxy_common::{
+    
     utils::workspace_documents::{
         WorkspaceDocumentsHandler, CPP_ROOT_FILES, C_AND_CPP_FILE_PATTERNS,
         DEFAULT_EXCLUDE_PATTERNS,

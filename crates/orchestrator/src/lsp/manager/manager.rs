@@ -1,16 +1,16 @@
-use crate::api_types::{get_mount_dir, Identifier, SupportedLanguages, Symbol};
-use crate::ast_grep::client::AstGrepClient;
-use crate::ast_grep::types::AstGrepMatch;
+use lsproxy_common::api_types::{get_mount_dir, Identifier, SupportedLanguages, Symbol};
+use lsproxy_common::ast_grep::client::AstGrepClient;
+use lsproxy_common::ast_grep::types::AstGrepMatch;
 use crate::lsp::client::LspClient;
 use crate::lsp::languages::{
     CSharpClient, ClangdClient, GoplsClient, JdtlsClient, JediClient, PhpactorClient, RubyClient,
     RubySorbetClient, RustAnalyzerClient, TypeScriptLanguageClient,
 };
-use crate::utils::file_utils::uri_to_relative_path_string;
-use crate::utils::file_utils::{
+use lsproxy_common::utils::file_utils::uri_to_relative_path_string;
+use lsproxy_common::utils::file_utils::{
     absolute_path_to_relative_path_string, detect_language, search_files,
 };
-use crate::utils::workspace_documents::{
+use lsproxy_common::utils::workspace_documents::{
     WorkspaceDocuments, CSHARP_FILE_PATTERNS, C_AND_CPP_FILE_PATTERNS, DEFAULT_EXCLUDE_PATTERNS,
     GOLANG_FILE_PATTERNS, JAVA_FILE_PATTERNS, PHP_FILE_PATTERNS, PYTHON_FILE_PATTERNS,
     RUBY_FILE_PATTERNS, RUBY_SORBET_FILE_PATTERNS, RUST_FILE_PATTERNS,
@@ -521,3 +521,15 @@ impl fmt::Display for LspManagerError {
 }
 
 impl std::error::Error for LspManagerError {}
+
+// Convert from common LspError to orchestrator-specific LspManagerError
+impl From<lsproxy_common::error::LspError> for LspManagerError {
+    fn from(err: lsproxy_common::error::LspError) -> Self {
+        use lsproxy_common::error::LspError as CommonError;
+        match &err {
+            CommonError::FileNotFound(s) => LspManagerError::FileNotFound(s.clone()),
+            CommonError::UnsupportedFileType(s) => LspManagerError::UnsupportedFileType(s.clone()),
+            _ => LspManagerError::InternalError(err.to_string()),
+        }
+    }
+}

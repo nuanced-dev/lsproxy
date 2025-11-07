@@ -1,13 +1,11 @@
 // Library interface for lsp-wrapper
 // Exposes modules for testing while keeping binary entry point in main.rs
 
-pub mod api_types;
-pub mod ast_grep;
+// Local modules
 pub mod handlers;
 pub mod lsp;
 pub mod lsp_process;
 pub mod manager;
-pub mod utils;
 
 // Re-export commonly used types
 pub use manager::Manager;

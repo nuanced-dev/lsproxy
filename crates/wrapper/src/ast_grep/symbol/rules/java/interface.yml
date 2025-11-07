@@ -1,9 +1,0 @@
-id: interface
-language: java
-
-rule:
-  kind: identifier
-  pattern: $NAME
-  inside:
-    kind: interface_declaration
-    pattern: $CONTEXT

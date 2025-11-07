@@ -1,9 +1,7 @@
-use crate::{
-    lsp::{JsonRpcHandler, LspClient, PendingRequests, ProcessHandler},
-    utils::workspace_documents::{
-        DidOpenConfiguration, WorkspaceDocumentsHandler, DEFAULT_EXCLUDE_PATTERNS,
-        RUBY_FILE_PATTERNS, RUBY_ROOT_FILES,
-    },
+use crate::lsp::{JsonRpcHandler, LspClient, PendingRequests, ProcessHandler};
+use lsproxy_common::utils::workspace_documents::{
+    DidOpenConfiguration, WorkspaceDocumentsHandler, DEFAULT_EXCLUDE_PATTERNS,
+    RUBY_FILE_PATTERNS, RUBY_ROOT_FILES,
 };
 
 use async_trait::async_trait;

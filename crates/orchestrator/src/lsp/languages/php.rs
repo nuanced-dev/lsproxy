@@ -1,5 +1,6 @@
-use crate::{
-    lsp::{JsonRpcHandler, LspClient, PendingRequests, ProcessHandler},
+use crate::lsp::{JsonRpcHandler, LspClient, PendingRequests, ProcessHandler};
+use lsproxy_common::{
+    
     utils::workspace_documents::{
         DidOpenConfiguration, WorkspaceDocumentsHandler, DEFAULT_EXCLUDE_PATTERNS,
         PHP_FILE_PATTERNS, PHP_ROOT_FILES,

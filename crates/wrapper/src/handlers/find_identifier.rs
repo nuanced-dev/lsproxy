@@ -4,11 +4,12 @@ use actix_web::{
 };
 
 use crate::{
-    api_types::{
-        ErrorResponse, FilePosition, FindIdentifierRequest, Identifier, IdentifierResponse,
-    },
     handlers::utils::{self, PositionError},
     AppState,
+};
+
+use lsproxy_common::api_types::{
+    ErrorResponse, FilePosition, FindIdentifierRequest, Identifier, IdentifierResponse,
 };
 use log::{error, info};
 

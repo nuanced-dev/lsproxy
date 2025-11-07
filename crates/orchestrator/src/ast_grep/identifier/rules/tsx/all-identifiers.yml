@@ -1,8 +1,0 @@
-id: all-identifiers
-language: tsx
-rule:
-    pattern: $NAME
-    any:
-     - kind: identifier
-     - kind: property_identifier
-     - kind: type_identifier

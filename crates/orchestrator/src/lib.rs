@@ -4,7 +4,7 @@ use actix_web::{
     web::{get, post, resource, scope, Data},
     App, HttpServer,
 };
-use api_types::{FindIdentifierRequest, IdentifierResponse};
+use lsproxy_common::api_types::{FindIdentifierRequest, IdentifierResponse};
 use handlers::{find_identifier, read_source_code};
 use log::{error, info, warn};
 use middleware::{validate_jwt_config, JwtMiddleware};
@@ -16,14 +16,12 @@ use std::sync::Arc;
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
 
-pub mod api_types;
-mod ast_grep;
+// Local modules
 mod container;
 mod handlers;
 mod lsp;
-mod utils;
 
-use crate::api_types::{
+use lsproxy_common::api_types::{
     get_mount_dir, set_global_mount_dir, CodeContext, DefinitionResponse, ErrorResponse,
     FilePosition, FileRange, FileSymbolsRequest, GetDefinitionRequest, GetReferencedSymbolsRequest,
     GetReferencesRequest, HealthResponse, Position, ReferenceWithSymbolDefinitions,
@@ -33,7 +31,7 @@ use crate::handlers::{
     definitions_in_file, find_definition, find_referenced_symbols, find_references, health_check,
     list_files,
 };
-// use crate::utils::doc_utils::make_code_sample;
+// use lsproxy_common::utils::doc_utils::make_code_sample;
 
 pub fn check_mount_dir() -> std::io::Result<()> {
     fs::read_dir(get_mount_dir())?;

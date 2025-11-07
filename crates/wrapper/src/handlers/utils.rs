@@ -1,4 +1,4 @@
-use crate::api_types::{FilePosition, Identifier};
+use lsproxy_common::api_types::{FilePosition, Identifier};
 
 #[derive(Debug)]
 pub enum PositionError {

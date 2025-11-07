@@ -2,7 +2,7 @@ use std::path::Path;
 
 use crate::lsp::{JsonRpcHandler, LspClient, PendingRequests, ProcessHandler};
 
-use crate::utils::workspace_documents::{
+use lsproxy_common::utils::workspace_documents::{
     DidOpenConfiguration, WorkspaceDocumentsHandler, DEFAULT_EXCLUDE_PATTERNS,
 };
 use async_trait::async_trait;

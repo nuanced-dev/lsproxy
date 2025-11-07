@@ -1,8 +1,8 @@
-use crate::api_types::{
+use lsproxy_common::api_types::{
     get_mount_dir, ErrorResponse, FilePosition, GetReferencedSymbolsRequest, Identifier, Position,
     ReferenceWithSymbolDefinitions, ReferencedSymbolsResponse,
 };
-use crate::utils::file_utils::uri_to_relative_path_string;
+use lsproxy_common::utils::file_utils::uri_to_relative_path_string;
 use crate::AppState;
 use actix_web::web::{Data, Json};
 use actix_web::HttpResponse;

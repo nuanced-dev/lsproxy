@@ -1,8 +1,0 @@
-id: property
-language: csharp
-rule:
-  kind: identifier
-  pattern: $NAME
-  inside:
-    kind: property_declaration
-    pattern: $CONTEXT

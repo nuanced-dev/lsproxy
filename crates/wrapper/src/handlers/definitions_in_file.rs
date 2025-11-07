@@ -2,7 +2,7 @@ use actix_web::web::{Data, Query};
 use actix_web::HttpResponse;
 use log::info;
 
-use crate::api_types::{ErrorResponse, FileSymbolsRequest, Symbol};
+use lsproxy_common::api_types::{ErrorResponse, FileSymbolsRequest, Symbol};
 use crate::AppState;
 
 /// Get symbols in a specific file (uses ast-grep)

@@ -58,7 +58,7 @@ pub fn csharp_sample_path() -> String {
         .to_string()
 }
 
-use crate::api_types::set_thread_local_mount_dir;
+use lsproxy_common::api_types::set_thread_local_mount_dir;
 
 pub struct TestContext;
 

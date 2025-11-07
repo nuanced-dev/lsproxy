@@ -12,7 +12,7 @@ use url::Url;
 
 use crate::lsp::{JsonRpcHandler, LspClient, PendingRequests, ProcessHandler};
 
-use crate::utils::workspace_documents::{
+use lsproxy_common::utils::workspace_documents::{
     DidOpenConfiguration, WorkspaceDocumentsHandler, DEFAULT_EXCLUDE_PATTERNS, RUST_FILE_PATTERNS,
     RUST_ROOT_FILES,
 };

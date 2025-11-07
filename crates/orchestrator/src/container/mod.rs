@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
-use crate::api_types::SupportedLanguages;
+use lsproxy_common::api_types::SupportedLanguages;
 
 pub mod http_client;
 pub mod orchestrator;
@@ -92,8 +92,8 @@ impl ContainerOrchestrator {
     /// Initialize workspace by detecting languages and spawning containers upfront
     /// This matches the behavior of the original Manager::start_langservers()
     pub async fn initialize_workspace(&self, workspace_path: &str) -> Result<(), OrchestratorError> {
-        use crate::utils::file_utils::search_files;
-        use crate::utils::workspace_documents::*;
+        use lsproxy_common::utils::file_utils::search_files;
+        use lsproxy_common::utils::workspace_documents::*;
         use std::path::Path;
 
         let languages = vec![
