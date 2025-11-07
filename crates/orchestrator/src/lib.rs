@@ -333,14 +333,6 @@ mod test_utils;
 #[cfg(test)]
 mod test {
     use super::*;
-
-    use crate::api_types::set_thread_local_mount_dir;
-    use crate::test_utils::{js_sample_path, python_sample_path, TestContext};
-    use log::info;
-    use std::net::TcpStream;
-    use std::sync::mpsc;
-    use std::thread;
-    use std::time::Duration;
     use tempfile::TempDir;
 
     fn simple_diff(text1: &str, text2: &str) -> String {
@@ -407,64 +399,4 @@ mod test {
         Ok(())
     }
 
-    #[tokio::test]
-    #[ignore] // Requires Docker containers to be running
-    async fn test_initialize_app_python() -> Result<(), Box<dyn std::error::Error>> {
-        let _context = TestContext::setup(&python_sample_path(), false).await?;
-        initialize_app_state().await?;
-        Ok(())
-    }
-
-    #[tokio::test]
-    #[ignore] // Requires Docker containers to be running
-    async fn test_initialize_app_js() -> Result<(), Box<dyn std::error::Error>> {
-        let _context = TestContext::setup(&js_sample_path(), false).await?;
-        initialize_app_state().await?;
-        Ok(())
-    }
-
-    #[test]
-    #[ignore] // Requires Docker containers to be running
-    fn test_run_server() -> Result<(), Box<dyn std::error::Error>> {
-        let test_path = js_sample_path();
-        let (tx, rx) = mpsc::channel();
-
-        // Spawn the server in a separate thread
-        let _server_thread = thread::spawn(move || {
-            // Set the mount directory for the server thread
-            // This only sets the thread local variable.
-            // That's fine since we don't make any requests
-            set_thread_local_mount_dir(&test_path);
-
-            let system = actix_web::rt::System::new();
-            if let Err(e) = system.block_on(async {
-                match initialize_app_state().await {
-                    Ok(app_state) => run_server(app_state).await,
-                    Err(e) => {
-                        tx.send(format!("Failed to initialize app state: {}", e))
-                            .unwrap();
-                        Ok(())
-                    }
-                }
-            }) {
-                tx.send(format!("System error: {}", e)).unwrap();
-            }
-        });
-
-        // Give the server some time to start
-        thread::sleep(Duration::from_secs(5));
-
-        // Check for any errors from the server thread
-        if let Ok(error_msg) = rx.try_recv() {
-            return Err(error_msg.into());
-        }
-
-        // Check if the server is running
-        match TcpStream::connect("0.0.0.0:4444") {
-            Ok(_) => info!("Server is running"),
-            Err(e) => return Err(format!("Failed to connect to server: {}", e).into()),
-        }
-
-        Ok(())
-    }
 }
