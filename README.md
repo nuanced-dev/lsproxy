@@ -33,11 +33,109 @@ For more info, please refer to our [API Reference](https://docs.nuanced.dev/lsp/
 - 🧩 **SDKs**: Libraries to get started calling `lsproxy` in popular languages.
 
 
-## <a name="getting-started">Getting started</a>
-The easiest way to get started is to run our tutorial! Check it out at [demo.lsproxy.dev](https://demo.lsproxy.dev)
-It's also super easy to run `lsproxy` on your code! We keep the latest version up to date on Docker Hub, and we have a Python SDK available via `pip.`
+## <a name="getting-started">Getting Started</a>
 
-### Quick Start
+### Using the Nuanced LSP SDK (Recommended)
+
+The easiest way to use this fork is through the **Nuanced LSP TypeScript SDK**, which provides both a CLI and a programmatic API.
+
+#### Install the SDK
+
+```bash
+npm install -g @nuanced-dev/lsp
+```
+
+This installs the `nuanced-lsp` CLI globally.
+
+#### Quick Start with CLI
+
+```bash
+# Start the container with your workspace
+nuanced-lsp up /path/to/your/workspace
+
+# List all files in the workspace
+nuanced-lsp list-files
+
+# Get symbol definitions in a file
+nuanced-lsp definitions-in-file src/index.ts
+
+# Find definition at a specific position (line:char, 0-indexed)
+nuanced-lsp find-definition src/index.ts --position 10:5
+
+# Find all references to a symbol
+nuanced-lsp find-references src/index.ts --position 10:5
+
+# Check container status
+nuanced-lsp status
+
+# Stop the container
+nuanced-lsp down
+```
+
+#### TypeScript Library Usage
+
+```typescript
+import { NuancedLspClient } from '@nuanced-dev/lsp';
+
+const client = new NuancedLspClient();
+
+// Start container with workspace
+await client.up({ workspace: '/path/to/workspace' });
+
+// List workspace files
+const files = await client.listFiles();
+console.log(files);
+
+// Get definitions in a file
+const definitions = await client.definitionsInFile({ file: 'src/index.ts' });
+
+// Find definition at position
+const definition = await client.findDefinition({
+  file: 'src/index.ts',
+  position: { line: 10, character: 5 }
+});
+
+// Find all references
+const references = await client.findReferences({
+  file: 'src/index.ts',
+  position: { line: 10, character: 5 }
+});
+
+// Clean up
+await client.down();
+```
+
+#### API Commands
+
+**Container Lifecycle:**
+- `up` - Start the container with workspace
+- `down` - Stop the container
+- `status` - Check container status
+- `logs` - View container logs
+- `pull` - Pull latest Docker image
+- `run` - Execute script in container
+
+**Workspace:**
+- `list-files` - List all workspace files
+- `read-source` - Read file contents (with optional range)
+
+**Symbols:**
+- `definitions-in-file` - List all symbol definitions in a file
+- `find-definition` - Find definition at position
+- `find-identifier` - Find identifiers by name
+- `find-referenced-symbols` - Find symbols referenced by a function
+- `find-references` - Find all references to a symbol
+
+**System:**
+- `health` - Check server health and language readiness
+
+For full API documentation, see [Nuanced LSP API Reference](https://docs.nuanced.dev/lsp/api-reference/container-lifecycle).
+
+---
+
+### Local Development (Contributors)
+
+If you're contributing to lsproxy itself:
 
 ```bash
 # 1. Build all containers (one-time setup)
@@ -51,7 +149,7 @@ cargo test --workspace           # Unit tests
 ./scripts/test-all-endpoints.sh  # Integration tests
 ```
 
-See [QUICKSTART.md](QUICKSTART.md) for detailed instructions.
+See [QUICKSTART.md](QUICKSTART.md) for detailed development instructions.
 
 ### Architecture
 
@@ -75,9 +173,9 @@ When you load a workspace with Python and TypeScript files, here's what happens:
          │  • Routes requests to language        │
          │    containers                         │
          │  • Manages container lifecycle        │
-         └──────┬──────────────────┬─────────────┘
-                │                  │
-       ┌────────▼────────┐    ┌────▼──────────────┐
+         └──────┬──────────────────────┬─────────┘
+                │                      │
+       ┌────────▼────────┐    ┌────────▼──────────┐
        │ lsproxy-python  │    │ lsproxy-typescript│
        │ • Size: 791MB   │    │ • Size: 1.0GB     │
        │ • jedi-ls       │    │ • typescript-ls   │
