@@ -1,12 +1,11 @@
 <div align="center">
-<a href="https://agenticlabs.com/"><img src="https://raw.githubusercontent.com/agentic-labs/.github/main/assets/logo.png" alt="Agentic Labs" title="Agentic Labs" align="center" height="150px" /></a>
 
-# lsproxy - Precise code navigation via an API
-<p align="center">
-  <a href="https://discord.gg/EUFGjSawyk"a><img alt="discord" src="https://img.shields.io/discord/1296271531994775552" /></a>
-  <img alt="license" src="https://img.shields.io/github/license/agentic-labs/lsproxy" />
-  <a href="https://pypi.org/project/lsproxy-sdk/" a><img alt="pypi" src="https://img.shields.io/pypi/v/lsproxy-sdk" /></a>
-</p>
+# Nuanced LSProxy - Precise code navigation via an API
+
+[![License](https://img.shields.io/github/license/nuanced-dev/lsproxy)](LICENSE)
+
+**Forked from [agentic-labs/lsproxy](https://github.com/agentic-labs/lsproxy)**
+
 </div>
 
 
@@ -15,11 +14,11 @@
 
 `lsproxy` offers IDE-like code analysis and navigation functionality in a docker container with a REST API.
 
-It supports [multiple languages](#supported-languages) and resolves relationships between code symbols (functions, classes, variables) anywhere in the project - which can be used to help AI assistants navigate a codebase or build custom code RAG systems.
+It supports [multiple languages](#supported-languages) and resolves relationships between code symbols (functions, classes, variables) anywhere in the project.
 
 `lsproxy` runs [Language Servers](https://microsoft.github.io/language-server-protocol/) and [ast-grep](https://github.com/ast-grep/ast-grep) under the hood, giving you precise search results without the headache of configuring and integrating language-specific tooling.
 
-For more info, please refer to our [API Reference](https://docs.lsproxy.dev/api-reference).
+For more info, please refer to our [API Reference](https://docs.nuanced.dev/lsp/overview).
 
 [![](https://mermaid.ink/img/pako:eNptUtFumzAU_RV0q0qdRKpAgAAPk6buZVInTau0h9ZV5YRrYhVsZJuuLMq_7xraNLQ1D9jnnHt8ru09bHWFUIJo9N_tjhsXXP9miqmAhqfuLhhc0X_DLTL4cu-5ibX9pja825FMOS4VmjsGje2Mfh4Y3E8iP55007ej0Z9xNtm8slRBdddc1T2vMbhB84TGzgx4TQpu3aI22M2ZThL17dePTzYMFouv3v1TnNezBBPWydM95xiq6tj40D5I9SBkg75jaZ2HNrqxgVSBh49pKhSWNEKq6kXjIamkk1odVeajiiA0qLY4ncTpjVCugMFP3SvHYAw59TUpKPCInYScEz7SHDEjMmHn54F1Q4Nvl-obasozzMRKiNA6ox-xPEt4scT4Xc1O01FMcpH6771nI1E5-yYRIoUQWjQtlxU9wr0vYOB26F9JSdOKm0cGTB1Ix3unbwa1hdKZHkPou4o7_C45PcMWSsEbS2jH1a3W7auIllDu4RnKJLtM0yJL82hdJKs4zUIYoIyj5WWeJlGyzKNslefr5BDCv9GAiCKOi6yIlnGeFkmxPvwHnPP5bQ?type=png)](https://mermaid.live/edit#pako:eNptUtFumzAU_RV0q0qdRKpAgAAPk6buZVInTau0h9ZV5YRrYhVsZJuuLMq_7xraNLQ1D9jnnHt8ru09bHWFUIJo9N_tjhsXXP9miqmAhqfuLhhc0X_DLTL4cu-5ibX9pja825FMOS4VmjsGje2Mfh4Y3E8iP55007ej0Z9xNtm8slRBdddc1T2vMbhB84TGzgx4TQpu3aI22M2ZThL17dePTzYMFouv3v1TnNezBBPWydM95xiq6tj40D5I9SBkg75jaZ2HNrqxgVSBh49pKhSWNEKq6kXjIamkk1odVeajiiA0qLY4ncTpjVCugMFP3SvHYAw59TUpKPCInYScEz7SHDEjMmHn54F1Q4Nvl-obasozzMRKiNA6ox-xPEt4scT4Xc1O01FMcpH6771nI1E5-yYRIoUQWjQtlxU9wr0vYOB26F9JSdOKm0cGTB1Ix3unbwa1hdKZHkPou4o7_C45PcMWSsEbS2jH1a3W7auIllDu4RnKJLtM0yJL82hdJKs4zUIYoIyj5WWeJlGyzKNslefr5BDCv9GAiCKOi6yIlnGeFkmxPvwHnPP5bQ)
 
@@ -38,70 +37,6 @@ For more info, please refer to our [API Reference](https://docs.lsproxy.dev/api-
 The easiest way to get started is to run our tutorial! Check it out at [demo.lsproxy.dev](https://demo.lsproxy.dev)
 It's also super easy to run `lsproxy` on your code! We keep the latest version up to date on Docker Hub, and we have a Python SDK available via `pip.`
 
-### Install the sdk
-
-```bash
-pip install lsproxy-sdk
-```
-You can find the source for the SDK [here](https://github.com/agentic-labs/lsproxy-python-sdk)
-
-### Run a container or add to compose
-> :warning: Version 0.2.0 and newer: JWT authentication is enabled by default for endpoints. So you MUST provide a secret or turn it off as described below
-#### Authentication enabled
-```bash
-docker run -p 4444:4444 -v $WORKSPACE_PATH:/mnt/workspace -e JWT_SECRET=shared_secret agenticlabs/lsproxy
-```
-
-```dockerfile
-services:
-  lsproxy:
-    image: agenticlabs/lsproxy
-    ports:
-      - "4444:4444"
-    environment:
-      - JWT_SECRET=shared_secret
-    volumes:
-      - ${WORKSPACE_PATH}:/mnt/workspace
-```
-
-#### Authentication disabled
-```bash
-docker run -p 4444:4444 -v $WORKSPACE_PATH:/mnt/workspace -e USE_AUTH=false agenticlabs/lsproxy
-```
-
-```dockerfile
-services:
-  lsproxy:
-    image: agenticlabs/lsproxy
-    ports:
-      - "4444:4444"
-    environment:
-      - USE_AUTH=false
-    volumes:
-      - ${WORKSPACE_PATH}:/mnt/workspace
-```
-### Configure an existing system
-You can also configure an existing system to run `lsproxy`. Add the following line in your dockerfile or run it as part of a startup script
-```bash
-curl -sSL https://github.com/agentic-labs/lsproxy/releases/latest/download/install-lsproxy.sh | sh
-```
-
-### Explore your workspace!
-
-```python
-from lsproxy import Lsproxy
-
-client = Lsproxy()
-file_path = "relative/path/from/project/root.cpp"
-symbols = client.definitions_in_file(file_path)
-for symbol in symbols:
-    print(f"{symbol.name} is defined in {file_path}")
-```
-
-## <a name="local-development">Local Development with Container Orchestration</a>
-
-For contributors and developers working on lsproxy, we use a container orchestration architecture where each language runs in its own container.
-
 ### Quick Start
 
 ```bash
@@ -112,22 +47,79 @@ For contributors and developers working on lsproxy, we use a container orchestra
 ./scripts/start-service.sh
 
 # 3. Run tests
-./scripts/test-all-endpoints.sh
+cargo test --workspace           # Unit tests
+./scripts/test-all-endpoints.sh  # Integration tests
 ```
 
 See [QUICKSTART.md](QUICKSTART.md) for detailed instructions.
 
 ### Architecture
 
-LSProxy uses a **service container** that dynamically spawns **language-specific containers**:
+LSProxy uses a **service container** that dynamically spawns **language-specific containers**. This provides massive space savings compared to the original monolithic implementation.
 
-- **Service Container** (187MB): Orchestrates language containers, routes requests
-- **Language Containers** (0.7-2.5GB each): Run language-specific LSP servers
+#### Container Architecture Example
 
-When you start the service with a workspace, it:
-1. Detects which languages are present
-2. Spawns only the needed language containers
-3. Routes API requests to the appropriate container
+When you load a workspace with Python and TypeScript files, here's what happens:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                     Client Application                          │
+│                  (API calls to localhost:4444)                  │
+└────────────────────────────┬────────────────────────────────────┘
+                             │
+                             ▼
+         ┌───────────────────────────────────────┐
+         │  lsproxy-service (Orchestrator)       │
+         │  • Size: 187MB                        │
+         │  • Built from: crates/orchestrator    │
+         │  • Routes requests to language        │
+         │    containers                         │
+         │  • Manages container lifecycle        │
+         └──────┬──────────────────┬─────────────┘
+                │                  │
+       ┌────────▼────────┐    ┌────▼──────────────┐
+       │ lsproxy-python  │    │ lsproxy-typescript│
+       │ • Size: 791MB   │    │ • Size: 1.0GB     │
+       │ • jedi-ls       │    │ • typescript-ls   │
+       │ • ast-grep      │    │ • ast-grep        │
+       │ • lsp-wrapper   │    │ • lsp-wrapper     │
+       └─────────────────┘    └───────────────────┘
+
+       ┌───────────────────────────────────────────────────────────┐
+       │ lsproxy-watchdog (Independent Monitor)                    │
+       │ • Size: 47.3MB                                            │
+       │ • Monitors service container status via docker inspect    │
+       │ • On service crash: Cleans up all language containers     │
+       │ • Uses Docker labels to find orphaned containers          │
+       └───────────────────────────────────────────────────────────┘
+
+       Total image size on disk required for this workspace: 2.0GB (service + python + typescript + watchdog)
+```
+
+#### Container Components
+
+**1. Service Container (lsproxy-service)** - 187MB
+- Built from: `dockerfiles/service.Dockerfile` → `crates/orchestrator`
+- Thin HTTP handlers that proxy requests to language containers
+- Detects languages in workspace and spawns only needed containers
+- Manages container lifecycle and routing
+
+**2. Language Containers** - Variable sizes (see table below)
+- Built from: Language-specific Dockerfiles → `crates/wrapper`
+- Each contains: Language server + ast-grep + lsp-wrapper
+- Full LSP communication handlers with stdio→HTTP translation
+- Only spawned when language files are detected in workspace
+
+**3. Watchdog Container (lsproxy-watchdog)** - 47.3MB
+- Built from: `dockerfiles/watchdog.Dockerfile`
+- Monitors service container health
+- Automatically cleans up language containers on service crash
+- Minimal footprint for reliability
+
+**4. Common Library (lsproxy-common)**
+- Not a container - compiled into orchestrator and wrapper
+- Shared types, utilities, AST-grep integration
+- Zero runtime overhead, zero duplication
 
 ### Development Workflow
 
@@ -160,34 +152,49 @@ docker rm -f lsproxy-service
 | `scripts/test-all-endpoints.sh` | Test all endpoints for all languages |
 | `scripts/test-container-lifecycle.sh` | Test container orchestration |
 
+### Language Container Sizes
+
+Each language container is built on top of the base image (739MB) which includes lsp-wrapper and ast-grep:
+
+| Language | Container | Dockerfile | Image Size | Language Server |
+|----------|-----------|------------|------------|----------------|
+| Python | `lsproxy-python` | `dockerfiles/python.Dockerfile` | 791MB | jedi-language-server |
+| TypeScript/JavaScript | `lsproxy-typescript` | `dockerfiles/typescript.Dockerfile` | 1.0GB | typescript-language-server |
+| Golang | `lsproxy-golang` | `dockerfiles/golang.Dockerfile` | 1.15GB | gopls |
+| C/C++ | `lsproxy-clangd` | `dockerfiles/clangd.Dockerfile` | 1.11GB | clangd |
+| PHP | `lsproxy-php` | `dockerfiles/php.Dockerfile` | 944MB | phpactor |
+| Ruby | `lsproxy-ruby-3.4.4` | `dockerfiles/ruby-3.4.4.Dockerfile` | 1.14GB | solargraph |
+| Ruby (Sorbet) | `lsproxy-ruby-sorbet-3.4.4` | `dockerfiles/ruby-sorbet-3.4.4.Dockerfile` | 1.17GB | sorbet |
+| Rust | `lsproxy-rust` | `dockerfiles/rust.Dockerfile` | 1.57GB | rust-analyzer |
+| Java | `lsproxy-java` | `dockerfiles/java.Dockerfile` | 1.57GB | eclipse-jdtls |
+| C# | `lsproxy-csharp` | `dockerfiles/csharp.Dockerfile` | 2.66GB | omnisharp |
+
+**Base Image**: `lsproxy-base` (739MB) - Contains lsp-wrapper binary and ast-grep, inherited by all language containers
+
+### Why This Architecture Saves Space
+
+**Monolithic Approach (Original)**: 13.3GB single image
+- Contains ALL language servers and dependencies
+- Must download and store 13.3GB even for a single-language project
+- Updates require rebuilding entire 13.3GB image
+
+**Container Orchestration (This Fork)**: ~2-4GB typical usage
+- Service container (187MB) + only needed language containers
+- **Example 1**: Python-only project = 187MB + 791MB + 47MB = **1.0GB** (92% savings)
+- **Example 2**: Python + TypeScript project = 187MB + 791MB + 1.0GB + 47MB = **2.0GB** (85% savings)
+- **Example 3**: All 10 languages = 187MB + 11.6GB + 47MB = **11.8GB** (11% savings)
+- Updates only rebuild changed language containers (~1GB each)
+
+**Additional Benefits**:
+- Parallel container builds (faster CI/CD)
+- Language containers can be cached independently
+- Easier to add new language support without affecting others
+- Better resource isolation and crash recovery via watchdog
+
 ### Documentation
 
 - [QUICKSTART.md](QUICKSTART.md) - Get running in 3 minutes
 - [TESTING.md](TESTING.md) - Comprehensive testing guide
-- [NEXT_STEPS.md](NEXT_STEPS.md) - Development roadmap
-- [CLEANUP.md](CLEANUP.md) - Cleanup and optimization tasks
-
-## <a name="contributing">Building products with lsproxy</a>
-
-If you're building AI coding agents or code RAG, or would like to use `lsproxy` in a commercial product, please reach out!
-
-## <a name="contributing">Contributing</a>
-
-We appreciate all contributions! You don't need to be an expert to help out.
-Please see [CONTRIBUTING.md](https://github.com/agentic-labs/lsproxy/blob/main/CONTRIBUTING.md) for more details on how to get
-started.
-
-> Questions? Reach out to us [on Discord](https://discord.gg/WafeS3jN).
-
-## <a name="community">Community</a>
-
-We're building a community. Come hang out with us!
-
-- 🌟 [Star us on GitHub](https://github.com/agentic-labs/lsproxy)
-- 💬 [Chat with us on Discord](https://discord.gg/EUFGjSawyk)
-- ✏️ [Start a GitHub Discussion](https://github.com/agentic-labs/lsproxy/discussions)
-- 🐦 [Follow us on Twitter](https://twitter.com/agentic_labs)
-- 🕴️ [Follow us on LinkedIn](https://www.linkedin.com/company/agentic-labs)
 
 ## <a name="supported-languages">Supported languages</a>
 
