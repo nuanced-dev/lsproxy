@@ -1,21 +1,56 @@
 #!/bin/bash
+# Comprehensive test script for lsproxy
+# Runs all test suites: Rust unit/integration tests and shell-based endpoint tests
 
 set -e  # Exit immediately if a command exits with a non-zero status
 
-# Build the application using the build Dockerfile
-docker build -t lsproxy-dev lsproxy
+echo "========================================"
+echo "  LSProxy Test Suite"
+echo "========================================"
+echo
 
-# Run cargo tests with Docker-in-Docker support
-# Mount Docker socket to allow tests to spawn language containers
-# Mount workspace directory for test files
-# Add host.docker.internal mapping for container-to-container communication
-if ! docker run --rm \
-    -v "$(pwd)/lsproxy":/usr/src/app \
-    -v "$(pwd)":/mnt/lsproxy_root \
-    -v /var/run/docker.sock:/var/run/docker.sock \
-    --add-host=host.docker.internal:host-gateway \
-    -e HOST_WORKSPACE_PATH=/mnt/lsproxy_root/sample_project \
-    lsproxy-dev cargo test --target-dir /tmp/target $@; then
-    echo "Tests failed. Exiting."
+# Check if Docker is running
+if ! docker ps >/dev/null 2>&1; then
+    echo "Error: Docker is not running"
     exit 1
 fi
+
+# 1. Run Rust unit and integration tests
+echo "1. Running Rust unit and integration tests..."
+echo "----------------------------------------"
+cargo test --workspace $@
+echo "✓ Rust tests passed"
+echo
+
+# 2. Build all containers (if not already built)
+echo "2. Checking Docker images..."
+echo "----------------------------------------"
+if ! docker images | grep -q "lsproxy-service.*latest"; then
+    echo "Service image not found. Building all containers..."
+    ./scripts/build-all-containers.sh
+else
+    echo "✓ Docker images found"
+fi
+echo
+
+# 3. Run container lifecycle tests
+echo "3. Running container lifecycle tests..."
+echo "----------------------------------------"
+./scripts/test-container-lifecycle.sh
+echo
+
+# 4. Run watchdog tests
+echo "4. Running watchdog tests..."
+echo "----------------------------------------"
+./scripts/test-watchdog.sh
+echo
+
+# 5. Run endpoint tests
+echo "5. Running endpoint tests..."
+echo "----------------------------------------"
+./scripts/test-all-endpoints.sh
+echo
+
+echo "========================================"
+echo "  All tests passed! ✓"
+echo "========================================"

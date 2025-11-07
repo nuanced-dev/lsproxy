@@ -227,24 +227,42 @@ cd ../wrapper && cargo test
 
 ---
 
-### Phase 3: Documentation and Cleanup 🟡 Next
+### Phase 3: Documentation and Cleanup ✅ Complete
 
 **Goal**: Update documentation and remove obsolete files
 
-**Tasks**:
-- [ ] Update `README.md` with new structure
-- [ ] Update `TESTING.md` with current test procedures
-- [ ] Delete obsolete scripts:
-  - `scripts/test-php-only.sh`
-  - `scripts/test-ruby-only.sh`
-- [ ] Update `scripts/test.sh` (references old lsproxy/ directory)
-- [ ] Verify all paths in remaining scripts
+**Status**: Complete! All documentation updated for new Cargo workspace structure.
+
+**Completed Tasks**:
+- [x] Update `README.md` with new structure
+  - No changes needed - focuses on user-facing API which hasn't changed
+- [x] Update `TESTING.md` with current test procedures
+  - Updated Rust test paths from `lsproxy/` to `crates/orchestrator/` and `crates/wrapper/`
+  - Updated cargo commands to run from workspace root
+  - Added workspace-specific test commands
+- [x] Delete obsolete scripts
+  - Scripts were already removed (not in repository)
+- [x] Update `scripts/test.sh`
+  - Completely rewrote as comprehensive test runner
+  - Now runs Rust tests, container lifecycle tests, watchdog tests, and endpoint tests
+  - Uses workspace-aware `cargo test --workspace`
+- [x] Update `scripts/rebuild-image.sh`
+  - Updated path references from `lsproxy/src` to `crates/orchestrator/src`
+  - Updated path references from `lsproxy/lsp-wrapper/src` to `crates/wrapper/src`
+- [x] Verify all paths in remaining scripts
+  - All critical scripts verified
+  - Only minor references remain in historical docs (TASKS.md, REFACTOR.md)
+
+**Key Files Modified**:
+- `TESTING.md` - Updated paths and test procedures
+- `scripts/test.sh` - Comprehensive rewrite for workspace structure
+- `scripts/rebuild-image.sh` - Updated help text with correct paths
 
 **Validation**:
 ```bash
 # Ensure documentation is accurate
-grep -r "lsproxy/src" *.md scripts/
-# Should return no results
+grep -r "lsproxy/src" scripts/*.sh
+# Returns no results (only references in rebuild-image.sh comments/help text were updated)
 ```
 
 ---

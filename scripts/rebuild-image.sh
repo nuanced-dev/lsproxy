@@ -62,7 +62,7 @@ ${YELLOW}Examples:${NC}
   # Rebuild lsp-wrapper base and PHP without cache
   $0 --no-cache --lsp-wrapper php
 
-  # Rebuild service image (after modifying lsproxy/src)
+  # Rebuild service image (after modifying crates/orchestrator)
   $0 --no-cache --service
 
   # Rebuild all language images
@@ -73,12 +73,12 @@ ${YELLOW}Examples:${NC}
 
 ${YELLOW}When to rebuild what:${NC}
   ${GREEN}LSP Wrapper base (--lsp-wrapper):${NC}
-    - When you modify lsp-wrapper source code (lsproxy/lsp-wrapper/src)
+    - When you modify lsp-wrapper source code (crates/wrapper/src)
     - This rebuilds the HTTP wrapper binary that language containers use
     - After rebuilding lsp-wrapper, you must rebuild affected language images
 
   ${GREEN}Service image (--service):${NC}
-    - When you modify the main orchestrator (lsproxy/src)
+    - When you modify the main orchestrator (crates/orchestrator/src)
     - This rebuilds the container that spawns/manages language containers
     - Service changes don't require rebuilding language images
 

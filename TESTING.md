@@ -61,7 +61,7 @@ Wait ~30 seconds for the service to initialize and spawn language containers, th
 ./scripts/test-watchdog.sh
 
 # Rust integration and unit tests (requires images built)
-cd lsproxy && cargo test
+cargo test
 ```
 
 ## Test Suites
@@ -149,11 +149,11 @@ Tests the watchdog container functionality and automatic cleanup:
 
 ### 4. Rust Integration & Unit Tests
 
-**Location:** `lsproxy/tests/*.rs` and inline in `lsproxy/src/`
+**Location:** `crates/orchestrator/tests/*.rs` and inline in `crates/orchestrator/src/` and `crates/wrapper/src/`
 
 Tests the Rust codebase at multiple levels:
 
-**Integration tests** (`lsproxy/tests/`):
+**Integration tests** (`crates/orchestrator/tests/`):
 - `container_orchestration_test.rs` - Full Docker container lifecycle testing
   - Service health checks
   - Dynamic container spawning
@@ -171,9 +171,7 @@ Tests the Rust codebase at multiple levels:
 
 **Usage:**
 ```bash
-cd lsproxy
-
-# Run all tests (unit + integration)
+# Run all tests (unit + integration) from workspace root
 cargo test
 
 # Run specific test
@@ -184,6 +182,10 @@ cargo test -- --nocapture
 
 # List all tests
 cargo test -- --list
+
+# Run tests for specific crate
+cargo test -p lsproxy-orchestrator
+cargo test -p lsproxy-wrapper
 ```
 
 **Note:** Rust integration tests require Docker images to be built first.
@@ -361,7 +363,7 @@ jobs:
       run: ./scripts/test-all-endpoints.sh
 
     - name: Run Rust tests
-      run: cd lsproxy && cargo test
+      run: cargo test
 
     - name: Cleanup
       if: always()
