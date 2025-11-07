@@ -1,68 +1,49 @@
 use crate::api_types::{set_thread_local_mount_dir, unset_thread_local_mount_dir};
-use crate::lsp::manager::Manager;
+use std::path::PathBuf;
+
+/// Get the workspace root directory (lsproxy project root)
+pub fn workspace_root() -> PathBuf {
+    // Get the current directory and walk up to find Cargo.toml
+    let mut current_dir = std::env::current_dir().expect("Failed to get current directory");
+
+    loop {
+        let cargo_toml = current_dir.join("Cargo.toml");
+        if cargo_toml.exists() {
+            // Check if this is the workspace root (has [workspace] in Cargo.toml)
+            if let Ok(contents) = std::fs::read_to_string(&cargo_toml) {
+                if contents.contains("[workspace]") {
+                    return current_dir;
+                }
+            }
+        }
+
+        // Move up one directory
+        if !current_dir.pop() {
+            panic!("Could not find workspace root with [workspace] in Cargo.toml");
+        }
+    }
+}
 
 pub fn python_sample_path() -> String {
-    "/mnt/lsproxy_root/sample_project/python".to_string()
+    workspace_root()
+        .join("sample_project/python")
+        .to_string_lossy()
+        .to_string()
 }
 
 pub fn js_sample_path() -> String {
-    "/mnt/lsproxy_root/sample_project/js".to_string()
+    workspace_root()
+        .join("sample_project/js")
+        .to_string_lossy()
+        .to_string()
 }
 
-pub fn java_sample_path() -> String {
-    "/mnt/lsproxy_root/sample_project/java".to_string()
-}
-
-pub fn rust_sample_path() -> String {
-    "/mnt/lsproxy_root/sample_project/rust".to_string()
-}
-
-pub fn go_sample_path() -> String {
-    "/mnt/lsproxy_root/sample_project/go".to_string()
-}
-
-pub fn typescript_sample_path() -> String {
-    "/mnt/lsproxy_root/sample_project/typescript".to_string()
-}
-
-pub fn csharp_sample_path() -> String {
-    "/mnt/lsproxy_root/sample_project/csharp".to_string()
-}
-
-pub fn cpp_sample_path() -> String {
-    "/mnt/lsproxy_root/sample_project/cpp".to_string()
-}
-
-pub fn c_sample_path() -> String {
-    "/mnt/lsproxy_root/sample_project/c".to_string()
-}
-
-pub fn php_sample_path() -> String {
-    "/mnt/lsproxy_root/sample_project/php".to_string()
-}
-
-pub fn ruby_sample_path() -> String {
-    "/mnt/lsproxy_root/sample_project/ruby".to_string()
-}
-
-pub struct TestContext {
-    pub manager: Option<Manager>,
-}
+pub struct TestContext;
 
 impl TestContext {
-    pub async fn setup(file_path: &str, manager: bool) -> Result<Self, Box<dyn std::error::Error>> {
+    pub async fn setup(file_path: &str, _manager: bool) -> Result<Self, Box<dyn std::error::Error>> {
         set_thread_local_mount_dir(file_path);
-        if manager {
-            let mut manager = Manager::new(file_path).await?;
-            if let Err(e) = manager.start_langservers(file_path).await {
-                unset_thread_local_mount_dir();
-                return Err(e);
-            }
-            return Ok(Self {
-                manager: Some(manager),
-            });
-        }
-        Ok(Self { manager: None })
+        Ok(Self)
     }
 }
 

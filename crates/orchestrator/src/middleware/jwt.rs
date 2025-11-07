@@ -26,7 +26,23 @@ pub struct Claims {
     pub exp: usize,
 }
 
-pub struct JwtMiddleware;
+#[derive(Debug)]
+pub struct JwtMiddleware {
+    secret: String,
+}
+
+impl JwtMiddleware {
+    pub fn new(secret: String) -> Self {
+        Self { secret }
+    }
+
+    /// Create middleware from environment variable (for production use)
+    pub fn from_env() -> Result<Self, String> {
+        let secret = env::var("JWT_SECRET")
+            .map_err(|_| "JWT_SECRET environment variable not set".to_string())?;
+        Ok(Self { secret })
+    }
+}
 
 impl<S, B> Transform<S, ServiceRequest> for JwtMiddleware
 where
@@ -41,12 +57,16 @@ where
     type Future = Ready<Result<Self::Transform, Self::InitError>>;
 
     fn new_transform(&self, service: S) -> Self::Future {
-        ready(Ok(JwtMiddlewareService { service }))
+        ready(Ok(JwtMiddlewareService {
+            service,
+            secret: self.secret.clone(),
+        }))
     }
 }
 
 pub struct JwtMiddlewareService<S> {
     service: S,
+    secret: String,
 }
 
 impl<S, B> Service<ServiceRequest> for JwtMiddlewareService<S>
@@ -63,24 +83,15 @@ where
 
     fn call(&self, req: ServiceRequest) -> Self::Future {
         let auth_header = req.headers().get("Authorization");
+        let secret = self.secret.clone();
 
         if let Some(auth_header) = auth_header {
             if let Ok(auth_str) = auth_header.to_str() {
                 if auth_str.starts_with("Bearer ") {
-                    let token = auth_str.trim_start_matches("Bearer ");
-                    let secret = match std::env::var("JWT_SECRET") {
-                        Ok(secret) => secret,
-                        Err(_) => {
-                            return Box::pin(async move {
-                                Err(actix_web::error::ErrorInternalServerError(
-                                    "JWT_SECRET environment variable not set",
-                                ))
-                            });
-                        }
-                    };
+                    let token = auth_str.trim_start_matches("Bearer ").to_string();
 
                     match decode::<Claims>(
-                        token,
+                        &token,
                         &DecodingKey::from_secret(secret.as_bytes()),
                         &Validation::default(),
                     ) {

@@ -2,6 +2,7 @@ use super::jwt::{Claims, JwtMiddleware};
 use actix_web::test::{self, TestRequest};
 use actix_web::{web, App, HttpResponse};
 use jsonwebtoken::{encode, EncodingKey, Header};
+use serial_test::serial;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 async fn test_handler() -> HttpResponse {
@@ -10,7 +11,7 @@ async fn test_handler() -> HttpResponse {
 
 #[actix_web::test]
 async fn test_valid_token() {
-    std::env::set_var("JWT_SECRET", "test_secret");
+    let test_secret = "test_secret";
 
     let claims = Claims {
         exp: SystemTime::now()
@@ -23,13 +24,13 @@ async fn test_valid_token() {
     let token = encode(
         &Header::default(),
         &claims,
-        &EncodingKey::from_secret("test_secret".as_bytes()),
+        &EncodingKey::from_secret(test_secret.as_bytes()),
     )
     .unwrap();
 
     let app = test::init_service(
         App::new()
-            .wrap(JwtMiddleware)
+            .wrap(JwtMiddleware::new(test_secret.to_string()))
             .route("/", web::get().to(test_handler)),
     )
     .await;
@@ -45,11 +46,9 @@ async fn test_valid_token() {
 
 #[actix_web::test]
 async fn test_invalid_token() {
-    std::env::set_var("JWT_SECRET", "test_secret");
-
     let app = test::init_service(
         App::new()
-            .wrap(JwtMiddleware)
+            .wrap(JwtMiddleware::new("test_secret".to_string()))
             .route("/", web::get().to(test_handler)),
     )
     .await;
@@ -68,7 +67,7 @@ async fn test_invalid_token() {
 async fn test_missing_auth_header() {
     let app = test::init_service(
         App::new()
-            .wrap(JwtMiddleware)
+            .wrap(JwtMiddleware::new("test_secret".to_string()))
             .route("/", web::get().to(test_handler)),
     )
     .await;
@@ -79,23 +78,50 @@ async fn test_missing_auth_header() {
     assert_eq!(resp.status().as_u16(), 401);
 }
 
-#[actix_web::test]
-async fn test_missing_jwt_secret() {
+#[test]
+#[serial]
+fn test_from_env_missing_secret() {
+    // Ensure JWT_SECRET is not set
     std::env::remove_var("JWT_SECRET");
 
+    // Should fail when JWT_SECRET is missing
+    let result = JwtMiddleware::from_env();
+    assert!(result.is_err());
+    assert_eq!(
+        result.unwrap_err(),
+        "JWT_SECRET environment variable not set"
+    );
+}
+
+#[test]
+#[serial]
+fn test_from_env_with_secret() {
+    // Set JWT_SECRET
+    std::env::set_var("JWT_SECRET", "test_value");
+
+    // Should succeed when JWT_SECRET is set
+    let result = JwtMiddleware::from_env();
+    assert!(result.is_ok());
+
+    // Clean up
+    std::env::remove_var("JWT_SECRET");
+}
+
+#[actix_web::test]
+async fn test_empty_bearer_token() {
     let app = test::init_service(
         App::new()
-            .wrap(JwtMiddleware)
+            .wrap(JwtMiddleware::new("test_secret".to_string()))
             .route("/", web::get().to(test_handler)),
     )
     .await;
 
     let req = TestRequest::get()
         .uri("/")
-        .insert_header(("Authorization", "Bearer some_token"))
+        .insert_header(("Authorization", "Bearer "))
         .to_request();
 
     let err = test::try_call_service(&app, req).await.unwrap_err();
     let resp = err.error_response();
-    assert_eq!(resp.status().as_u16(), 500);
+    assert_eq!(resp.status().as_u16(), 401);
 }

@@ -305,6 +305,7 @@ mod tests {
 
     #[test]
     fn test_image_name_for_language() {
+        // Test all 10 supported languages to ensure complete coverage
         assert_eq!(
             ContainerOrchestrator::image_name_for_language(&SupportedLanguages::Golang),
             "lsproxy-golang:latest"
@@ -314,24 +315,77 @@ mod tests {
             "lsproxy-python:latest"
         );
         assert_eq!(
+            ContainerOrchestrator::image_name_for_language(&SupportedLanguages::TypeScriptJavaScript),
+            "lsproxy-typescript:latest"
+        );
+        assert_eq!(
+            ContainerOrchestrator::image_name_for_language(&SupportedLanguages::Ruby),
+            "lsproxy-ruby:latest"
+        );
+        assert_eq!(
             ContainerOrchestrator::image_name_for_language(&SupportedLanguages::RubySorbet),
             "lsproxy-ruby-sorbet:latest"
         );
         assert_eq!(
-            ContainerOrchestrator::image_name_for_language(&SupportedLanguages::TypeScriptJavaScript),
-            "lsproxy-typescript:latest"
+            ContainerOrchestrator::image_name_for_language(&SupportedLanguages::Rust),
+            "lsproxy-rust:latest"
+        );
+        assert_eq!(
+            ContainerOrchestrator::image_name_for_language(&SupportedLanguages::CPP),
+            "lsproxy-clangd:latest"
+        );
+        assert_eq!(
+            ContainerOrchestrator::image_name_for_language(&SupportedLanguages::Java),
+            "lsproxy-java:latest"
+        );
+        assert_eq!(
+            ContainerOrchestrator::image_name_for_language(&SupportedLanguages::PHP),
+            "lsproxy-php:latest"
+        );
+        assert_eq!(
+            ContainerOrchestrator::image_name_for_language(&SupportedLanguages::CSharp),
+            "lsproxy-csharp:latest"
         );
     }
 
     #[test]
     fn test_language_slug() {
+        // Test all 10 supported languages to ensure complete coverage
+        assert_eq!(
+            ContainerOrchestrator::language_slug(&SupportedLanguages::Golang),
+            "golang"
+        );
+        assert_eq!(
+            ContainerOrchestrator::language_slug(&SupportedLanguages::Python),
+            "python"
+        );
+        assert_eq!(
+            ContainerOrchestrator::language_slug(&SupportedLanguages::TypeScriptJavaScript),
+            "typescript"
+        );
+        assert_eq!(
+            ContainerOrchestrator::language_slug(&SupportedLanguages::Ruby),
+            "ruby"
+        );
         assert_eq!(
             ContainerOrchestrator::language_slug(&SupportedLanguages::RubySorbet),
             "ruby-sorbet"
         );
         assert_eq!(
-            ContainerOrchestrator::language_slug(&SupportedLanguages::Golang),
-            "golang"
+            ContainerOrchestrator::language_slug(&SupportedLanguages::Rust),
+            "rust"
+        );
+        assert_eq!(
+            ContainerOrchestrator::language_slug(&SupportedLanguages::CPP),
+            "clangd"
+        );
+        assert_eq!(
+            ContainerOrchestrator::language_slug(&SupportedLanguages::Java),
+            "java"
+        );
+        assert_eq!(
+            ContainerOrchestrator::language_slug(&SupportedLanguages::PHP),
+            "php"
         );
         assert_eq!(
             ContainerOrchestrator::language_slug(&SupportedLanguages::CSharp),
@@ -343,7 +397,6 @@ mod tests {
     // Run with: cargo test --test container_tests -- --ignored
 
     #[tokio::test]
-    #[ignore] // Requires Docker
     async fn test_store_and_get_container() -> Result<(), OrchestratorError> {
         let orchestrator = ContainerOrchestrator::new().await?;
 
@@ -376,7 +429,6 @@ mod tests {
     }
 
     #[tokio::test]
-    #[ignore] // Requires Docker
     async fn test_remove_container_from_map() -> Result<(), OrchestratorError> {
         let orchestrator = ContainerOrchestrator::new().await?;
 
@@ -412,7 +464,6 @@ mod tests {
     }
 
     #[tokio::test]
-    #[ignore] // Requires Docker
     async fn test_all_containers() -> Result<(), OrchestratorError> {
         let orchestrator = ContainerOrchestrator::new().await?;
 
