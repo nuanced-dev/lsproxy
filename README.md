@@ -225,6 +225,9 @@ When you load a workspace with Python and TypeScript files, here's what happens:
 # Start service with your workspace
 ./scripts/start-service.sh /path/to/your/project --logs
 
+# Restrict which language containers are spawned (optional)
+ENABLED_LANGUAGES="python,typescript" ./scripts/start-service.sh /path/to/your/project
+
 # In another terminal, make changes and test
 curl http://localhost:4444/v1/system/health | jq
 
@@ -239,6 +242,38 @@ docker logs -f lsproxy-service
 
 # Stop when done
 docker rm -f lsproxy-service
+```
+
+#### Environment Variables
+
+**`ENABLED_LANGUAGES`** (optional)
+- Comma-separated list of languages to enable
+- By default, LSProxy spawns containers for all detected languages in the workspace
+- Use this to restrict which language containers are spawned
+- Language names are case-insensitive and support aliases:
+  - `python`
+  - `typescript`, `javascript`
+  - `rust`
+  - `golang`, `go`
+  - `java`
+  - `php`
+  - `ruby`, `ruby-sorbet`, `sorbet`
+  - `cpp`, `c++`, `c`
+  - `csharp`, `c#`
+
+**Examples:**
+```bash
+# Only spawn Python and TypeScript containers
+ENABLED_LANGUAGES="python,typescript" ./scripts/start-service.sh
+
+# Using language aliases
+ENABLED_LANGUAGES="go,cpp" ./scripts/start-service.sh
+
+# Case-insensitive with spaces
+ENABLED_LANGUAGES="Python, TypeScript, Rust" ./scripts/start-service.sh
+
+# Without ENABLED_LANGUAGES, all detected languages spawn (default)
+./scripts/start-service.sh
 ```
 
 ### Available Scripts
