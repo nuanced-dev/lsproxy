@@ -12,21 +12,11 @@ BLUE='\033[0;34m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
-FORCE=false
-
 # Parse options
 while [[ $# -gt 0 ]]; do
     case $1 in
-        --force|-f)
-            FORCE=true
-            shift
-            ;;
         --help|-h)
-            echo "Usage: $0 [options]"
-            echo ""
-            echo "Options:"
-            echo "  --force, -f    Force removal without confirmation"
-            echo "  --help, -h     Show this help"
+            echo "Usage: $0"
             echo ""
             echo "This script stops and removes all LSProxy containers:"
             echo "  - Service container"
@@ -57,16 +47,6 @@ fi
 echo -e "${BLUE}Containers to stop:${NC}"
 docker ps --filter "name=lsproxy-" --format "  {{.Names}}\t({{.Status}})"
 echo
-
-# Confirm unless force
-if [ "$FORCE" = false ]; then
-    read -p "Stop and remove all LSProxy containers? (y/N): " -n 1 -r
-    echo
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-        echo -e "${YELLOW}Cancelled${NC}"
-        exit 0
-    fi
-fi
 
 # Stop and remove containers
 echo -e "${BLUE}Stopping containers...${NC}"
@@ -111,7 +91,6 @@ else
     echo -e "${YELLOW}Remaining containers:${NC}"
     docker ps -a --filter "name=lsproxy-" --format "  {{.Names}}\t({{.Status}})"
     echo
-    echo -e "${YELLOW}Try running with --force:${NC}"
-    echo -e "  $0 --force"
+    echo -e "${YELLOW}Some containers could not be stopped${NC}"
     exit 1
 fi
