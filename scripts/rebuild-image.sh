@@ -16,17 +16,19 @@ YELLOW='\033[1;33m'
 RED='\033[0;31m'
 NC='\033[0m' # No Color
 
-# Default options
-NO_CACHE=""
+# Default options (--no-cache is default for safety, use --cache to enable caching)
+NO_CACHE="--no-cache"
 REBUILD_LSP_WRAPPER=false
 REBUILD_SERVICE=false
 VERBOSE=false
+PARALLEL=false
 
-# Available languages
+# Available languages (matching build-all-containers.sh)
 LANGUAGES=(
     "python"
     "typescript"
-    "ruby"
+    "ruby-3.4.4"
+    "ruby-sorbet-3.4.4"
     "php"
     "golang"
     "rust"
@@ -43,33 +45,37 @@ ${BLUE}Rebuild Docker images for lsproxy${NC}
 
 ${YELLOW}Options:${NC}
   -h, --help              Show this help message
-  -n, --no-cache          Build without using Docker cache
+  -c, --cache             Build WITH Docker cache (default is --no-cache for safety)
   -w, --lsp-wrapper       Also rebuild the lsp-wrapper base image
   -s, --service           Also rebuild the service image (lsproxy orchestrator)
   -a, --all               Rebuild all language images
+  -p, --parallel          Build all language images in parallel (faster but less verbose)
   -v, --verbose           Show full build output
 
 ${YELLOW}Languages:${NC}
   ${LANGUAGES[@]}
 
 ${YELLOW}Examples:${NC}
-  # Rebuild PHP with cache
+  # Rebuild PHP (default: no-cache)
   $0 php
 
-  # Rebuild PHP without cache (forces fresh build)
-  $0 --no-cache php
+  # Rebuild PHP WITH cache (faster but may miss changes)
+  $0 --cache php
 
-  # Rebuild lsp-wrapper base and PHP without cache
-  $0 --no-cache --lsp-wrapper php
+  # Rebuild lsp-wrapper base and PHP
+  $0 --lsp-wrapper php
 
   # Rebuild service image (after modifying crates/orchestrator)
-  $0 --no-cache --service
+  $0 --service
 
   # Rebuild all language images
   $0 --all
 
-  # Full rebuild: service, lsp-wrapper, and all languages
-  $0 --no-cache --service --lsp-wrapper --all
+  # Rebuild all languages in parallel (faster)
+  $0 --all --parallel
+
+  # Full rebuild: service, lsp-wrapper, and all languages in parallel
+  $0 --service --lsp-wrapper --all --parallel
 
 ${YELLOW}When to rebuild what:${NC}
   ${GREEN}LSP Wrapper base (--lsp-wrapper):${NC}
@@ -88,8 +94,9 @@ ${YELLOW}When to rebuild what:${NC}
     - When you want to update the LSP server version
 
 ${YELLOW}Notes:${NC}
-  - Use --no-cache when debugging build issues or after significant changes
-  - Without --no-cache, Docker will reuse cached layers (faster but may miss changes)
+  - Default is --no-cache for safety (ensures all changes are picked up)
+  - Use --cache for faster builds when you're sure Docker's cache is fresh
+  - Use --parallel when rebuilding multiple languages to save time
 
 EOF
     exit 0
@@ -199,8 +206,12 @@ while [[ $# -gt 0 ]]; do
         -h|--help)
             usage
             ;;
-        -n|--no-cache)
-            NO_CACHE="--no-cache"
+        -c|--cache)
+            NO_CACHE=""
+            shift
+            ;;
+        -p|--parallel)
+            PARALLEL=true
             shift
             ;;
         -w|--lsp-wrapper)
@@ -265,8 +276,9 @@ log_info "  Docker Image Rebuild"
 log_info "========================================="
 echo ""
 log_info "Options:"
-[ -n "$NO_CACHE" ] && echo "  - No cache: enabled" || echo "  - No cache: disabled"
+[ -n "$NO_CACHE" ] && echo "  - No cache: enabled" || echo "  - Cache: enabled"
 [ "$VERBOSE" = true ] && echo "  - Verbose: enabled" || echo "  - Verbose: disabled"
+[ "$PARALLEL" = true ] && echo "  - Parallel: enabled" || echo "  - Parallel: disabled"
 echo ""
 
 if [ "$REBUILD_SERVICE" = true ] || [ "$REBUILD_LSP_WRAPPER" = true ] || [ ${#SELECTED_LANGUAGES[@]} -gt 0 ]; then
@@ -305,12 +317,33 @@ fi
 
 # Rebuild selected languages
 FAILED_LANGUAGES=()
-for lang in "${SELECTED_LANGUAGES[@]}"; do
-    if ! rebuild_language "$lang"; then
-        FAILED_LANGUAGES+=("$lang")
-    fi
+
+if [ "$PARALLEL" = true ] && [ ${#SELECTED_LANGUAGES[@]} -gt 0 ]; then
+    log_info "Building languages in parallel (this will be less verbose)..."
     echo ""
-done
+
+    # Build in parallel using background jobs
+    pids=()
+    for lang in "${SELECTED_LANGUAGES[@]}"; do
+        rebuild_language "$lang" &
+        pids+=($!)
+    done
+
+    # Wait for all builds
+    for i in "${!pids[@]}"; do
+        if ! wait "${pids[$i]}"; then
+            FAILED_LANGUAGES+=("${SELECTED_LANGUAGES[$i]}")
+        fi
+    done
+else
+    # Build sequentially
+    for lang in "${SELECTED_LANGUAGES[@]}"; do
+        if ! rebuild_language "$lang"; then
+            FAILED_LANGUAGES+=("$lang")
+        fi
+        echo ""
+    done
+fi
 
 # Print summary
 log_info "========================================="

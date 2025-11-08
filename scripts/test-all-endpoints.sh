@@ -101,10 +101,11 @@ ruby|main.rb|main|35|4|ruby
 # Format: language|file|line|char|min_workspace_symbols|expected_symbol_names
 # Only includes languages with ast-grep support for find-referenced-symbols
 # Note: Expectations are set based on actual ast-grep behavior with full_scan:false
+#
+# Testing both Python and TypeScript to debug path resolution issues
 FIND_REF_TESTS="
-python|main.py|15|4|1|AStarGraph
-typescript|src/main.ts|5|6|1|AStar
-javascript|src/main.ts|5|6|1|AStar
+python|main.py|14|4|1|AStarGraph
+typescript|src/astar.ts|60|12|2|isInBounds,isWalkable
 "
 
 # Test function
