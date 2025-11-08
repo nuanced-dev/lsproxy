@@ -125,18 +125,70 @@ pub async fn find_referenced_symbols(
             if has_internal_definition {
                 let mut symbols_with_definitions = Vec::new();
                 for def in definitions.iter().filter(|def| mount_dir.join(&def.path).exists()) {
-                    if let Ok(symbol) = data
+                    let def_position = lsp_types::Position {
+                        line: def.position.line,
+                        character: def.position.character,
+                    };
+
+                    match data
                         .manager
-                        .get_symbol_from_position(
-                            &def.path,
-                            &lsp_types::Position {
-                                line: def.position.line,
-                                character: def.position.character,
-                            },
-                        )
+                        .get_symbol_from_position(&def.path, &def_position)
                         .await
                     {
-                        symbols_with_definitions.push(symbol);
+                        Ok(symbol) => {
+                            symbols_with_definitions.push(symbol);
+                        }
+                        Err(_) => {
+                            // Fallback mechanism for position mismatches between LSP operations
+                            //
+                            // Problem: In some languages (notably TypeScript), textDocument/definition and
+                            // documentSymbol may report different character positions for the same symbol.
+                            //
+                            // Example: TypeScript arrow function properties
+                            //   private isWalkable = (point: Point): boolean => { ... }
+                            //           ^            ^
+                            //           char 12      char 25
+                            //
+                            // - textDocument/definition returns character 25 (pointing to the arrow =>)
+                            // - documentSymbol reports the symbol at character 12 (the identifier name)
+                            //
+                            // This mismatch causes get_symbol_from_position to fail when using the
+                            // textDocument/definition position.
+                            //
+                            // Solution: Use ast-grep to get all identifiers in the file, find the one
+                            // matching by name and line number, then call get_symbol_from_position
+                            // using that identifier's position (which aligns with documentSymbol).
+                            match data
+                                .manager
+                                .get_file_identifiers(&def.path)
+                                .await
+                            {
+                                Ok(identifiers) => {
+                                    // Find the identifier on the same line as the definition with matching name
+                                    if let Some(found_identifier) = identifiers.iter().find(|id| {
+                                        id.file_range.range.start.line == def.position.line
+                                            && id.name == identifier.name
+                                    }) {
+                                        // Get the full Symbol using the ast-grep identifier's position
+                                        let id_position = lsp_types::Position {
+                                            line: found_identifier.file_range.range.start.line,
+                                            character: found_identifier.file_range.range.start.character,
+                                        };
+
+                                        if let Ok(symbol) = data
+                                            .manager
+                                            .get_symbol_from_position(&def.path, &id_position)
+                                            .await
+                                        {
+                                            symbols_with_definitions.push(symbol);
+                                        }
+                                    }
+                                }
+                                Err(_) => {
+                                    // Both the primary and fallback approaches failed - skip this symbol
+                                }
+                            }
+                        }
                     }
                 }
                 // Only add to workspace_symbols if we found at least one symbol

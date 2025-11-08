@@ -99,7 +99,7 @@ async fn main() -> std::io::Result<()> {
         "php" => (PHP_FILE_PATTERNS.to_vec(), DidOpenConfiguration::Lazy),
         "python" => (PYTHON_FILE_PATTERNS.to_vec(), DidOpenConfiguration::None),
         "ruby" => (RUBY_FILE_PATTERNS.to_vec(), DidOpenConfiguration::None),
-        "typescript" | "javascript" => (TYPESCRIPT_AND_JAVASCRIPT_FILE_PATTERNS.to_vec(), DidOpenConfiguration::None),
+        "typescript" | "javascript" => (TYPESCRIPT_AND_JAVASCRIPT_FILE_PATTERNS.to_vec(), DidOpenConfiguration::Lazy),
         "rust" => (RUST_FILE_PATTERNS.to_vec(), DidOpenConfiguration::None),
         "go" | "golang" => (GOLANG_FILE_PATTERNS.to_vec(), DidOpenConfiguration::None),
         "java" => (JAVA_FILE_PATTERNS.to_vec(), DidOpenConfiguration::None),
