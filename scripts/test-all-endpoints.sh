@@ -99,14 +99,39 @@ ruby|main.rb|main|35|4|ruby
 
 # Deep validation for find-referenced-symbols (ast-grep backed)
 # Format: language|file|line|char|min_workspace_symbols|expected_symbol_names
-# Only includes languages with ast-grep support for find-referenced-symbols
+#
 # Note: Expectations are set based on actual ast-grep behavior with full_scan:false
 #
-# Testing both Python and TypeScript to debug path resolution issues
+# Language Support Status (find-referenced-symbols requires ast-grep reference rules):
+# ✓ WORKING (4 languages) - Have ast-grep reference rules configured:
+#   - Python: Excellent support with decorator and function-call rules
+#   - TypeScript: Good support with component-render, function-call, decorator rules
+#   - C#: Working with class-instantiation and function-call rules
+#   - PHP: Working with attribute-usage and function-call rules
+#
+# ✗ NOT WORKING (5 languages) - Missing ast-grep reference rules:
+#   - Ruby: No reference rules configured in ast_grep_configs/reference/rules/
+#   - Go: No reference rules configured
+#   - Rust: No reference rules configured
+#   - Java: No reference rules configured
+#   - C/C++ (clangd): No reference rules configured
+#
+# Note: All languages have identifier and symbol rules, but find-referenced-symbols
+# specifically requires reference rules to find symbol usages within a method body.
 FIND_REF_TESTS="
 python|main.py|14|4|1|AStarGraph
 typescript|src/astar.ts|60|12|2|isInBounds,isWalkable
+csharp|AStar.cs|23|27|1|AddNeighborsToOpenList
+php|AStar.php|26|20|1|addNeighborsToOpenList
 "
+
+# Tests that are not working (commented out - need ast-grep reference rules)
+# ruby|search.rb|31|15|1|initialize_search
+# golang|golang_astar/astar.go|??|??|1|??
+# rust|src/astar.rs|??|??|1|??
+# java|AStar.java|39|22|1|??
+# clangd|astar_search.cpp|??|??|1|??
+#"
 
 # Test function
 test_endpoint() {
