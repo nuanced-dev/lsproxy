@@ -110,4 +110,22 @@ impl GenericLspClient {
         self.setup_workspace_method = Some(method);
         self
     }
+
+    /// Extract all components at once (consumes self)
+    /// Returns (ProcessHandler, JsonRpcHandler, WorkspaceDocumentsHandler, PendingRequests)
+    pub fn into_components(
+        self,
+    ) -> (
+        ProcessHandler,
+        JsonRpcHandler,
+        WorkspaceDocumentsHandler,
+        PendingRequests,
+    ) {
+        (
+            self.process,
+            self.json_rpc,
+            self.workspace_documents,
+            self.pending_requests,
+        )
+    }
 }

@@ -8,7 +8,7 @@ mod lsp;
 mod manager;
 
 use lsp::client::LspClient;
-use lsp::languages::GenericLspClient;
+use lsp::languages::{GenericLspClient, GoplsClient};
 use lsp::process::ProcessHandler;
 use manager::Manager;
 use lsproxy_common::utils::workspace_documents::{
@@ -115,7 +115,7 @@ async fn main() -> std::io::Result<()> {
     };
 
     // Create base client
-    let mut base_client = GenericLspClient::new(
+    let base_client = GenericLspClient::new(
         process_handler,
         args.workspace_path.clone(),
         file_patterns.iter().map(|&s| s.to_string()).collect(),
@@ -123,28 +123,40 @@ async fn main() -> std::io::Result<()> {
     );
 
     // Apply language-specific initialization and setup
-    match language.as_str() {
+    let mut client: Box<dyn LspClient> = match language.as_str() {
+        "go" => {
+            info!("Configuring Go with custom workspace folder detection (go.work/go.mod)");
+            // Convert GenericLspClient components to GoplsClient
+            let (process, json_rpc, workspace_documents, pending_requests) = base_client.into_components();
+            let gopls_client = GoplsClient::new(
+                process,
+                json_rpc,
+                workspace_documents,
+                pending_requests,
+            );
+            Box::new(gopls_client)
+        }
         "rust" => {
             info!("Configuring Rust with initialization options and setup workspace");
-            base_client = base_client
+            let configured_client = base_client
                 .with_initialization_options(serde_json::json!({
                     "cargo": {
                         "sysroot": serde_json::Value::Null
                     }
                 }))
                 .with_setup_workspace_method("rust-analyzer/reloadWorkspace".to_string());
+            Box::new(configured_client)
         }
         "cpp" | "c" => {
             info!("Configuring C/C++ with clangd initialization options");
-            base_client = base_client
+            let configured_client = base_client
                 .with_initialization_options(serde_json::json!({
                     "clangdFileStatus": true
                 }));
+            Box::new(configured_client)
         }
-        _ => {}
-    }
-
-    let mut client: Box<dyn LspClient> = Box::new(base_client);
+        _ => Box::new(base_client),
+    };
 
     // Initialize the LSP server
     client.initialize(args.workspace_path.clone()).await.map_err(|e| {
