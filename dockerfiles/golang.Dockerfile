@@ -4,7 +4,7 @@
 # Builder stage: Install Go and build gopls
 FROM debian:bookworm-slim AS builder
 
-ARG GO_VERSION=1.23.4
+ARG GO_VERSION=1.24.2
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Install curl for downloading Go
