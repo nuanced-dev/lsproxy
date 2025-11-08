@@ -120,6 +120,11 @@ if [ "$USE_AUTH" = false ]; then
     DOCKER_RUN_CMD="$DOCKER_RUN_CMD -e USE_AUTH=false"
 fi
 
+# Pass through ENABLED_LANGUAGES if set
+if [ -n "$ENABLED_LANGUAGES" ]; then
+    DOCKER_RUN_CMD="$DOCKER_RUN_CMD -e ENABLED_LANGUAGES=\"${ENABLED_LANGUAGES}\""
+fi
+
 DOCKER_RUN_CMD="$DOCKER_RUN_CMD lsproxy-service:latest"
 
 # Start the service

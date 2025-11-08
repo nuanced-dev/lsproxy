@@ -1,5 +1,5 @@
 use bollard::Docker;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
@@ -89,6 +89,35 @@ impl ContainerOrchestrator {
         None
     }
 
+    /// Parse a language string (case-insensitive, handles aliases)
+    fn parse_language(s: &str) -> Option<SupportedLanguages> {
+        match s.trim().to_lowercase().as_str() {
+            "python" => Some(SupportedLanguages::Python),
+            "typescript" | "javascript" => Some(SupportedLanguages::TypeScriptJavaScript),
+            "rust" => Some(SupportedLanguages::Rust),
+            "cpp" | "c++" | "c" => Some(SupportedLanguages::CPP),
+            "csharp" | "c#" => Some(SupportedLanguages::CSharp),
+            "java" => Some(SupportedLanguages::Java),
+            "golang" | "go" => Some(SupportedLanguages::Golang),
+            "php" => Some(SupportedLanguages::PHP),
+            "ruby" => Some(SupportedLanguages::Ruby),
+            "ruby-sorbet" | "sorbet" => Some(SupportedLanguages::RubySorbet),
+            _ => None,
+        }
+    }
+
+    /// Get the set of enabled languages from the ENABLED_LANGUAGES environment variable
+    /// Returns None if the variable is not set (all languages enabled)
+    /// Returns Some(HashSet) with the parsed languages if set
+    fn get_enabled_languages() -> Option<HashSet<SupportedLanguages>> {
+        std::env::var("ENABLED_LANGUAGES").ok().map(|enabled_langs| {
+            enabled_langs
+                .split(',')
+                .filter_map(Self::parse_language)
+                .collect()
+        })
+    }
+
     /// Initialize workspace by detecting languages and spawning containers upfront
     /// This matches the behavior of the original Manager::start_langservers()
     pub async fn initialize_workspace(&self, workspace_path: &str) -> Result<(), OrchestratorError> {
@@ -124,10 +153,22 @@ impl ContainerOrchestrator {
             }
         }
 
-        log::info!("Detected languages in workspace: {:?}", detected_languages);
+        // Filter based on ENABLED_LANGUAGES environment variable
+        let enabled_languages = Self::get_enabled_languages();
+        let languages_to_spawn: Vec<SupportedLanguages> = if let Some(enabled) = &enabled_languages {
+            log::info!("Filtering detected languages. Enabled: {:?}", enabled);
+            detected_languages
+                .into_iter()
+                .filter(|lang| enabled.contains(lang))
+                .collect()
+        } else {
+            detected_languages
+        };
 
-        // Spawn containers for all detected languages
-        for language in detected_languages {
+        log::info!("Languages to spawn: {:?}", languages_to_spawn);
+
+        // Spawn containers for filtered languages
+        for language in languages_to_spawn {
             if self.get_container(&language).await.is_some() {
                 continue; // Container already exists
             }
@@ -289,6 +330,7 @@ impl ContainerOrchestrator {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serial_test::serial;
 
     #[tokio::test]
     async fn test_docker_connection() -> Result<(), OrchestratorError> {
@@ -299,5 +341,174 @@ mod tests {
         assert!(orchestrator.all_containers().await.is_empty());
 
         Ok(())
+    }
+
+    #[test]
+    fn test_parse_language() {
+        // Test basic language names
+        assert_eq!(
+            ContainerOrchestrator::parse_language("python"),
+            Some(SupportedLanguages::Python)
+        );
+        assert_eq!(
+            ContainerOrchestrator::parse_language("rust"),
+            Some(SupportedLanguages::Rust)
+        );
+
+        // Test case insensitivity
+        assert_eq!(
+            ContainerOrchestrator::parse_language("PYTHON"),
+            Some(SupportedLanguages::Python)
+        );
+        assert_eq!(
+            ContainerOrchestrator::parse_language("RuSt"),
+            Some(SupportedLanguages::Rust)
+        );
+
+        // Test whitespace handling
+        assert_eq!(
+            ContainerOrchestrator::parse_language(" python "),
+            Some(SupportedLanguages::Python)
+        );
+
+        // Test aliases
+        assert_eq!(
+            ContainerOrchestrator::parse_language("golang"),
+            Some(SupportedLanguages::Golang)
+        );
+        assert_eq!(
+            ContainerOrchestrator::parse_language("go"),
+            Some(SupportedLanguages::Golang)
+        );
+        assert_eq!(
+            ContainerOrchestrator::parse_language("cpp"),
+            Some(SupportedLanguages::CPP)
+        );
+        assert_eq!(
+            ContainerOrchestrator::parse_language("c++"),
+            Some(SupportedLanguages::CPP)
+        );
+        assert_eq!(
+            ContainerOrchestrator::parse_language("c"),
+            Some(SupportedLanguages::CPP)
+        );
+        assert_eq!(
+            ContainerOrchestrator::parse_language("csharp"),
+            Some(SupportedLanguages::CSharp)
+        );
+        assert_eq!(
+            ContainerOrchestrator::parse_language("c#"),
+            Some(SupportedLanguages::CSharp)
+        );
+        assert_eq!(
+            ContainerOrchestrator::parse_language("javascript"),
+            Some(SupportedLanguages::TypeScriptJavaScript)
+        );
+        assert_eq!(
+            ContainerOrchestrator::parse_language("typescript"),
+            Some(SupportedLanguages::TypeScriptJavaScript)
+        );
+        assert_eq!(
+            ContainerOrchestrator::parse_language("ruby-sorbet"),
+            Some(SupportedLanguages::RubySorbet)
+        );
+        assert_eq!(
+            ContainerOrchestrator::parse_language("sorbet"),
+            Some(SupportedLanguages::RubySorbet)
+        );
+
+        // Test invalid language
+        assert_eq!(ContainerOrchestrator::parse_language("invalid"), None);
+    }
+
+    #[test]
+    #[serial]
+    fn test_get_enabled_languages_not_set() {
+        // Ensure variable is not set
+        std::env::remove_var("ENABLED_LANGUAGES");
+
+        let result = ContainerOrchestrator::get_enabled_languages();
+        assert!(result.is_none(), "Should return None when variable not set");
+    }
+
+    #[test]
+    #[serial]
+    fn test_get_enabled_languages_single() {
+        std::env::set_var("ENABLED_LANGUAGES", "python");
+
+        let result = ContainerOrchestrator::get_enabled_languages();
+        assert!(result.is_some());
+
+        let languages = result.unwrap();
+        assert_eq!(languages.len(), 1);
+        assert!(languages.contains(&SupportedLanguages::Python));
+
+        std::env::remove_var("ENABLED_LANGUAGES");
+    }
+
+    #[test]
+    #[serial]
+    fn test_get_enabled_languages_multiple() {
+        std::env::set_var("ENABLED_LANGUAGES", "python,rust,typescript");
+
+        let result = ContainerOrchestrator::get_enabled_languages();
+        assert!(result.is_some());
+
+        let languages = result.unwrap();
+        assert_eq!(languages.len(), 3);
+        assert!(languages.contains(&SupportedLanguages::Python));
+        assert!(languages.contains(&SupportedLanguages::Rust));
+        assert!(languages.contains(&SupportedLanguages::TypeScriptJavaScript));
+
+        std::env::remove_var("ENABLED_LANGUAGES");
+    }
+
+    #[test]
+    #[serial]
+    fn test_get_enabled_languages_with_spaces() {
+        std::env::set_var("ENABLED_LANGUAGES", " python , rust , go ");
+
+        let result = ContainerOrchestrator::get_enabled_languages();
+        assert!(result.is_some());
+
+        let languages = result.unwrap();
+        assert_eq!(languages.len(), 3);
+        assert!(languages.contains(&SupportedLanguages::Python));
+        assert!(languages.contains(&SupportedLanguages::Rust));
+        assert!(languages.contains(&SupportedLanguages::Golang));
+
+        std::env::remove_var("ENABLED_LANGUAGES");
+    }
+
+    #[test]
+    #[serial]
+    fn test_get_enabled_languages_with_invalid() {
+        std::env::set_var("ENABLED_LANGUAGES", "python,invalid,rust");
+
+        let result = ContainerOrchestrator::get_enabled_languages();
+        assert!(result.is_some());
+
+        let languages = result.unwrap();
+        // Invalid languages are filtered out
+        assert_eq!(languages.len(), 2);
+        assert!(languages.contains(&SupportedLanguages::Python));
+        assert!(languages.contains(&SupportedLanguages::Rust));
+
+        std::env::remove_var("ENABLED_LANGUAGES");
+    }
+
+    #[test]
+    #[serial]
+    fn test_get_enabled_languages_empty_string() {
+        std::env::set_var("ENABLED_LANGUAGES", "");
+
+        let result = ContainerOrchestrator::get_enabled_languages();
+        assert!(result.is_some());
+
+        let languages = result.unwrap();
+        // Empty string results in empty set
+        assert_eq!(languages.len(), 0);
+
+        std::env::remove_var("ENABLED_LANGUAGES");
     }
 }
