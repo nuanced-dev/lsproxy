@@ -149,7 +149,7 @@ cargo test --workspace           # Unit tests
 ./scripts/test-all-endpoints.sh  # Integration tests
 ```
 
-See [QUICKSTART.md](QUICKSTART.md) for detailed development instructions.
+See [docs/quickstart.md](docs/quickstart.md) for detailed development instructions.
 
 ### Architecture
 
@@ -380,8 +380,9 @@ Each language container is built from pure Debian base and contains only the lan
 
 ### Documentation
 
-- [QUICKSTART.md](QUICKSTART.md) - Get running in 3 minutes
-- [TESTING.md](TESTING.md) - Comprehensive testing guide
+- [docs/architecture.md](docs/architecture.md) - Complete system architecture and request flow diagrams
+- [docs/quickstart.md](docs/quickstart.md) - Get running in 3 minutes
+- [docs/testing.md](docs/testing.md) - Comprehensive testing guide
 
 ## <a name="supported-languages">Supported languages</a>
 
