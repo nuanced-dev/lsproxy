@@ -127,6 +127,7 @@ pub trait WorkspaceDocuments: Send + Sync {
     ) -> Result<String, Box<dyn Error + Send + Sync>>;
     async fn list_files(&self) -> Vec<PathBuf>;
     fn get_did_open_configuration(&self) -> DidOpenConfiguration;
+    fn root_path(&self) -> &Path;
     fn is_did_open_document(&self, file_path: &str) -> bool;
     fn add_did_open_document(&mut self, file_path: &str);
 }
@@ -303,6 +304,10 @@ impl WorkspaceDocuments for WorkspaceDocumentsHandler {
 
     fn get_did_open_configuration(&self) -> DidOpenConfiguration {
         self.did_open_configuration.clone()
+    }
+
+    fn root_path(&self) -> &Path {
+        &self.root_path
     }
 
     fn is_did_open_document(&self, file_path: &str) -> bool {

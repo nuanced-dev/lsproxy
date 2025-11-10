@@ -20,6 +20,45 @@ use lsproxy_common::utils::workspace_documents::{
 
 use super::PendingRequests;
 
+/// Fixes relative URIs in LSP location responses.
+///
+/// Some LSP servers (notably Sorbet) return location objects with relative URIs
+/// (e.g., "user_service.rb") instead of absolute file:// URIs as required by the
+/// LSP specification. This function preprocesses JSON values to convert any
+/// relative URIs to absolute file:// URIs based on the workspace root.
+///
+/// # Arguments
+///
+/// * `result` - The JSON value containing location data from an LSP response
+/// * `workspace_path` - The absolute path to the workspace root directory
+///
+/// # Returns
+///
+/// A new JSON value with all relative URIs converted to absolute file:// URIs
+fn fix_relative_uris(result: serde_json::Value, workspace_path: &str) -> serde_json::Value {
+    if let Some(locations_array) = result.as_array() {
+        let mut fixed_locations = Vec::new();
+        for loc in locations_array {
+            let mut loc_obj = loc.clone();
+            if let Some(uri_val) = loc_obj.get_mut("uri") {
+                if let Some(uri_str) = uri_val.as_str() {
+                    // If it's a relative path, convert to absolute file:// URI
+                    if !uri_str.starts_with("file://") && !uri_str.starts_with("http") {
+                        let abs_path = std::path::PathBuf::from(workspace_path).join(uri_str);
+                        if let Ok(abs_uri) = Url::from_file_path(&abs_path) {
+                            *uri_val = serde_json::Value::String(abs_uri.to_string());
+                        }
+                    }
+                }
+            }
+            fixed_locations.push(loc_obj);
+        }
+        serde_json::Value::Array(fixed_locations)
+    } else {
+        result
+    }
+}
+
 #[async_trait]
 pub trait LspClient: Send {
     async fn initialize(
@@ -247,7 +286,33 @@ pub trait LspClient: Send {
         let goto_resp: GotoDefinitionResponse = if result.is_null() {
             GotoDefinitionResponse::Array(Vec::new())
         } else {
-            serde_json::from_value(result)?
+            // Pre-process the result to fix relative URIs (Sorbet issue)
+            let workspace_path = self.get_workspace_documents().root_path().to_str()
+                .ok_or("Invalid workspace path")?;
+            let preprocessed_result = fix_relative_uris(result, workspace_path);
+
+            // Try standard deserialization first
+            match serde_json::from_value(preprocessed_result.clone()) {
+                Ok(resp) => resp,
+                Err(e) => {
+                    // If standard deserialization fails, try parsing as array or single location
+                    // This handles non-standard LSP implementations like Sorbet
+                    warn!("Standard deserialization failed: {}. Attempting fallback parsing. Raw response: {}", e, serde_json::to_string(&preprocessed_result).unwrap_or_else(|_| "Unable to serialize".to_string()));
+
+                    // Try as array of locations
+                    if let Ok(locs) = serde_json::from_value::<Vec<Location>>(preprocessed_result.clone()) {
+                        GotoDefinitionResponse::Array(locs)
+                    }
+                    // Try as single location
+                    else if let Ok(loc) = serde_json::from_value::<Location>(preprocessed_result.clone()) {
+                        GotoDefinitionResponse::Scalar(loc)
+                    }
+                    // Give up but include the raw response in the error
+                    else {
+                        return Err(format!("Failed to parse goto definition response: {}. Raw response: {}", e, serde_json::to_string(&preprocessed_result).unwrap_or_else(|_| "Unable to serialize".to_string())).into());
+                    }
+                }
+            }
         };
 
         debug!("Received goto definition response");
@@ -311,27 +376,10 @@ pub trait LspClient: Send {
             Vec::new()
         } else {
             // Pre-process the result to fix relative URIs (Sorbet issue)
-            if let Some(locations_array) = result.as_array() {
-                let mut fixed_locations = Vec::new();
-                for loc in locations_array {
-                    let mut loc_obj = loc.clone();
-                    if let Some(uri_val) = loc_obj.get_mut("uri") {
-                        if let Some(uri_str) = uri_val.as_str() {
-                            // If it's a relative path, convert to absolute file:// URI
-                            if !uri_str.starts_with("file://") && !uri_str.starts_with("http") {
-                                let abs_path = std::path::PathBuf::from("/mnt/workspace").join(uri_str);
-                                if let Ok(abs_uri) = Url::from_file_path(&abs_path) {
-                                    *uri_val = serde_json::Value::String(abs_uri.to_string());
-                                }
-                            }
-                        }
-                    }
-                    fixed_locations.push(loc_obj);
-                }
-                serde_json::from_value(serde_json::Value::Array(fixed_locations))?
-            } else {
-                serde_json::from_value(result)?
-            }
+            let workspace_path = self.get_workspace_documents().root_path().to_str()
+                .ok_or("Invalid workspace path")?;
+            let preprocessed_result = fix_relative_uris(result, workspace_path);
+            serde_json::from_value(preprocessed_result)?
         };
         debug!("Received references response");
         Ok(ref_resp)
