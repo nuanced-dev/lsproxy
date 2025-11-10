@@ -1,7 +1,7 @@
 use crate::lsp::json_rpc::JsonRpc;
 use crate::lsp::process::Process;
 use crate::lsp::{ExpectedMessageKey, JsonRpcHandler, ProcessHandler};
-use lsproxy_common::utils::file_utils::{detect_language_string, search_directories};
+use lsproxy_common::utils::file_utils::{detect_language_string, fix_relative_uris, search_directories};
 use async_trait::async_trait;
 use log::{debug, error, info, warn};
 use lsp_types::{
@@ -19,45 +19,6 @@ use lsproxy_common::utils::workspace_documents::{
 };
 
 use super::PendingRequests;
-
-/// Fixes relative URIs in LSP location responses.
-///
-/// Some LSP servers (notably Sorbet) return location objects with relative URIs
-/// (e.g., "user_service.rb") instead of absolute file:// URIs as required by the
-/// LSP specification. This function preprocesses JSON values to convert any
-/// relative URIs to absolute file:// URIs based on the workspace root.
-///
-/// # Arguments
-///
-/// * `result` - The JSON value containing location data from an LSP response
-/// * `workspace_path` - The absolute path to the workspace root directory
-///
-/// # Returns
-///
-/// A new JSON value with all relative URIs converted to absolute file:// URIs
-fn fix_relative_uris(result: serde_json::Value, workspace_path: &str) -> serde_json::Value {
-    if let Some(locations_array) = result.as_array() {
-        let mut fixed_locations = Vec::new();
-        for loc in locations_array {
-            let mut loc_obj = loc.clone();
-            if let Some(uri_val) = loc_obj.get_mut("uri") {
-                if let Some(uri_str) = uri_val.as_str() {
-                    // If it's a relative path, convert to absolute file:// URI
-                    if !uri_str.starts_with("file://") && !uri_str.starts_with("http") {
-                        let abs_path = std::path::PathBuf::from(workspace_path).join(uri_str);
-                        if let Ok(abs_uri) = Url::from_file_path(&abs_path) {
-                            *uri_val = serde_json::Value::String(abs_uri.to_string());
-                        }
-                    }
-                }
-            }
-            fixed_locations.push(loc_obj);
-        }
-        serde_json::Value::Array(fixed_locations)
-    } else {
-        result
-    }
-}
 
 #[async_trait]
 pub trait LspClient: Send {
