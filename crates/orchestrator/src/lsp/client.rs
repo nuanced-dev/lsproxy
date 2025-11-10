@@ -1,7 +1,8 @@
 use crate::lsp::json_rpc::JsonRpc;
 use crate::lsp::process::Process;
 use crate::lsp::{ExpectedMessageKey, JsonRpcHandler, ProcessHandler};
-use lsproxy_common::utils::file_utils::{detect_language_string, search_directories};
+use lsproxy_common::utils::file_utils::search_directories;
+use lsproxy_common::utils::language_utils::detect_language_string;
 use async_trait::async_trait;
 use log::{debug, error, info, warn};
 use lsp_types::{

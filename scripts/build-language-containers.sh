@@ -2,13 +2,15 @@
 
 set -e
 
-# Build all language containers and the service container
-# Usage: ./scripts/build-all-containers.sh [--use-cache] [--sequential]
+# Build language server containers (Python, TypeScript, Rust, Go, Java, C++, C#, PHP, Ruby variants)
+# Usage: ./scripts/build-language-containers.sh [--use-cache] [--sequential]
 #
 # By default:
 #   - Builds WITHOUT cache (use --use-cache to enable caching)
 #   - Builds in PARALLEL (use --sequential for sequential builds)
-#   - Builds Rust binaries first before Docker images
+#
+# Note: Language containers use binary injection at runtime via --volumes-from lsproxy-wrapper
+# They only need to be rebuilt when language server versions change or when base dependencies change
 
 # Colors
 GREEN='\033[0;32m'
@@ -48,7 +50,6 @@ if [ "$USE_CACHE" = false ]; then
 fi
 
 # Language Dockerfiles (non-Ruby, non-base)
-# Note: base images are built separately in Step 1
 LANGUAGES=(
     "python"
     "typescript"
@@ -87,22 +88,10 @@ if [ -d "dockerfiles/ruby-sorbet" ]; then
 fi
 
 echo -e "${BLUE}=========================================${NC}"
-echo -e "${BLUE}  Building All LSProxy Containers${NC}"
+echo -e "${BLUE}  Building Language Server Containers${NC}"
 echo -e "${BLUE}  Parallel: $PARALLEL${NC}"
 echo -e "${BLUE}  Cache: $USE_CACHE${NC}"
 echo -e "${BLUE}=========================================${NC}"
-echo
-
-# Step 0: Build Rust binaries first
-echo -e "${YELLOW}Step 0: Building Rust binaries${NC}"
-echo -e "${BLUE}Running cargo build --release...${NC}"
-if cargo build --release 2>&1 | tee /tmp/cargo-build.log | tail -5; then
-    echo -e "${GREEN}✓ Rust binaries built successfully${NC}"
-else
-    echo -e "${RED}✗ Failed to build Rust binaries${NC}"
-    tail -20 /tmp/cargo-build.log
-    exit 1
-fi
 echo
 
 build_container() {
@@ -142,34 +131,8 @@ build_container() {
     fi
 }
 
-# Build wrapper image (contains lsp-wrapper binary and ast-grep configs)
-# This is mounted into language containers at runtime via --volumes-from
-echo -e "${YELLOW}Step 1: Building wrapper image${NC}"
-
-echo -e "${BLUE}Building lsproxy-wrapper...${NC}"
-if docker build $CACHE_FLAG -f dockerfiles/wrapper.Dockerfile -t lsproxy-wrapper:latest . > /tmp/build-wrapper.log 2>&1; then
-    SIZE=$(docker images lsproxy-wrapper:latest --format "{{.Size}}")
-    echo -e "${GREEN}✓ lsproxy-wrapper built successfully ($SIZE)${NC}"
-else
-    echo -e "${RED}✗ lsproxy-wrapper failed to build${NC}"
-    echo -e "${YELLOW}See /tmp/build-wrapper.log for details${NC}"
-    tail -20 /tmp/build-wrapper.log
-    exit 1
-fi
-echo
-
-# Build service image (orchestrator)
-echo -e "${YELLOW}Step 2: Building service image${NC}"
-build_container "service" || { echo -e "${RED}Failed to build service image${NC}"; exit 1; }
-echo
-
-# Build watchdog image (monitors service container)
-echo -e "${YELLOW}Step 3: Building watchdog image${NC}"
-build_container "watchdog" || { echo -e "${RED}Failed to build watchdog image${NC}"; exit 1; }
-echo
-
-# Build language images
-echo -e "${YELLOW}Step 4: Building non-Ruby language containers${NC}"
+# Build non-Ruby language images
+echo -e "${YELLOW}Step 1: Building non-Ruby language containers${NC}"
 
 if [ "$PARALLEL" = true ]; then
     echo -e "${BLUE}Building in parallel (see /tmp/build-*.log for progress)${NC}"
@@ -203,7 +166,7 @@ fi
 echo
 
 # Build Ruby base images (must complete before Sorbet variants)
-echo -e "${YELLOW}Step 5: Building Ruby base images (${#RUBY_VERSIONS[@]} versions)${NC}"
+echo -e "${YELLOW}Step 2: Building Ruby base images (${#RUBY_VERSIONS[@]} versions)${NC}"
 
 if [ ${#RUBY_VERSIONS[@]} -eq 0 ]; then
     echo -e "${YELLOW}No Ruby versions found in dockerfiles/ruby/, skipping${NC}"
@@ -241,7 +204,7 @@ fi
 echo
 
 # Build Ruby Sorbet variants (depends on Ruby base images)
-echo -e "${YELLOW}Step 6: Building Ruby Sorbet variants (${#RUBY_SORBET_VERSIONS[@]} versions)${NC}"
+echo -e "${YELLOW}Step 3: Building Ruby Sorbet variants (${#RUBY_SORBET_VERSIONS[@]} versions)${NC}"
 
 if [ ${#RUBY_SORBET_VERSIONS[@]} -eq 0 ]; then
     echo -e "${YELLOW}No Ruby Sorbet versions found in dockerfiles/ruby-sorbet/, skipping${NC}"
@@ -278,11 +241,11 @@ fi
 
 echo
 echo -e "${GREEN}=========================================${NC}"
-echo -e "${GREEN}  All Containers Built Successfully${NC}"
+echo -e "${GREEN}  All Language Containers Built Successfully${NC}"
 echo -e "${GREEN}=========================================${NC}"
 echo
 echo -e "${BLUE}Container Images:${NC}"
-docker images | grep "lsproxy-" | awk '{printf "  %-30s %10s\n", $1":"$2, $7}'
+docker images | grep "lsproxy-" | grep -v -E "(wrapper|service|watchdog)" | awk '{printf "  %-30s %10s\n", $1":"$2, $7}'
 echo
 echo -e "${BLUE}Total size:${NC}"
-docker images | grep "lsproxy-" | awk '{size+=$7} END {print "  ~" size " (approximate)"}'
+docker images | grep "lsproxy-" | grep -v -E "(wrapper|service|watchdog)" | awk '{size+=$7} END {print "  ~" size " (approximate)"}'

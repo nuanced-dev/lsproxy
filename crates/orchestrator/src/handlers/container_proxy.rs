@@ -8,7 +8,7 @@
 
 use lsproxy_common::api_types::*;
 use crate::container::{ContainerHttpClient, ContainerOrchestrator};
-use lsproxy_common::utils::file_utils::detect_language;
+use lsproxy_common::utils::language_utils::detect_language;
 use log::{error, info};
 use std::sync::Arc;
 

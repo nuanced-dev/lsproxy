@@ -1,5 +1,5 @@
 use lsproxy_common::api_types::SupportedLanguages;
-use lsproxy_common::utils::file_utils::{extract_ruby_version_from_file, has_sorbet_type_annotation};
+use lsproxy_common::utils::ruby_utils::{extract_ruby_version_from_file, has_sorbet_type_annotation};
 use lsproxy_common::utils::workspace_documents::*;
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};

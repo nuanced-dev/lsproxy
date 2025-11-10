@@ -6,10 +6,10 @@ use crate::lsp::languages::{
     CSharpClient, ClangdClient, GoplsClient, JdtlsClient, JediClient, PhpactorClient, RubyClient,
     RubySorbetClient, RustAnalyzerClient, TypeScriptLanguageClient,
 };
-use lsproxy_common::utils::file_utils::uri_to_relative_path_string;
 use lsproxy_common::utils::file_utils::{
-    absolute_path_to_relative_path_string, detect_language, search_files,
+    absolute_path_to_relative_path_string, uri_to_relative_path_string, search_files,
 };
+use lsproxy_common::utils::language_utils::detect_language;
 use lsproxy_common::utils::workspace_documents::{
     WorkspaceDocuments, CSHARP_FILE_PATTERNS, C_AND_CPP_FILE_PATTERNS, DEFAULT_EXCLUDE_PATTERNS,
     GOLANG_FILE_PATTERNS, JAVA_FILE_PATTERNS, PHP_FILE_PATTERNS, PYTHON_FILE_PATTERNS,
