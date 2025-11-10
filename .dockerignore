@@ -12,10 +12,6 @@ target/
 *.log
 *.tmp
 
-# Test scripts (old)
-scripts/test-php-only.sh
-scripts/test-ruby-only.sh
-
 # IDE
 .vscode/
 .idea/
