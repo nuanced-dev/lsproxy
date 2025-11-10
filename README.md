@@ -155,6 +155,32 @@ See [QUICKSTART.md](QUICKSTART.md) for detailed development instructions.
 
 LSProxy uses a **service container** that dynamically spawns **language-specific containers**. This provides massive space savings compared to the original monolithic implementation.
 
+#### Binary Injection Architecture
+
+LSProxy uses a **binary injection** architecture to share the `lsp-wrapper` binary and `ast-grep` configs across all language containers without duplication:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                     lsproxy-wrapper (165MB)                     │
+│  • Contains: lsp-wrapper binary + ast-grep configs              │
+│  • Shared via: VOLUME ["/opt/lsp-wrapper"]                      │
+│  • Single instance mounted by all language containers           │
+│  • Language-agnostic HTTP server + LSP process manager          │
+└─────────────────────────────────────────────────────────────────┘
+                              ▲
+                              │ (--volumes-from)
+                              │
+         ┌────────────────────┴────────────────────┐
+         │                                         │
+┌────────▼────────┐                       ┌────────▼──────────┐
+│ lsproxy-python  │                       │ lsproxy-typescript│
+│ • jedi-ls only  │                       │ • typescript-ls   │
+│ • Mounts wrapper│                       │ • Mounts wrapper  │
+└─────────────────┘                       └───────────────────┘
+```
+
+This approach eliminates the need for a base image and prevents cascading rebuilds when wrapper code changes.
+
 #### Container Architecture Example
 
 When you load a workspace with Python and TypeScript files, here's what happens:
@@ -173,15 +199,25 @@ When you load a workspace with Python and TypeScript files, here's what happens:
          │  • Routes requests to language        │
          │    containers                         │
          │  • Manages container lifecycle        │
+         │  • Creates shared wrapper container   │
          └──────┬──────────────────────┬─────────┘
                 │                      │
        ┌────────▼────────┐    ┌────────▼──────────┐
        │ lsproxy-python  │    │ lsproxy-typescript│
-       │ • Size: 791MB   │    │ • Size: 1.0GB     │
+       │ • Size: 145MB   │    │ • Size: 432MB     │
        │ • jedi-ls       │    │ • typescript-ls   │
-       │ • ast-grep      │    │ • ast-grep        │
-       │ • lsp-wrapper   │    │ • lsp-wrapper     │
+       │ (wrapper via    │    │ (wrapper via      │
+       │  --volumes-from)│    │  --volumes-from)  │
        └─────────────────┘    └───────────────────┘
+                │                      │
+                └──────────┬───────────┘
+                           │
+                   ┌───────▼────────┐
+                   │ lsproxy-wrapper│
+                   │ • Size: 165MB  │
+                   │ • lsp-wrapper  │
+                   │ • ast-grep     │
+                   └────────────────┘
 
        ┌───────────────────────────────────────────────────────────┐
        │ lsproxy-watchdog (Independent Monitor)                    │
@@ -191,7 +227,7 @@ When you load a workspace with Python and TypeScript files, here's what happens:
        │ • Uses Docker labels to find orphaned containers          │
        └───────────────────────────────────────────────────────────┘
 
-       Total image size on disk required for this workspace: 2.0GB (service + python + typescript + watchdog)
+       Total image size on disk: 976MB (service + python + typescript + wrapper + watchdog)
 ```
 
 #### Container Components
@@ -201,20 +237,30 @@ When you load a workspace with Python and TypeScript files, here's what happens:
 - Thin HTTP handlers that proxy requests to language containers
 - Detects languages in workspace and spawns only needed containers
 - Manages container lifecycle and routing
+- Creates and maintains the shared wrapper container
 
-**2. Language Containers** - Variable sizes (see table below)
-- Built from: Language-specific Dockerfiles → `crates/wrapper`
-- Each contains: Language server + ast-grep + lsp-wrapper
+**2. Wrapper Container (lsproxy-wrapper)** - 165MB
+- Built from: `dockerfiles/wrapper.Dockerfile` → `crates/wrapper`
+- Contains: `lsp-wrapper` binary + `ast-grep` configs
+- Shared across all language containers via `--volumes-from`
+- Single instance, no duplication
+- Language-agnostic: Generic HTTP server + LSP process manager
+- Configuration passed via environment variables and CMD args from language containers
+
+**3. Language Containers** - Variable sizes (see table below)
+- Built from: Language-specific Dockerfiles (pure Debian base)
+- Each contains: Language-specific LSP server only (e.g., gopls, rust-analyzer)
+- Wrapper binary mounted at runtime via `--volumes-from lsproxy-wrapper`
 - Full LSP communication handlers with stdio→HTTP translation
 - Only spawned when language files are detected in workspace
 
-**3. Watchdog Container (lsproxy-watchdog)** - 47.3MB
+**4. Watchdog Container (lsproxy-watchdog)** - 47.3MB
 - Built from: `dockerfiles/watchdog.Dockerfile`
 - Monitors service container health
 - Automatically cleans up language containers on service crash
 - Minimal footprint for reliability
 
-**4. Common Library (lsproxy-common)**
+**5. Common Library (lsproxy-common)**
 - Not a container - compiled into orchestrator and wrapper
 - Shared types, utilities, AST-grep integration
 - Zero runtime overhead, zero duplication
@@ -287,22 +333,22 @@ ENABLED_LANGUAGES="Python, TypeScript, Rust" ./scripts/start-service.sh
 
 ### Language Container Sizes
 
-Each language container is built on top of the base image (739MB) which includes lsp-wrapper and ast-grep:
+Each language container is built from pure Debian base and contains only the language-specific LSP server. The `lsp-wrapper` binary and `ast-grep` configs are shared at runtime via the wrapper container:
 
 | Language | Container | Dockerfile | Image Size | Language Server |
 |----------|-----------|------------|------------|----------------|
-| Python | `lsproxy-python` | `dockerfiles/python.Dockerfile` | 791MB | jedi-language-server |
-| TypeScript/JavaScript | `lsproxy-typescript` | `dockerfiles/typescript.Dockerfile` | 1.0GB | typescript-language-server |
-| Golang | `lsproxy-golang` | `dockerfiles/golang.Dockerfile` | 1.15GB | gopls |
-| C/C++ | `lsproxy-clangd` | `dockerfiles/clangd.Dockerfile` | 1.11GB | clangd |
-| PHP | `lsproxy-php` | `dockerfiles/php.Dockerfile` | 944MB | phpactor |
-| Ruby | `lsproxy-ruby-3.4.4` | `dockerfiles/ruby-3.4.4.Dockerfile` | 1.14GB | solargraph |
-| Ruby (Sorbet) | `lsproxy-ruby-sorbet-3.4.4` | `dockerfiles/ruby-sorbet-3.4.4.Dockerfile` | 1.17GB | sorbet |
-| Rust | `lsproxy-rust` | `dockerfiles/rust.Dockerfile` | 1.57GB | rust-analyzer |
-| Java | `lsproxy-java` | `dockerfiles/java.Dockerfile` | 1.57GB | eclipse-jdtls |
-| C# | `lsproxy-csharp` | `dockerfiles/csharp.Dockerfile` | 2.66GB | omnisharp |
+| Python | `lsproxy-python` | `dockerfiles/python.Dockerfile` | 145MB | jedi-language-server |
+| TypeScript/JavaScript | `lsproxy-typescript` | `dockerfiles/typescript.Dockerfile` | 432MB | typescript-language-server |
+| Golang | `lsproxy-golang` | `dockerfiles/golang.Dockerfile` | 610MB | gopls |
+| Rust | `lsproxy-rust` | `dockerfiles/rust.Dockerfile` | 1.02GB | rust-analyzer |
+| C/C++ | `lsproxy-clangd` | `dockerfiles/clangd.Dockerfile` | 566MB | clangd |
+| PHP | `lsproxy-php` | `dockerfiles/php.Dockerfile` | 398MB | phpactor |
+| Java | `lsproxy-java` | `dockerfiles/java.Dockerfile` | 1.03GB | eclipse-jdtls |
+| C# | `lsproxy-csharp` | `dockerfiles/csharp.Dockerfile` | 2.12GB | omnisharp |
+| Ruby | `lsproxy-ruby-3.4.4` | `dockerfiles/ruby-3.4.4.Dockerfile` | 598MB | solargraph |
+| Ruby (Sorbet) | `lsproxy-ruby-sorbet-3.4.4` | `dockerfiles/ruby-sorbet-3.4.4.Dockerfile` | 631MB | sorbet |
 
-**Base Image**: `lsproxy-base` (739MB) - Contains lsp-wrapper binary and ast-grep, inherited by all language containers
+**Wrapper Container**: `lsproxy-wrapper` (165MB) - Contains lsp-wrapper binary and ast-grep configs, shared via `--volumes-from` across all language containers
 
 ### Why This Architecture Saves Space
 
@@ -311,18 +357,26 @@ Each language container is built on top of the base image (739MB) which includes
 - Must download and store 13.3GB even for a single-language project
 - Updates require rebuilding entire 13.3GB image
 
-**Container Orchestration (This Fork)**: ~2-4GB typical usage
-- Service container (187MB) + only needed language containers
-- **Example 1**: Python-only project = 187MB + 791MB + 47MB = **1.0GB** (92% savings)
-- **Example 2**: Python + TypeScript project = 187MB + 791MB + 1.0GB + 47MB = **2.0GB** (85% savings)
-- **Example 3**: All 10 languages = 187MB + 11.6GB + 47MB = **11.8GB** (11% savings)
-- Updates only rebuild changed language containers (~1GB each)
+**Container Orchestration with Binary Injection**: ~500MB-1.5GB typical usage
+- Service container (187MB) + wrapper container (165MB) + only needed language containers
+- **Example 1**: Python-only project = 187MB + 165MB + 145MB + 47MB = **544MB** (96% savings)
+- **Example 2**: Python + TypeScript project = 187MB + 165MB + 145MB + 432MB + 47MB = **976MB** (93% savings)
+- **Example 3**: All 10 languages = 187MB + 165MB + 7.1GB + 47MB = **7.5GB** (44% savings)
+- Wrapper changes: Rebuild 1 wrapper image (165MB), no language container rebuilds
+- Language changes: Rebuild only affected language container(s)
+
+**Binary Injection Benefits**:
+- **No cascading rebuilds**: Wrapper code changes don't trigger language container rebuilds
+- **Smaller language containers**: No duplicated wrapper binary (saves ~165MB per container)
+- **Single source of truth**: One wrapper container shared across all language containers
+- **Faster iteration**: Edit wrapper code → rebuild 165MB image → restart service (no language rebuilds)
 
 **Additional Benefits**:
 - Parallel container builds (faster CI/CD)
 - Language containers can be cached independently
 - Easier to add new language support without affecting others
 - Better resource isolation and crash recovery via watchdog
+- Docker volume sharing enables efficient binary distribution
 
 ### Documentation
 

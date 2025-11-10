@@ -84,10 +84,75 @@ pub enum SupportedLanguages {
     Golang,
     #[serde(rename = "php")]
     PHP,
-    #[serde(rename = "ruby")]
-    Ruby,
-    #[serde(rename = "ruby_sorbet")]
-    RubySorbet,
+    #[serde(rename = "ruby_3_4_4")]
+    Ruby3_4_4,
+    #[serde(rename = "ruby_3_4_2")]
+    Ruby3_4_2,
+    #[serde(rename = "ruby_3_4_1")]
+    Ruby3_4_1,
+    #[serde(rename = "ruby_3_3_6")]
+    Ruby3_3_6,
+    #[serde(rename = "ruby_3_3_5")]
+    Ruby3_3_5,
+    #[serde(rename = "ruby_3_2_6")]
+    Ruby3_2_6,
+    #[serde(rename = "ruby_3_2_2")]
+    Ruby3_2_2,
+    #[serde(rename = "ruby_sorbet_3_4_4")]
+    RubySorbet3_4_4,
+    #[serde(rename = "ruby_sorbet_3_4_2")]
+    RubySorbet3_4_2,
+    #[serde(rename = "ruby_sorbet_3_4_1")]
+    RubySorbet3_4_1,
+    #[serde(rename = "ruby_sorbet_3_3_6")]
+    RubySorbet3_3_6,
+    #[serde(rename = "ruby_sorbet_3_3_5")]
+    RubySorbet3_3_5,
+    #[serde(rename = "ruby_sorbet_3_2_6")]
+    RubySorbet3_2_6,
+    #[serde(rename = "ruby_sorbet_3_2_2")]
+    RubySorbet3_2_2,
+}
+
+impl SupportedLanguages {
+    /// Convert a Ruby version string and Sorbet flag to the appropriate language enum
+    ///
+    /// # Arguments
+    /// * `version` - Version string (e.g., "3.4.4", "3.3.6")
+    /// * `is_sorbet` - Whether this is a Sorbet-enabled Ruby project
+    ///
+    /// # Returns
+    /// Appropriate Ruby enum variant, defaulting to Ruby3_4_4 or RubySorbet3_4_4 for unsupported versions
+    pub fn from_ruby_version(version: &str, is_sorbet: bool) -> Self {
+        let normalized = version.trim();
+
+        match (normalized, is_sorbet) {
+            ("3.4.4", false) => Self::Ruby3_4_4,
+            ("3.4.2", false) => Self::Ruby3_4_2,
+            ("3.4.1", false) => Self::Ruby3_4_1,
+            ("3.3.6", false) => Self::Ruby3_3_6,
+            ("3.3.5", false) => Self::Ruby3_3_5,
+            ("3.2.6", false) => Self::Ruby3_2_6,
+            ("3.2.2", false) => Self::Ruby3_2_2,
+            ("3.4.4", true) => Self::RubySorbet3_4_4,
+            ("3.4.2", true) => Self::RubySorbet3_4_2,
+            ("3.4.1", true) => Self::RubySorbet3_4_1,
+            ("3.3.6", true) => Self::RubySorbet3_3_6,
+            ("3.3.5", true) => Self::RubySorbet3_3_5,
+            ("3.2.6", true) => Self::RubySorbet3_2_6,
+            ("3.2.2", true) => Self::RubySorbet3_2_2,
+            // For partial versions like "3.4" or "3.3", default to the latest patch version
+            (v, false) if v.starts_with("3.4") => Self::Ruby3_4_4,
+            (v, false) if v.starts_with("3.3") => Self::Ruby3_3_6,
+            (v, false) if v.starts_with("3.2") => Self::Ruby3_2_6,
+            (v, true) if v.starts_with("3.4") => Self::RubySorbet3_4_4,
+            (v, true) if v.starts_with("3.3") => Self::RubySorbet3_3_6,
+            (v, true) if v.starts_with("3.2") => Self::RubySorbet3_2_6,
+            // Default to 3.4.4 for unsupported versions
+            (_, false) => Self::Ruby3_4_4,
+            (_, true) => Self::RubySorbet3_4_4,
+        }
+    }
 }
 
 /// A position within a text document, using 0-based indexing

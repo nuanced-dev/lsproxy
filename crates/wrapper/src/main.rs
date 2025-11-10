@@ -8,7 +8,7 @@ mod lsp;
 mod manager;
 
 use lsp::client::LspClient;
-use lsp::languages::{GenericLspClient, GoplsClient};
+use lsp::languages::{GenericLspClient, GoplsClient, SorbetClient};
 use lsp::process::ProcessHandler;
 use manager::Manager;
 use lsproxy_common::utils::workspace_documents::{
@@ -99,6 +99,10 @@ async fn main() -> std::io::Result<()> {
         "php" => (PHP_FILE_PATTERNS.to_vec(), DidOpenConfiguration::Lazy),
         "python" => (PYTHON_FILE_PATTERNS.to_vec(), DidOpenConfiguration::None),
         "ruby" => (RUBY_FILE_PATTERNS.to_vec(), DidOpenConfiguration::None),
+        "ruby-sorbet" => {
+            info!("Detected ruby-sorbet language - using Lazy didOpen configuration");
+            (RUBY_FILE_PATTERNS.to_vec(), DidOpenConfiguration::Lazy)
+        },
         "typescript" | "javascript" => (TYPESCRIPT_AND_JAVASCRIPT_FILE_PATTERNS.to_vec(), DidOpenConfiguration::Lazy),
         "rust" => (RUST_FILE_PATTERNS.to_vec(), DidOpenConfiguration::None),
         "go" | "golang" => (GOLANG_FILE_PATTERNS.to_vec(), DidOpenConfiguration::None),
@@ -106,7 +110,7 @@ async fn main() -> std::io::Result<()> {
         "cpp" | "c" => (C_AND_CPP_FILE_PATTERNS.to_vec(), DidOpenConfiguration::Lazy),
         "csharp" => (CSHARP_FILE_PATTERNS.to_vec(), DidOpenConfiguration::None),
         _ => {
-            error!("Unknown language '{}'. Supported languages: php, python, ruby, typescript, javascript, rust, go, golang, java, cpp, c, csharp", language);
+            error!("Unknown language '{}'. Supported languages: php, python, ruby, ruby-sorbet, typescript, javascript, rust, go, golang, java, cpp, c, csharp", language);
             return Err(std::io::Error::new(
                 std::io::ErrorKind::Other,
                 format!("Unsupported language: {}", language),
@@ -123,19 +127,33 @@ async fn main() -> std::io::Result<()> {
     );
 
     // Apply language-specific initialization and setup
-    let mut client: Box<dyn LspClient> = match language.as_str() {
-        "go" => {
-            info!("Configuring Go with custom workspace folder detection (go.work/go.mod)");
-            // Convert GenericLspClient components to GoplsClient
+    info!("Checking LSP command for language-specific configuration: '{}'", args.lsp_command);
+    let mut client: Box<dyn LspClient> = match args.lsp_command.as_str() {
+        "srb" => {
+            info!("Configuring Sorbet with custom workspace folder detection (sorbet/config)");
+            // Convert GenericLspClient components to SorbetClient
             let (process, json_rpc, workspace_documents, pending_requests) = base_client.into_components();
-            let gopls_client = GoplsClient::new(
+            let sorbet_client = SorbetClient::new(
                 process,
                 json_rpc,
                 workspace_documents,
                 pending_requests,
             );
-            Box::new(gopls_client)
+            Box::new(sorbet_client)
         }
+        _ => match language.as_str() {
+            "go" => {
+                info!("Configuring Go with custom workspace folder detection (go.work/go.mod)");
+                // Convert GenericLspClient components to GoplsClient
+                let (process, json_rpc, workspace_documents, pending_requests) = base_client.into_components();
+                let gopls_client = GoplsClient::new(
+                    process,
+                    json_rpc,
+                    workspace_documents,
+                    pending_requests,
+                );
+                Box::new(gopls_client)
+            }
         "rust" => {
             info!("Configuring Rust with initialization options and setup workspace");
             let configured_client = base_client
@@ -147,15 +165,16 @@ async fn main() -> std::io::Result<()> {
                 .with_setup_workspace_method("rust-analyzer/reloadWorkspace".to_string());
             Box::new(configured_client)
         }
-        "cpp" | "c" => {
-            info!("Configuring C/C++ with clangd initialization options");
-            let configured_client = base_client
-                .with_initialization_options(serde_json::json!({
-                    "clangdFileStatus": true
-                }));
-            Box::new(configured_client)
+            "cpp" | "c" => {
+                info!("Configuring C/C++ with clangd initialization options");
+                let configured_client = base_client
+                    .with_initialization_options(serde_json::json!({
+                        "clangdFileStatus": true
+                    }));
+                Box::new(configured_client)
+            }
+            _ => Box::new(base_client),
         }
-        _ => Box::new(base_client),
     };
 
     // Initialize the LSP server

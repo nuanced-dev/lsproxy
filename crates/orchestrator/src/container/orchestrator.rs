@@ -31,6 +31,10 @@ impl ContainerOrchestrator {
             return Ok(existing);
         }
 
+        // Ensure wrapper container is running before spawning language containers
+        let wrapper_container_id = self.ensure_wrapper_container().await?;
+        log::debug!("Using wrapper container: {}", wrapper_container_id);
+
         let image_name = Self::image_name_for_language(&language);
         let container_name = format!(
             "lsproxy-{}-{}",
@@ -71,6 +75,8 @@ impl ContainerOrchestrator {
                 ports
             }),
             memory: Some(memory_limit_mb * 1024 * 1024), // Convert MB to bytes
+            // Mount wrapper binary and ast-grep configs from wrapper container
+            volumes_from: Some(vec![wrapper_container_id.clone()]),
             ..Default::default()
         };
 
@@ -269,8 +275,20 @@ impl ContainerOrchestrator {
             SupportedLanguages::Golang => "lsproxy-golang:latest".to_string(),
             SupportedLanguages::Python => "lsproxy-python:latest".to_string(),
             SupportedLanguages::TypeScriptJavaScript => "lsproxy-typescript:latest".to_string(),
-            SupportedLanguages::Ruby => "lsproxy-ruby:latest".to_string(),
-            SupportedLanguages::RubySorbet => "lsproxy-ruby-sorbet:latest".to_string(),
+            SupportedLanguages::Ruby3_4_4 => "lsproxy-ruby-3.4.4:latest".to_string(),
+            SupportedLanguages::Ruby3_4_2 => "lsproxy-ruby-3.4.2:latest".to_string(),
+            SupportedLanguages::Ruby3_4_1 => "lsproxy-ruby-3.4.1:latest".to_string(),
+            SupportedLanguages::Ruby3_3_6 => "lsproxy-ruby-3.3.6:latest".to_string(),
+            SupportedLanguages::Ruby3_3_5 => "lsproxy-ruby-3.3.5:latest".to_string(),
+            SupportedLanguages::Ruby3_2_6 => "lsproxy-ruby-3.2.6:latest".to_string(),
+            SupportedLanguages::Ruby3_2_2 => "lsproxy-ruby-3.2.2:latest".to_string(),
+            SupportedLanguages::RubySorbet3_4_4 => "lsproxy-ruby-sorbet-3.4.4:latest".to_string(),
+            SupportedLanguages::RubySorbet3_4_2 => "lsproxy-ruby-sorbet-3.4.2:latest".to_string(),
+            SupportedLanguages::RubySorbet3_4_1 => "lsproxy-ruby-sorbet-3.4.1:latest".to_string(),
+            SupportedLanguages::RubySorbet3_3_6 => "lsproxy-ruby-sorbet-3.3.6:latest".to_string(),
+            SupportedLanguages::RubySorbet3_3_5 => "lsproxy-ruby-sorbet-3.3.5:latest".to_string(),
+            SupportedLanguages::RubySorbet3_2_6 => "lsproxy-ruby-sorbet-3.2.6:latest".to_string(),
+            SupportedLanguages::RubySorbet3_2_2 => "lsproxy-ruby-sorbet-3.2.2:latest".to_string(),
             SupportedLanguages::Rust => "lsproxy-rust:latest".to_string(),
             SupportedLanguages::CPP => "lsproxy-clangd:latest".to_string(),
             SupportedLanguages::Java => "lsproxy-java:latest".to_string(),
@@ -285,8 +303,20 @@ impl ContainerOrchestrator {
             SupportedLanguages::Golang => "golang",
             SupportedLanguages::Python => "python",
             SupportedLanguages::TypeScriptJavaScript => "typescript",
-            SupportedLanguages::Ruby => "ruby",
-            SupportedLanguages::RubySorbet => "ruby-sorbet",
+            SupportedLanguages::Ruby3_4_4 => "ruby-3.4.4",
+            SupportedLanguages::Ruby3_4_2 => "ruby-3.4.2",
+            SupportedLanguages::Ruby3_4_1 => "ruby-3.4.1",
+            SupportedLanguages::Ruby3_3_6 => "ruby-3.3.6",
+            SupportedLanguages::Ruby3_3_5 => "ruby-3.3.5",
+            SupportedLanguages::Ruby3_2_6 => "ruby-3.2.6",
+            SupportedLanguages::Ruby3_2_2 => "ruby-3.2.2",
+            SupportedLanguages::RubySorbet3_4_4 => "ruby-sorbet-3.4.4",
+            SupportedLanguages::RubySorbet3_4_2 => "ruby-sorbet-3.4.2",
+            SupportedLanguages::RubySorbet3_4_1 => "ruby-sorbet-3.4.1",
+            SupportedLanguages::RubySorbet3_3_6 => "ruby-sorbet-3.3.6",
+            SupportedLanguages::RubySorbet3_3_5 => "ruby-sorbet-3.3.5",
+            SupportedLanguages::RubySorbet3_2_6 => "ruby-sorbet-3.2.6",
+            SupportedLanguages::RubySorbet3_2_2 => "ruby-sorbet-3.2.2",
             SupportedLanguages::Rust => "rust",
             SupportedLanguages::CPP => "clangd",
             SupportedLanguages::Java => "java",
@@ -305,7 +335,6 @@ mod tests {
 
     #[test]
     fn test_image_name_for_language() {
-        // Test all 10 supported languages to ensure complete coverage
         assert_eq!(
             ContainerOrchestrator::image_name_for_language(&SupportedLanguages::Golang),
             "lsproxy-golang:latest"
@@ -319,12 +348,16 @@ mod tests {
             "lsproxy-typescript:latest"
         );
         assert_eq!(
-            ContainerOrchestrator::image_name_for_language(&SupportedLanguages::Ruby),
-            "lsproxy-ruby:latest"
+            ContainerOrchestrator::image_name_for_language(&SupportedLanguages::Ruby3_4_4),
+            "lsproxy-ruby-3.4.4:latest"
         );
         assert_eq!(
-            ContainerOrchestrator::image_name_for_language(&SupportedLanguages::RubySorbet),
-            "lsproxy-ruby-sorbet:latest"
+            ContainerOrchestrator::image_name_for_language(&SupportedLanguages::Ruby3_3_6),
+            "lsproxy-ruby-3.3.6:latest"
+        );
+        assert_eq!(
+            ContainerOrchestrator::image_name_for_language(&SupportedLanguages::RubySorbet3_4_4),
+            "lsproxy-ruby-sorbet-3.4.4:latest"
         );
         assert_eq!(
             ContainerOrchestrator::image_name_for_language(&SupportedLanguages::Rust),
@@ -350,7 +383,6 @@ mod tests {
 
     #[test]
     fn test_language_slug() {
-        // Test all 10 supported languages to ensure complete coverage
         assert_eq!(
             ContainerOrchestrator::language_slug(&SupportedLanguages::Golang),
             "golang"
@@ -364,12 +396,16 @@ mod tests {
             "typescript"
         );
         assert_eq!(
-            ContainerOrchestrator::language_slug(&SupportedLanguages::Ruby),
-            "ruby"
+            ContainerOrchestrator::language_slug(&SupportedLanguages::Ruby3_4_4),
+            "ruby-3.4.4"
         );
         assert_eq!(
-            ContainerOrchestrator::language_slug(&SupportedLanguages::RubySorbet),
-            "ruby-sorbet"
+            ContainerOrchestrator::language_slug(&SupportedLanguages::Ruby3_3_6),
+            "ruby-3.3.6"
+        );
+        assert_eq!(
+            ContainerOrchestrator::language_slug(&SupportedLanguages::RubySorbet3_4_4),
+            "ruby-sorbet-3.4.4"
         );
         assert_eq!(
             ContainerOrchestrator::language_slug(&SupportedLanguages::Rust),

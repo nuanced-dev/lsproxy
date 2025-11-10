@@ -1,9 +1,9 @@
 use std::io::{Error, ErrorKind};
 use tokio::process::Command;
 
-const SYMBOL_CONFIG_PATH: &str = "/usr/src/ast_grep/symbol/config.yml";
-const IDENTIFIER_CONFIG_PATH: &str = "/usr/src/ast_grep/identifier/config.yml";
-const REFERENCE_CONFIG_PATH: &str = "/usr/src/ast_grep/reference/config.yml";
+const SYMBOL_CONFIG_PATH: &str = "/opt/lsp-wrapper/ast_grep/symbol/config.yml";
+const IDENTIFIER_CONFIG_PATH: &str = "/opt/lsp-wrapper/ast_grep/identifier/config.yml";
+const REFERENCE_CONFIG_PATH: &str = "/opt/lsp-wrapper/ast_grep/reference/config.yml";
 
 use super::types::AstGrepMatch;
 

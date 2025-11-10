@@ -94,7 +94,8 @@ java|Main.java|main|5|23|java
 cpp|astar_search.cpp|main|2|4|cpp
 csharp|Program.cs|Main|4|20|csharp
 php|AStar.php|findPathTo|26|20|php
-ruby|main.rb|main|35|4|ruby
+ruby|main.rb|main|35|4|ruby_3_4_4
+ruby-sorbet|user_service.rb|User|27|6|ruby_sorbet_3_4_4
 "
 
 # Deep validation for find-referenced-symbols (ast-grep backed)

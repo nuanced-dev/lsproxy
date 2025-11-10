@@ -78,8 +78,8 @@ impl Manager {
             SupportedLanguages::Java,
             SupportedLanguages::Golang,
             SupportedLanguages::PHP,
-            SupportedLanguages::Ruby,
-            SupportedLanguages::RubySorbet,
+            SupportedLanguages::Ruby3_4_4,
+            SupportedLanguages::RubySorbet3_4_4,
         ] {
             let patterns = match lsp {
                 SupportedLanguages::Python => PYTHON_FILE_PATTERNS
@@ -111,13 +111,17 @@ impl Manager {
                 SupportedLanguages::PHP => {
                     PHP_FILE_PATTERNS.iter().map(|&s| s.to_string()).collect()
                 }
-                SupportedLanguages::Ruby => {
+                SupportedLanguages::Ruby3_4_4 => {
                     RUBY_FILE_PATTERNS.iter().map(|&s| s.to_string()).collect()
                 }
-                SupportedLanguages::RubySorbet => RUBY_SORBET_FILE_PATTERNS
+                SupportedLanguages::RubySorbet3_4_4 => RUBY_SORBET_FILE_PATTERNS
                     .iter()
                     .map(|&s| s.to_string())
                     .collect(),
+                _ => {
+                    // For other Ruby versions not explicitly handled in legacy code
+                    RUBY_FILE_PATTERNS.iter().map(|&s| s.to_string()).collect()
+                }
             };
             if !search_files(
                 Path::new(root_path),
@@ -193,16 +197,19 @@ impl Manager {
                         .await
                         .map_err(|e| e.to_string())?,
                 ),
-                SupportedLanguages::Ruby => Box::new(
+                SupportedLanguages::Ruby3_4_4 => Box::new(
                     RubyClient::new(workspace_path, self.watch_events_sender.subscribe())
                         .await
                         .map_err(|e| e.to_string())?,
                 ),
-                SupportedLanguages::RubySorbet => Box::new(
+                SupportedLanguages::RubySorbet3_4_4 => Box::new(
                     RubySorbetClient::new(workspace_path, self.watch_events_sender.subscribe())
                         .await
                         .map_err(|e| e.to_string())?,
                 ),
+                _ => {
+                    return Err(format!("Unsupported language variant: {:?}", lsp).into());
+                }
             };
             client
                 .initialize(workspace_path.to_string())

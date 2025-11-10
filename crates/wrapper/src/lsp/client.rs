@@ -310,7 +310,28 @@ pub trait LspClient: Send {
         let ref_resp: Vec<Location> = if result.is_null() {
             Vec::new()
         } else {
-            serde_json::from_value(result)?
+            // Pre-process the result to fix relative URIs (Sorbet issue)
+            if let Some(locations_array) = result.as_array() {
+                let mut fixed_locations = Vec::new();
+                for loc in locations_array {
+                    let mut loc_obj = loc.clone();
+                    if let Some(uri_val) = loc_obj.get_mut("uri") {
+                        if let Some(uri_str) = uri_val.as_str() {
+                            // If it's a relative path, convert to absolute file:// URI
+                            if !uri_str.starts_with("file://") && !uri_str.starts_with("http") {
+                                let abs_path = std::path::PathBuf::from("/mnt/workspace").join(uri_str);
+                                if let Ok(abs_uri) = Url::from_file_path(&abs_path) {
+                                    *uri_val = serde_json::Value::String(abs_uri.to_string());
+                                }
+                            }
+                        }
+                    }
+                    fixed_locations.push(loc_obj);
+                }
+                serde_json::from_value(serde_json::Value::Array(fixed_locations))?
+            } else {
+                serde_json::from_value(result)?
+            }
         };
         debug!("Received references response");
         Ok(ref_resp)

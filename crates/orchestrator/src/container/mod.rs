@@ -6,6 +6,7 @@ use tokio::sync::Mutex;
 use lsproxy_common::api_types::SupportedLanguages;
 
 pub mod http_client;
+pub mod language_manager;
 pub mod orchestrator;
 
 pub use http_client::ContainerHttpClient;
@@ -21,6 +22,7 @@ pub struct ContainerInfo {
 pub struct ContainerOrchestrator {
     docker: Arc<Docker>,
     containers: Arc<Mutex<HashMap<SupportedLanguages, ContainerInfo>>>,
+    wrapper_container_id: Arc<Mutex<Option<String>>>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -53,6 +55,7 @@ impl ContainerOrchestrator {
         Ok(Self {
             docker: Arc::new(docker),
             containers: Arc::new(Mutex::new(HashMap::new())),
+            wrapper_container_id: Arc::new(Mutex::new(None)),
         })
     }
 
@@ -100,8 +103,8 @@ impl ContainerOrchestrator {
             "java" => Some(SupportedLanguages::Java),
             "golang" | "go" => Some(SupportedLanguages::Golang),
             "php" => Some(SupportedLanguages::PHP),
-            "ruby" => Some(SupportedLanguages::Ruby),
-            "ruby-sorbet" | "sorbet" => Some(SupportedLanguages::RubySorbet),
+            "ruby" => Some(SupportedLanguages::Ruby3_4_4),
+            "ruby-sorbet" | "sorbet" => Some(SupportedLanguages::RubySorbet3_4_4),
             _ => None,
         }
     }
@@ -121,37 +124,69 @@ impl ContainerOrchestrator {
     /// Initialize workspace by detecting languages and spawning containers upfront
     /// This matches the behavior of the original Manager::start_langservers()
     pub async fn initialize_workspace(&self, workspace_path: &str) -> Result<(), OrchestratorError> {
+        use crate::container::language_manager::*;
         use lsproxy_common::utils::file_utils::search_files;
-        use lsproxy_common::utils::workspace_documents::*;
+        use lsproxy_common::utils::workspace_documents::DEFAULT_EXCLUDE_PATTERNS;
         use std::path::Path;
 
-        let languages = vec![
-            (SupportedLanguages::Python, PYTHON_FILE_PATTERNS.to_vec()),
-            (SupportedLanguages::TypeScriptJavaScript, TYPESCRIPT_AND_JAVASCRIPT_FILE_PATTERNS.to_vec()),
-            (SupportedLanguages::Rust, RUST_FILE_PATTERNS.to_vec()),
-            (SupportedLanguages::CPP, C_AND_CPP_FILE_PATTERNS.to_vec()),
-            (SupportedLanguages::CSharp, CSHARP_FILE_PATTERNS.to_vec()),
-            (SupportedLanguages::Java, JAVA_FILE_PATTERNS.to_vec()),
-            (SupportedLanguages::Golang, GOLANG_FILE_PATTERNS.to_vec()),
-            (SupportedLanguages::PHP, PHP_FILE_PATTERNS.to_vec()),
-            (SupportedLanguages::Ruby, RUBY_FILE_PATTERNS.to_vec()),
-            (SupportedLanguages::RubySorbet, RUBY_SORBET_FILE_PATTERNS.to_vec()),
+        // Create all language managers
+        let mut managers: Vec<Box<dyn LanguageManager>> = vec![
+            Box::new(RubyManager::new()),
+            Box::new(PythonManager::new()),
+            Box::new(TypeScriptJavaScriptManager::new()),
+            Box::new(RustManager::new()),
+            Box::new(CPPManager::new()),
+            Box::new(CSharpManager::new()),
+            Box::new(JavaManager::new()),
+            Box::new(GolangManager::new()),
+            Box::new(PHPManager::new()),
         ];
 
-        let mut detected_languages = Vec::new();
+        log::info!("Scanning workspace with {} language managers", managers.len());
 
-        // Detect languages by searching for matching files
-        for (language, patterns) in languages {
-            let pattern_strings: Vec<String> = patterns.iter().map(|&s| s.to_string()).collect();
-            let exclude_patterns: Vec<String> = DEFAULT_EXCLUDE_PATTERNS.iter().map(|&s| s.to_string()).collect();
+        // Collect all patterns from all managers
+        let all_patterns: Vec<String> = managers
+            .iter()
+            .flat_map(|m| m.file_patterns())
+            .collect();
 
-            match search_files(Path::new(workspace_path), pattern_strings, exclude_patterns, true) {
-                Ok(files) if !files.is_empty() => {
-                    detected_languages.push(language);
-                }
-                _ => {}
+        log::info!("Scanning for {} file patterns", all_patterns.len());
+
+        // Single workspace scan
+        let exclude_patterns: Vec<String> = DEFAULT_EXCLUDE_PATTERNS
+            .iter()
+            .map(|&s| s.to_string())
+            .collect();
+
+        let files = search_files(
+            Path::new(workspace_path),
+            all_patterns,
+            exclude_patterns,
+            true,
+        )?;
+
+        log::info!("Found {} files in workspace", files.len());
+
+        // Each manager processes each file
+        for file_path in &files {
+            for manager in &mut managers {
+                manager.process_file(file_path);
             }
         }
+
+        // Collect detected languages from all managers
+        let detected_languages: Vec<SupportedLanguages> = managers
+            .iter()
+            .flat_map(|m| {
+                let langs = m.finalize();
+                if !langs.is_empty() {
+                    log::info!("{} detected: {:?}", m.name(), langs);
+                }
+                langs
+            })
+            .collect();
+
+        log::info!("Total detected languages: {:?}", detected_languages);
 
         // Filter based on ENABLED_LANGUAGES environment variable
         let enabled_languages = Self::get_enabled_languages();
@@ -193,7 +228,111 @@ impl ContainerOrchestrator {
         &self.docker
     }
 
-    /// Cleanup all containers
+    /// Spawn or get existing wrapper container
+    /// The wrapper container holds the lsp-wrapper binary and ast-grep configs
+    /// that will be mounted into language containers via --volumes-from
+    pub async fn ensure_wrapper_container(&self) -> Result<String, OrchestratorError> {
+        // Check if we already have a wrapper container ID
+        {
+            let wrapper_id = self.wrapper_container_id.lock().await;
+            if let Some(id) = wrapper_id.as_ref() {
+                // Verify container still exists and is running
+                if let Ok(info) = self.docker.inspect_container(id, None).await {
+                    if let Some(state) = info.state {
+                        if state.running == Some(true) {
+                            log::debug!("Using existing wrapper container: {}", id);
+                            return Ok(id.clone());
+                        }
+                    }
+                }
+                // Container no longer valid, will create new one
+                log::warn!("Wrapper container {} is not running, creating new one", id);
+            }
+        }
+
+        use bollard::container::{Config, CreateContainerOptions};
+        use bollard::models::HostConfig;
+
+        let wrapper_name = "lsproxy-wrapper";
+
+        // Check if wrapper container already exists (by name)
+        if let Ok(info) = self.docker.inspect_container(wrapper_name, None).await {
+            if let Some(state) = info.state {
+                if state.running == Some(true) {
+                    if let Some(id) = info.id {
+                        log::info!("Found existing wrapper container: {}", id);
+                        *self.wrapper_container_id.lock().await = Some(id.clone());
+                        return Ok(id);
+                    }
+                }
+            }
+            // Container exists but not running - try to start it
+            if let Some(id) = info.id {
+                log::info!("Starting existing wrapper container: {}", id);
+                self.docker.start_container::<String>(&id, None).await?;
+                *self.wrapper_container_id.lock().await = Some(id.clone());
+                return Ok(id);
+            }
+        }
+
+        // Create new wrapper container
+        log::info!("Creating new wrapper container");
+
+        let config = Config {
+            image: Some("lsproxy-wrapper:latest".to_string()),
+            host_config: Some(HostConfig {
+                auto_remove: Some(false), // Keep container around for volume sharing
+                ..Default::default()
+            }),
+            ..Default::default()
+        };
+
+        let options = CreateContainerOptions {
+            name: wrapper_name.to_string(),
+            ..Default::default()
+        };
+
+        let container = self.docker.create_container(Some(options), config).await?;
+        let container_id = container.id;
+
+        // Start the wrapper container (runs sleep infinity to stay alive)
+        log::info!("Starting wrapper container: {}", container_id);
+        self.docker
+            .start_container::<String>(&container_id, None)
+            .await?;
+
+        // Store container ID
+        *self.wrapper_container_id.lock().await = Some(container_id.clone());
+
+        log::info!("Wrapper container started: {}", container_id);
+        Ok(container_id)
+    }
+
+    /// Stop and remove the wrapper container
+    pub async fn stop_wrapper_container(&self) -> Result<(), OrchestratorError> {
+        use bollard::container::RemoveContainerOptions;
+
+        let wrapper_id = {
+            let mut wrapper = self.wrapper_container_id.lock().await;
+            wrapper.take()
+        };
+
+        if let Some(id) = wrapper_id {
+            let remove_options = RemoveContainerOptions {
+                force: true,
+                ..Default::default()
+            };
+
+            match self.docker.remove_container(&id, Some(remove_options)).await {
+                Ok(_) => log::info!("Stopped wrapper container: {}", id),
+                Err(e) => log::warn!("Failed to remove wrapper container {}: {}", id, e),
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Cleanup all containers including wrapper
     pub async fn cleanup_all(&self) -> Result<(), OrchestratorError> {
         let containers = self.all_containers().await;
         for (lang, _info) in containers {
@@ -201,6 +340,12 @@ impl ContainerOrchestrator {
                 log::warn!("Failed to stop container for {:?}: {}", lang, e);
             }
         }
+
+        // Stop wrapper container
+        if let Err(e) = self.stop_wrapper_container().await {
+            log::warn!("Failed to stop wrapper container: {}", e);
+        }
+
         Ok(())
     }
 
@@ -410,11 +555,11 @@ mod tests {
         );
         assert_eq!(
             ContainerOrchestrator::parse_language("ruby-sorbet"),
-            Some(SupportedLanguages::RubySorbet)
+            Some(SupportedLanguages::RubySorbet3_4_4)
         );
         assert_eq!(
             ContainerOrchestrator::parse_language("sorbet"),
-            Some(SupportedLanguages::RubySorbet)
+            Some(SupportedLanguages::RubySorbet3_4_4)
         );
 
         // Test invalid language
