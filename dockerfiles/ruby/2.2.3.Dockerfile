@@ -1,16 +1,11 @@
-# Ruby 3.4.4 LSP server container
+# Ruby 2.2.3 LSP server container
 # Multi-stage build to minimize image size
-#
-# To build for a different Ruby version:
-#   1. Copy this file to ruby-X.Y.Z.Dockerfile
-#   2. Change RUBY_VERSION below to your desired version
-#   3. Build: docker build -f dockerfiles/ruby-X.Y.Z.Dockerfile -t lsproxy-ruby-X.Y.Z:latest .
 
 # Builder stage: Install Ruby and ruby-lsp
 FROM debian:bookworm-slim AS builder
 
 ENV DEBIAN_FRONTEND=noninteractive
-ARG RUBY_VERSION=3.4.4
+ARG RUBY_VERSION=2.2.3
 
 # Install Ruby build dependencies and system libraries for native gems
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -38,21 +33,26 @@ RUN eval "$("$RBENV_ROOT"/bin/rbenv init -)" && \
     rbenv exec gem install ruby-lsp && \
     rbenv rehash
 
-# Runtime stage: Use build-enabled base for native gem extensions
-FROM lsproxy-base-build:latest
+# Runtime stage: Pure Debian base with build tools for native gems
+FROM debian:bookworm-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
-ARG RUBY_VERSION=3.4.4
+ENV HOME=/home/user
+ARG RUBY_VERSION=2.2.3
 
-# Install Ruby runtime dependencies (runtime versions of the build libs)
+# Install runtime dependencies AND build tools (needed for native gem compilation)
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    git \
+    build-essential \
+    pkg-config \
+    libssl3 \
     libffi8 \
     libgdbm6 \
     libreadline8 \
     libncurses6 \
     libyaml-0-2 \
     zlib1g \
-    libssl3 \
     libpq5 \
     libmariadb3 \
     libsqlite3-0 \
@@ -79,8 +79,15 @@ COPY --from=builder /opt/rbenv /opt/rbenv
 # Set language for lsp-wrapper configuration
 ENV LSP_LANGUAGE="ruby"
 
-# Set workspace path
+# Add wrapper binary to PATH (will be mounted via --volumes-from)
+ENV PATH="/opt/lsp-wrapper/bin:${PATH}"
+
+# Create workspace directory
+RUN mkdir -p /mnt/workspace && chmod 755 /mnt/workspace
 WORKDIR /mnt/workspace
+
+# Use wrapper ENTRYPOINT (mounted from wrapper container)
+ENTRYPOINT ["/opt/lsp-wrapper/bin/lsp-wrapper"]
 
 # CMD provides the language-specific command to lsp-wrapper ENTRYPOINT
 CMD ["--lsp-command", "ruby-lsp", "--lsp-arg=--use-launcher"]

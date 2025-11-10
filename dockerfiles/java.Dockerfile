@@ -19,15 +19,27 @@ RUN curl -L -o /tmp/jdt-language-server.tar.gz https://www.eclipse.org/downloads
     tar -xzf /tmp/jdt-language-server.tar.gz -C /opt/jdtls --no-same-owner && \
     rm /tmp/jdt-language-server.tar.gz
 
-# Runtime stage: Use slim base (Java is JVM-based, doesn't need build tools)
-FROM lsproxy-base:latest
+# Runtime stage: Pure Debian base (no dependency on lsproxy-base)
+# Wrapper binary will be mounted at runtime via --volumes-from
+# Java is JVM-based, doesn't need build tools
+FROM debian:bookworm-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
+ENV HOME=/home/user
+
+# Install minimal runtime dependencies
+RUN apt-get update && apt-get install \
+    -y --no-install-recommends \
+    ca-certificates \
+    git \
+    wget \
+    gnupg \
+    software-properties-common \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
 # Install Temurin JDK 21 from Adoptium
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends wget gnupg software-properties-common && \
-    wget -O - https://packages.adoptium.net/artifactory/api/gpg/key/public | gpg --dearmor -o /usr/share/keyrings/adoptium-archive-keyring.gpg && \
+RUN wget -O - https://packages.adoptium.net/artifactory/api/gpg/key/public | gpg --dearmor -o /usr/share/keyrings/adoptium-archive-keyring.gpg && \
     echo "deb [signed-by=/usr/share/keyrings/adoptium-archive-keyring.gpg] https://packages.adoptium.net/artifactory/deb $(awk -F= '/^VERSION_CODENAME/{print$2}' /etc/os-release) main" | tee /etc/apt/sources.list.d/adoptium.list && \
     apt-get update && \
     apt-get install -y --no-install-recommends temurin-21-jdk && \
@@ -47,13 +59,20 @@ RUN chmod -R +rw /opt/jdtls/config_*
 # Set language for lsp-wrapper configuration
 ENV LSP_LANGUAGE="java"
 
+# Add wrapper binary location to PATH (will be mounted from wrapper container)
+ENV PATH="/opt/lsp-wrapper/bin:${PATH}"
+
 # Copy and setup Java-specific entrypoint script
 COPY dockerfiles/entrypoints/java-entrypoint.sh /usr/local/bin/java-entrypoint.sh
 RUN chmod +x /usr/local/bin/java-entrypoint.sh
+
+# Create workspace directory
+RUN mkdir -p /mnt/workspace && chmod 755 /mnt/workspace
 
 # Set workspace path
 WORKDIR /mnt/workspace
 
 # Use custom entrypoint that finds launcher jar and sets up jdtls workspace
+# NOTE: Java uses a custom entrypoint instead of wrapper ENTRYPOINT
 ENTRYPOINT ["/usr/local/bin/java-entrypoint.sh"]
 CMD []

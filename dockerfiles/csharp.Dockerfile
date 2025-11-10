@@ -25,16 +25,22 @@ ENV DOTNET_ROOT=/opt/dotnet
 # Install csharp-ls globally
 RUN dotnet tool install --global csharp-ls
 
-# Runtime stage: Use slim base (.NET is self-contained, doesn't need build tools)
-FROM lsproxy-base:latest
+# Runtime stage: Pure Debian base (no dependency on lsproxy-base)
+# Wrapper binary will be mounted at runtime via --volumes-from
+# .NET is self-contained, doesn't need build tools
+FROM debian:bookworm-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
+ENV HOME=/home/user
 
-# Install ICU library for .NET globalization support
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends libicu72 && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+# Install minimal runtime dependencies and ICU library for .NET globalization support
+RUN apt-get update && apt-get install \
+    -y --no-install-recommends \
+    ca-certificates \
+    git \
+    libicu72 \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
 # Copy .NET SDK and tools from builder
 COPY --from=builder /opt/dotnet /opt/dotnet
@@ -47,8 +53,17 @@ ENV DOTNET_ROOT=/opt/dotnet
 # Set language for lsp-wrapper configuration
 ENV LSP_LANGUAGE="csharp"
 
+# Add wrapper binary location to PATH (will be mounted from wrapper container)
+ENV PATH="/opt/lsp-wrapper/bin:${PATH}"
+
+# Create workspace directory
+RUN mkdir -p /mnt/workspace && chmod 755 /mnt/workspace
+
 # Set workspace path
 WORKDIR /mnt/workspace
+
+# ENTRYPOINT expects wrapper at /opt/lsp-wrapper/bin/lsp-wrapper (mounted at runtime)
+ENTRYPOINT ["/opt/lsp-wrapper/bin/lsp-wrapper"]
 
 # CMD provides the language-specific command to lsp-wrapper ENTRYPOINT
 CMD ["--lsp-command", "csharp-ls"]

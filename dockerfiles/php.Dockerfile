@@ -29,21 +29,28 @@ RUN cd /usr/src && \
     cd /usr/src/phpactor && \
     composer install --no-dev
 
-# Runtime stage: Use build-enabled base for potential PHP extensions
-FROM lsproxy-base-build:latest
+# Runtime stage: Pure Debian base (no dependency on lsproxy-base)
+# Wrapper binary will be mounted at runtime via --volumes-from
+FROM debian:bookworm-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
+ENV HOME=/home/user
 
-# Install PHP runtime (Phpactor needs PHP to run)
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
+# Install runtime and build dependencies for potential PHP extensions
+RUN apt-get update && apt-get install \
+    -y --no-install-recommends \
+    ca-certificates \
+    git \
+    pkg-config \
+    libssl3 \
+    build-essential \
     php \
     php-xml \
     php-mbstring \
     php-curl \
     php-zip \
-    && apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
 # Copy Composer and Phpactor from builder
 COPY --from=builder /usr/local/bin/composer /usr/local/bin/composer
@@ -55,8 +62,17 @@ ENV PATH="/usr/src/phpactor/bin:${PATH}"
 # Set language for lsp-wrapper configuration
 ENV LSP_LANGUAGE="php"
 
+# Add wrapper binary location to PATH (will be mounted from wrapper container)
+ENV PATH="/opt/lsp-wrapper/bin:${PATH}"
+
+# Create workspace directory
+RUN mkdir -p /mnt/workspace && chmod 755 /mnt/workspace
+
 # Set workspace path
 WORKDIR /mnt/workspace
+
+# ENTRYPOINT expects wrapper at /opt/lsp-wrapper/bin/lsp-wrapper (mounted at runtime)
+ENTRYPOINT ["/opt/lsp-wrapper/bin/lsp-wrapper"]
 
 # CMD provides the language-specific command to lsp-wrapper ENTRYPOINT
 CMD ["--lsp-command", "phpactor", "--lsp-arg=language-server"]

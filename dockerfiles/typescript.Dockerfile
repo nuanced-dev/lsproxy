@@ -18,15 +18,28 @@ RUN apt-get update && \
 RUN npm install -g typescript-language-server typescript && \
     npm cache clean --force
 
-# Runtime stage: Use build-enabled base for potential native npm modules
-FROM lsproxy-base-build:latest
+# Runtime stage: Pure Debian base (no dependency on lsproxy-base)
+# Wrapper binary will be mounted at runtime via --volumes-from
+FROM debian:bookworm-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
+ENV HOME=/home/user
+
+# Install runtime and build dependencies for potential native npm modules
+RUN apt-get update && apt-get install \
+    -y --no-install-recommends \
+    ca-certificates \
+    git \
+    curl \
+    gnupg \
+    pkg-config \
+    libssl3 \
+    build-essential \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
 # Install Node.js 20.x runtime
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends curl ca-certificates gnupg && \
-    curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
     apt-get install -y --no-install-recommends nodejs && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
@@ -43,8 +56,17 @@ RUN ln -s /usr/lib/node_modules/typescript-language-server/lib/cli.mjs /usr/bin/
 # Set language for lsp-wrapper configuration
 ENV LSP_LANGUAGE="typescript"
 
+# Add wrapper binary location to PATH (will be mounted from wrapper container)
+ENV PATH="/opt/lsp-wrapper/bin:${PATH}"
+
+# Create workspace directory
+RUN mkdir -p /mnt/workspace && chmod 755 /mnt/workspace
+
 # Set workspace path
 WORKDIR /mnt/workspace
+
+# ENTRYPOINT expects wrapper at /opt/lsp-wrapper/bin/lsp-wrapper (mounted at runtime)
+ENTRYPOINT ["/opt/lsp-wrapper/bin/lsp-wrapper"]
 
 # CMD provides the language-specific command to lsp-wrapper ENTRYPOINT
 CMD ["--lsp-command", "typescript-language-server", "--lsp-arg=--stdio"]

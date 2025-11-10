@@ -20,17 +20,24 @@ RUN python3 -m venv /opt/jedi-venv && \
     /opt/jedi-venv/bin/pip install --no-cache-dir \
     jedi-language-server
 
-# Runtime stage: Use build-enabled base for potential native extensions
-FROM lsproxy-base-build:latest
+# Runtime stage: Pure Debian base (no dependency on lsproxy-base)
+# Wrapper binary will be mounted at runtime via --volumes-from
+FROM debian:bookworm-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
+ENV HOME=/home/user
 
-# Install Python runtime (without pip/venv to save space)
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
+# Install runtime and build dependencies for potential native extensions
+RUN apt-get update && apt-get install \
+    -y --no-install-recommends \
+    ca-certificates \
+    git \
+    pkg-config \
+    libssl3 \
+    build-essential \
     python3 \
-    && apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
 # Create python symlink for compatibility
 RUN ln -sf /usr/bin/python3 /usr/bin/python
@@ -44,8 +51,17 @@ ENV PATH="/opt/jedi-venv/bin:${PATH}"
 # Set language for lsp-wrapper configuration
 ENV LSP_LANGUAGE="python"
 
+# Add wrapper binary location to PATH (will be mounted from wrapper container)
+ENV PATH="/opt/lsp-wrapper/bin:${PATH}"
+
+# Create workspace directory
+RUN mkdir -p /mnt/workspace && chmod 755 /mnt/workspace
+
 # Set workspace path (must match mount point)
 WORKDIR /mnt/workspace
+
+# ENTRYPOINT expects wrapper at /opt/lsp-wrapper/bin/lsp-wrapper (mounted at runtime)
+ENTRYPOINT ["/opt/lsp-wrapper/bin/lsp-wrapper"]
 
 # CMD provides the language-specific command to lsp-wrapper ENTRYPOINT
 CMD ["--lsp-command", "jedi-language-server"]

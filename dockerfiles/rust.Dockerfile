@@ -9,10 +9,20 @@ ENV DEBIAN_FRONTEND=noninteractive
 # Install rust-analyzer and rustfmt via rustup
 RUN rustup component add rust-analyzer rustfmt
 
-# Runtime stage: Use slim base (Rust doesn't need build tools at runtime)
-FROM lsproxy-base-runtime:latest
+# Runtime stage: Pure Debian base (no dependency on lsproxy-base)
+# Wrapper binary will be mounted at runtime via --volumes-from
+FROM debian:bookworm-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
+ENV HOME=/home/user
+
+# Install minimal runtime dependencies
+RUN apt-get update && apt-get install \
+    -y --no-install-recommends \
+    ca-certificates \
+    git \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
 # Install minimal Rust runtime (we only need rust-analyzer binary)
 # Copy rust-analyzer from builder
@@ -30,8 +40,17 @@ ENV RA_LOG="/tmp/rust-analyzer.log"
 # Set language for lsp-wrapper configuration
 ENV LSP_LANGUAGE="rust"
 
+# Add wrapper binary location to PATH (will be mounted from wrapper container)
+ENV PATH="/opt/lsp-wrapper/bin:${PATH}"
+
+# Create workspace directory
+RUN mkdir -p /mnt/workspace && chmod 755 /mnt/workspace
+
 # Set workspace path
 WORKDIR /mnt/workspace
+
+# ENTRYPOINT expects wrapper at /opt/lsp-wrapper/bin/lsp-wrapper (mounted at runtime)
+ENTRYPOINT ["/opt/lsp-wrapper/bin/lsp-wrapper"]
 
 # CMD provides the language-specific command to lsp-wrapper ENTRYPOINT
 CMD ["--lsp-command", "rust-analyzer"]
