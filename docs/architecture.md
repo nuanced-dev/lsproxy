@@ -367,3 +367,96 @@ Run comprehensive endpoint tests:
 ```
 
 Current test coverage: **93/94 tests passing (98.9%)**
+
+## Future Architecture Simplification
+
+The current binary injection architecture using `--volumes-from` and the wrapper container could be further simplified in a future refactor by eliminating the wrapper container entirely and using Docker stdin/stdout mounting for direct LSP server communication.
+
+### Current Architecture Limitations
+
+The current system requires:
+- A dedicated wrapper container (`lsproxy-wrapper`) running continuously to provide volume access
+- Binary injection via `--volumes-from` to share the `lsp-wrapper` binary and `ast-grep` configs
+- Three-tier architecture: orchestrator → wrapper → LSP servers
+- Complex volume mount dependencies
+
+### Proposed Simplified Architecture
+
+**Core Idea**: The orchestrator container directly manages LSP server processes running in language-specific containers using Docker's stdin/stdout mounting capabilities.
+
+**How It Would Work**:
+
+1. **Eliminate the wrapper container**:
+   - No need for `lsproxy-wrapper` volume container
+   - No `--volumes-from` volume mounting
+   - Remove binary injection complexity
+
+2. **Direct LSP communication**:
+   - Orchestrator spawns language containers with LSP servers
+   - Use `docker run` with stdin/stdout mounting: `docker run -i --mount type=bind,src=/workspace,dst=/mnt/workspace lsproxy-python python -m pyright --stdio`
+   - Orchestrator communicates directly with LSP via container stdin/stdout
+   - Send JSON-RPC requests over stdin, receive responses from stdout
+
+3. **Simplified container structure**:
+   ```
+   lsproxy-service (orchestrator)
+       ├─ docker run -i lsproxy-python (LSP server process)
+       ├─ docker run -i lsproxy-typescript (LSP server process)
+       ├─ docker run -i lsproxy-rust (LSP server process)
+       └─ ... (other language containers)
+   ```
+
+4. **Implementation approach**:
+   - Language containers only need LSP server and runtime (no wrapper binary)
+   - Orchestrator maintains persistent stdin/stdout pipes to each LSP container
+   - JSON-RPC communication flows: Client → Orchestrator → LSP (stdin) → LSP (stdout) → Orchestrator → Client
+   - Container lifecycle: spawn on first request, keep alive for session, cleanup on shutdown
+
+### Benefits
+
+- **Simpler architecture**: Only two tiers (orchestrator → LSP) instead of three
+- **Fewer containers**: Eliminate wrapper container entirely
+- **No volume mount complexity**: Direct stdin/stdout communication
+- **Reduced dependencies**: No need for `--volumes-from` or volume sharing
+- **Easier debugging**: Direct pipe communication is more straightforward
+- **Smaller images**: Language containers don't need wrapper binary or ast-grep
+
+### Trade-offs
+
+- **LSP lifecycle management**: Orchestrator must handle stdin/stdout pipe management for each LSP process
+- **Error handling**: Need robust handling for broken pipes, container crashes
+- **ast-grep operations**: Would need alternative approach (could run ast-grep directly in orchestrator or as separate service)
+- **State persistence**: LSP server state tied to container lifecycle (similar to current architecture)
+
+### Migration Path
+
+This simplification could be implemented incrementally:
+
+1. **Phase 1**: Proof of concept with single language (e.g., Python)
+   - Implement direct stdin/stdout mounting for one LSP server
+   - Verify JSON-RPC communication works correctly
+   - Test performance and reliability
+
+2. **Phase 2**: Extend to all languages
+   - Migrate remaining LSP servers to direct communication
+   - Handle language-specific LSP initialization differences
+   - Update container images to remove wrapper dependencies
+
+3. **Phase 3**: Remove wrapper container
+   - Eliminate `lsproxy-wrapper` build and deployment
+   - Remove `--volumes-from` logic from orchestrator
+   - Clean up binary injection code
+
+4. **Phase 4**: Handle ast-grep alternative
+   - Move ast-grep to orchestrator container, or
+   - Implement ast-grep as separate microservice, or
+   - Use LSP-native alternatives where possible
+
+### Open Questions
+
+- How to handle ast-grep operations without shared binary?
+- Performance impact of stdin/stdout vs current HTTP communication?
+- Container lifecycle: persistent vs ephemeral LSP processes?
+- Compatibility with all LSP servers via stdin/stdout?
+
+This future architecture would significantly reduce system complexity while maintaining all current functionality. The trade-off is shifting some complexity from volume mounting to stdin/stdout pipe management, which is arguably more standard and easier to reason about.
