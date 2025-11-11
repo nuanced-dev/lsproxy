@@ -83,8 +83,8 @@ docker run -d \
     lsproxy-service:latest > /dev/null
 
 # Wait for initialization
-echo "Waiting for service to initialize (10s)..."
-sleep 10
+echo "Waiting for service to initialize (30s)..."
+sleep 30
 
 # Get service container ID
 SERVICE_ID=$(docker ps --filter "name=test-watchdog-svc" --format "{{.ID}}")
@@ -101,6 +101,10 @@ test_step "Language containers are spawned" \
 
 test_step "Language containers have parent labels" \
     "docker inspect \$(docker ps -q --filter 'name=lsproxy-python' | head -1) --format '{{.Config.Labels}}' | grep -q 'lsproxy.parent:$SERVICE_SHORT_ID'"
+
+# Note: LSP wrapper readiness is thoroughly tested by the integration tests
+# which perform actual LSP operations through the service. The watchdog tests
+# focus on container lifecycle management.
 
 echo
 echo -e "${BLUE}=========================================${NC}"

@@ -1,4 +1,3 @@
-use lsproxy_common::api_types::{set_thread_local_mount_dir, unset_thread_local_mount_dir};
 use std::path::PathBuf;
 
 /// Get the workspace root directory (lsproxy project root)
@@ -21,34 +20,5 @@ pub fn workspace_root() -> PathBuf {
         if !current_dir.pop() {
             panic!("Could not find workspace root with [workspace] in Cargo.toml");
         }
-    }
-}
-
-pub fn python_sample_path() -> String {
-    workspace_root()
-        .join("sample_project/python")
-        .to_string_lossy()
-        .to_string()
-}
-
-pub fn js_sample_path() -> String {
-    workspace_root()
-        .join("sample_project/js")
-        .to_string_lossy()
-        .to_string()
-}
-
-pub struct TestContext;
-
-impl TestContext {
-    pub async fn setup(file_path: &str, _manager: bool) -> Result<Self, Box<dyn std::error::Error>> {
-        set_thread_local_mount_dir(file_path);
-        Ok(Self)
-    }
-}
-
-impl Drop for TestContext {
-    fn drop(&mut self) {
-        unset_thread_local_mount_dir();
     }
 }
