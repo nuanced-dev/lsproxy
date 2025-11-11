@@ -31,6 +31,17 @@ The system consists of several containerized components that work together to pr
 | **Language Containers** | `dockerfiles/*.Dockerfile` | `lsproxy-python-<service-id>`<br/>`lsproxy-typescript-<service-id>`<br/>`lsproxy-rust-<service-id>`<br/>`lsproxy-golang-<service-id>`<br/>etc. | Run language-specific LSP servers (jedi, typescript-language-server, rust-analyzer, gopls, etc.) and translate HTTP requests to LSP JSON-RPC over stdio | Mount wrapper binary via `--volumes-from`; receive HTTP requests from service; execute LSP operations; labeled with parent service ID |
 | **Watchdog** | `crates/watchdog` | `lsproxy-watchdog-<service-id>` | Independent monitor that polls the service container health and automatically cleans up all language containers if the service crashes or stops | Monitors service via `docker inspect`; uses Docker labels to identify and cleanup language containers belonging to crashed service |
 
+### Key Benefits
+
+- **Process isolation** - Separates proxy service process from LSP server processes, preventing crashes in one language server from affecting others
+- **Role-based image organization** - Docker images are cleanly separated into their corresponding roles: service, wrapper, watchdog, and individual language LSP images
+- **Lightweight service image** - Service image is relatively small at 187MB, enabling fast deployment and updates
+- **Binary injection architecture** - Language LSP server images are completely independent from lsproxy Rust code via binary injection, preventing expensive image rebuilds when Rust code changes
+- **Dynamic language support** - Language container images are pulled dynamically on-demand based on detected languages in your workspace
+- **Automatic cleanup** - Watchdog ensures no orphaned containers remain running if the service crashes or is killed
+- **Multi-instance support** - Multiple service instances can run simultaneously, each with isolated language containers identified by unique service IDs
+- **Efficient resource sharing** - Wrapper binary and ast-grep configs are shared across all language containers via Docker volumes, avoiding duplication
+
 ```mermaid
 graph TD
     Client[Client Application] -->|HTTP Requests| Service[lsproxy-service<br/>Orchestrator]
