@@ -16,7 +16,7 @@ fi
 echo "Using launcher jar: $LAUNCHER_JAR"
 
 # Build the command with all required arguments
-exec /usr/local/bin/lsp-wrapper \
+exec lsp-wrapper \
     --lsp-command java \
     --lsp-arg=-Declipse.application=org.eclipse.jdt.ls.core.id1 \
     --lsp-arg=-Dosgi.bundles.defaultStartLevel=4 \
