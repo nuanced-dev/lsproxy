@@ -9,19 +9,39 @@ NC='\033[0m' # No Color
 
 # Help function
 print_usage() {
-    echo -e "${BLUE}Usage: $0 [--no-auth] <workspace_path>${NC}"
-    echo -e "  --no-auth    : Disable authentication (sets USE_AUTH=false)"
-    echo -e "  workspace_path: Path to the workspace directory"
+    echo -e "${BLUE}Usage: $0 [--no-auth] [--build] [--build-service] [--build-language] <workspace_path>${NC}"
+    echo -e "  --no-auth         : Disable authentication (sets USE_AUTH=false)"
+    echo -e "  --build           : Build both service and language images before running"
+    echo -e "  --build-service   : Build only the service image before running"
+    echo -e "  --build-language  : Build only the language image before running"
+    echo -e "  workspace_path    : Path to the workspace directory"
+    echo -e ""
+    echo -e "${YELLOW}Note: This script runs the new containerized architecture (service.Dockerfile)${NC}"
 }
 
 # Parse command line arguments
 WORKSPACE_PATH=""
 USE_AUTH=true
+BUILD_SERVICE=false
+BUILD_LANGUAGE=false
 
 while [[ $# -gt 0 ]]; do
     case $1 in
         --no-auth)
             USE_AUTH=false
+            shift
+            ;;
+        --build)
+            BUILD_SERVICE=true
+            BUILD_LANGUAGE=true
+            shift
+            ;;
+        --build-service)
+            BUILD_SERVICE=true
+            shift
+            ;;
+        --build-language)
+            BUILD_LANGUAGE=true
             shift
             ;;
         -h|--help)
@@ -46,13 +66,53 @@ if [ -z "$WORKSPACE_PATH" ]; then
     exit 1
 fi
 
+# Verify workspace path exists
+if [ ! -d "$WORKSPACE_PATH" ]; then
+    echo -e "${YELLOW}Error: Workspace path does not exist: $WORKSPACE_PATH${NC}"
+    exit 1
+fi
+
+# Convert to absolute path
+WORKSPACE_PATH="$(cd "$WORKSPACE_PATH" && pwd)"
+
+# Determine language from workspace path (for optional language image building)
+WORKSPACE_NAME="$(basename "$WORKSPACE_PATH")"
+case "$WORKSPACE_NAME" in
+    "typescript"|"javascript")
+        LANGUAGE_IMAGE="typescript"
+        ;;
+    *)
+        LANGUAGE_IMAGE="$WORKSPACE_NAME"
+        ;;
+esac
+
+# Build service image if requested
+if [ "$BUILD_SERVICE" = true ]; then
+    echo -e "${BLUE}Building service image...${NC}"
+    docker build -f dockerfiles/service.Dockerfile -t lsproxy-service:latest .
+    echo -e "${GREEN}✓ Service image built${NC}"
+fi
+
+# Build language image if requested
+if [ "$BUILD_LANGUAGE" = true ]; then
+    if [ -f "dockerfiles/$LANGUAGE_IMAGE.Dockerfile" ]; then
+        echo -e "${BLUE}Building $LANGUAGE_IMAGE language image...${NC}"
+        docker build -f "dockerfiles/$LANGUAGE_IMAGE.Dockerfile" -t "lsproxy-$LANGUAGE_IMAGE:latest" .
+        echo -e "${GREEN}✓ Language image built${NC}"
+    else
+        echo -e "${YELLOW}Warning: Dockerfile not found for language: $LANGUAGE_IMAGE${NC}"
+        echo -e "${YELLOW}Language container may not be available${NC}"
+    fi
+fi
+
+# Set up authentication
 if [ "$USE_AUTH" = true ]; then
     # Generate JWT token for Swagger login
     echo -e "${BLUE}Generating JWT token for Swagger UI login...${NC}"
     JWT_SECRET=test_secret ./scripts/generate_jwt.py
     echo -e "${YELLOW}Note: To disable authentication, you can use the --no-auth flag${NC}"
 
-    # Ask for confirmation to continue - fixed syntax
+    # Ask for confirmation to continue
     echo -e "${GREEN}Token has been generated. Press Enter to continue with application startup${NC}"
     read -p "(Ctrl+C to cancel)..."
 
@@ -62,14 +122,20 @@ else
     AUTH_ENV="-e USE_AUTH=false"
 fi
 
-echo -e "${BLUE}Starting application...${NC}"
+echo -e "${BLUE}Starting application with containerized architecture...${NC}"
+echo -e "Workspace: ${WORKSPACE_PATH}"
+echo -e "Language: ${LANGUAGE_IMAGE}"
 
-# Run the build
-./scripts/build.sh
+# Clean up existing service container
+docker rm -f lsproxy-service 2>/dev/null || true
 
-# Run the application
-docker run --rm -p 4444:4444 \
+# Run the application with new containerized architecture
+docker run --rm \
+    --name lsproxy-service \
+    -p 4444:4444 \
+    -v /var/run/docker.sock:/var/run/docker.sock \
     -v "$WORKSPACE_PATH:/mnt/workspace" \
+    -e HOST_WORKSPACE_PATH="$WORKSPACE_PATH" \
+    -e RUST_LOG=info \
     $AUTH_ENV \
-    -v "$(pwd)/lsproxy/target/release":/usr/src/app \
-    lsproxy-dev ./lsproxy
+    lsproxy-service:latest

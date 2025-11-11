@@ -26,8 +26,10 @@ echo
 echo "2. Checking Docker images..."
 echo "----------------------------------------"
 if ! docker images | grep -q "lsproxy-service.*latest"; then
-    echo "Service image not found. Building all containers..."
-    ./scripts/build-all-containers.sh
+    echo "Service image not found. Building Rust containers..."
+    ./scripts/build-rust-containers.sh
+    echo "Building language containers..."
+    ./scripts/build-language-containers.sh
 else
     echo "✓ Docker images found"
 fi
