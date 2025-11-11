@@ -185,24 +185,19 @@ LSProxy uses a **service container** that dynamically spawns **language-specific
 
 LSProxy uses a **binary injection** architecture to share the `lsp-wrapper` binary and `ast-grep` configs across all language containers without duplication:
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                     lsproxy-wrapper (165MB)                     │
-│  • Contains: lsp-wrapper binary + ast-grep configs              │
-│  • Shared via: VOLUME ["/opt/lsp-wrapper"]                      │
-│  • Single instance mounted by all language containers           │
-│  • Language-agnostic HTTP server + LSP process manager          │
-└─────────────────────────────────────────────────────────────────┘
-                              ▲
-                              │ (--volumes-from)
-                              │
-         ┌────────────────────┴────────────────────┐
-         │                                         │
-┌────────▼────────┐                       ┌────────▼──────────┐
-│ lsproxy-python  │                       │ lsproxy-typescript│
-│ • jedi-ls only  │                       │ • typescript-ls   │
-│ • Mounts wrapper│                       │ • Mounts wrapper  │
-└─────────────────┘                       └───────────────────┘
+```mermaid
+graph TB
+    Wrapper[lsproxy-wrapper<br/>165MB<br/>━━━━━━━━━━━━━━━━<br/>lsp-wrapper binary<br/>ast-grep configs<br/>━━━━━━━━━━━━━━━━<br/>VOLUME /opt/lsp-wrapper<br/>Language-agnostic HTTP server<br/>LSP process manager]
+
+    Python[lsproxy-python<br/>jedi-ls only<br/>Mounts wrapper]
+    TypeScript[lsproxy-typescript<br/>typescript-ls only<br/>Mounts wrapper]
+
+    Python -.->|--volumes-from| Wrapper
+    TypeScript -.->|--volumes-from| Wrapper
+
+    style Wrapper fill:#F5A623,stroke:#333,stroke-width:3px
+    style Python fill:#B8E986
+    style TypeScript fill:#B8E986
 ```
 
 This approach eliminates the need for a base image and prevents cascading rebuilds when wrapper code changes.
@@ -211,50 +206,73 @@ This approach eliminates the need for a base image and prevents cascading rebuil
 
 When you load a workspace with Python and TypeScript files, here's what happens:
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                     Client Application                          │
-│                  (API calls to localhost:4444)                  │
-└────────────────────────────┬────────────────────────────────────┘
-                             │
-                             ▼
-         ┌───────────────────────────────────────┐
-         │  lsproxy-service (Orchestrator)       │
-         │  • Size: 187MB                        │
-         │  • Built from: crates/orchestrator    │
-         │  • Routes requests to language        │
-         │    containers                         │
-         │  • Manages container lifecycle        │
-         │  • Creates shared wrapper container   │
-         └──────┬──────────────────────┬─────────┘
-                │                      │
-       ┌────────▼────────┐    ┌────────▼──────────┐
-       │ lsproxy-python  │    │ lsproxy-typescript│
-       │ • Size: 145MB   │    │ • Size: 432MB     │
-       │ • jedi-ls       │    │ • typescript-ls   │
-       │ (wrapper via    │    │ (wrapper via      │
-       │  --volumes-from)│    │  --volumes-from)  │
-       └─────────────────┘    └───────────────────┘
-                │                      │
-                └──────────┬───────────┘
-                           │
-                   ┌───────▼────────┐
-                   │ lsproxy-wrapper│
-                   │ • Size: 165MB  │
-                   │ • lsp-wrapper  │
-                   │ • ast-grep     │
-                   └────────────────┘
+```mermaid
+graph TB
+    Client[Client Application<br/>API calls to localhost:4444]
 
-       ┌───────────────────────────────────────────────────────────┐
-       │ lsproxy-watchdog (Independent Monitor)                    │
-       │ • Size: 47.3MB                                            │
-       │ • Monitors service container status via docker inspect    │
-       │ • On service crash: Cleans up all language containers     │
-       │ • Uses Docker labels to find orphaned containers          │
-       └───────────────────────────────────────────────────────────┘
+    Service[lsproxy-service<br/>Orchestrator<br/>187MB<br/>━━━━━━━━━━━━━━━━<br/>Routes requests<br/>Manages lifecycle<br/>Creates wrapper]
 
-       Total image size on disk: 976MB (service + python + typescript + wrapper + watchdog)
+    Python[lsproxy-python<br/>145MB<br/>jedi-ls<br/>wrapper via --volumes-from]
+
+    TypeScript[lsproxy-typescript<br/>432MB<br/>typescript-ls<br/>wrapper via --volumes-from]
+
+    Wrapper[lsproxy-wrapper<br/>165MB<br/>━━━━━━━━━━━━━━━━<br/>lsp-wrapper binary<br/>ast-grep configs]
+
+    Watchdog[lsproxy-watchdog<br/>Independent Monitor<br/>47.3MB<br/>━━━━━━━━━━━━━━━━<br/>Monitors via docker inspect<br/>Cleans up on crash<br/>Uses Docker labels]
+
+    Client -->|HTTP| Service
+    Service -->|Spawns & Routes| Python
+    Service -->|Spawns & Routes| TypeScript
+    Service -->|Creates| Wrapper
+    Service -->|Creates| Watchdog
+
+    Python -.->|--volumes-from| Wrapper
+    TypeScript -.->|--volumes-from| Wrapper
+
+    Watchdog -.->|Monitors| Service
+    Watchdog -.->|Cleanup| Python
+    Watchdog -.->|Cleanup| TypeScript
+
+    style Service fill:#4A90E2
+    style Wrapper fill:#F5A623
+    style Watchdog fill:#7ED321
+    style Python fill:#B8E986
+    style TypeScript fill:#B8E986
+    style Client fill:#E8E8E8
 ```
+
+**Total image size on disk: 976MB** (service + python + typescript + wrapper + watchdog)
+
+#### Request Flow
+
+This sequence diagram shows how a client request flows through the system:
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Service as lsproxy-service<br/>(Orchestrator)
+    participant Python as lsproxy-python<br/>(LSP Wrapper)
+    participant LSP as Python LSP Server<br/>(jedi-language-server)
+
+    Client->>+Service: POST /v1/symbol/find-definition<br/>{file: "main.py", position: {line: 10, character: 5}}
+    Note over Service: Detect language from file extension
+    Note over Service: Route to Python container
+    Service->>+Python: HTTP POST localhost:8080/find-definition<br/>{file: "main.py", position: {line: 10, character: 5}}
+    Note over Python: lsp-wrapper receives HTTP request
+    Python->>+LSP: LSP Request (JSON-RPC over stdio)<br/>textDocument/definition
+    Note over LSP: jedi analyzes code<br/>finds definition
+    LSP-->>-Python: LSP Response (JSON-RPC)<br/>{uri, range, ...}
+    Note over Python: lsp-wrapper translates<br/>LSP response to HTTP
+    Python-->>-Service: HTTP 200 OK<br/>{definitions: [{path, range, ...}]}
+    Note over Service: Forward response
+    Service-->>-Client: HTTP 200 OK<br/>{definitions: [{path, range, ...}]}
+```
+
+**Key Points:**
+- **Two-tier architecture**: Client communicates with service (HTTP), service communicates with language containers (HTTP)
+- **Language detection**: Service determines which container to route to based on file extension
+- **LSP translation**: Language containers translate HTTP requests to LSP JSON-RPC over stdio
+- **Container isolation**: Each language server runs in its own isolated container
 
 #### Container Components
 
