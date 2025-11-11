@@ -53,7 +53,17 @@ if [ -n "$CHILD_CONTAINERS" ]; then
 
     echo "Watchdog: Emergency cleanup complete - removed $CHILD_COUNT container(s)"
 else
-    echo "Watchdog: No orphaned containers found (parent may have cleaned up before death)"
+    echo "Watchdog: No orphaned language server containers found"
+fi
+
+# Clean up wrapper container
+WRAPPER_CONTAINER=$(docker ps -aq --filter "name=lsproxy-wrapper")
+if [ -n "$WRAPPER_CONTAINER" ]; then
+    echo "Watchdog: Cleaning up lsproxy-wrapper container..."
+    docker rm -f "$WRAPPER_CONTAINER" 2>/dev/null || true
+    echo "Watchdog: lsproxy-wrapper container removed"
+else
+    echo "Watchdog: No lsproxy-wrapper container found"
 fi
 
 echo "Watchdog: Exiting"
