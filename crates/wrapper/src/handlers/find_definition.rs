@@ -1,4 +1,4 @@
-use lsproxy_common::api_types::{CodeContext, ErrorResponse, FileRange, Position, Range};
+use lsproxy_common::api_types::{CodeContext, FileRange, Position, Range};
 use crate::handlers::error::IntoHttpResponse;
 use crate::manager::{LspManagerError, Manager};
 use lsproxy_common::utils::file_utils::uri_to_relative_path_string;

@@ -10,6 +10,7 @@ use bollard::image::ListImagesOptions;
 use bollard::Docker;
 use reqwest::Client;
 use serde_json::json;
+use serial_test::serial;
 use std::collections::HashMap;
 use std::time::Duration;
 use tempfile::TempDir;
@@ -34,6 +35,12 @@ impl ContainerFixture {
     /// Create new test fixture with workspace
     async fn new() -> Result<Self, Box<dyn std::error::Error>> {
         let docker = Docker::connect_with_socket_defaults()?;
+
+        // Clean up any existing test container from previous runs
+        let _ = docker.remove_container("lsproxy-test-service", Some(RemoveContainerOptions {
+            force: true,
+            ..Default::default()
+        })).await;
 
         // Verify required images exist
         Self::verify_images(&docker).await?;
@@ -244,6 +251,7 @@ impl Drop for ContainerFixture {
 }
 
 #[tokio::test]
+#[serial]
 async fn test_service_health() -> Result<(), Box<dyn std::error::Error>> {
     let mut fixture = ContainerFixture::new().await?;
     fixture.start_service().await?;
@@ -265,6 +273,7 @@ async fn test_service_health() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 #[tokio::test]
+#[serial]
 async fn test_container_spawn_on_request() -> Result<(), Box<dyn std::error::Error>> {
     let mut fixture = ContainerFixture::new().await?;
     fixture.start_service().await?;
@@ -303,6 +312,7 @@ async fn test_container_spawn_on_request() -> Result<(), Box<dyn std::error::Err
 }
 
 #[tokio::test]
+#[serial]
 async fn test_request_forwarding() -> Result<(), Box<dyn std::error::Error>> {
     let mut fixture = ContainerFixture::new().await?;
     fixture.start_service().await?;
@@ -335,6 +345,7 @@ async fn test_request_forwarding() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 #[tokio::test]
+#[serial]
 async fn test_multiple_requests_same_container() -> Result<(), Box<dyn std::error::Error>> {
     let mut fixture = ContainerFixture::new().await?;
     fixture.start_service().await?;
@@ -387,6 +398,7 @@ async fn test_multiple_requests_same_container() -> Result<(), Box<dyn std::erro
 }
 
 #[tokio::test]
+#[serial]
 async fn test_list_files() -> Result<(), Box<dyn std::error::Error>> {
     let mut fixture = ContainerFixture::new().await?;
     fixture.start_service().await?;
@@ -399,13 +411,15 @@ async fn test_list_files() -> Result<(), Box<dyn std::error::Error>> {
     assert!(response.status().is_success());
     let body: serde_json::Value = response.json().await?;
 
-    assert!(body.get("files").is_some());
+    // The endpoint returns a direct array of filenames, not an object with a "files" field
+    assert!(body.is_array());
 
     fixture.cleanup().await?;
     Ok(())
 }
 
 #[tokio::test]
+#[serial]
 async fn test_find_references() -> Result<(), Box<dyn std::error::Error>> {
     let mut fixture = ContainerFixture::new().await?;
     fixture.start_service().await?;

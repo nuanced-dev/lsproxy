@@ -1,4 +1,4 @@
-use lsproxy_common::api_types::{HealthResponse, SupportedLanguages};
+use lsproxy_common::api_types::HealthResponse;
 use crate::AppState;
 use actix_web::web::Data;
 use actix_web::HttpResponse;

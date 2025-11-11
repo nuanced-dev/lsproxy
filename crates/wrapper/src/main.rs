@@ -1,6 +1,6 @@
 use actix_web::{web, App, HttpResponse, HttpServer, Responder};
 use clap::Parser;
-use log::{error, info, warn};
+use log::{error, info};
 use std::sync::Arc;
 
 mod handlers;
@@ -231,10 +231,7 @@ async fn main() -> std::io::Result<()> {
 
     info!("LSP server started and initialized successfully");
 
-    let manager = Manager::new(
-        Arc::new(tokio::sync::Mutex::new(client)),
-        args.workspace_path.clone(),
-    );
+    let manager = Manager::new(Arc::new(tokio::sync::Mutex::new(client)));
 
     let app_state = web::Data::new(AppState { manager });
 

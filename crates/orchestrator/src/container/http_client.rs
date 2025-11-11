@@ -4,7 +4,6 @@
 /// server containers, replacing the direct LSP process management.
 
 use lsproxy_common::api_types::*;
-use serde::Deserialize;
 use std::error::Error;
 
 pub struct ContainerHttpClient {
@@ -17,18 +16,6 @@ impl ContainerHttpClient {
         Self {
             base_url: endpoint.to_string(),
             client: reqwest::Client::new(),
-        }
-    }
-
-    /// Check if the container is healthy
-    pub async fn health(&self) -> Result<(), Box<dyn Error + Send + Sync>> {
-        let url = format!("{}/health", self.base_url);
-        let response = self.client.get(&url).send().await?;
-
-        if response.status().is_success() {
-            Ok(())
-        } else {
-            Err(format!("Health check failed: {}", response.status()).into())
         }
     }
 
@@ -113,44 +100,4 @@ impl ContainerHttpClient {
         Ok(response.json().await?)
     }
 
-    /// List all files in workspace
-    pub async fn list_files(&self) -> Result<Vec<String>, Box<dyn Error + Send + Sync>> {
-        let url = format!("{}/file/list-files", self.base_url);
-        let response = self.client.get(&url).send().await?;
-
-        if !response.status().is_success() {
-            let error_text = response.text().await?;
-            return Err(format!("List files request failed: {}", error_text).into());
-        }
-
-        #[derive(Deserialize)]
-        struct ListFilesResponse {
-            files: Vec<String>,
-        }
-
-        let result: ListFilesResponse = response.json().await?;
-        Ok(result.files)
-    }
-
-    /// Read source code from a file
-    pub async fn read_source(
-        &self,
-        request: &ReadSourceCodeRequest,
-    ) -> Result<String, Box<dyn Error + Send + Sync>> {
-        let url = format!("{}/file/read-source", self.base_url);
-        let response = self.client.post(&url).json(request).send().await?;
-
-        if !response.status().is_success() {
-            let error_text = response.text().await?;
-            return Err(format!("Read source request failed: {}", error_text).into());
-        }
-
-        #[derive(Deserialize)]
-        struct ReadSourceResponse {
-            content: String,
-        }
-
-        let result: ReadSourceResponse = response.json().await?;
-        Ok(result.content)
-    }
 }

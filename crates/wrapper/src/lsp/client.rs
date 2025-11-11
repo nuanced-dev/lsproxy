@@ -72,12 +72,14 @@ pub trait LspClient: Send {
         root_path: String,
     ) -> Result<InitializeParams, Box<dyn Error + Send + Sync>> {
         let workspace_folders = self.find_workspace_folders(root_path.clone()).await?;
-        Ok(InitializeParams {
+        #[allow(deprecated)]
+        let params = InitializeParams {
             capabilities: self.get_capabilities(),
             workspace_folders: Some(workspace_folders),
             root_uri: Some(Url::from_file_path(&root_path).unwrap()), // primarily for python
             ..Default::default()
-        })
+        };
+        Ok(params)
     }
 
     async fn send_request(

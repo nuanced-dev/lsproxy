@@ -41,15 +41,13 @@ pub struct Manager {
     // Arc for shared ownership across actix-web handlers
     client: Arc<Mutex<Box<dyn LspClient>>>,
     ast_grep: AstGrepClient,
-    workspace_path: String,
 }
 
 impl Manager {
-    pub fn new(client: Arc<Mutex<Box<dyn LspClient>>>, workspace_path: String) -> Self {
+    pub fn new(client: Arc<Mutex<Box<dyn LspClient>>>) -> Self {
         Self {
             client,
             ast_grep: AstGrepClient::new(),
-            workspace_path,
         }
     }
 

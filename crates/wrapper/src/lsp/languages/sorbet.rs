@@ -1,4 +1,4 @@
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::fs;
 
 use crate::lsp::{JsonRpcHandler, LspClient, PendingRequests, ProcessHandler};
@@ -38,6 +38,9 @@ impl LspClient for SorbetClient {
     fn get_pending_requests(&mut self) -> &mut PendingRequests {
         &mut self.pending_requests
     }
+
+    #[allow(deprecated)]
+
 
     async fn get_initialize_params(
         &mut self,

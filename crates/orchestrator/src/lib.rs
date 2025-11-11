@@ -19,7 +19,6 @@ use utoipa_swagger_ui::SwaggerUi;
 // Local modules
 mod container;
 mod handlers;
-mod lsp;
 
 use lsproxy_common::api_types::{
     get_mount_dir, set_global_mount_dir, CodeContext, DefinitionResponse, ErrorResponse,

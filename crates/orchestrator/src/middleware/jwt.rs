@@ -32,15 +32,17 @@ pub struct JwtMiddleware {
 }
 
 impl JwtMiddleware {
-    pub fn new(secret: String) -> Self {
-        Self { secret }
-    }
-
     /// Create middleware from environment variable (for production use)
     pub fn from_env() -> Result<Self, String> {
         let secret = env::var("JWT_SECRET")
             .map_err(|_| "JWT_SECRET environment variable not set".to_string())?;
         Ok(Self { secret })
+    }
+
+    /// Create middleware with explicit secret (for testing only)
+    #[cfg(test)]
+    pub fn new(secret: String) -> Self {
+        Self { secret }
     }
 }
 

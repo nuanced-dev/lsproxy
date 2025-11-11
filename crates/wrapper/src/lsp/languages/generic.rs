@@ -40,6 +40,9 @@ impl LspClient for GenericLspClient {
         &mut self.pending_requests
     }
 
+    #[allow(deprecated)]
+
+
     async fn get_initialize_params(
         &mut self,
         root_path: String,
