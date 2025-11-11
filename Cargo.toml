@@ -28,3 +28,9 @@ ignore = "0.4.23"  # Pin to avoid edition2024 requirement in 0.4.25+
 
 # Common crate (internal)
 lsproxy-common = { path = "crates/common" }
+
+[profile.release]
+incremental = true
+
+[profile.dev]
+incremental = true
