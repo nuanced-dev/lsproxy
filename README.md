@@ -20,6 +20,17 @@ It supports [multiple languages](#supported-languages) and resolves relationship
 
 For more info, please refer to our [API Reference](https://docs.nuanced.dev/lsp/overview).
 
+## Architecture Overview
+
+The system consists of several containerized components that work together to provide language server functionality:
+
+| Component | Code Reference | Container Name(s) | Purpose | Relationships |
+|-----------|---------------|-------------------|---------|---------------|
+| **Service** | `crates/orchestrator` | `lsproxy-service` | Main orchestrator that receives HTTP requests from clients, detects file languages, and routes requests to appropriate language containers | Spawns wrapper, language containers, and watchdog; forwards requests between client and language containers |
+| **Wrapper** | `crates/lsp-wrapper` | `lsproxy-wrapper-<service-id>` | Shared volume container providing the `lsp-wrapper` binary and ast-grep configs | Mounted by all language containers via `--volumes-from` to share binaries without duplication |
+| **Language Containers** | `dockerfiles/*.Dockerfile` | `lsproxy-python-<service-id>`<br/>`lsproxy-typescript-<service-id>`<br/>`lsproxy-rust-<service-id>`<br/>`lsproxy-golang-<service-id>`<br/>etc. | Run language-specific LSP servers (jedi, typescript-language-server, rust-analyzer, gopls, etc.) and translate HTTP requests to LSP JSON-RPC over stdio | Mount wrapper binary via `--volumes-from`; receive HTTP requests from service; execute LSP operations; labeled with parent service ID |
+| **Watchdog** | `crates/watchdog` | `lsproxy-watchdog-<service-id>` | Independent monitor that polls the service container health and automatically cleans up all language containers if the service crashes or stops | Monitors service via `docker inspect`; uses Docker labels to identify and cleanup language containers belonging to crashed service |
+
 ```mermaid
 graph TD
     Client[Client Application] -->|HTTP Requests| Service[lsproxy-service<br/>Orchestrator]
