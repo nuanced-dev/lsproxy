@@ -20,7 +20,33 @@ It supports [multiple languages](#supported-languages) and resolves relationship
 
 For more info, please refer to our [API Reference](https://docs.nuanced.dev/lsp/overview).
 
-[![](https://mermaid.ink/img/pako:eNptUtFumzAU_RV0q0qdRKpAgAAPk6buZVInTau0h9ZV5YRrYhVsZJuuLMq_7xraNLQ1D9jnnHt8ru09bHWFUIJo9N_tjhsXXP9miqmAhqfuLhhc0X_DLTL4cu-5ibX9pja825FMOS4VmjsGje2Mfh4Y3E8iP55007ej0Z9xNtm8slRBdddc1T2vMbhB84TGzgx4TQpu3aI22M2ZThL17dePTzYMFouv3v1TnNezBBPWydM95xiq6tj40D5I9SBkg75jaZ2HNrqxgVSBh49pKhSWNEKq6kXjIamkk1odVeajiiA0qLY4ncTpjVCugMFP3SvHYAw59TUpKPCInYScEz7SHDEjMmHn54F1Q4Nvl-obasozzMRKiNA6ox-xPEt4scT4Xc1O01FMcpH6771nI1E5-yYRIoUQWjQtlxU9wr0vYOB26F9JSdOKm0cGTB1Ix3unbwa1hdKZHkPou4o7_C45PcMWSsEbS2jH1a3W7auIllDu4RnKJLtM0yJL82hdJKs4zUIYoIyj5WWeJlGyzKNslefr5BDCv9GAiCKOi6yIlnGeFkmxPvwHnPP5bQ?type=png)](https://mermaid.live/edit#pako:eNptUtFumzAU_RV0q0qdRKpAgAAPk6buZVInTau0h9ZV5YRrYhVsZJuuLMq_7xraNLQ1D9jnnHt8ru09bHWFUIJo9N_tjhsXXP9miqmAhqfuLhhc0X_DLTL4cu-5ibX9pja825FMOS4VmjsGje2Mfh4Y3E8iP55007ej0Z9xNtm8slRBdddc1T2vMbhB84TGzgx4TQpu3aI22M2ZThL17dePTzYMFouv3v1TnNezBBPWydM95xiq6tj40D5I9SBkg75jaZ2HNrqxgVSBh49pKhSWNEKq6kXjIamkk1odVeajiiA0qLY4ncTpjVCugMFP3SvHYAw59TUpKPCInYScEz7SHDEjMmHn54F1Q4Nvl-obasozzMRKiNA6ox-xPEt4scT4Xc1O01FMcpH6771nI1E5-yYRIoUQWjQtlxU9wr0vYOB26F9JSdOKm0cGTB1Ix3unbwa1hdKZHkPou4o7_C45PcMWSsEbS2jH1a3W7auIllDu4RnKJLtM0yJL82hdJKs4zUIYoIyj5WWeJlGyzKNslefr5BDCv9GAiCKOi6yIlnGeFkmxPvwHnPP5bQ)
+```mermaid
+graph TD
+    Client[Client Application] -->|HTTP Requests| Service[lsproxy-service<br/>Orchestrator]
+    Service -->|Spawns & Routes| Python[lsproxy-python<br/>jedi-language-server]
+    Service -->|Spawns & Routes| TypeScript[lsproxy-typescript<br/>typescript-language-server]
+    Service -->|Spawns & Routes| Rust[lsproxy-rust<br/>rust-analyzer]
+    Service -->|Spawns & Routes| Golang[lsproxy-golang<br/>gopls]
+    Service -->|Creates| Wrapper[lsproxy-wrapper<br/>lsp-wrapper binary<br/>ast-grep configs]
+
+    Python -.->|--volumes-from| Wrapper
+    TypeScript -.->|--volumes-from| Wrapper
+    Rust -.->|--volumes-from| Wrapper
+    Golang -.->|--volumes-from| Wrapper
+
+    Service -->|Creates| Watchdog[lsproxy-watchdog<br/>Monitor]
+    Watchdog -.->|Monitors via<br/>docker inspect| Service
+    Watchdog -.->|Cleans up on<br/>service crash| Python
+    Watchdog -.->|Cleans up on<br/>service crash| TypeScript
+
+    style Service fill:#4A90E2
+    style Wrapper fill:#F5A623
+    style Watchdog fill:#7ED321
+    style Python fill:#B8E986
+    style TypeScript fill:#B8E986
+    style Rust fill:#B8E986
+    style Golang fill:#B8E986
+```
 
 ## Key Features
 
