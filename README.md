@@ -174,23 +174,30 @@ For full API documentation, see [Nuanced LSP API Reference](https://docs.nuanced
 
 ---
 
-### Local Development (Contributors)
+### Local Development
 
-If you're contributing to lsproxy itself:
+#### Prerequisites
+- Docker installed and running
+- Git (to clone the repo)
+
+#### Quick Start
 
 ```bash
-# 1. Build all containers (one-time setup)
-./scripts/build-all-containers.sh
+# 1. Build the service container (one-time setup)
+#    This builds: orchestrator, lsp-wrapper, and watchdog
+./scripts/build-rust-containers.sh
 
-# 2. Start the service
-./scripts/start-service.sh
+# 2. Start the service (language containers are pulled dynamically as needed)
+./scripts/start-service.sh sample_project/all
 
 # 3. Run tests
-cargo test --workspace           # Unit tests
-./scripts/test-all-endpoints.sh  # Integration tests
+./scripts/test.sh
 ```
 
-See [docs/quickstart.md](docs/quickstart.md) for detailed development instructions.
+**Notes:**
+- Language container images are pulled from GitHub Container Registry (ghcr.io) automatically when first needed
+- Use `./scripts/stop-service.sh` to stop the service
+- See [docs/quickstart.md](docs/quickstart.md) for detailed instructions
 
 ### Architecture
 

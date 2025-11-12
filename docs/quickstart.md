@@ -8,42 +8,36 @@ Get LSProxy running in 3 minutes with container orchestration.
 - Git (to clone the repo)
 - jq (for testing, optional)
 
-## Step 1: Build Containers (One-time setup)
+## Step 1: Build Service Container (One-time setup)
 
 ```bash
-# Build all containers (~5-10 minutes first time)
-./scripts/build-all-containers.sh
-
-# Or build just what you need
-docker build -f dockerfiles/wrapper.Dockerfile -t lsproxy-wrapper:latest .  # Required
-docker build -f dockerfiles/service.Dockerfile -t lsproxy-service:latest .  # Required
-docker build -f dockerfiles/python.Dockerfile -t lsproxy-python:latest .
-docker build -f dockerfiles/golang.Dockerfile -t lsproxy-golang:latest .
-# ... etc
+# Build the Rust-based service container (~2-5 minutes first time)
+# This builds: orchestrator, lsp-wrapper, and watchdog
+./scripts/build-rust-containers.sh
 ```
 
-**Note**: The wrapper container is required - it provides the `lsp-wrapper` binary and `ast-grep` configs shared by all language containers via volume mounting.
+**Note**: Language containers are pulled from GitHub Container Registry (ghcr.io) automatically when needed. You don't need to build them manually unless you're developing language-specific changes.
 
 ## Step 2: Start the Service
 
 ```bash
 # Start with multi-language test workspace
-./scripts/start-service.sh
+./scripts/start-service.sh sample_project/all
 
 # Or use your own workspace
-./scripts/start-service.sh /path/to/your/project
+./scripts/start-service.sh path/to/your/workspace
 
 # With logs
-./scripts/start-service.sh --logs
+./scripts/start-service.sh sample_project/all --logs
 
 # Custom port
-./scripts/start-service.sh --port 5000
+./scripts/start-service.sh sample_project/all --port 5000
 ```
 
 **What happens:**
 1. Service container starts
 2. Detects languages in workspace
-3. Spawns language-specific containers automatically
+3. Spawns language-specific containers automatically (pulls images from ghcr.io if needed)
 4. Takes ~20-30 seconds to fully initialize
 
 ## Step 3: Test It Works
@@ -64,14 +58,16 @@ curl -X POST http://localhost:4444/v1/python/find-definition \
   }' | jq
 ```
 
-## Step 4: Run Comprehensive Tests
+## Step 4: Run Tests
 
 ```bash
-# Test container lifecycle
-./scripts/test-container-lifecycle.sh
+# Run all tests (unit, integration, container lifecycle, watchdog, and endpoint tests)
+./scripts/test.sh
 
-# Test all endpoints for all languages
-./scripts/test-all-endpoints.sh
+# Or run specific test suites:
+./scripts/test-container-lifecycle.sh  # Container orchestration tests
+./scripts/test-watchdog.sh             # Watchdog cleanup tests
+./scripts/test-all-endpoints.sh        # API endpoint validation
 ```
 
 ## Common Commands
@@ -110,8 +106,9 @@ docker ps --filter "name=lsproxy-service"
 
 ### Restart Service
 ```bash
-# Just run start-service.sh again - it will prompt to restart
-./scripts/start-service.sh
+# Stop and start again
+./scripts/stop-service.sh
+./scripts/start-service.sh sample_project/all
 ```
 
 ### Verify Clean State
@@ -199,13 +196,15 @@ lsproxy-service (187MB)
 
 | Task | Command |
 |------|---------|
-| Build all | `./scripts/build-all-containers.sh` |
-| Start service | `./scripts/start-service.sh` |
+| Build service | `./scripts/build-rust-containers.sh` |
+| Start service | `./scripts/start-service.sh sample_project/all` |
+| Stop service | `./scripts/stop-service.sh` |
 | View logs | `docker logs -f lsproxy-service` |
-| Stop service | `docker rm -f lsproxy-service` |
 | Health check | `curl localhost:4444/v1/system/health \| jq` |
-| Run tests | `./scripts/test-all-endpoints.sh` |
+| Run all tests | `./scripts/test.sh` |
+| Run endpoint tests | `./scripts/test-all-endpoints.sh` |
 | List containers | `docker ps --filter "name=lsproxy-"` |
+| Cleanup all | `./scripts/cleanup-all.sh` |
 
 ## Getting Help
 
