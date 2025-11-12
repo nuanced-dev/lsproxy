@@ -3,6 +3,8 @@ use actix_web::web::Data;
 use actix_web::HttpResponse;
 use ignore::WalkBuilder;
 use log::{error, info};
+use std::path::Path;
+use std::sync::{Arc, Mutex};
 
 /// List all files in the workspace
 #[utoipa::path(
@@ -17,31 +19,47 @@ use log::{error, info};
 pub async fn list_files(data: Data<AppState>) -> HttpResponse {
     info!("Received list files request");
 
-    let mut files = Vec::new();
-    let workspace_path = &data.workspace_path;
+    let workspace_path = Path::new(&data.workspace_path);
 
-    // Walk the workspace directory directly (no container calls needed)
-    for result in WalkBuilder::new(workspace_path)
+    // Use parallel file walking for performance on large workspaces
+    let files = Arc::new(Mutex::new(Vec::new()));
+    let workspace_path_arc = Arc::new(workspace_path.to_path_buf());
+
+    let walker = WalkBuilder::new(workspace_path)
         .hidden(false)      // Skip hidden files
         .git_ignore(false)  // Don't filter by gitignore - list all workspace files
         .git_exclude(false) // Don't use git exclude rules
-        .build()
-    {
-        match result {
-            Ok(entry) => {
-                if entry.file_type().map_or(false, |ft| ft.is_file()) {
-                    if let Ok(relative) = entry.path().strip_prefix(workspace_path) {
-                        if let Some(rel_str) = relative.to_str() {
-                            files.push(rel_str.to_string());
+        .build_parallel();
+
+    walker.run(|| {
+        let files = Arc::clone(&files);
+        let workspace_path = Arc::clone(&workspace_path_arc);
+
+        Box::new(move |result| {
+            use ignore::WalkState;
+
+            match result {
+                Ok(entry) => {
+                    if entry.file_type().map_or(false, |ft| ft.is_file()) {
+                        if let Ok(relative) = entry.path().strip_prefix(workspace_path.as_ref()) {
+                            if let Some(rel_str) = relative.to_str() {
+                                if let Ok(mut files) = files.lock() {
+                                    files.push(rel_str.to_string());
+                                }
+                            }
                         }
                     }
                 }
+                Err(e) => error!("Error walking workspace: {}", e),
             }
-            Err(e) => {
-                error!("Error walking workspace: {}", e);
-            }
-        }
-    }
+            WalkState::Continue
+        })
+    });
+
+    let mut files = Arc::try_unwrap(files)
+        .unwrap()
+        .into_inner()
+        .unwrap();
 
     files.sort();
     files.dedup();
