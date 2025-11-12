@@ -20,8 +20,8 @@ while [[ $# -gt 0 ]]; do
             echo ""
             echo "This script stops and removes all LSProxy containers:"
             echo "  - Service container"
+            echo "  - Watchdog container"
             echo "  - All language containers"
-            echo "  - Docker network (if empty)"
             exit 0
             ;;
         *)
@@ -59,21 +59,6 @@ for container in $CONTAINERS; do
         echo -e "${RED}✗ (failed)${NC}"
     fi
 done
-
-# Check if network exists and is empty
-if docker network ls --format "{{.Name}}" | grep -q "^lsproxy$"; then
-    NETWORK_CONTAINERS=$(docker network inspect lsproxy --format '{{range .Containers}}{{.Name}} {{end}}' 2>/dev/null || echo "")
-    if [ -z "$NETWORK_CONTAINERS" ]; then
-        echo -e "${BLUE}Removing Docker network...${NC}"
-        if docker network rm lsproxy > /dev/null 2>&1; then
-            echo -e "${GREEN}✓ Network removed${NC}"
-        else
-            echo -e "${YELLOW}⚠ Could not remove network (may have active connections)${NC}"
-        fi
-    else
-        echo -e "${YELLOW}⚠ Network has active containers, not removing${NC}"
-    fi
-fi
 
 # Verify cleanup
 REMAINING=$(docker ps -aq --filter "name=lsproxy-" | wc -l | tr -d ' ')

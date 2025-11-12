@@ -18,9 +18,8 @@ echo -e "${BLUE}=========================================${NC}"
 echo
 
 echo -e "${YELLOW}This will forcefully remove:${NC}"
-echo "  - All running LSProxy containers"
+echo "  - All running LSProxy containers (service, watchdog, language containers)"
 echo "  - All stopped LSProxy containers"
-echo "  - LSProxy Docker network"
 echo
 
 read -p "Continue? (y/N): " -n 1 -r
@@ -56,30 +55,14 @@ else
     echo -e "${YELLOW}  No containers to remove${NC}"
 fi
 
-# Remove network
-echo
-echo -e "${BLUE}Removing network...${NC}"
-if docker network ls --format "{{.Name}}" | grep -q "^lsproxy$"; then
-    if docker network rm lsproxy > /dev/null 2>&1; then
-        echo -e "${GREEN}  ✓ Network removed${NC}"
-    else
-        echo -e "${YELLOW}  ⚠ Network could not be removed (may still be in use)${NC}"
-    fi
-else
-    echo -e "${YELLOW}  No network to remove${NC}"
-fi
-
 # Final verification
 echo
 echo -e "${BLUE}Verification:${NC}"
 REMAINING=$(docker ps -aq --filter "name=lsproxy-" | wc -l | tr -d ' ')
 echo "  Remaining containers: $REMAINING"
 
-NETWORK_EXISTS=$(docker network ls --format "{{.Name}}" | grep -c "^lsproxy$" || echo "0")
-echo "  Network exists: $NETWORK_EXISTS"
-
 echo
-if [ "$REMAINING" -eq 0 ] && [ "$NETWORK_EXISTS" -eq 0 ]; then
+if [ "$REMAINING" -eq 0 ]; then
     echo -e "${GREEN}=========================================${NC}"
     echo -e "${GREEN}  ✓ Cleanup complete!${NC}"
     echo -e "${GREEN}=========================================${NC}"
@@ -89,18 +72,11 @@ else
     echo -e "${YELLOW}  ⚠ Cleanup incomplete${NC}"
     echo -e "${YELLOW}=========================================${NC}"
 
-    if [ "$REMAINING" -gt 0 ]; then
-        echo -e "${YELLOW}Remaining containers:${NC}"
-        docker ps -a --filter "name=lsproxy-" --format "  {{.Names}}\t({{.Status}})"
-    fi
-
-    if [ "$NETWORK_EXISTS" -gt 0 ]; then
-        echo -e "${YELLOW}Network still exists (may have active connections)${NC}"
-    fi
+    echo -e "${YELLOW}Remaining containers:${NC}"
+    docker ps -a --filter "name=lsproxy-" --format "  {{.Names}}\t({{.Status}})"
 
     echo
-    echo -e "${YELLOW}Manual cleanup commands:${NC}"
+    echo -e "${YELLOW}Manual cleanup command:${NC}"
     echo "  docker rm -f \$(docker ps -aq --filter \"name=lsproxy-\")"
-    echo "  docker network rm lsproxy"
     exit 1
 fi
