@@ -2,23 +2,27 @@
 
 # Nuanced LSProxy - Precise code navigation via an API
 
-[![License](https://img.shields.io/github/license/nuanced-dev/lsproxy)](LICENSE)
+Originally forked from [agentic-labs/lsproxy](https://github.com/agentic-labs/lsproxy).
 
-**Forked from [agentic-labs/lsproxy](https://github.com/agentic-labs/lsproxy)**
+[Full API Reference](https://docs.nuanced.dev/lsp/overview)
 
 </div>
 
-
-
 ## <a name="what-is-lsproxy">What is lsproxy?</a>
 
-`lsproxy` offers IDE-like code analysis and navigation functionality in a docker container with a REST API.
+Nuanced LSProxy is a Dockerized Rust service that proxies LSP requests to LSP server containers, and offers enhanced LSP capabilities by leveraging `ast-grep`.
 
-It supports [multiple languages](#supported-languages) and resolves relationships between code symbols (functions, classes, variables) anywhere in the project.
+It supports [multiple languages](#supported-languages) and helps retrieve code context and symbol resolution and symbol relationships for a mounted workspace.
 
-`lsproxy` runs [Language Servers](https://microsoft.github.io/language-server-protocol/) and [ast-grep](https://github.com/ast-grep/ast-grep) under the hood, giving you precise search results without the headache of configuring and integrating language-specific tooling.
+## Key Features
 
-For more info, please refer to our [API Reference](https://docs.nuanced.dev/lsp/overview).
+- 🎯 **Precise Cross-File Code Navigation**: Find symbol definitions and references across your entire project.
+- 🌐 **Unified API**: Access multiple language servers through a single API.
+- 🛠️ **Auto-Configuration**: Automatically detect and configure language servers based on your project files.
+- 📊 **Code Diagnostics**: (Coming Soon) Get language-specific lint output from an endpoint.
+- 🌳 **Call & Type Hierarchies**: (Coming Soon) Query multi-hop code relationships computed by the language servers.
+- 🔄 **Procedural Refactoring**: (Coming Soon) Perform symbol operations like `rename`, `extract`, `auto import` through the API.
+- 🧩 **SDK**: A Nuanced LSP TypeScript SDK is available for programmatic access along with a CLI.
 
 ## Architecture Overview
 
@@ -69,17 +73,6 @@ graph TD
     style Rust fill:#B8E986
     style Golang fill:#B8E986
 ```
-
-## Key Features
-
-- 🎯 **Precise Cross-File Code Navigation**: Find symbol definitions and references across your entire project.
-- 🌐 **Unified API**: Access multiple language servers through a single API.
-- 🛠️ **Auto-Configuration**: Automatically detect and configure language servers based on your project files.
-- 📊 **Code Diagnostics**: (Coming Soon) Get language-specific lint output from an endpoint.
-- 🌳 **Call & Type Hierarchies**: (Coming Soon) Query multi-hop code relationships computed by the language servers.
-- 🔄 **Procedural Refactoring**: (Coming Soon) Perform symbol operations like `rename`, `extract`, `auto import` through the API.
-- 🧩 **SDKs**: Libraries to get started calling `lsproxy` in popular languages.
-
 
 ## <a name="getting-started">Getting Started</a>
 
