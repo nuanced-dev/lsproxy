@@ -1,17 +1,41 @@
 use std::io::{Error, ErrorKind};
+use std::path::{Path, PathBuf};
 use tokio::process::Command;
-
-const SYMBOL_CONFIG_PATH: &str = "/opt/lsp-wrapper/ast_grep/symbol/config.yml";
-const IDENTIFIER_CONFIG_PATH: &str = "/opt/lsp-wrapper/ast_grep/identifier/config.yml";
-const REFERENCE_CONFIG_PATH: &str = "/opt/lsp-wrapper/ast_grep/reference/config.yml";
 
 use super::types::AstGrepMatch;
 
-pub struct AstGrepClient;
+pub struct AstGrepClient {
+    config_root: PathBuf,
+}
 
 impl AstGrepClient {
-    pub fn new() -> Self {
-        Self
+    /// Create client with custom config root path
+    pub fn new(config_root: impl Into<PathBuf>) -> Self {
+        Self {
+            config_root: config_root.into(),
+        }
+    }
+
+    /// Create client with wrapper container paths (for language containers)
+    pub fn new_wrapper() -> Self {
+        Self::new("/opt/lsp-wrapper/ast_grep")
+    }
+
+    /// Create client with orchestrator paths (for service container)
+    pub fn new_orchestrator() -> Self {
+        Self::new("/usr/src/crates/common/src/ast_grep")
+    }
+
+    fn symbol_config_path(&self) -> PathBuf {
+        self.config_root.join("symbol/config.yml")
+    }
+
+    fn identifier_config_path(&self) -> PathBuf {
+        self.config_root.join("identifier/config.yml")
+    }
+
+    fn reference_config_path(&self) -> PathBuf {
+        self.config_root.join("reference/config.yml")
     }
 
     pub async fn get_symbol_match_from_position(
@@ -20,7 +44,7 @@ impl AstGrepClient {
         identifier_position: &lsp_types::Position,
     ) -> Result<AstGrepMatch, Box<dyn std::error::Error>> {
         // Get all symbols in the file
-        let file_symbols = self.scan_file(SYMBOL_CONFIG_PATH, file_name).await?;
+        let file_symbols = self.scan_file(&self.symbol_config_path(), file_name).await?;
 
         // Find the symbol that matches our identifier position
         let symbol_result = file_symbols.into_iter().find(|ast_symbol_match| {
@@ -47,7 +71,7 @@ impl AstGrepClient {
         &self,
         file_name: &str,
     ) -> Result<Vec<AstGrepMatch>, Box<dyn std::error::Error>> {
-        self.scan_file(SYMBOL_CONFIG_PATH, file_name).await
+        self.scan_file(&self.symbol_config_path(), file_name).await
     }
 
     pub async fn get_definitions_in_file(
@@ -61,7 +85,7 @@ impl AstGrepClient {
         &self,
         file_name: &str,
     ) -> Result<Vec<AstGrepMatch>, Box<dyn std::error::Error>> {
-        self.scan_file(IDENTIFIER_CONFIG_PATH, file_name).await
+        self.scan_file(&self.identifier_config_path(), file_name).await
     }
 
     pub async fn get_symbol_and_references(
@@ -86,7 +110,7 @@ impl AstGrepClient {
         full_scan: bool,
     ) -> Result<Vec<AstGrepMatch>, Box<dyn std::error::Error>> {
         // Get all references
-        let matches = self.scan_file(REFERENCE_CONFIG_PATH, file_name).await?;
+        let matches = self.scan_file(&self.reference_config_path(), file_name).await?;
 
         // Filter matches to those within the symbol's range
         // And if not full_scan, exclude matches with rule_id "non-function"
@@ -108,7 +132,7 @@ impl AstGrepClient {
 
     async fn scan_file(
         &self,
-        config_path: &str,
+        config_path: &Path,
         file_name: &str,
     ) -> Result<Vec<AstGrepMatch>, Box<dyn std::error::Error>> {
         let command_result = Command::new("ast-grep")

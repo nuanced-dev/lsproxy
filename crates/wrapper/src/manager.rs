@@ -47,7 +47,7 @@ impl Manager {
     pub fn new(client: Arc<Mutex<Box<dyn LspClient>>>) -> Self {
         Self {
             client,
-            ast_grep: AstGrepClient::new(),
+            ast_grep: AstGrepClient::new_wrapper(),
         }
     }
 
