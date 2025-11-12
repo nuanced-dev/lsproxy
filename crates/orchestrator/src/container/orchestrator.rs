@@ -80,10 +80,11 @@ impl ContainerOrchestrator {
             ..Default::default()
         };
 
-        // Pass through RUST_LOG from parent process, or default to "info"
-        let rust_log = std::env::var("RUST_LOG").unwrap_or_else(|_| "info".to_string());
-
-        let env = vec![format!("RUST_LOG={}", rust_log)];
+        // Pass through all environment variables from parent process
+        // This ensures LSP containers inherit configuration like RUST_LOG, custom settings, etc.
+        let env: Vec<String> = std::env::vars()
+            .map(|(key, value)| format!("{}={}", key, value))
+            .collect();
 
         // Label containers with parent ID for watchdog cleanup
         let mut labels = HashMap::new();
