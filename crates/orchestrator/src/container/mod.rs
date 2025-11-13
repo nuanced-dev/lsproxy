@@ -92,6 +92,51 @@ impl ContainerOrchestrator {
         None
     }
 
+    /// Get the host path for the workspace mount by inspecting our own container
+    ///
+    /// When the service spawns language containers via Docker API, it needs to mount the
+    /// workspace directory into those containers. Docker interprets mount paths from the
+    /// HOST's perspective, not from inside the service container.
+    ///
+    /// For example:
+    /// - Host has workspace at: `/Users/user/project`
+    /// - Service container sees it at: `/mnt/workspace` (via bind mount)
+    /// - When spawning a language container, we must tell Docker to mount `/Users/user/project`
+    ///   (the host path), not `/mnt/workspace` (which doesn't exist on the host)
+    ///
+    /// This method inspects the service container's own mounts to discover the original
+    /// host path, eliminating the need for users to manually pass HOST_WORKSPACE_PATH.
+    ///
+    /// The caller should error if this returns None and HOST_WORKSPACE_PATH is not set,
+    /// as the host workspace path is required for spawning language containers.
+    ///
+    /// Returns None if not running in a container or mount not found
+    pub async fn get_host_workspace_path(&self) -> Option<String> {
+        let container_id = Self::get_own_container_id()?;
+
+        match self.docker.inspect_container(&container_id, None).await {
+            Ok(inspect) => {
+                if let Some(mounts) = inspect.mounts {
+                    // Look for the mount with destination /mnt/workspace
+                    for mount in mounts {
+                        if mount.destination.as_deref() == Some("/mnt/workspace") {
+                            if let Some(source) = mount.source {
+                                log::info!("Auto-detected host workspace path: {}", source);
+                                return Some(source);
+                            }
+                        }
+                    }
+                }
+                log::warn!("Could not find /mnt/workspace mount in own container");
+                None
+            }
+            Err(e) => {
+                log::warn!("Failed to inspect own container {}: {}", container_id, e);
+                None
+            }
+        }
+    }
+
     /// Parse a language string (case-insensitive, handles aliases)
     fn parse_language(s: &str) -> Option<SupportedLanguages> {
         match s.trim().to_lowercase().as_str() {

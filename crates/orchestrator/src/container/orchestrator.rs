@@ -58,8 +58,20 @@ impl ContainerOrchestrator {
         // Configure container with read-write workspace mount
         // When running in Docker, we need the original host path, not our container's mount point
         // Docker interprets mount sources from the host's perspective when using the Docker socket
-        let mount_source = std::env::var("HOST_WORKSPACE_PATH")
-            .unwrap_or_else(|_| workspace_path.to_string());
+        //
+        // Auto-detect host workspace path by inspecting our own container's mounts
+        // Fall back to HOST_WORKSPACE_PATH env var (for backwards compatibility)
+        // Error if neither method works
+        let mount_source = if let Some(host_path) = self.get_host_workspace_path().await {
+            host_path
+        } else if let Ok(env_path) = std::env::var("HOST_WORKSPACE_PATH") {
+            log::info!("Using HOST_WORKSPACE_PATH from environment: {}", env_path);
+            env_path
+        } else {
+            return Err(OrchestratorError::Docker(
+                "Cannot determine host workspace path: auto-detection failed and HOST_WORKSPACE_PATH not set".into()
+            ));
+        };
 
         let host_config = HostConfig {
             binds: Some(vec![format!("{}:/mnt/workspace:rw", mount_source)]),
