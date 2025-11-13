@@ -101,7 +101,7 @@ COPY --from=builder /usr/src/bin/lsp-wrapper /opt/lsp-wrapper/bin/lsp-wrapper
 RUN chmod +x /opt/lsp-wrapper/bin/lsp-wrapper
 
 # Copy ast-grep configs from builder
-COPY --from=builder /usr/src/crates/orchestrator/src/ast_grep /opt/lsp-wrapper/ast_grep
+COPY --from=builder /usr/src/crates/common/src/ast_grep /opt/lsp-wrapper/ast_grep
 
 # Declare volume so --volumes-from can share these directories
 VOLUME ["/opt/lsp-wrapper"]
