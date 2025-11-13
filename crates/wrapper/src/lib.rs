@@ -4,7 +4,6 @@
 // Local modules
 pub mod handlers;
 pub mod lsp;
-pub mod lsp_process;
 pub mod manager;
 
 // Re-export commonly used types

@@ -26,11 +26,6 @@ pub struct JsonRpcMessage {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct InnerMessage {
-    pub message: String,
-    pub r#type: String,
-}
-#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct JsonRpcError {
     pub code: i32,
     pub message: String,
