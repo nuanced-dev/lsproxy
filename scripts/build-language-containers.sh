@@ -3,11 +3,12 @@
 set -e
 
 # Build language server containers (Python, TypeScript, Rust, Go, Java, C++, C#, PHP, Ruby variants)
-# Usage: ./scripts/build-language-containers.sh [--use-cache] [--sequential]
+# Usage: ./scripts/build-language-containers.sh [--use-cache] [--sequential] [--all-ruby-versions]
 #
 # By default:
 #   - Builds WITHOUT cache (use --use-cache to enable caching)
 #   - Builds in PARALLEL (use --sequential for sequential builds)
+#   - Builds ONLY Ruby 3.4.4 (use --all-ruby-versions to build all 110 versions)
 #
 # Note: Language containers use binary injection at runtime via --volumes-from lsproxy-wrapper
 # They only need to be rebuilt when language server versions change or when base dependencies change
@@ -19,13 +20,26 @@ BLUE='\033[0;34m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
-# Default: parallel builds without cache
+# Default: parallel builds without cache, only default Ruby version
 PARALLEL=true
 USE_CACHE=false
+ALL_RUBY_VERSIONS=false
+DEFAULT_RUBY_VERSION="3.4.4"
 
 # Parse arguments
 for arg in "$@"; do
     case $arg in
+        --help|-h)
+            echo "Usage: $0 [--use-cache] [--sequential] [--all-ruby-versions]"
+            echo ""
+            echo "Options:"
+            echo "  --use-cache          Enable Docker build cache (default: disabled)"
+            echo "  --sequential         Build sequentially instead of parallel"
+            echo "  --parallel           Build in parallel (default)"
+            echo "  --all-ruby-versions  Build all 110 Ruby versions (default: only 3.4.4)"
+            echo "  --help, -h           Show this help message"
+            exit 0
+            ;;
         --sequential)
             PARALLEL=false
             ;;
@@ -35,9 +49,19 @@ for arg in "$@"; do
         --parallel)
             PARALLEL=true
             ;;
+        --all-ruby-versions)
+            ALL_RUBY_VERSIONS=true
+            ;;
         *)
             echo -e "${YELLOW}Unknown argument: $arg${NC}"
-            echo "Usage: $0 [--use-cache] [--sequential]"
+            echo "Usage: $0 [--use-cache] [--sequential] [--all-ruby-versions]"
+            echo ""
+            echo "Options:"
+            echo "  --use-cache          Enable Docker build cache (default: disabled)"
+            echo "  --sequential         Build sequentially instead of parallel"
+            echo "  --parallel           Build in parallel (default)"
+            echo "  --all-ruby-versions  Build all 110 Ruby versions (default: only 3.4.4)"
+            echo "  --help, -h           Show this help message"
             exit 1
             ;;
     esac
@@ -62,29 +86,40 @@ LANGUAGES=(
 )
 
 # Ruby base images (must be built before Sorbet variants)
-# Dynamically discover all Ruby versions from dockerfiles/ruby/ directory
 RUBY_VERSIONS=()
-if [ -d "dockerfiles/ruby" ]; then
-    for dockerfile in dockerfiles/ruby/*.Dockerfile; do
-        if [ -f "$dockerfile" ]; then
-            # Extract version from filename (e.g., 3.4.4 from 3.4.4.Dockerfile)
-            version=$(basename "$dockerfile" .Dockerfile)
-            RUBY_VERSIONS+=("$version")
-        fi
-    done
+if [ "$ALL_RUBY_VERSIONS" = true ]; then
+    # Build all Ruby versions - dynamically discover from dockerfiles/ruby/ directory
+    echo -e "${YELLOW}Building ALL Ruby versions (this will take a long time)${NC}"
+    if [ -d "dockerfiles/ruby" ]; then
+        for dockerfile in dockerfiles/ruby/*.Dockerfile; do
+            if [ -f "$dockerfile" ]; then
+                # Extract version from filename (e.g., 3.4.4 from 3.4.4.Dockerfile)
+                version=$(basename "$dockerfile" .Dockerfile)
+                RUBY_VERSIONS+=("$version")
+            fi
+        done
+    fi
+else
+    # Build only default Ruby version
+    RUBY_VERSIONS=("$DEFAULT_RUBY_VERSION")
 fi
 
 # Ruby Sorbet variants (depend on ruby base images)
-# Same versions as Ruby, but from ruby-sorbet directory
 RUBY_SORBET_VERSIONS=()
-if [ -d "dockerfiles/ruby-sorbet" ]; then
-    for dockerfile in dockerfiles/ruby-sorbet/*.Dockerfile; do
-        if [ -f "$dockerfile" ]; then
-            # Extract version from filename (e.g., 3.4.4 from 3.4.4.Dockerfile)
-            version=$(basename "$dockerfile" .Dockerfile)
-            RUBY_SORBET_VERSIONS+=("$version")
-        fi
-    done
+if [ "$ALL_RUBY_VERSIONS" = true ]; then
+    # Build all Sorbet versions - same versions as Ruby, from ruby-sorbet directory
+    if [ -d "dockerfiles/ruby-sorbet" ]; then
+        for dockerfile in dockerfiles/ruby-sorbet/*.Dockerfile; do
+            if [ -f "$dockerfile" ]; then
+                # Extract version from filename (e.g., 3.4.4 from 3.4.4.Dockerfile)
+                version=$(basename "$dockerfile" .Dockerfile)
+                RUBY_SORBET_VERSIONS+=("$version")
+            fi
+        done
+    fi
+else
+    # Build only default Sorbet version
+    RUBY_SORBET_VERSIONS=("$DEFAULT_RUBY_VERSION")
 fi
 
 echo -e "${BLUE}=========================================${NC}"
