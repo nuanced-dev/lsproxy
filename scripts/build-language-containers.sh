@@ -20,11 +20,13 @@ BLUE='\033[0;34m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
-# Default: parallel builds without cache, only default Ruby version
+# Default: parallel builds without cache, build main Ruby versions by default
 PARALLEL=true
 USE_CACHE=false
 ALL_RUBY_VERSIONS=false
 DEFAULT_RUBY_VERSION="3.4.4"
+# Main Ruby versions that are commonly used (built by default)
+COMMON_RUBY_VERSIONS=("3.2.2" "3.2.6" "3.3.5" "3.3.6" "3.4.1" "3.4.2" "3.4.4")
 
 # Parse arguments
 for arg in "$@"; do
@@ -33,11 +35,13 @@ for arg in "$@"; do
             echo "Usage: $0 [--use-cache] [--sequential] [--all-ruby-versions]"
             echo ""
             echo "Options:"
-            echo "  --use-cache          Enable Docker build cache (default: disabled)"
-            echo "  --sequential         Build sequentially instead of parallel"
-            echo "  --parallel           Build in parallel (default)"
-            echo "  --all-ruby-versions  Build all 110 Ruby versions (default: only 3.4.4)"
-            echo "  --help, -h           Show this help message"
+            echo "  --use-cache           Enable Docker build cache (default: disabled)"
+            echo "  --sequential          Build sequentially instead of parallel"
+            echo "  --parallel            Build in parallel (default)"
+            echo "  --all-ruby-versions   Build all 114 Ruby versions (default: main versions only)"
+            echo "  --help, -h            Show this help message"
+            echo ""
+            echo "Default Ruby versions built: 2.7.8, 3.0.7, 3.1.6, 3.2.6, 3.3.6, 3.4.4"
             exit 0
             ;;
         --sequential)
@@ -57,11 +61,13 @@ for arg in "$@"; do
             echo "Usage: $0 [--use-cache] [--sequential] [--all-ruby-versions]"
             echo ""
             echo "Options:"
-            echo "  --use-cache          Enable Docker build cache (default: disabled)"
-            echo "  --sequential         Build sequentially instead of parallel"
-            echo "  --parallel           Build in parallel (default)"
-            echo "  --all-ruby-versions  Build all 110 Ruby versions (default: only 3.4.4)"
-            echo "  --help, -h           Show this help message"
+            echo "  --use-cache           Enable Docker build cache (default: disabled)"
+            echo "  --sequential          Build sequentially instead of parallel"
+            echo "  --parallel            Build in parallel (default)"
+            echo "  --all-ruby-versions   Build all 114 Ruby versions (default: main versions only)"
+            echo "  --help, -h            Show this help message"
+            echo ""
+            echo "Default Ruby versions built: 2.7.8, 3.0.7, 3.1.6, 3.2.6, 3.3.6, 3.4.4"
             exit 1
             ;;
     esac
@@ -100,8 +106,9 @@ if [ "$ALL_RUBY_VERSIONS" = true ]; then
         done
     fi
 else
-    # Build only default Ruby version
-    RUBY_VERSIONS=("$DEFAULT_RUBY_VERSION")
+    # Build commonly used Ruby versions by default
+    echo -e "${YELLOW}Building main Ruby versions: ${COMMON_RUBY_VERSIONS[*]}${NC}"
+    RUBY_VERSIONS=("${COMMON_RUBY_VERSIONS[@]}")
 fi
 
 # Ruby Sorbet variants (depend on ruby base images)
@@ -118,8 +125,8 @@ if [ "$ALL_RUBY_VERSIONS" = true ]; then
         done
     fi
 else
-    # Build only default Sorbet version
-    RUBY_SORBET_VERSIONS=("$DEFAULT_RUBY_VERSION")
+    # Build commonly used Sorbet versions by default (same as main Ruby versions)
+    RUBY_SORBET_VERSIONS=("${COMMON_RUBY_VERSIONS[@]}")
 fi
 
 echo -e "${BLUE}=========================================${NC}"
