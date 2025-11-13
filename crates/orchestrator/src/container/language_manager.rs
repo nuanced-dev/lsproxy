@@ -1,5 +1,5 @@
 use lsproxy_common::api_types::SupportedLanguages;
-use lsproxy_common::utils::ruby_utils::{extract_ruby_version_from_file, has_sorbet_type_annotation};
+use lsproxy_common::utils::ruby_utils::{extract_ruby_version_from_file, has_sorbet_config, has_sorbet_type_annotation};
 use lsproxy_common::utils::workspace_documents::*;
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
@@ -97,8 +97,9 @@ impl LanguageManager for RubyManager {
         }
         // Check if this is a Ruby source file
         else if self.is_source(file_path) {
-            // Categorize into regular or Sorbet bucket based on type annotations
-            if has_sorbet_type_annotation(file_path) {
+            // Categorize into regular or Sorbet bucket based on type annotations AND sorbet/config existence
+            // Only use Sorbet if BOTH conditions are met to prevent spawning broken containers
+            if has_sorbet_type_annotation(file_path) && has_sorbet_config(file_path) {
                 self.sorbet_files.push(file_path.to_owned());
             } else {
                 self.regular_files.push(file_path.to_owned());

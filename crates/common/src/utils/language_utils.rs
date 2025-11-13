@@ -2,7 +2,7 @@ use crate::api_types::SupportedLanguages;
 use crate::error::LspError;
 use std::path::{Path, PathBuf};
 
-use super::ruby_utils::has_sorbet_type_annotation;
+use super::ruby_utils::{has_sorbet_config, has_sorbet_type_annotation};
 use super::workspace_documents::{
     CPP_EXTENSIONS, CSHARP_EXTENSIONS, C_AND_CPP_EXTENSIONS, C_EXTENSIONS, GOLANG_EXTENSIONS,
     JAVASCRIPTREACT_EXTENSIONS, JAVASCRIPT_EXTENSIONS, JAVA_EXTENSIONS, PHP_EXTENSIONS,
@@ -35,7 +35,11 @@ pub fn detect_language(file_path: &str) -> Result<SupportedLanguages, LspError> 
         ext if PHP_EXTENSIONS.contains(&ext) => Ok(SupportedLanguages::PHP),
         ext if RUBY_EXTENSIONS.contains(&ext) => {
             let path = Path::new(file_path);
-            if has_sorbet_type_annotation(path) {
+            // Only use Sorbet if BOTH conditions are met:
+            // 1. File has type annotations (# typed: comment)
+            // 2. Workspace has sorbet/config file
+            // This prevents spawning broken Sorbet containers that spin at 100% CPU
+            if has_sorbet_type_annotation(path) && has_sorbet_config(path) {
                 Ok(SupportedLanguages::RubySorbet3_4_4)
             } else {
                 Ok(SupportedLanguages::Ruby3_4_4)
