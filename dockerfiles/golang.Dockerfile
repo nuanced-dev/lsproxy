@@ -48,13 +48,15 @@ COPY --from=builder /tmp/go/bin/gopls /usr/local/bin/gopls
 # Set Go environment variables
 ENV GOROOT=/usr/local/go
 ENV GOPATH=/home/user/go
-ENV PATH=$GOPATH/bin:$GOROOT/bin:$PATH
+
+# Create symlinks in standard PATH location (following TypeScript pattern)
+# Symlink go toolchain binaries so they're accessible even if PATH is overridden
+RUN ln -s /usr/local/go/bin/go /usr/local/bin/go && \
+    ln -s /usr/local/go/bin/gofmt /usr/local/bin/gofmt && \
+    ln -s /opt/lsp-wrapper/bin/ast-grep /usr/local/bin/ast-grep || true
 
 # Set language for lsp-wrapper configuration
 ENV LSP_LANGUAGE="go"
-
-# Add wrapper binary location to PATH (will be mounted from wrapper container)
-ENV PATH="/opt/lsp-wrapper/bin:${PATH}"
 
 # Create workspace directory
 RUN mkdir -p /mnt/workspace && chmod 755 /mnt/workspace

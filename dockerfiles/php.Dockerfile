@@ -56,14 +56,12 @@ RUN apt-get update && apt-get install \
 COPY --from=builder /usr/local/bin/composer /usr/local/bin/composer
 COPY --from=builder /usr/src/phpactor /usr/src/phpactor
 
-# Add Phpactor to PATH
-ENV PATH="/usr/src/phpactor/bin:${PATH}"
+# Create symlinks in standard PATH location (following TypeScript/Golang pattern)
+RUN ln -s /usr/src/phpactor/bin/phpactor /usr/local/bin/phpactor && \
+    ln -s /opt/lsp-wrapper/bin/ast-grep /usr/local/bin/ast-grep || true
 
 # Set language for lsp-wrapper configuration
 ENV LSP_LANGUAGE="php"
-
-# Add wrapper binary location to PATH (will be mounted from wrapper container)
-ENV PATH="/opt/lsp-wrapper/bin:${PATH}"
 
 # Create workspace directory
 RUN mkdir -p /mnt/workspace && chmod 755 /mnt/workspace

@@ -47,14 +47,15 @@ COPY --from=builder /opt/dotnet /opt/dotnet
 COPY --from=builder /root/.dotnet/tools /opt/dotnet/tools
 
 # Set .NET environment variables
-ENV PATH="/opt/dotnet:/opt/dotnet/tools:${PATH}"
 ENV DOTNET_ROOT=/opt/dotnet
+
+# Create symlinks in standard PATH location (following TypeScript/Golang pattern)
+RUN ln -s /opt/dotnet/dotnet /usr/local/bin/dotnet && \
+    ln -s /opt/dotnet/tools/csharp-ls /usr/local/bin/csharp-ls && \
+    ln -s /opt/lsp-wrapper/bin/ast-grep /usr/local/bin/ast-grep || true
 
 # Set language for lsp-wrapper configuration
 ENV LSP_LANGUAGE="csharp"
-
-# Add wrapper binary location to PATH (will be mounted from wrapper container)
-ENV PATH="/opt/lsp-wrapper/bin:${PATH}"
 
 # Create workspace directory
 RUN mkdir -p /mnt/workspace && chmod 755 /mnt/workspace

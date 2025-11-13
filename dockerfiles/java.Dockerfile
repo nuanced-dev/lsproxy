@@ -56,11 +56,11 @@ ENV PATH=${JAVA_HOME}/bin:/opt/jdtls/bin:${PATH}
 # Set permissions on jdtls config directories
 RUN chmod -R +rw /opt/jdtls/config_*
 
+# Create symlink for ast-grep in standard PATH location
+RUN ln -s /opt/lsp-wrapper/bin/ast-grep /usr/local/bin/ast-grep || true
+
 # Set language for lsp-wrapper configuration
 ENV LSP_LANGUAGE="java"
-
-# Add wrapper binary location to PATH (will be mounted from wrapper container)
-ENV PATH="/opt/lsp-wrapper/bin:${PATH}"
 
 # Copy and setup Java-specific entrypoint script
 COPY dockerfiles/entrypoints/java-entrypoint.sh /usr/local/bin/java-entrypoint.sh

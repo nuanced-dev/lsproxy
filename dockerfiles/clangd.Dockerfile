@@ -20,11 +20,11 @@ RUN apt-get update && apt-get install \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
+# Create symlink for ast-grep in standard PATH location
+RUN ln -s /opt/lsp-wrapper/bin/ast-grep /usr/local/bin/ast-grep || true
+
 # Set language for lsp-wrapper configuration
 ENV LSP_LANGUAGE="cpp"
-
-# Add wrapper binary location to PATH (will be mounted from wrapper container)
-ENV PATH="/opt/lsp-wrapper/bin:${PATH}"
 
 # Create workspace directory
 RUN mkdir -p /mnt/workspace && chmod 755 /mnt/workspace

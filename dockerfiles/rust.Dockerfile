@@ -37,11 +37,12 @@ ENV PATH=/usr/local/cargo/bin:$PATH
 # Set rust-analyzer log path
 ENV RA_LOG="/tmp/rust-analyzer.log"
 
+# Create symlinks in standard PATH location (following TypeScript/Golang pattern)
+RUN ln -s /usr/local/cargo/bin/rust-analyzer /usr/local/bin/rust-analyzer && \
+    ln -s /opt/lsp-wrapper/bin/ast-grep /usr/local/bin/ast-grep || true
+
 # Set language for lsp-wrapper configuration
 ENV LSP_LANGUAGE="rust"
-
-# Add wrapper binary location to PATH (will be mounted from wrapper container)
-ENV PATH="/opt/lsp-wrapper/bin:${PATH}"
 
 # Create workspace directory
 RUN mkdir -p /mnt/workspace && chmod 755 /mnt/workspace

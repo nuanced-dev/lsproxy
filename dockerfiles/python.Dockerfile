@@ -45,14 +45,14 @@ RUN ln -sf /usr/bin/python3 /usr/bin/python
 # Copy virtual environment from builder
 COPY --from=builder /opt/jedi-venv /opt/jedi-venv
 
-# Add jedi-language-server to PATH
-ENV PATH="/opt/jedi-venv/bin:${PATH}"
+# Create symlinks in standard PATH location (following TypeScript/Golang pattern)
+# Note: ast-grep will be mounted from wrapper container, so symlink target won't exist at build time
+# but will exist at runtime - this is expected behavior
+RUN ln -s /opt/jedi-venv/bin/jedi-language-server /usr/local/bin/jedi-language-server && \
+    ln -s /opt/lsp-wrapper/bin/ast-grep /usr/local/bin/ast-grep || true
 
 # Set language for lsp-wrapper configuration
 ENV LSP_LANGUAGE="python"
-
-# Add wrapper binary location to PATH (will be mounted from wrapper container)
-ENV PATH="/opt/lsp-wrapper/bin:${PATH}"
 
 # Create workspace directory
 RUN mkdir -p /mnt/workspace && chmod 755 /mnt/workspace

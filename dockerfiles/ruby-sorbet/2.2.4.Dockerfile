@@ -11,6 +11,10 @@ RUN eval "$("$RBENV_ROOT"/bin/rbenv init -)" && \
     rbenv rehash
 
 # Set language for lsp-wrapper configuration
+
+# Create symlinks in standard PATH location (following TypeScript/Golang pattern)
+RUN ln -s ${RBENV_ROOT}/shims/srb /usr/local/bin/srb && \
+    ln -s /opt/lsp-wrapper/bin/ast-grep /usr/local/bin/ast-grep || true
 ENV LSP_LANGUAGE="ruby-sorbet"
 
 # Set workspace path

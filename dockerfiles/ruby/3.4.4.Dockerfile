@@ -52,6 +52,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libreadline8 \
     libncurses6 \
     libyaml-0-2 \
+    libyaml-dev \
     zlib1g \
     libpq5 \
     libmariadb3 \
@@ -77,10 +78,12 @@ ENV PATH="$RBENV_ROOT/bin:$RBENV_ROOT/shims:${PATH}"
 COPY --from=builder /opt/rbenv /opt/rbenv
 
 # Set language for lsp-wrapper configuration
+
+# Create symlinks in standard PATH location (following TypeScript/Golang pattern)
+RUN ln -s ${RBENV_ROOT}/shims/ruby-lsp /usr/local/bin/ruby-lsp && \
+    ln -s /opt/lsp-wrapper/bin/ast-grep /usr/local/bin/ast-grep || true
 ENV LSP_LANGUAGE="ruby"
 
-# Add wrapper binary to PATH (will be mounted via --volumes-from)
-ENV PATH="/opt/lsp-wrapper/bin:${PATH}"
 
 # Create workspace directory
 RUN mkdir -p /mnt/workspace && chmod 755 /mnt/workspace
