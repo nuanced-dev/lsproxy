@@ -49,8 +49,13 @@ RUN wget -O - https://packages.adoptium.net/artifactory/api/gpg/key/public | gpg
 # Copy jdtls from builder
 COPY --from=builder /opt/jdtls /opt/jdtls
 
-# Set JAVA_HOME and PATH
-ENV JAVA_HOME=/usr/lib/jvm/temurin-21-jdk-arm64
+# Set JAVA_HOME dynamically based on the actual installed JDK directory
+# The JDK installs to /usr/lib/jvm/temurin-21-jdk-{arch} where arch is arm64 or amd64
+# We find the actual directory and create a symlink for consistent PATH handling
+RUN JAVA_ARCH=$(dpkg --print-architecture) && \
+    ln -s /usr/lib/jvm/temurin-21-jdk-${JAVA_ARCH} /usr/lib/jvm/temurin-21-jdk
+
+ENV JAVA_HOME=/usr/lib/jvm/temurin-21-jdk
 ENV PATH=${JAVA_HOME}/bin:/opt/jdtls/bin:${PATH}
 
 # Set permissions on jdtls config directories
