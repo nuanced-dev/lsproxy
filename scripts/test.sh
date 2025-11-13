@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Comprehensive test script for lsproxy
 # Runs all test suites: Rust unit/integration tests and shell-based endpoint tests
 

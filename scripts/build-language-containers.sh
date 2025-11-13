@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -e
 
@@ -8,7 +8,7 @@ set -e
 # By default:
 #   - Builds WITHOUT cache (use --use-cache to enable caching)
 #   - Builds in PARALLEL (use --sequential for sequential builds)
-#   - Builds ONLY Ruby 3.4.4 (use --all-ruby-versions to build all 110 versions)
+#   - Builds ONLY main Ruby versions (use --all-ruby-versions to build all 110 versions)
 #
 # Note: Language containers use binary injection at runtime via --volumes-from lsproxy-wrapper
 # They only need to be rebuilt when language server versions change or when base dependencies change
