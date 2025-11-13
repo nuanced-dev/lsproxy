@@ -373,6 +373,12 @@ docker rm -f lsproxy-service
   - `cpp`, `c++`, `c`
   - `csharp`, `c#`
 
+**`LSPROXY_MAX_MEMORY`** (optional)
+- Maximum memory limit per language container in megabytes (MB)
+- Default: `20480` (20GB)
+- Large codebases (e.g., Kubernetes) may require higher memory limits for operations like find-references
+- Set lower for resource-constrained environments
+
 **Examples:**
 ```bash
 # Only spawn Python and TypeScript containers
@@ -383,6 +389,12 @@ ENABLED_LANGUAGES="go,cpp" ./scripts/start-service.sh
 
 # Case-insensitive with spaces
 ENABLED_LANGUAGES="Python, TypeScript, Rust" ./scripts/start-service.sh
+
+# Set memory limit to 8GB per container
+LSPROXY_MAX_MEMORY=8192 ./scripts/start-service.sh
+
+# Combine environment variables
+ENABLED_LANGUAGES="golang" LSPROXY_MAX_MEMORY=16384 ./scripts/start-service.sh
 
 # Without ENABLED_LANGUAGES, all detected languages spawn (default)
 ./scripts/start-service.sh

@@ -45,10 +45,10 @@ impl ContainerOrchestrator {
         // Get configuration from environment
         let host =
             std::env::var("LSPROXY_CONTAINER_HOST").unwrap_or_else(|_| "0.0.0.0".to_string());
-        let memory_limit_mb: i64 = std::env::var("LSPROXY_CONTAINER_MEMORY_MB")
+        let memory_limit_mb: i64 = std::env::var("LSPROXY_MAX_MEMORY")
             .ok()
             .and_then(|s| s.parse().ok())
-            .unwrap_or(2048); // Default 2GB
+            .unwrap_or(20480); // Default 20GB (in MB)
 
         // Reserve a port by keeping the listener alive until container is created
         let bind_addr = format!("{}:0", host);
