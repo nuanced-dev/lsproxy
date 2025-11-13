@@ -8,7 +8,7 @@ use std::path::PathBuf;
 
 #[derive(Serialize)]
 struct ReadSourceResponse {
-    content: String,
+    source_code: String,
 }
 
 /// Read source code from a file
@@ -80,11 +80,11 @@ pub async fn read_source_code(
 
                 let end_line = end_line.min(lines.len());
                 let selected_lines = &lines[start_line..end_line];
-                let content = selected_lines.join("\n");
+                let source_code = selected_lines.join("\n");
 
-                HttpResponse::Ok().json(ReadSourceResponse { content })
+                HttpResponse::Ok().json(ReadSourceResponse { source_code })
             } else {
-                HttpResponse::Ok().json(ReadSourceResponse { content })
+                HttpResponse::Ok().json(ReadSourceResponse { source_code: content })
             }
         }
         Err(e) => {

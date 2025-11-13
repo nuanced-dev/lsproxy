@@ -401,7 +401,7 @@ while IFS='|' read -r lang test_file symbol_name symbol_line symbol_char health_
         "/workspace/read-source-code" \
         "{\"path\":\"$test_file\"}" \
         "200" \
-        "jq -e '.content | type == \"string\" and length > 0' > /dev/null"
+        "jq -e '.source_code | type == \"string\" and length > 0' > /dev/null"
 
     # Read Source Code with Range
     test_endpoint "Read Source with Range ($lang)" \
@@ -409,7 +409,7 @@ while IFS='|' read -r lang test_file symbol_name symbol_line symbol_char health_
         "/workspace/read-source-code" \
         "{\"path\":\"$test_file\",\"range\":{\"start\":{\"line\":0,\"character\":0},\"end\":{\"line\":1,\"character\":0}}}" \
         "200" \
-        "jq -e '.content | type == \"string\"' > /dev/null"
+        "jq -e '.source_code | type == \"string\"' > /dev/null"
 
     # Find Definition
     test_endpoint "Find Definition ($lang)" \
