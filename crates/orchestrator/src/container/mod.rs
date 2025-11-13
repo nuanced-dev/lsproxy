@@ -39,6 +39,9 @@ pub enum OrchestratorError {
     #[error("Network error: {0}")]
     Network(String),
 
+    #[error("Configuration error: {0}")]
+    Configuration(String),
+
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
 }
@@ -254,7 +257,7 @@ impl ContainerOrchestrator {
             }
 
             log::info!("Spawning container for {:?}", language);
-            match self.spawn_container(language.clone(), workspace_path).await {
+            match self.spawn_container(language.clone()).await {
                 Ok(info) => {
                     log::info!("Successfully spawned container for {:?} at {}", language, info.endpoint);
                 }

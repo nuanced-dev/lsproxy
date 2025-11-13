@@ -19,7 +19,6 @@ impl ContainerOrchestrator {
     pub async fn spawn_container(
         &self,
         language: SupportedLanguages,
-        workspace_path: &str,
     ) -> Result<ContainerInfo, OrchestratorError> {
         // Check if container already exists for this language
         if let Some(existing) = self.get_container(&language).await {
@@ -68,8 +67,8 @@ impl ContainerOrchestrator {
             log::info!("Using HOST_WORKSPACE_PATH from environment: {}", env_path);
             env_path
         } else {
-            return Err(OrchestratorError::Docker(
-                "Cannot determine host workspace path: auto-detection failed and HOST_WORKSPACE_PATH not set".into()
+            return Err(OrchestratorError::Configuration(
+                "Cannot determine host workspace path: auto-detection failed and HOST_WORKSPACE_PATH not set".to_string()
             ));
         };
 
@@ -565,7 +564,7 @@ mod tests {
 
         // Try to spawn - should return existing
         let result = orchestrator
-            .spawn_container(SupportedLanguages::Python, "/tmp")
+            .spawn_container(SupportedLanguages::Python)
             .await?;
         assert_eq!(result.container_id, "existing-123");
         assert_eq!(result.port, 9000);

@@ -15,7 +15,6 @@ use std::sync::Arc;
 /// Get or spawn a container for the given language and return an HTTP client
 pub async fn get_container_client(
     orchestrator: &Arc<ContainerOrchestrator>,
-    workspace_path: &str,
     language: SupportedLanguages,
 ) -> Result<ContainerHttpClient, String> {
     // Check if container already exists
@@ -25,7 +24,7 @@ pub async fn get_container_client(
 
     // Spawn new container
     info!("Spawning container for {:?}", language);
-    match orchestrator.spawn_container(language.clone(), workspace_path).await {
+    match orchestrator.spawn_container(language.clone()).await {
         Ok(container_info) => {
             info!("Container spawned for {:?}: {}", language, container_info.endpoint);
             Ok(ContainerHttpClient::new(&container_info.endpoint))
@@ -40,11 +39,10 @@ pub async fn get_container_client(
 /// Detect language from file path and get/spawn appropriate container client
 pub async fn get_client_for_file(
     orchestrator: &Arc<ContainerOrchestrator>,
-    workspace_path: &str,
     file_path: &str,
 ) -> Result<ContainerHttpClient, String> {
     let language = detect_language(file_path)
         .map_err(|e| format!("Failed to detect language for {}: {}", file_path, e))?;
 
-    get_container_client(orchestrator, workspace_path, language).await
+    get_container_client(orchestrator, language).await
 }

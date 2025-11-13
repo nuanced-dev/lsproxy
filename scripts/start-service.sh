@@ -112,7 +112,6 @@ DOCKER_RUN_CMD="$DOCKER_RUN_CMD \
     -p ${PORT}:4444 \
     -v /var/run/docker.sock:/var/run/docker.sock \
     -v \"${WORKSPACE_PATH}:/mnt/workspace\" \
-    -e HOST_WORKSPACE_PATH=\"${WORKSPACE_PATH}\" \
     -e RUST_LOG=info \
     -e LSPROXY_CONTAINER_MEMORY_MB=8192"
 

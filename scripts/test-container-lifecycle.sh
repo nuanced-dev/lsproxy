@@ -87,7 +87,6 @@ docker run -d \
     -p 4444:4444 \
     -v /var/run/docker.sock:/var/run/docker.sock \
     -v "$WORKSPACE_PATH:/mnt/workspace" \
-    -e HOST_WORKSPACE_PATH="$WORKSPACE_PATH" \
     -e RUST_LOG=info \
     -e USE_AUTH=false \
     lsproxy-service:latest

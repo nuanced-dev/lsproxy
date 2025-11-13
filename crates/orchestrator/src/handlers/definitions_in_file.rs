@@ -29,7 +29,6 @@ pub async fn definitions_in_file(
     // Get container client for this file's language
     let client = match container_proxy::get_client_for_file(
         &data.orchestrator,
-        &data.workspace_path,
         &info.file_path,
     )
     .await

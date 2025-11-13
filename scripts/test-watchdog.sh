@@ -77,7 +77,6 @@ docker run -d \
     -p 4455:4444 \
     -v /var/run/docker.sock:/var/run/docker.sock \
     -v "$WORKSPACE_PATH:/mnt/workspace" \
-    -e HOST_WORKSPACE_PATH="$WORKSPACE_PATH" \
     -e RUST_LOG=info \
     -e USE_AUTH=false \
     lsproxy-service:latest > /dev/null
@@ -142,7 +141,6 @@ docker run -d \
     -p 4456:4444 \
     -v /var/run/docker.sock:/var/run/docker.sock \
     -v "$WORKSPACE_PATH:/mnt/workspace" \
-    -e HOST_WORKSPACE_PATH="$WORKSPACE_PATH" \
     -e RUST_LOG=info \
     -e USE_AUTH=false \
     lsproxy-service:latest > /dev/null
@@ -191,7 +189,6 @@ docker run -d \
     -p 4457:4444 \
     -v /var/run/docker.sock:/var/run/docker.sock \
     -v "$WORKSPACE_PATH:/mnt/workspace" \
-    -e HOST_WORKSPACE_PATH="$WORKSPACE_PATH" \
     -e RUST_LOG=warn \
     -e USE_AUTH=false \
     lsproxy-service:latest > /dev/null
@@ -201,7 +198,6 @@ docker run -d \
     -p 4458:4444 \
     -v /var/run/docker.sock:/var/run/docker.sock \
     -v "$WORKSPACE_PATH:/mnt/workspace" \
-    -e HOST_WORKSPACE_PATH="$WORKSPACE_PATH" \
     -e RUST_LOG=warn \
     -e USE_AUTH=false \
     lsproxy-service:latest > /dev/null

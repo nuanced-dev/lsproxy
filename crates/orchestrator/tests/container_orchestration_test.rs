@@ -5,7 +5,10 @@
 /// 2. Dynamic spawning of language-specific containers (Python)
 /// 3. Request forwarding and response handling
 /// 4. Container lifecycle management
-use bollard::container::{Config, CreateContainerOptions, ListContainersOptions, RemoveContainerOptions, StopContainerOptions};
+use bollard::container::{
+    Config, CreateContainerOptions, ListContainersOptions, RemoveContainerOptions,
+    StopContainerOptions,
+};
 use bollard::image::ListImagesOptions;
 use bollard::Docker;
 use reqwest::Client;
@@ -37,10 +40,15 @@ impl ContainerFixture {
         let docker = Docker::connect_with_socket_defaults()?;
 
         // Clean up any existing test container from previous runs
-        let _ = docker.remove_container("lsproxy-test-service", Some(RemoveContainerOptions {
-            force: true,
-            ..Default::default()
-        })).await;
+        let _ = docker
+            .remove_container(
+                "lsproxy-test-service",
+                Some(RemoveContainerOptions {
+                    force: true,
+                    ..Default::default()
+                }),
+            )
+            .await;
 
         // Verify required images exist
         Self::verify_images(&docker).await?;
@@ -103,28 +111,28 @@ impl ContainerFixture {
 
     /// Start the base LSProxy service container
     async fn start_service(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        let workspace_path = self.workspace_dir.path().to_str()
+        let workspace_path = self
+            .workspace_dir
+            .path()
+            .to_str()
             .ok_or("Invalid workspace path")?;
-
-        let host_workspace_env = format!("HOST_WORKSPACE_PATH={}", workspace_path);
 
         let config = Config {
             image: Some(BASE_IMAGE),
-            env: Some(vec![
-                "USE_AUTH=false",
-                "RUST_LOG=info",
-                &host_workspace_env,
-            ]),
+            env: Some(vec!["USE_AUTH=false", "RUST_LOG=info"]),
             host_config: Some(bollard::models::HostConfig {
                 binds: Some(vec![
                     "/var/run/docker.sock:/var/run/docker.sock".to_string(),
                     format!("{}:/mnt/workspace", workspace_path),
                 ]),
                 port_bindings: Some(
-                    [(format!("{}/tcp", CONTAINER_PORT), Some(vec![bollard::models::PortBinding {
-                        host_ip: Some("0.0.0.0".to_string()),
-                        host_port: Some(SERVICE_PORT.to_string()),
-                    }]))]
+                    [(
+                        format!("{}/tcp", CONTAINER_PORT),
+                        Some(vec![bollard::models::PortBinding {
+                            host_ip: Some("0.0.0.0".to_string()),
+                            host_port: Some(SERVICE_PORT.to_string()),
+                        }]),
+                    )]
                     .into_iter()
                     .collect(),
                 ),
@@ -143,7 +151,9 @@ impl ContainerFixture {
         let container = self.docker.create_container(Some(options), config).await?;
         self.service_container_id = Some(container.id.clone());
 
-        self.docker.start_container::<String>(&container.id, None).await?;
+        self.docker
+            .start_container::<String>(&container.id, None)
+            .await?;
 
         // Wait for service to be healthy
         self.wait_for_health().await?;
@@ -153,9 +163,7 @@ impl ContainerFixture {
 
     /// Wait for service health check to pass
     async fn wait_for_health(&self) -> Result<(), Box<dyn std::error::Error>> {
-        let client = Client::builder()
-            .timeout(Duration::from_secs(5))
-            .build()?;
+        let client = Client::builder().timeout(Duration::from_secs(5)).build()?;
 
         let health_url = format!("{}/v1/system/health", BASE_URL);
 
@@ -197,9 +205,7 @@ impl ContainerFixture {
         };
 
         let containers = self.docker.list_containers(Some(options)).await?;
-        Ok(containers.iter()
-            .filter_map(|c| c.id.clone())
-            .collect())
+        Ok(containers.iter().filter_map(|c| c.id.clone()).collect())
     }
 
     /// Clean up all test containers
@@ -207,24 +213,38 @@ impl ContainerFixture {
         // Stop and remove spawned Python containers
         let python_containers = self.get_python_containers().await.unwrap_or_default();
         for container_id in python_containers {
-            let _ = self.docker.stop_container(&container_id, Some(StopContainerOptions {
-                t: 5,
-            })).await;
-            let _ = self.docker.remove_container(&container_id, Some(RemoveContainerOptions {
-                force: true,
-                ..Default::default()
-            })).await;
+            let _ = self
+                .docker
+                .stop_container(&container_id, Some(StopContainerOptions { t: 5 }))
+                .await;
+            let _ = self
+                .docker
+                .remove_container(
+                    &container_id,
+                    Some(RemoveContainerOptions {
+                        force: true,
+                        ..Default::default()
+                    }),
+                )
+                .await;
         }
 
         // Stop and remove service container
         if let Some(container_id) = self.service_container_id.take() {
-            let _ = self.docker.stop_container(&container_id, Some(StopContainerOptions {
-                t: 5,
-            })).await;
-            let _ = self.docker.remove_container(&container_id, Some(RemoveContainerOptions {
-                force: true,
-                ..Default::default()
-            })).await;
+            let _ = self
+                .docker
+                .stop_container(&container_id, Some(StopContainerOptions { t: 5 }))
+                .await;
+            let _ = self
+                .docker
+                .remove_container(
+                    &container_id,
+                    Some(RemoveContainerOptions {
+                        force: true,
+                        ..Default::default()
+                    }),
+                )
+                .await;
         }
 
         Ok(())
@@ -238,13 +258,18 @@ impl Drop for ContainerFixture {
             let docker = self.docker.clone();
             let container_id = container_id.clone();
             tokio::spawn(async move {
-                let _ = docker.stop_container(&container_id, Some(StopContainerOptions {
-                    t: 2,
-                })).await;
-                let _ = docker.remove_container(&container_id, Some(RemoveContainerOptions {
-                    force: true,
-                    ..Default::default()
-                })).await;
+                let _ = docker
+                    .stop_container(&container_id, Some(StopContainerOptions { t: 2 }))
+                    .await;
+                let _ = docker
+                    .remove_container(
+                        &container_id,
+                        Some(RemoveContainerOptions {
+                            force: true,
+                            ..Default::default()
+                        }),
+                    )
+                    .await;
             });
         }
     }
@@ -257,7 +282,8 @@ async fn test_service_health() -> Result<(), Box<dyn std::error::Error>> {
     fixture.start_service().await?;
 
     let client = Client::new();
-    let response = client.get(&format!("{}/v1/system/health", BASE_URL))
+    let response = client
+        .get(&format!("{}/v1/system/health", BASE_URL))
         .send()
         .await?;
 
@@ -280,14 +306,17 @@ async fn test_container_spawn_on_request() -> Result<(), Box<dyn std::error::Err
 
     // With eager initialization, Python container should be spawned during service startup
     let initial_containers = fixture.get_python_containers().await?;
-    assert_eq!(initial_containers.len(), 1, "Expected exactly one Python container after service startup");
+    assert_eq!(
+        initial_containers.len(),
+        1,
+        "Expected exactly one Python container after service startup"
+    );
 
     // Make a request - should use the existing container
-    let client = Client::builder()
-        .timeout(Duration::from_secs(30))
-        .build()?;
+    let client = Client::builder().timeout(Duration::from_secs(30)).build()?;
 
-    let response = client.post(&format!("{}/v1/symbol/find-definition", BASE_URL))
+    let response = client
+        .post(&format!("{}/v1/symbol/find-definition", BASE_URL))
         .json(&json!({
             "position": {
                 "path": "test.py",
@@ -304,8 +333,15 @@ async fn test_container_spawn_on_request() -> Result<(), Box<dyn std::error::Err
 
     // Verify the same container is still being used (no new containers spawned)
     let containers_after_request = fixture.get_python_containers().await?;
-    assert_eq!(containers_after_request.len(), 1, "Expected same container to be reused");
-    assert_eq!(containers_after_request[0], initial_containers[0], "Expected same container ID");
+    assert_eq!(
+        containers_after_request.len(),
+        1,
+        "Expected same container to be reused"
+    );
+    assert_eq!(
+        containers_after_request[0], initial_containers[0],
+        "Expected same container ID"
+    );
 
     fixture.cleanup().await?;
     Ok(())
@@ -317,12 +353,11 @@ async fn test_request_forwarding() -> Result<(), Box<dyn std::error::Error>> {
     let mut fixture = ContainerFixture::new().await?;
     fixture.start_service().await?;
 
-    let client = Client::builder()
-        .timeout(Duration::from_secs(30))
-        .build()?;
+    let client = Client::builder().timeout(Duration::from_secs(30)).build()?;
 
     // Test find-definition endpoint
-    let response = client.post(&format!("{}/v1/symbol/find-definition", BASE_URL))
+    let response = client
+        .post(&format!("{}/v1/symbol/find-definition", BASE_URL))
         .json(&json!({
             "position": {
                 "path": "test.py",
@@ -350,12 +385,11 @@ async fn test_multiple_requests_same_container() -> Result<(), Box<dyn std::erro
     let mut fixture = ContainerFixture::new().await?;
     fixture.start_service().await?;
 
-    let client = Client::builder()
-        .timeout(Duration::from_secs(30))
-        .build()?;
+    let client = Client::builder().timeout(Duration::from_secs(30)).build()?;
 
     // First request - spawns container
-    let response1 = client.post(&format!("{}/v1/symbol/find-definition", BASE_URL))
+    let response1 = client
+        .post(&format!("{}/v1/symbol/find-definition", BASE_URL))
         .json(&json!({
             "position": {
                 "path": "test.py",
@@ -372,10 +406,14 @@ async fn test_multiple_requests_same_container() -> Result<(), Box<dyn std::erro
     sleep(Duration::from_secs(2)).await;
     let containers_after_first = fixture.get_python_containers().await?;
     let first_count = containers_after_first.len();
-    assert_eq!(first_count, 1, "Expected exactly one Python container after first request");
+    assert_eq!(
+        first_count, 1,
+        "Expected exactly one Python container after first request"
+    );
 
     // Second request - should reuse container
-    let response2 = client.post(&format!("{}/v1/symbol/find-references", BASE_URL))
+    let response2 = client
+        .post(&format!("{}/v1/symbol/find-references", BASE_URL))
         .json(&json!({
             "identifier_position": {
                 "path": "test.py",
@@ -390,8 +428,11 @@ async fn test_multiple_requests_same_container() -> Result<(), Box<dyn std::erro
 
     sleep(Duration::from_secs(1)).await;
     let containers_after_second = fixture.get_python_containers().await?;
-    assert_eq!(containers_after_second.len(), first_count,
-        "Expected same number of containers - should reuse existing container");
+    assert_eq!(
+        containers_after_second.len(),
+        first_count,
+        "Expected same number of containers - should reuse existing container"
+    );
 
     fixture.cleanup().await?;
     Ok(())
@@ -404,7 +445,8 @@ async fn test_list_files() -> Result<(), Box<dyn std::error::Error>> {
     fixture.start_service().await?;
 
     let client = Client::new();
-    let response = client.get(&format!("{}/v1/workspace/list-files", BASE_URL))
+    let response = client
+        .get(&format!("{}/v1/workspace/list-files", BASE_URL))
         .send()
         .await?;
 
@@ -424,11 +466,10 @@ async fn test_find_references() -> Result<(), Box<dyn std::error::Error>> {
     let mut fixture = ContainerFixture::new().await?;
     fixture.start_service().await?;
 
-    let client = Client::builder()
-        .timeout(Duration::from_secs(30))
-        .build()?;
+    let client = Client::builder().timeout(Duration::from_secs(30)).build()?;
 
-    let response = client.post(&format!("{}/v1/symbol/find-references", BASE_URL))
+    let response = client
+        .post(&format!("{}/v1/symbol/find-references", BASE_URL))
         .json(&json!({
             "identifier_position": {
                 "path": "test.py",
