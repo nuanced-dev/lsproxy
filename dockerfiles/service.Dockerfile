@@ -1,7 +1,7 @@
 # Base LSProxy service - lightweight HTTP proxy that orchestrates language containers
 # Multi-stage build to minimize image size
 
-FROM rust:1.83.0-slim-bookworm AS builder
+FROM rust:1.91.1-slim-bookworm AS builder
 
 # Install build dependencies
 RUN apt-get update && \

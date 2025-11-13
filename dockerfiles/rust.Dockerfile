@@ -2,7 +2,7 @@
 # Multi-stage build to minimize image size
 
 # Builder stage: Install Rust and rust-analyzer
-FROM rust:1.82.0-slim-bookworm AS builder
+FROM rust:1.91.1-slim-bookworm AS builder
 
 ENV DEBIAN_FRONTEND=noninteractive
 

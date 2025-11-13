@@ -3,7 +3,7 @@
 # Language containers mount this via --volumes-from at runtime
 # Supports linux/amd64 and linux/arm64
 
-FROM --platform=$BUILDPLATFORM rust:1.83.0-slim-bookworm AS builder
+FROM --platform=$BUILDPLATFORM rust:1.91.1-slim-bookworm AS builder
 ARG BUILDPLATFORM
 ARG BUILDARCH
 ARG TARGETPLATFORM
