@@ -84,6 +84,9 @@ pub enum SupportedLanguages {
     Golang,
     #[serde(rename = "php")]
     PHP,
+    // These are the existing Ruby versions in lsproxy that we support for Tusk.
+    // TODO: Update how supported languages work to encode language versions in a more maintainable
+    // way.
     #[serde(rename = "ruby_3_4_4")]
     Ruby3_4_4,
     #[serde(rename = "ruby_3_4_2")]
