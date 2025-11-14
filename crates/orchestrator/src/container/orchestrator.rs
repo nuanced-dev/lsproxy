@@ -1,8 +1,8 @@
 use super::{ContainerInfo, ContainerOrchestrator, OrchestratorError};
-use lsproxy_common::api_types::SupportedLanguages;
 use bollard::container::{Config, CreateContainerOptions, LogsOptions};
 use bollard::models::{HostConfig, PortBinding};
 use futures_util::stream::StreamExt;
+use lsproxy_common::api_types::SupportedLanguages;
 use std::collections::HashMap;
 use std::net::TcpListener;
 use std::sync::Arc;
@@ -168,7 +168,7 @@ impl ContainerOrchestrator {
         drop(port_listener);
 
         // Build endpoint URL for HTTP requests
-        // For Docker-in-Docker sibling container communication, we need to use the container's
+        // For Docker-outside-of-Docker sibling container communication, we need to use the container's
         // IP address on the Docker network instead of going through host port mappings.
         // Inspect the container to get its IP address.
         let container_info = self.docker.inspect_container(&container_id, None).await?;
@@ -239,16 +239,28 @@ impl ContainerOrchestrator {
     /// # Returns
     /// * `Ok(())` if container responds with healthy status
     /// * `Err(OrchestratorError::HealthCheck)` if health check fails or times out
-    pub async fn check_container_health(&self, info: &ContainerInfo) -> Result<(), OrchestratorError> {
+    pub async fn check_container_health(
+        &self,
+        info: &ContainerInfo,
+    ) -> Result<(), OrchestratorError> {
         let health_url = format!("{}/health", info.endpoint);
         let timeout = Duration::from_secs(30);
         let start = std::time::Instant::now();
         let client = reqwest::Client::new();
 
-        log::info!("Checking health of container {} at {}", info.container_id, health_url);
+        log::info!(
+            "Checking health of container {} at {}",
+            info.container_id,
+            health_url
+        );
 
         while start.elapsed() < timeout {
-            match client.get(&health_url).timeout(Duration::from_secs(2)).send().await {
+            match client
+                .get(&health_url)
+                .timeout(Duration::from_secs(2))
+                .send()
+                .await
+            {
                 Ok(response) if response.status().is_success() => {
                     log::info!("Container {} is healthy", info.container_id);
                     return Ok(());
@@ -405,7 +417,9 @@ mod tests {
             "lsproxy-python:latest"
         );
         assert_eq!(
-            ContainerOrchestrator::image_name_for_language(&SupportedLanguages::TypeScriptJavaScript),
+            ContainerOrchestrator::image_name_for_language(
+                &SupportedLanguages::TypeScriptJavaScript
+            ),
             "lsproxy-typescript:latest"
         );
         assert_eq!(
