@@ -27,23 +27,14 @@ while docker inspect "$PARENT_ID" >/dev/null 2>&1; do
 done
 
 echo "Watchdog: Parent container $PARENT_ID is no longer running"
-
-# Check if cleanup was already completed by the parent
-if docker exec "$PARENT_ID" test -f /tmp/cleanup_complete 2>/dev/null; then
-    echo "Watchdog: Clean shutdown detected (cleanup_complete marker found)"
-    echo "Watchdog: No emergency cleanup needed, exiting"
-    exit 0
-fi
-
-# Parent died without cleaning up - emergency cleanup
-echo "Watchdog: Parent died unexpectedly, performing emergency cleanup..."
+echo "Watchdog: Performing cleanup (will be no-op if parent already cleaned up)..."
 
 # Find and remove all language server containers spawned by this parent
 CHILD_CONTAINERS=$(docker ps -aq --filter "label=lsproxy.parent=$PARENT_ID" --filter "label=lsproxy.role=language-server")
 
 if [ -n "$CHILD_CONTAINERS" ]; then
     CHILD_COUNT=$(echo "$CHILD_CONTAINERS" | wc -l)
-    echo "Watchdog: Found $CHILD_COUNT orphaned language server container(s)"
+    echo "Watchdog: Found $CHILD_COUNT language server container(s) to clean up"
 
     for container in $CHILD_CONTAINERS; do
         CONTAINER_NAME=$(docker inspect --format='{{.Name}}' "$container" 2>/dev/null | sed 's/^\///' || echo "$container")
@@ -51,9 +42,9 @@ if [ -n "$CHILD_CONTAINERS" ]; then
         docker rm -f "$container" 2>/dev/null || true
     done
 
-    echo "Watchdog: Emergency cleanup complete - removed $CHILD_COUNT container(s)"
+    echo "Watchdog: Cleanup complete - removed $CHILD_COUNT container(s)"
 else
-    echo "Watchdog: No orphaned language server containers found"
+    echo "Watchdog: No language server containers to clean up (already cleaned by parent)"
 fi
 
 # Clean up wrapper container
