@@ -129,7 +129,7 @@ test_step "List files endpoint works" \
 test_step "Python language works" \
     "curl -sf -X POST http://localhost:4444/v1/workspace/read-source-code \
         -H 'Content-Type: application/json' \
-        -d '{\"path\":\"main.py\"}' | jq -e '.content | length > 0' > /dev/null"
+        -d '{\"path\":\"main.py\"}' | jq -e '.source_code | length > 0' > /dev/null"
 
 # Test 8: Check Docker network
 test_step "LSProxy Docker network exists" \

@@ -89,7 +89,7 @@ python|main.py|main|15|4|python
 typescript|src/main.ts|main|5|6|typescript_javascript
 javascript|src/main.ts|main|5|6|typescript_javascript
 rust|src/main.rs|main|10|3|rust
-go|main.go|main|7|5|go
+go|main.go|main|7|5|golang
 java|Main.java|main|5|23|java
 cpp|astar_search.cpp|main|2|4|cpp
 csharp|Program.cs|Main|4|20|csharp
@@ -340,9 +340,10 @@ else
     echo -e "${GREEN}✓ Service started successfully${NC}"
     STARTED_SERVICE=true
 
-    # Give containers a moment to fully initialize
-    echo -e "${YELLOW}  Waiting for services to initialize...${NC}"
-    sleep 5
+    # Give containers time to fully initialize
+    # Ruby LSP in particular can take 30+ seconds to start
+    echo -e "${YELLOW}  Waiting for language containers to initialize (35s)...${NC}"
+    sleep 35
 fi
 echo
 

@@ -7,16 +7,18 @@
 /// 4. Container lifecycle management
 use bollard::container::{
     Config, CreateContainerOptions, ListContainersOptions, RemoveContainerOptions,
-    StopContainerOptions,
 };
 use bollard::image::ListImagesOptions;
 use bollard::Docker;
+use once_cell::sync::Lazy;
 use reqwest::Client;
 use serde_json::json;
 use serial_test::serial;
 use std::collections::HashMap;
+use std::sync::Arc;
 use std::time::Duration;
 use tempfile::TempDir;
+use tokio::sync::Mutex;
 use tokio::time::sleep;
 
 const BASE_IMAGE: &str = "lsproxy-service:latest";
@@ -27,19 +29,88 @@ const BASE_URL: &str = "http://localhost:14444";
 const MAX_RETRIES: u32 = 30;
 const RETRY_DELAY: Duration = Duration::from_secs(1);
 
+/// Shared test fixture that lives for the entire test suite
+/// Uses Lazy initialization to set up once and reuse across all serial tests
+static SUITE_FIXTURE: Lazy<Arc<Mutex<Option<ContainerFixture>>>> =
+    Lazy::new(|| Arc::new(Mutex::new(None)));
+
 /// Test fixture that manages container lifecycle
 struct ContainerFixture {
     docker: Docker,
-    service_container_id: Option<String>,
+    // Keep workspace_dir alive for the duration of tests
+    // TempDir's Drop impl deletes the directory when it goes out of scope
+    #[allow(dead_code)]
     workspace_dir: TempDir,
 }
 
 impl ContainerFixture {
-    /// Create new test fixture with workspace
-    async fn new() -> Result<Self, Box<dyn std::error::Error>> {
-        let docker = Docker::connect_with_socket_defaults()?;
+    /// Comprehensive cleanup of all test-related containers
+    /// Removes orphaned containers from previous failed test runs
+    async fn cleanup_all_test_containers(docker: &Docker) -> Result<(), Box<dyn std::error::Error>> {
+        println!("Cleaning up all test-related containers...");
 
-        // Clean up any existing test container from previous runs
+        // Clean up all lsproxy-python-* containers (test language containers)
+        let mut filters = HashMap::new();
+        filters.insert("name".to_string(), vec!["lsproxy-python-".to_string()]);
+
+        let options = ListContainersOptions {
+            all: true,
+            filters,
+            ..Default::default()
+        };
+
+        let python_containers = docker.list_containers(Some(options)).await?;
+        for container in python_containers {
+            if let Some(id) = container.id {
+                let _ = docker
+                    .remove_container(
+                        &id,
+                        Some(RemoveContainerOptions {
+                            force: true,
+                            ..Default::default()
+                        }),
+                    )
+                    .await;
+            }
+        }
+
+        // Clean up test watchdog containers
+        let mut filters = HashMap::new();
+        filters.insert("name".to_string(), vec!["lsproxy-watchdog-".to_string()]);
+
+        let options = ListContainersOptions {
+            all: true,
+            filters,
+            ..Default::default()
+        };
+
+        let watchdog_containers = docker.list_containers(Some(options)).await?;
+        for container in watchdog_containers {
+            if let Some(id) = container.id {
+                let _ = docker
+                    .remove_container(
+                        &id,
+                        Some(RemoveContainerOptions {
+                            force: true,
+                            ..Default::default()
+                        }),
+                    )
+                    .await;
+            }
+        }
+
+        // Clean up wrapper container
+        let _ = docker
+            .remove_container(
+                "lsproxy-wrapper",
+                Some(RemoveContainerOptions {
+                    force: true,
+                    ..Default::default()
+                }),
+            )
+            .await;
+
+        // Clean up test service container
         let _ = docker
             .remove_container(
                 "lsproxy-test-service",
@@ -50,6 +121,17 @@ impl ContainerFixture {
             )
             .await;
 
+        println!("Cleanup complete");
+        Ok(())
+    }
+
+    /// Create new test fixture with workspace and start the service
+    async fn new() -> Result<Self, Box<dyn std::error::Error>> {
+        let docker = Docker::connect_with_socket_defaults()?;
+
+        // Clean up all test-related containers from previous runs
+        Self::cleanup_all_test_containers(&docker).await?;
+
         // Verify required images exist
         Self::verify_images(&docker).await?;
 
@@ -58,9 +140,11 @@ impl ContainerFixture {
         // Create test Python files
         Self::create_test_files(&workspace_dir)?;
 
+        // Start the service
+        Self::start_service_internal(&docker, &workspace_dir).await?;
+
         Ok(Self {
             docker,
-            service_container_id: None,
             workspace_dir,
         })
     }
@@ -109,10 +193,9 @@ impl ContainerFixture {
         Ok(())
     }
 
-    /// Start the base LSProxy service container
-    async fn start_service(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        let workspace_path = self
-            .workspace_dir
+    /// Start the base LSProxy service container (internal helper)
+    async fn start_service_internal(docker: &Docker, workspace_dir: &TempDir) -> Result<(), Box<dyn std::error::Error>> {
+        let workspace_path = workspace_dir
             .path()
             .to_str()
             .ok_or("Invalid workspace path")?;
@@ -148,21 +231,20 @@ impl ContainerFixture {
             ..Default::default()
         };
 
-        let container = self.docker.create_container(Some(options), config).await?;
-        self.service_container_id = Some(container.id.clone());
+        let container = docker.create_container(Some(options), config).await?;
 
-        self.docker
+        docker
             .start_container::<String>(&container.id, None)
             .await?;
 
         // Wait for service to be healthy
-        self.wait_for_health().await?;
+        Self::wait_for_health_static().await?;
 
         Ok(())
     }
 
-    /// Wait for service health check to pass
-    async fn wait_for_health(&self) -> Result<(), Box<dyn std::error::Error>> {
+    /// Wait for service health check to pass (static version)
+    async fn wait_for_health_static() -> Result<(), Box<dyn std::error::Error>> {
         let client = Client::builder().timeout(Duration::from_secs(5)).build()?;
 
         let health_url = format!("{}/v1/system/health", BASE_URL);
@@ -193,93 +275,44 @@ impl ContainerFixture {
         Err("Service did not become healthy within timeout".into())
     }
 
-    /// Get list of Python containers spawned by the service
-    async fn get_python_containers(&self) -> Result<Vec<String>, Box<dyn std::error::Error>> {
-        let mut filters = HashMap::new();
-        filters.insert("name".to_string(), vec!["lsproxy-python-".to_string()]);
-        filters.insert("status".to_string(), vec!["running".to_string()]);
-
-        let options = ListContainersOptions {
-            filters,
-            ..Default::default()
-        };
-
-        let containers = self.docker.list_containers(Some(options)).await?;
-        Ok(containers.iter().filter_map(|c| c.id.clone()).collect())
-    }
-
-    /// Clean up all test containers
-    async fn cleanup(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        // Stop and remove spawned Python containers
-        let python_containers = self.get_python_containers().await.unwrap_or_default();
-        for container_id in python_containers {
-            let _ = self
-                .docker
-                .stop_container(&container_id, Some(StopContainerOptions { t: 5 }))
-                .await;
-            let _ = self
-                .docker
-                .remove_container(
-                    &container_id,
-                    Some(RemoveContainerOptions {
-                        force: true,
-                        ..Default::default()
-                    }),
-                )
-                .await;
-        }
-
-        // Stop and remove service container
-        if let Some(container_id) = self.service_container_id.take() {
-            let _ = self
-                .docker
-                .stop_container(&container_id, Some(StopContainerOptions { t: 5 }))
-                .await;
-            let _ = self
-                .docker
-                .remove_container(
-                    &container_id,
-                    Some(RemoveContainerOptions {
-                        force: true,
-                        ..Default::default()
-                    }),
-                )
-                .await;
-        }
-
-        Ok(())
+    /// Clean up all test containers (for final teardown)
+    async fn cleanup(&self) -> Result<(), Box<dyn std::error::Error>> {
+        Self::cleanup_all_test_containers(&self.docker).await
     }
 }
 
-impl Drop for ContainerFixture {
-    fn drop(&mut self) {
-        // Best effort cleanup
-        if let Some(container_id) = &self.service_container_id {
-            let docker = self.docker.clone();
-            let container_id = container_id.clone();
-            tokio::spawn(async move {
-                let _ = docker
-                    .stop_container(&container_id, Some(StopContainerOptions { t: 2 }))
-                    .await;
-                let _ = docker
-                    .remove_container(
-                        &container_id,
-                        Some(RemoveContainerOptions {
-                            force: true,
-                            ..Default::default()
-                        }),
-                    )
-                    .await;
-            });
-        }
+/// Get or initialize the shared test fixture
+/// This runs once for the entire test suite
+async fn get_fixture() -> Result<(), Box<dyn std::error::Error>> {
+    let mut fixture_guard = SUITE_FIXTURE.lock().await;
+
+    if fixture_guard.is_none() {
+        println!("Initializing shared test fixture...");
+        let fixture = ContainerFixture::new().await?;
+        *fixture_guard = Some(fixture);
+        println!("Test fixture ready");
     }
+
+    Ok(())
+}
+
+/// Cleanup the shared test fixture (called at end of test suite)
+async fn cleanup_fixture() -> Result<(), Box<dyn std::error::Error>> {
+    let mut fixture_guard = SUITE_FIXTURE.lock().await;
+
+    if let Some(fixture) = fixture_guard.take() {
+        println!("Cleaning up shared test fixture...");
+        fixture.cleanup().await?;
+        println!("Cleanup complete");
+    }
+
+    Ok(())
 }
 
 #[tokio::test]
 #[serial]
 async fn test_service_health() -> Result<(), Box<dyn std::error::Error>> {
-    let mut fixture = ContainerFixture::new().await?;
-    fixture.start_service().await?;
+    get_fixture().await?;
 
     let client = Client::new();
     let response = client
@@ -294,18 +327,25 @@ async fn test_service_health() -> Result<(), Box<dyn std::error::Error>> {
     // In the containerized architecture, languages are spawned dynamically, not built-in
     assert!(health["languages"].is_object());
 
-    fixture.cleanup().await?;
     Ok(())
 }
 
 #[tokio::test]
 #[serial]
 async fn test_container_spawn_on_request() -> Result<(), Box<dyn std::error::Error>> {
-    let mut fixture = ContainerFixture::new().await?;
-    fixture.start_service().await?;
+    get_fixture().await?;
+
+    let docker = Docker::connect_with_socket_defaults()?;
 
     // With eager initialization, Python container should be spawned during service startup
-    let initial_containers = fixture.get_python_containers().await?;
+    let mut filters = HashMap::new();
+    filters.insert("name".to_string(), vec!["lsproxy-python-".to_string()]);
+    filters.insert("status".to_string(), vec!["running".to_string()]);
+    let options = ListContainersOptions {
+        filters,
+        ..Default::default()
+    };
+    let initial_containers: Vec<String> = docker.list_containers(Some(options.clone())).await?.iter().filter_map(|c| c.id.clone()).collect();
     assert_eq!(
         initial_containers.len(),
         1,
@@ -332,7 +372,7 @@ async fn test_container_spawn_on_request() -> Result<(), Box<dyn std::error::Err
     assert!(response.status().is_success() || response.status().is_client_error());
 
     // Verify the same container is still being used (no new containers spawned)
-    let containers_after_request = fixture.get_python_containers().await?;
+    let containers_after_request: Vec<String> = docker.list_containers(Some(options.clone())).await?.iter().filter_map(|c| c.id.clone()).collect();
     assert_eq!(
         containers_after_request.len(),
         1,
@@ -343,15 +383,13 @@ async fn test_container_spawn_on_request() -> Result<(), Box<dyn std::error::Err
         "Expected same container ID"
     );
 
-    fixture.cleanup().await?;
     Ok(())
 }
 
 #[tokio::test]
 #[serial]
 async fn test_request_forwarding() -> Result<(), Box<dyn std::error::Error>> {
-    let mut fixture = ContainerFixture::new().await?;
-    fixture.start_service().await?;
+    get_fixture().await?;
 
     let client = Client::builder().timeout(Duration::from_secs(30)).build()?;
 
@@ -375,19 +413,18 @@ async fn test_request_forwarding() -> Result<(), Box<dyn std::error::Error>> {
     // Should have definitions field (even if empty)
     assert!(body.get("definitions").is_some());
 
-    fixture.cleanup().await?;
     Ok(())
 }
 
 #[tokio::test]
 #[serial]
 async fn test_multiple_requests_same_container() -> Result<(), Box<dyn std::error::Error>> {
-    let mut fixture = ContainerFixture::new().await?;
-    fixture.start_service().await?;
+    get_fixture().await?;
 
+    let docker = Docker::connect_with_socket_defaults()?;
     let client = Client::builder().timeout(Duration::from_secs(30)).build()?;
 
-    // First request - spawns container
+    // First request - container already spawned during service startup
     let response1 = client
         .post(&format!("{}/v1/symbol/find-definition", BASE_URL))
         .json(&json!({
@@ -404,7 +441,15 @@ async fn test_multiple_requests_same_container() -> Result<(), Box<dyn std::erro
     assert!(response1.status().is_success());
 
     sleep(Duration::from_secs(2)).await;
-    let containers_after_first = fixture.get_python_containers().await?;
+
+    let mut filters = HashMap::new();
+    filters.insert("name".to_string(), vec!["lsproxy-python-".to_string()]);
+    filters.insert("status".to_string(), vec!["running".to_string()]);
+    let options = ListContainersOptions {
+        filters,
+        ..Default::default()
+    };
+    let containers_after_first: Vec<String> = docker.list_containers(Some(options.clone())).await?.iter().filter_map(|c| c.id.clone()).collect();
     let first_count = containers_after_first.len();
     assert_eq!(
         first_count, 1,
@@ -427,22 +472,20 @@ async fn test_multiple_requests_same_container() -> Result<(), Box<dyn std::erro
     assert!(response2.status().is_success());
 
     sleep(Duration::from_secs(1)).await;
-    let containers_after_second = fixture.get_python_containers().await?;
+    let containers_after_second: Vec<String> = docker.list_containers(Some(options.clone())).await?.iter().filter_map(|c| c.id.clone()).collect();
     assert_eq!(
         containers_after_second.len(),
         first_count,
         "Expected same number of containers - should reuse existing container"
     );
 
-    fixture.cleanup().await?;
     Ok(())
 }
 
 #[tokio::test]
 #[serial]
 async fn test_list_files() -> Result<(), Box<dyn std::error::Error>> {
-    let mut fixture = ContainerFixture::new().await?;
-    fixture.start_service().await?;
+    get_fixture().await?;
 
     let client = Client::new();
     let response = client
@@ -456,15 +499,13 @@ async fn test_list_files() -> Result<(), Box<dyn std::error::Error>> {
     // The endpoint returns a direct array of filenames, not an object with a "files" field
     assert!(body.is_array());
 
-    fixture.cleanup().await?;
     Ok(())
 }
 
 #[tokio::test]
 #[serial]
 async fn test_find_references() -> Result<(), Box<dyn std::error::Error>> {
-    let mut fixture = ContainerFixture::new().await?;
-    fixture.start_service().await?;
+    get_fixture().await?;
 
     let client = Client::builder().timeout(Duration::from_secs(30)).build()?;
 
@@ -486,15 +527,13 @@ async fn test_find_references() -> Result<(), Box<dyn std::error::Error>> {
     // Should have references field
     assert!(body.get("references").is_some());
 
-    fixture.cleanup().await?;
     Ok(())
 }
 
 #[tokio::test]
 #[serial]
 async fn test_find_references_with_context_lines() -> Result<(), Box<dyn std::error::Error>> {
-    let mut fixture = ContainerFixture::new().await?;
-    fixture.start_service().await?;
+    get_fixture().await?;
 
     let client = Client::builder().timeout(Duration::from_secs(30)).build()?;
 
@@ -561,6 +600,14 @@ async fn test_find_references_with_context_lines() -> Result<(), Box<dyn std::er
         }
     }
 
-    fixture.cleanup().await?;
+    Ok(())
+}
+
+/// Final test that cleans up the shared fixture
+/// Named with zzz prefix to run last (tests run alphabetically within serial group)
+#[tokio::test]
+#[serial]
+async fn test_zzz_cleanup() -> Result<(), Box<dyn std::error::Error>> {
+    cleanup_fixture().await?;
     Ok(())
 }

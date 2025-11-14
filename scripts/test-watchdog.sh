@@ -114,7 +114,8 @@ echo
 # Stop service cleanly
 echo -e "${BLUE}Stopping service with SIGTERM...${NC}"
 docker stop test-watchdog-svc > /dev/null
-sleep 5
+# Cleanup can take 7-10 seconds with many language containers
+sleep 10
 
 test_step "Service container stopped" \
     "[ \$(docker ps --filter 'name=test-watchdog-svc' --format '{{.Names}}' | wc -l) -eq 0 ]"
@@ -237,7 +238,8 @@ test_step "Service 2 watchdog still running" \
 # Clean up second service
 echo -e "${BLUE}Stopping second service instance...${NC}"
 docker stop test-watchdog-multi2 > /dev/null
-sleep 5
+# Cleanup can take 7-10 seconds with many language containers
+sleep 10
 
 test_step "Service 2 containers cleaned up" \
     "[ \$(docker ps -a --filter 'label=lsproxy.parent=$MULTI2_SHORT' --format '{{.Names}}' | wc -l) -eq 0 ]"

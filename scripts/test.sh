@@ -18,7 +18,9 @@ fi
 # 1. Run Rust unit and integration tests
 echo "1. Running Rust unit and integration tests..."
 echo "----------------------------------------"
-cargo test --workspace $@
+# Run with --test-threads=1 to ensure serial execution of integration tests
+# The container orchestration tests use #[serial] and a shared fixture
+cargo test --workspace -- --test-threads=1 $@
 echo "✓ Rust tests passed"
 echo
 

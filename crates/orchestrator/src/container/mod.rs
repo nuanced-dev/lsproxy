@@ -574,14 +574,15 @@ mod tests {
             Some(SupportedLanguages::Python)
         );
 
-        // Test aliases
-        assert_eq!(
-            ContainerOrchestrator::parse_language("golang"),
-            Some(SupportedLanguages::Golang)
-        );
+        // Test go language (no golang alias - we standardized on "go")
         assert_eq!(
             ContainerOrchestrator::parse_language("go"),
             Some(SupportedLanguages::Golang)
+        );
+        // Verify "golang" is NOT accepted (removed for consistency)
+        assert_eq!(
+            ContainerOrchestrator::parse_language("golang"),
+            None
         );
         assert_eq!(
             ContainerOrchestrator::parse_language("cpp"),
