@@ -1,9 +1,9 @@
-use lsproxy_common::api_types::{ErrorResponse, FindIdentifierRequest, IdentifierResponse};
 use crate::handlers::container_proxy;
 use crate::AppState;
 use actix_web::web::{Data, Json};
 use actix_web::HttpResponse;
 use log::{error, info};
+use lsproxy_common::api_types::{ErrorResponse, FindIdentifierRequest, IdentifierResponse};
 
 /// Find an identifier by name
 #[utoipa::path(
@@ -27,12 +27,7 @@ pub async fn find_identifier(
     );
 
     // Get container client for this file's language
-    let client = match container_proxy::get_client_for_file(
-        &data.orchestrator,
-        &info.path,
-    )
-    .await
-    {
+    let client = match container_proxy::get_client_for_file(&data.orchestrator, &info.path).await {
         Ok(client) => client,
         Err(e) => {
             error!("Failed to get container client: {}", e);

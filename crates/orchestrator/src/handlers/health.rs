@@ -1,7 +1,7 @@
-use lsproxy_common::api_types::HealthResponse;
 use crate::AppState;
 use actix_web::web::Data;
 use actix_web::HttpResponse;
+use lsproxy_common::api_types::HealthResponse;
 use std::collections::HashMap;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");

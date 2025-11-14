@@ -46,7 +46,9 @@ struct ContainerFixture {
 impl ContainerFixture {
     /// Comprehensive cleanup of all test-related containers
     /// Removes orphaned containers from previous failed test runs
-    async fn cleanup_all_test_containers(docker: &Docker) -> Result<(), Box<dyn std::error::Error>> {
+    async fn cleanup_all_test_containers(
+        docker: &Docker,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         println!("Cleaning up all test-related containers...");
 
         // Clean up all lsproxy-python-* containers (test language containers)
@@ -194,7 +196,10 @@ impl ContainerFixture {
     }
 
     /// Start the base LSProxy service container (internal helper)
-    async fn start_service_internal(docker: &Docker, workspace_dir: &TempDir) -> Result<(), Box<dyn std::error::Error>> {
+    async fn start_service_internal(
+        docker: &Docker,
+        workspace_dir: &TempDir,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let workspace_path = workspace_dir
             .path()
             .to_str()
@@ -345,7 +350,12 @@ async fn test_container_spawn_on_request() -> Result<(), Box<dyn std::error::Err
         filters,
         ..Default::default()
     };
-    let initial_containers: Vec<String> = docker.list_containers(Some(options.clone())).await?.iter().filter_map(|c| c.id.clone()).collect();
+    let initial_containers: Vec<String> = docker
+        .list_containers(Some(options.clone()))
+        .await?
+        .iter()
+        .filter_map(|c| c.id.clone())
+        .collect();
     assert_eq!(
         initial_containers.len(),
         1,
@@ -372,7 +382,12 @@ async fn test_container_spawn_on_request() -> Result<(), Box<dyn std::error::Err
     assert!(response.status().is_success() || response.status().is_client_error());
 
     // Verify the same container is still being used (no new containers spawned)
-    let containers_after_request: Vec<String> = docker.list_containers(Some(options.clone())).await?.iter().filter_map(|c| c.id.clone()).collect();
+    let containers_after_request: Vec<String> = docker
+        .list_containers(Some(options.clone()))
+        .await?
+        .iter()
+        .filter_map(|c| c.id.clone())
+        .collect();
     assert_eq!(
         containers_after_request.len(),
         1,
@@ -449,7 +464,12 @@ async fn test_multiple_requests_same_container() -> Result<(), Box<dyn std::erro
         filters,
         ..Default::default()
     };
-    let containers_after_first: Vec<String> = docker.list_containers(Some(options.clone())).await?.iter().filter_map(|c| c.id.clone()).collect();
+    let containers_after_first: Vec<String> = docker
+        .list_containers(Some(options.clone()))
+        .await?
+        .iter()
+        .filter_map(|c| c.id.clone())
+        .collect();
     let first_count = containers_after_first.len();
     assert_eq!(
         first_count, 1,
@@ -472,7 +492,12 @@ async fn test_multiple_requests_same_container() -> Result<(), Box<dyn std::erro
     assert!(response2.status().is_success());
 
     sleep(Duration::from_secs(1)).await;
-    let containers_after_second: Vec<String> = docker.list_containers(Some(options.clone())).await?.iter().filter_map(|c| c.id.clone()).collect();
+    let containers_after_second: Vec<String> = docker
+        .list_containers(Some(options.clone()))
+        .await?
+        .iter()
+        .filter_map(|c| c.id.clone())
+        .collect();
     assert_eq!(
         containers_after_second.len(),
         first_count,
@@ -559,7 +584,10 @@ async fn test_find_references_with_context_lines() -> Result<(), Box<dyn std::er
     // Verify references field exists
     assert!(body.get("references").is_some());
     let references = body["references"].as_array().unwrap();
-    assert!(references.len() > 0, "Should find at least one reference to 'hello'");
+    assert!(
+        references.len() > 0,
+        "Should find at least one reference to 'hello'"
+    );
 
     // Verify that references with context have source_code field
     for reference in references {
@@ -567,11 +595,18 @@ async fn test_find_references_with_context_lines() -> Result<(), Box<dyn std::er
             let source = source_code.as_str().unwrap();
 
             // Source code should not be empty when context_lines is provided
-            assert!(!source.is_empty(), "Source code should not be empty with context_lines=3");
+            assert!(
+                !source.is_empty(),
+                "Source code should not be empty with context_lines=3"
+            );
 
             // Source code should contain multiple lines (definition + context)
             let line_count = source.lines().count();
-            assert!(line_count > 1, "Expected multiple lines with context_lines=3, got {}", line_count);
+            assert!(
+                line_count > 1,
+                "Expected multiple lines with context_lines=3, got {}",
+                line_count
+            );
         }
     }
 
@@ -596,7 +631,10 @@ async fn test_find_references_with_context_lines() -> Result<(), Box<dyn std::er
         // With context_lines=0, source_code field should be absent or empty
         if let Some(source_code) = reference.get("source_code") {
             let source = source_code.as_str().unwrap_or("");
-            assert!(source.is_empty(), "Source code should be empty with context_lines=0");
+            assert!(
+                source.is_empty(),
+                "Source code should be empty with context_lines=0"
+            );
         }
     }
 

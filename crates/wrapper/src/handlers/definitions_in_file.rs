@@ -2,8 +2,8 @@ use actix_web::web::{Data, Query};
 use actix_web::HttpResponse;
 use log::info;
 
-use lsproxy_common::api_types::{ErrorResponse, FileSymbolsRequest, Symbol};
 use crate::AppState;
+use lsproxy_common::api_types::{ErrorResponse, FileSymbolsRequest, Symbol};
 
 /// Get symbols in a specific file (uses ast-grep)
 ///
@@ -41,11 +41,7 @@ pub async fn definitions_in_file(
         info.file_path
     );
 
-    match data
-        .manager
-        .get_definitions_in_file(&info.file_path)
-        .await
-    {
+    match data.manager.get_definitions_in_file(&info.file_path).await {
         Ok(symbols) => {
             let symbol_response: Vec<Symbol> = symbols
                 .into_iter()
@@ -59,4 +55,3 @@ pub async fn definitions_in_file(
         }),
     }
 }
-

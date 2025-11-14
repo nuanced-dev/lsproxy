@@ -1,3 +1,6 @@
+use crate::lsp::client::LspClient;
+use log::{error, warn};
+use lsp_types::{GotoDefinitionResponse, Location, Position, Range};
 /// Simplified Manager for lsp-wrapper
 ///
 /// Unlike the main LSProxy Manager that orchestrates multiple language servers,
@@ -5,11 +8,8 @@
 use lsproxy_common::api_types::{get_mount_dir, Identifier, Symbol};
 use lsproxy_common::ast_grep::client::AstGrepClient;
 use lsproxy_common::ast_grep::types::AstGrepMatch;
-use crate::lsp::client::LspClient;
 use lsproxy_common::utils::file_utils::uri_to_relative_path_string;
 use lsproxy_common::utils::workspace_documents::WorkspaceDocuments;
-use log::{error, warn};
-use lsp_types::{GotoDefinitionResponse, Location, Position, Range};
 use std::sync::Arc;
 use thiserror::Error;
 use tokio::sync::Mutex;

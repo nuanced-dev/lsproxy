@@ -1,5 +1,5 @@
-use std::path::PathBuf;
 use std::fs;
+use std::path::PathBuf;
 
 use crate::lsp::{JsonRpcHandler, LspClient, PendingRequests, ProcessHandler};
 
@@ -41,7 +41,6 @@ impl LspClient for SorbetClient {
 
     #[allow(deprecated)]
 
-
     async fn get_initialize_params(
         &mut self,
         root_path: String,
@@ -66,12 +65,19 @@ impl LspClient for SorbetClient {
         &mut self,
         root_path: String,
     ) -> Result<Vec<WorkspaceFolder>, Box<dyn Error + Send + Sync>> {
-        info!("SorbetClient::find_workspace_folders called with root_path: {}", root_path);
+        info!(
+            "SorbetClient::find_workspace_folders called with root_path: {}",
+            root_path
+        );
         let root = PathBuf::from(&root_path);
 
         // 1) Look for sorbet/config file
         let sorbet_config_path = root.join("sorbet").join("config");
-        info!("Looking for sorbet/config at {:?}, exists: {}", sorbet_config_path, sorbet_config_path.exists());
+        info!(
+            "Looking for sorbet/config at {:?}, exists: {}",
+            sorbet_config_path,
+            sorbet_config_path.exists()
+        );
         if sorbet_config_path.exists() {
             info!("Found sorbet/config at {:?}", sorbet_config_path);
 
@@ -94,8 +100,12 @@ impl LspClient for SorbetClient {
                                 if full_path.exists() {
                                     info!("Adding Sorbet workspace folder: {:?}", full_path);
 
-                                    let uri = Url::from_file_path(&full_path)
-                                        .map_err(|_| format!("Failed to create URL from path: {}", full_path.display()))?;
+                                    let uri = Url::from_file_path(&full_path).map_err(|_| {
+                                        format!(
+                                            "Failed to create URL from path: {}",
+                                            full_path.display()
+                                        )
+                                    })?;
 
                                     workspace_folders.push(WorkspaceFolder {
                                         uri,
@@ -106,7 +116,10 @@ impl LspClient for SorbetClient {
                                             .to_string(),
                                     });
                                 } else {
-                                    warn!("Sorbet config specifies directory that doesn't exist: {}", dir_path);
+                                    warn!(
+                                        "Sorbet config specifies directory that doesn't exist: {}",
+                                        dir_path
+                                    );
                                 }
                             }
                         }

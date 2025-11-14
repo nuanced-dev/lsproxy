@@ -2,11 +2,11 @@ use std::path::Path;
 
 use crate::lsp::{JsonRpcHandler, LspClient, PendingRequests, ProcessHandler};
 
+use async_trait::async_trait;
+use lsp_types::InitializeParams;
 use lsproxy_common::utils::workspace_documents::{
     DidOpenConfiguration, WorkspaceDocumentsHandler, DEFAULT_EXCLUDE_PATTERNS,
 };
-use async_trait::async_trait;
-use lsp_types::InitializeParams;
 use std::error::Error;
 
 pub struct GenericLspClient {
@@ -41,7 +41,6 @@ impl LspClient for GenericLspClient {
     }
 
     #[allow(deprecated)]
-
 
     async fn get_initialize_params(
         &mut self,

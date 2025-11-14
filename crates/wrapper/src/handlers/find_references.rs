@@ -3,15 +3,15 @@ use actix_web::HttpResponse;
 use log::{error, info};
 use lsp_types::{Location, Position as LspPosition};
 
+use crate::handlers::error::IntoHttpResponse;
+use crate::handlers::utils;
+use crate::manager::{LspManagerError, Manager};
+use crate::AppState;
 use lsproxy_common::api_types::{
     get_mount_dir, CodeContext, ErrorResponse, FilePosition, FileRange, GetReferencesRequest,
     Position, Range, ReferencesResponse,
 };
-use crate::handlers::error::IntoHttpResponse;
-use crate::handlers::utils;
-use crate::manager::{LspManagerError, Manager};
 use lsproxy_common::utils::file_utils::uri_to_relative_path_string;
-use crate::AppState;
 
 /// Find all references to a symbol
 ///
@@ -226,4 +226,3 @@ async fn fetch_code_context(
     }
     Ok(code_contexts)
 }
-

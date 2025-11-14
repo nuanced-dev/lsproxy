@@ -1,13 +1,13 @@
-use lsproxy_common::api_types::{
-    get_mount_dir, ErrorResponse, FilePosition, GetReferencedSymbolsRequest, Identifier, Position,
-    ReferenceWithSymbolDefinitions, ReferencedSymbolsResponse,
-};
-use lsproxy_common::utils::file_utils::uri_to_relative_path_string;
 use crate::AppState;
 use actix_web::web::{Data, Json};
 use actix_web::HttpResponse;
 use log::{error, info};
 use lsp_types::{GotoDefinitionResponse, Position as LspPosition};
+use lsproxy_common::api_types::{
+    get_mount_dir, ErrorResponse, FilePosition, GetReferencedSymbolsRequest, Identifier, Position,
+    ReferenceWithSymbolDefinitions, ReferencedSymbolsResponse,
+};
+use lsproxy_common::utils::file_utils::uri_to_relative_path_string;
 
 /// Find all symbols that are referenced from a given symbol's definition
 ///
@@ -121,10 +121,15 @@ pub async fn find_referenced_symbols(
             not_found.push(identifier);
         } else {
             // Check if any definition is in workspace files
-            let has_internal_definition = definitions.iter().any(|def| mount_dir.join(&def.path).exists());
+            let has_internal_definition = definitions
+                .iter()
+                .any(|def| mount_dir.join(&def.path).exists());
             if has_internal_definition {
                 let mut symbols_with_definitions = Vec::new();
-                for def in definitions.iter().filter(|def| mount_dir.join(&def.path).exists()) {
+                for def in definitions
+                    .iter()
+                    .filter(|def| mount_dir.join(&def.path).exists())
+                {
                     let def_position = lsp_types::Position {
                         line: def.position.line,
                         character: def.position.character,
@@ -158,11 +163,7 @@ pub async fn find_referenced_symbols(
                             // Solution: Use ast-grep to get all identifiers in the file, find the one
                             // matching by name and line number, then call get_symbol_from_position
                             // using that identifier's position (which aligns with documentSymbol).
-                            match data
-                                .manager
-                                .get_file_identifiers(&def.path)
-                                .await
-                            {
+                            match data.manager.get_file_identifiers(&def.path).await {
                                 Ok(identifiers) => {
                                     // Find the identifier on the same line as the definition with matching name
                                     if let Some(found_identifier) = identifiers.iter().find(|id| {
@@ -172,7 +173,11 @@ pub async fn find_referenced_symbols(
                                         // Get the full Symbol using the ast-grep identifier's position
                                         let id_position = lsp_types::Position {
                                             line: found_identifier.file_range.range.start.line,
-                                            character: found_identifier.file_range.range.start.character,
+                                            character: found_identifier
+                                                .file_range
+                                                .range
+                                                .start
+                                                .character,
                                         };
 
                                         if let Ok(symbol) = data
@@ -261,4 +266,3 @@ pub async fn find_referenced_symbols(
         not_found,
     })
 }
-

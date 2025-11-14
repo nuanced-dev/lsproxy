@@ -8,10 +8,10 @@ use crate::{
     AppState,
 };
 
+use log::{error, info};
 use lsproxy_common::api_types::{
     ErrorResponse, FilePosition, FindIdentifierRequest, Identifier, IdentifierResponse,
 };
-use log::{error, info};
 
 /// Finds occurrences of an identifier by name in a file
 ///
@@ -95,4 +95,3 @@ pub async fn find_identifier(
         })
     }
 }
-

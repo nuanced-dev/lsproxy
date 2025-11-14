@@ -5,7 +5,7 @@
 // 3. ast_grep - AST analysis that depends on error
 // 4. api_types - API types that depend on all above
 
+pub mod api_types;
+pub mod ast_grep;
 pub mod error;
 pub mod utils;
-pub mod ast_grep;
-pub mod api_types;

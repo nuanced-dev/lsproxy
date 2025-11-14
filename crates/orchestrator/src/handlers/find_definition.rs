@@ -1,9 +1,9 @@
-use lsproxy_common::api_types::{DefinitionResponse, ErrorResponse, GetDefinitionRequest};
 use crate::handlers::container_proxy;
 use crate::AppState;
 use actix_web::web::{Data, Json};
 use actix_web::HttpResponse;
 use log::{error, info};
+use lsproxy_common::api_types::{DefinitionResponse, ErrorResponse, GetDefinitionRequest};
 
 /// Get the definition of a symbol at a specific position in a file
 #[utoipa::path(
@@ -27,20 +27,16 @@ pub async fn find_definition(
     );
 
     // Get container client for this file's language
-    let client = match container_proxy::get_client_for_file(
-        &data.orchestrator,
-        &info.position.path,
-    )
-    .await
-    {
-        Ok(client) => client,
-        Err(e) => {
-            error!("Failed to get container client: {}", e);
-            return HttpResponse::InternalServerError().json(ErrorResponse {
-                error: format!("Failed to get container client: {}", e),
-            });
-        }
-    };
+    let client =
+        match container_proxy::get_client_for_file(&data.orchestrator, &info.position.path).await {
+            Ok(client) => client,
+            Err(e) => {
+                error!("Failed to get container client: {}", e);
+                return HttpResponse::InternalServerError().json(ErrorResponse {
+                    error: format!("Failed to get container client: {}", e),
+                });
+            }
+        };
 
     // Forward request to container
     match client.find_definition(&info.into_inner()).await {

@@ -108,6 +108,9 @@ fn test_search_paths_directories() {
     // Should find unique directories containing .rs files
     assert!(results.len() > 0);
     // Verify deduplication worked
-    let unique_count = results.iter().collect::<std::collections::HashSet<_>>().len();
+    let unique_count = results
+        .iter()
+        .collect::<std::collections::HashSet<_>>()
+        .len();
     assert_eq!(results.len(), unique_count);
 }

@@ -44,7 +44,9 @@ impl AstGrepClient {
         identifier_position: &lsp_types::Position,
     ) -> Result<AstGrepMatch, Box<dyn std::error::Error>> {
         // Get all symbols in the file
-        let file_symbols = self.scan_file(&self.symbol_config_path(), file_name).await?;
+        let file_symbols = self
+            .scan_file(&self.symbol_config_path(), file_name)
+            .await?;
 
         // Find the symbol that matches our identifier position
         let symbol_result = file_symbols.into_iter().find(|ast_symbol_match| {
@@ -85,7 +87,8 @@ impl AstGrepClient {
         &self,
         file_name: &str,
     ) -> Result<Vec<AstGrepMatch>, Box<dyn std::error::Error>> {
-        self.scan_file(&self.identifier_config_path(), file_name).await
+        self.scan_file(&self.identifier_config_path(), file_name)
+            .await
     }
 
     pub async fn get_symbol_and_references(
@@ -110,7 +113,9 @@ impl AstGrepClient {
         full_scan: bool,
     ) -> Result<Vec<AstGrepMatch>, Box<dyn std::error::Error>> {
         // Get all references
-        let matches = self.scan_file(&self.reference_config_path(), file_name).await?;
+        let matches = self
+            .scan_file(&self.reference_config_path(), file_name)
+            .await?;
 
         // Filter matches to those within the symbol's range
         // And if not full_scan, exclude matches with rule_id "non-function"
@@ -158,4 +163,3 @@ impl AstGrepClient {
         Ok(symbols)
     }
 }
-

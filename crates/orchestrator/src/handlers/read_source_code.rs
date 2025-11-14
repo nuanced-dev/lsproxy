@@ -1,8 +1,8 @@
-use lsproxy_common::api_types::{ErrorResponse, ReadSourceCodeRequest};
 use crate::AppState;
 use actix_web::web::{Data, Json};
 use actix_web::HttpResponse;
 use log::{error, info};
+use lsproxy_common::api_types::{ErrorResponse, ReadSourceCodeRequest};
 use serde::Serialize;
 use std::path::PathBuf;
 
@@ -27,10 +27,7 @@ pub async fn read_source_code(
     data: Data<AppState>,
     info: Json<ReadSourceCodeRequest>,
 ) -> HttpResponse {
-    info!(
-        "Received read source code request for file: {}",
-        info.path
-    );
+    info!("Received read source code request for file: {}", info.path);
 
     // Build full path
     let file_path = PathBuf::from(&data.workspace_path).join(&info.path);
@@ -84,7 +81,9 @@ pub async fn read_source_code(
 
                 HttpResponse::Ok().json(ReadSourceResponse { source_code })
             } else {
-                HttpResponse::Ok().json(ReadSourceResponse { source_code: content })
+                HttpResponse::Ok().json(ReadSourceResponse {
+                    source_code: content,
+                })
             }
         }
         Err(e) => {

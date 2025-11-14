@@ -1,8 +1,6 @@
 use crate::lsp::json_rpc::JsonRpc;
 use crate::lsp::process::Process;
 use crate::lsp::{ExpectedMessageKey, JsonRpcHandler, ProcessHandler};
-use lsproxy_common::utils::file_utils::{fix_relative_uris, search_paths, FileType};
-use lsproxy_common::utils::language_utils::detect_language_string;
 use async_trait::async_trait;
 use log::{debug, error, info, warn};
 use lsp_types::{
@@ -12,6 +10,8 @@ use lsp_types::{
     ReferenceParams, TagSupport, TextDocumentClientCapabilities, TextDocumentIdentifier,
     TextDocumentItem, TextDocumentPositionParams, Url, WorkDoneProgressParams, WorkspaceFolder,
 };
+use lsproxy_common::utils::file_utils::{fix_relative_uris, search_paths, FileType};
+use lsproxy_common::utils::language_utils::detect_language_string;
 use std::error::Error;
 use std::path::{Path, PathBuf};
 
@@ -251,7 +251,10 @@ pub trait LspClient: Send {
             GotoDefinitionResponse::Array(Vec::new())
         } else {
             // Pre-process the result to fix relative URIs (Sorbet issue)
-            let workspace_path = self.get_workspace_documents().root_path().to_str()
+            let workspace_path = self
+                .get_workspace_documents()
+                .root_path()
+                .to_str()
                 .ok_or("Invalid workspace path")?;
             let preprocessed_result = fix_relative_uris(result, workspace_path);
 
@@ -264,16 +267,26 @@ pub trait LspClient: Send {
                     warn!("Standard deserialization failed: {}. Attempting fallback parsing. Raw response: {}", e, serde_json::to_string(&preprocessed_result).unwrap_or_else(|_| "Unable to serialize".to_string()));
 
                     // Try as array of locations
-                    if let Ok(locs) = serde_json::from_value::<Vec<Location>>(preprocessed_result.clone()) {
+                    if let Ok(locs) =
+                        serde_json::from_value::<Vec<Location>>(preprocessed_result.clone())
+                    {
                         GotoDefinitionResponse::Array(locs)
                     }
                     // Try as single location
-                    else if let Ok(loc) = serde_json::from_value::<Location>(preprocessed_result.clone()) {
+                    else if let Ok(loc) =
+                        serde_json::from_value::<Location>(preprocessed_result.clone())
+                    {
                         GotoDefinitionResponse::Scalar(loc)
                     }
                     // Give up but include the raw response in the error
                     else {
-                        return Err(format!("Failed to parse goto definition response: {}. Raw response: {}", e, serde_json::to_string(&preprocessed_result).unwrap_or_else(|_| "Unable to serialize".to_string())).into());
+                        return Err(format!(
+                            "Failed to parse goto definition response: {}. Raw response: {}",
+                            e,
+                            serde_json::to_string(&preprocessed_result)
+                                .unwrap_or_else(|_| "Unable to serialize".to_string())
+                        )
+                        .into());
                     }
                 }
             }
@@ -340,7 +353,10 @@ pub trait LspClient: Send {
             Vec::new()
         } else {
             // Pre-process the result to fix relative URIs (Sorbet issue)
-            let workspace_path = self.get_workspace_documents().root_path().to_str()
+            let workspace_path = self
+                .get_workspace_documents()
+                .root_path()
+                .to_str()
                 .ok_or("Invalid workspace path")?;
             let preprocessed_result = fix_relative_uris(result, workspace_path);
             serde_json::from_value(preprocessed_result)?
@@ -398,7 +414,13 @@ pub trait LspClient: Send {
             .map(|&s| s.to_string())
             .collect();
 
-        match search_paths(Path::new(&root_path), include_patterns, exclude_patterns, true, FileType::Dir) {
+        match search_paths(
+            Path::new(&root_path),
+            include_patterns,
+            exclude_patterns,
+            true,
+            FileType::Dir,
+        ) {
             Ok(dirs) => {
                 for dir in dirs {
                     let folder_path = Path::new(&root_path).join(&dir);

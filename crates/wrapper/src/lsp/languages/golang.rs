@@ -40,7 +40,6 @@ impl LspClient for GoplsClient {
 
     #[allow(deprecated)]
 
-
     async fn get_initialize_params(
         &mut self,
         root_path: String,

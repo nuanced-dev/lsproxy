@@ -26,8 +26,8 @@ pub async fn list_files(data: Data<AppState>) -> HttpResponse {
     let workspace_path_arc = Arc::new(workspace_path.to_path_buf());
 
     let walker = WalkBuilder::new(workspace_path)
-        .hidden(true)       // Skip hidden files (like .git, .env)
-        .git_ignore(false)  // Don't filter by gitignore - list all workspace files
+        .hidden(true) // Skip hidden files (like .git, .env)
+        .git_ignore(false) // Don't filter by gitignore - list all workspace files
         .git_exclude(false) // Don't use git exclude rules
         .build_parallel();
 
@@ -56,10 +56,7 @@ pub async fn list_files(data: Data<AppState>) -> HttpResponse {
         })
     });
 
-    let mut files = Arc::try_unwrap(files)
-        .unwrap()
-        .into_inner()
-        .unwrap();
+    let mut files = Arc::try_unwrap(files).unwrap().into_inner().unwrap();
 
     files.sort();
     files.dedup();

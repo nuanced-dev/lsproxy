@@ -75,10 +75,7 @@ pub fn search_paths(
         })
     });
 
-    let paths = Arc::try_unwrap(paths)
-        .unwrap()
-        .into_inner()
-        .unwrap();
+    let paths = Arc::try_unwrap(paths).unwrap().into_inner().unwrap();
 
     // Deduplicate for Dir type
     if matches!(file_type, FileType::Dir) {
@@ -112,7 +109,13 @@ pub fn search_directories(
     include_patterns: Vec<String>,
     exclude_patterns: Vec<String>,
 ) -> std::io::Result<Vec<PathBuf>> {
-    search_paths(root_path, include_patterns, exclude_patterns, true, FileType::Dir)
+    search_paths(
+        root_path,
+        include_patterns,
+        exclude_patterns,
+        true,
+        FileType::Dir,
+    )
 }
 
 pub fn uri_to_relative_path_string(uri: &Url) -> String {
@@ -203,4 +206,3 @@ pub fn fix_relative_uris(result: serde_json::Value, workspace_path: &str) -> ser
         result
     }
 }
-

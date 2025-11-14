@@ -176,12 +176,12 @@ impl SupportedLanguages {
             ("3.2.2", true) => Self::RubySorbet3_2_2,
             // For partial versions like "3.4" or unsupported patch versions like "3.4.8",
             // default to a stable supported patch version for that minor version
-            (v, false) if v.starts_with("3.4") => Self::Ruby3_4_4,  // Stable default for 3.4.x
-            (v, false) if v.starts_with("3.3") => Self::Ruby3_3_6,  // Stable default for 3.3.x
-            (v, false) if v.starts_with("3.2") => Self::Ruby3_2_6,  // Stable default for 3.2.x
-            (v, true) if v.starts_with("3.4") => Self::RubySorbet3_4_4,  // Stable default for 3.4.x
-            (v, true) if v.starts_with("3.3") => Self::RubySorbet3_3_6,  // Stable default for 3.3.x
-            (v, true) if v.starts_with("3.2") => Self::RubySorbet3_2_6,  // Stable default for 3.2.x
+            (v, false) if v.starts_with("3.4") => Self::Ruby3_4_4, // Stable default for 3.4.x
+            (v, false) if v.starts_with("3.3") => Self::Ruby3_3_6, // Stable default for 3.3.x
+            (v, false) if v.starts_with("3.2") => Self::Ruby3_2_6, // Stable default for 3.2.x
+            (v, true) if v.starts_with("3.4") => Self::RubySorbet3_4_4, // Stable default for 3.4.x
+            (v, true) if v.starts_with("3.3") => Self::RubySorbet3_3_6, // Stable default for 3.3.x
+            (v, true) if v.starts_with("3.2") => Self::RubySorbet3_2_6, // Stable default for 3.2.x
             // Default to stable version for completely unsupported versions
             (_, false) => Self::Ruby3_4_4,
             (_, true) => Self::RubySorbet3_4_4,
@@ -205,14 +205,27 @@ impl SupportedLanguages {
 
             // Ruby family matching - any Ruby version matches any other Ruby version
             // This includes cross-variant matching: regular Ruby matches Sorbet and vice versa
-            (Ruby3_4_7 | Ruby3_4_6 | Ruby3_4_5 | Ruby3_4_4 | Ruby3_4_3 | Ruby3_4_2 | Ruby3_4_1 | Ruby3_4_0 | Ruby3_3_6 | Ruby3_3_5 | Ruby3_2_6 | Ruby3_2_2,
-             Ruby3_4_7 | Ruby3_4_6 | Ruby3_4_5 | Ruby3_4_4 | Ruby3_4_3 | Ruby3_4_2 | Ruby3_4_1 | Ruby3_4_0 | Ruby3_3_6 | Ruby3_3_5 | Ruby3_2_6 | Ruby3_2_2 |
-             RubySorbet3_4_7 | RubySorbet3_4_6 | RubySorbet3_4_5 | RubySorbet3_4_4 | RubySorbet3_4_3 | RubySorbet3_4_2 | RubySorbet3_4_1 | RubySorbet3_4_0 | RubySorbet3_3_6 | RubySorbet3_3_5 | RubySorbet3_2_6 | RubySorbet3_2_2) => true,
+            (
+                Ruby3_4_7 | Ruby3_4_6 | Ruby3_4_5 | Ruby3_4_4 | Ruby3_4_3 | Ruby3_4_2 | Ruby3_4_1
+                | Ruby3_4_0 | Ruby3_3_6 | Ruby3_3_5 | Ruby3_2_6 | Ruby3_2_2,
+                Ruby3_4_7 | Ruby3_4_6 | Ruby3_4_5 | Ruby3_4_4 | Ruby3_4_3 | Ruby3_4_2 | Ruby3_4_1
+                | Ruby3_4_0 | Ruby3_3_6 | Ruby3_3_5 | Ruby3_2_6 | Ruby3_2_2 | RubySorbet3_4_7
+                | RubySorbet3_4_6 | RubySorbet3_4_5 | RubySorbet3_4_4 | RubySorbet3_4_3
+                | RubySorbet3_4_2 | RubySorbet3_4_1 | RubySorbet3_4_0 | RubySorbet3_3_6
+                | RubySorbet3_3_5 | RubySorbet3_2_6 | RubySorbet3_2_2,
+            ) => true,
 
             // RubySorbet family matching - any RubySorbet version matches any Ruby version (regular or Sorbet)
-            (RubySorbet3_4_7 | RubySorbet3_4_6 | RubySorbet3_4_5 | RubySorbet3_4_4 | RubySorbet3_4_3 | RubySorbet3_4_2 | RubySorbet3_4_1 | RubySorbet3_4_0 | RubySorbet3_3_6 | RubySorbet3_3_5 | RubySorbet3_2_6 | RubySorbet3_2_2,
-             Ruby3_4_7 | Ruby3_4_6 | Ruby3_4_5 | Ruby3_4_4 | Ruby3_4_3 | Ruby3_4_2 | Ruby3_4_1 | Ruby3_4_0 | Ruby3_3_6 | Ruby3_3_5 | Ruby3_2_6 | Ruby3_2_2 |
-             RubySorbet3_4_7 | RubySorbet3_4_6 | RubySorbet3_4_5 | RubySorbet3_4_4 | RubySorbet3_4_3 | RubySorbet3_4_2 | RubySorbet3_4_1 | RubySorbet3_4_0 | RubySorbet3_3_6 | RubySorbet3_3_5 | RubySorbet3_2_6 | RubySorbet3_2_2) => true,
+            (
+                RubySorbet3_4_7 | RubySorbet3_4_6 | RubySorbet3_4_5 | RubySorbet3_4_4
+                | RubySorbet3_4_3 | RubySorbet3_4_2 | RubySorbet3_4_1 | RubySorbet3_4_0
+                | RubySorbet3_3_6 | RubySorbet3_3_5 | RubySorbet3_2_6 | RubySorbet3_2_2,
+                Ruby3_4_7 | Ruby3_4_6 | Ruby3_4_5 | Ruby3_4_4 | Ruby3_4_3 | Ruby3_4_2 | Ruby3_4_1
+                | Ruby3_4_0 | Ruby3_3_6 | Ruby3_3_5 | Ruby3_2_6 | Ruby3_2_2 | RubySorbet3_4_7
+                | RubySorbet3_4_6 | RubySorbet3_4_5 | RubySorbet3_4_4 | RubySorbet3_4_3
+                | RubySorbet3_4_2 | RubySorbet3_4_1 | RubySorbet3_4_0 | RubySorbet3_3_6
+                | RubySorbet3_3_5 | RubySorbet3_2_6 | RubySorbet3_2_2,
+            ) => true,
 
             // No match
             _ => false,

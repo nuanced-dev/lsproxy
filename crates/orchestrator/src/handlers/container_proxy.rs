@@ -1,3 +1,5 @@
+use crate::container::{ContainerHttpClient, ContainerOrchestrator};
+use log::{error, info};
 /// Helper module for routing requests to containerized LSP servers
 ///
 /// This module handles:
@@ -5,11 +7,8 @@
 /// - Getting or spawning appropriate container
 /// - Making HTTP requests to container
 /// - Returning responses
-
 use lsproxy_common::api_types::*;
-use crate::container::{ContainerHttpClient, ContainerOrchestrator};
 use lsproxy_common::utils::language_utils::detect_language;
-use log::{error, info};
 use std::sync::Arc;
 
 /// Get or spawn a container for the given language and return an HTTP client
@@ -26,7 +25,10 @@ pub async fn get_container_client(
     info!("Spawning container for {:?}", language);
     match orchestrator.spawn_container(language.clone()).await {
         Ok(container_info) => {
-            info!("Container spawned for {:?}: {}", language, container_info.endpoint);
+            info!(
+                "Container spawned for {:?}: {}",
+                language, container_info.endpoint
+            );
             Ok(ContainerHttpClient::new(&container_info.endpoint))
         }
         Err(e) => {

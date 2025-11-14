@@ -4,9 +4,9 @@ use actix_web::{
     web::{get, post, resource, scope, Data},
     App, HttpServer,
 };
-use lsproxy_common::api_types::{FindIdentifierRequest, IdentifierResponse};
 use handlers::{find_identifier, read_source_code};
 use log::{error, info, warn};
+use lsproxy_common::api_types::{FindIdentifierRequest, IdentifierResponse};
 use middleware::JwtMiddleware;
 use std::fs;
 use std::fs::File;
@@ -20,15 +20,15 @@ use utoipa_swagger_ui::SwaggerUi;
 mod container;
 mod handlers;
 
+use crate::handlers::{
+    definitions_in_file, find_definition, find_referenced_symbols, find_references, health_check,
+    list_files,
+};
 use lsproxy_common::api_types::{
     get_mount_dir, set_global_mount_dir, CodeContext, DefinitionResponse, ErrorResponse,
     FilePosition, FileRange, FileSymbolsRequest, GetDefinitionRequest, GetReferencedSymbolsRequest,
     GetReferencesRequest, HealthResponse, Position, ReferenceWithSymbolDefinitions,
     ReferencedSymbolsResponse, ReferencesResponse, SupportedLanguages, Symbol, SymbolResponse,
-};
-use crate::handlers::{
-    definitions_in_file, find_definition, find_referenced_symbols, find_references, health_check,
-    list_files,
 };
 // use lsproxy_common::utils::doc_utils::make_code_sample;
 
@@ -394,5 +394,4 @@ mod test {
 
         Ok(())
     }
-
 }

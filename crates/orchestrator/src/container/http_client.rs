@@ -2,7 +2,6 @@
 ///
 /// This client provides a simple interface to make HTTP requests to language
 /// server containers, replacing the direct LSP process management.
-
 use lsproxy_common::api_types::*;
 use std::error::Error;
 
@@ -99,5 +98,4 @@ impl ContainerHttpClient {
         // Response is directly Vec<Symbol>
         Ok(response.json().await?)
     }
-
 }

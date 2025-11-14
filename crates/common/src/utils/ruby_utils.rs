@@ -104,7 +104,10 @@ pub fn detect_ruby_version(workspace_path: &Path) -> String {
         }
     }
 
-    debug!("No Ruby version found, using default {}", DEFAULT_RUBY_VERSION);
+    debug!(
+        "No Ruby version found, using default {}",
+        DEFAULT_RUBY_VERSION
+    );
     DEFAULT_RUBY_VERSION.to_string()
 }
 

@@ -1,14 +1,14 @@
-use lsproxy_common::api_types::{CodeContext, FileRange, Position, Range};
 use crate::handlers::error::IntoHttpResponse;
 use crate::manager::{LspManagerError, Manager};
-use lsproxy_common::utils::file_utils::uri_to_relative_path_string;
 use actix_web::web::{Data, Json};
 use actix_web::HttpResponse;
 use log::{error, info, warn};
+use lsproxy_common::api_types::{CodeContext, FileRange, Position, Range};
+use lsproxy_common::utils::file_utils::uri_to_relative_path_string;
 
-use lsproxy_common::api_types::{DefinitionResponse, GetDefinitionRequest};
 use crate::AppState;
 use lsp_types::{GotoDefinitionResponse, Location, Position as LspPosition, Range as LspRange};
+use lsproxy_common::api_types::{DefinitionResponse, GetDefinitionRequest};
 /// Get the definition of a symbol at a specific position in a file
 ///
 /// Returns the location of the definition for the symbol at the given position.
@@ -187,4 +187,3 @@ async fn fetch_definition_source_code(
     }
     Ok(code_contexts)
 }
-

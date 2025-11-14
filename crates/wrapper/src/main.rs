@@ -10,12 +10,12 @@ mod manager;
 use lsp::client::LspClient;
 use lsp::languages::{GenericLspClient, GoplsClient, SorbetClient};
 use lsp::process::ProcessHandler;
-use manager::Manager;
 use lsproxy_common::utils::workspace_documents::{
-    DidOpenConfiguration, PHP_FILE_PATTERNS, PYTHON_FILE_PATTERNS, RUBY_FILE_PATTERNS,
-    TYPESCRIPT_AND_JAVASCRIPT_FILE_PATTERNS, RUST_FILE_PATTERNS, GOLANG_FILE_PATTERNS,
-    JAVA_FILE_PATTERNS, C_AND_CPP_FILE_PATTERNS, CSHARP_FILE_PATTERNS,
+    DidOpenConfiguration, CSHARP_FILE_PATTERNS, C_AND_CPP_FILE_PATTERNS, GOLANG_FILE_PATTERNS,
+    JAVA_FILE_PATTERNS, PHP_FILE_PATTERNS, PYTHON_FILE_PATTERNS, RUBY_FILE_PATTERNS,
+    RUST_FILE_PATTERNS, TYPESCRIPT_AND_JAVASCRIPT_FILE_PATTERNS,
 };
+use manager::Manager;
 
 /// HTTP wrapper for LSP servers
 /// Provides HTTP endpoints for LSP JSON-RPC communication
@@ -110,8 +110,11 @@ async fn main() -> std::io::Result<()> {
         "ruby-sorbet" => {
             info!("Detected ruby-sorbet language - using Lazy didOpen configuration");
             (RUBY_FILE_PATTERNS.to_vec(), DidOpenConfiguration::Lazy)
-        },
-        "typescript" | "javascript" => (TYPESCRIPT_AND_JAVASCRIPT_FILE_PATTERNS.to_vec(), DidOpenConfiguration::Lazy),
+        }
+        "typescript" | "javascript" => (
+            TYPESCRIPT_AND_JAVASCRIPT_FILE_PATTERNS.to_vec(),
+            DidOpenConfiguration::Lazy,
+        ),
         "rust" => (RUST_FILE_PATTERNS.to_vec(), DidOpenConfiguration::None),
         "go" => (GOLANG_FILE_PATTERNS.to_vec(), DidOpenConfiguration::None),
         "java" => (JAVA_FILE_PATTERNS.to_vec(), DidOpenConfiguration::None),
@@ -135,61 +138,61 @@ async fn main() -> std::io::Result<()> {
     );
 
     // Apply language-specific initialization and setup
-    info!("Checking LSP command for language-specific configuration: '{}'", args.lsp_command);
+    info!(
+        "Checking LSP command for language-specific configuration: '{}'",
+        args.lsp_command
+    );
     let mut client: Box<dyn LspClient> = match args.lsp_command.as_str() {
         "srb" => {
             info!("Configuring Sorbet with custom workspace folder detection (sorbet/config)");
             // Convert GenericLspClient components to SorbetClient
-            let (process, json_rpc, workspace_documents, pending_requests) = base_client.into_components();
-            let sorbet_client = SorbetClient::new(
-                process,
-                json_rpc,
-                workspace_documents,
-                pending_requests,
-            );
+            let (process, json_rpc, workspace_documents, pending_requests) =
+                base_client.into_components();
+            let sorbet_client =
+                SorbetClient::new(process, json_rpc, workspace_documents, pending_requests);
             Box::new(sorbet_client)
         }
         _ => match language.as_str() {
             "go" => {
                 info!("Configuring Go with custom workspace folder detection (go.work/go.mod)");
                 // Convert GenericLspClient components to GoplsClient
-                let (process, json_rpc, workspace_documents, pending_requests) = base_client.into_components();
-                let gopls_client = GoplsClient::new(
-                    process,
-                    json_rpc,
-                    workspace_documents,
-                    pending_requests,
-                );
+                let (process, json_rpc, workspace_documents, pending_requests) =
+                    base_client.into_components();
+                let gopls_client =
+                    GoplsClient::new(process, json_rpc, workspace_documents, pending_requests);
                 Box::new(gopls_client)
             }
-        "rust" => {
-            info!("Configuring Rust with initialization options and setup workspace");
-            let configured_client = base_client
-                .with_initialization_options(serde_json::json!({
-                    "cargo": {
-                        "sysroot": serde_json::Value::Null
-                    }
-                }))
-                .with_setup_workspace_method("rust-analyzer/reloadWorkspace".to_string());
-            Box::new(configured_client)
-        }
-            "cpp" | "c" => {
-                info!("Configuring C/C++ with clangd initialization options");
+            "rust" => {
+                info!("Configuring Rust with initialization options and setup workspace");
                 let configured_client = base_client
                     .with_initialization_options(serde_json::json!({
+                        "cargo": {
+                            "sysroot": serde_json::Value::Null
+                        }
+                    }))
+                    .with_setup_workspace_method("rust-analyzer/reloadWorkspace".to_string());
+                Box::new(configured_client)
+            }
+            "cpp" | "c" => {
+                info!("Configuring C/C++ with clangd initialization options");
+                let configured_client =
+                    base_client.with_initialization_options(serde_json::json!({
                         "clangdFileStatus": true
                     }));
                 Box::new(configured_client)
             }
             _ => Box::new(base_client),
-        }
+        },
     };
 
     // Initialize the LSP server
-    client.initialize(args.workspace_path.clone()).await.map_err(|e| {
-        error!("Failed to initialize LSP server: {}", e);
-        std::io::Error::new(std::io::ErrorKind::Other, e)
-    })?;
+    client
+        .initialize(args.workspace_path.clone())
+        .await
+        .map_err(|e| {
+            error!("Failed to initialize LSP server: {}", e);
+            std::io::Error::new(std::io::ErrorKind::Other, e)
+        })?;
 
     // Java-specific: Wait for ServiceReady notification
     if language.as_str() == "java" {
@@ -211,31 +214,31 @@ async fn main() -> std::io::Result<()> {
                 std::io::Error::new(std::io::ErrorKind::Other, e)
             })?;
 
-        tokio::time::timeout(
-            std::time::Duration::from_secs(180),
-            notification_rx.recv()
-        )
-        .await
-        .map_err(|_| {
-            error!("Timeout waiting for Java ServiceReady notification");
-            std::io::Error::new(
-                std::io::ErrorKind::TimedOut,
-                "Timeout waiting for Java ServiceReady notification after 180 seconds",
-            )
-        })?
-        .map_err(|e| {
-            error!("Error receiving ServiceReady notification: {}", e);
-            std::io::Error::new(std::io::ErrorKind::Other, e)
-        })?;
+        tokio::time::timeout(std::time::Duration::from_secs(180), notification_rx.recv())
+            .await
+            .map_err(|_| {
+                error!("Timeout waiting for Java ServiceReady notification");
+                std::io::Error::new(
+                    std::io::ErrorKind::TimedOut,
+                    "Timeout waiting for Java ServiceReady notification after 180 seconds",
+                )
+            })?
+            .map_err(|e| {
+                error!("Error receiving ServiceReady notification: {}", e);
+                std::io::Error::new(std::io::ErrorKind::Other, e)
+            })?;
 
         info!("Java: ServiceReady notification received!");
     }
 
     // Setup workspace (e.g., rust-analyzer/reloadWorkspace)
-    client.setup_workspace(&args.workspace_path).await.map_err(|e| {
-        error!("Failed to setup workspace: {}", e);
-        std::io::Error::new(std::io::ErrorKind::Other, e)
-    })?;
+    client
+        .setup_workspace(&args.workspace_path)
+        .await
+        .map_err(|e| {
+            error!("Failed to setup workspace: {}", e);
+            std::io::Error::new(std::io::ErrorKind::Other, e)
+        })?;
 
     info!("LSP server started and initialized successfully");
 
@@ -248,11 +251,26 @@ async fn main() -> std::io::Result<()> {
         App::new()
             .app_data(app_state.clone())
             .route("/health", web::get().to(health))
-            .route("/symbol/find-identifier", web::post().to(handlers::find_identifier::find_identifier))
-            .route("/symbol/find-definition", web::post().to(handlers::find_definition::find_definition))
-            .route("/symbol/find-references", web::post().to(handlers::find_references::find_references))
-            .route("/symbol/find-referenced-symbols", web::post().to(handlers::find_referenced_symbols::find_referenced_symbols))
-            .route("/symbol/definitions-in-file", web::get().to(handlers::definitions_in_file::definitions_in_file))
+            .route(
+                "/symbol/find-identifier",
+                web::post().to(handlers::find_identifier::find_identifier),
+            )
+            .route(
+                "/symbol/find-definition",
+                web::post().to(handlers::find_definition::find_definition),
+            )
+            .route(
+                "/symbol/find-references",
+                web::post().to(handlers::find_references::find_references),
+            )
+            .route(
+                "/symbol/find-referenced-symbols",
+                web::post().to(handlers::find_referenced_symbols::find_referenced_symbols),
+            )
+            .route(
+                "/symbol/definitions-in-file",
+                web::get().to(handlers::definitions_in_file::definitions_in_file),
+            )
     })
     .bind(("0.0.0.0", args.port))?
     .run()

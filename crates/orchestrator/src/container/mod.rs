@@ -167,17 +167,22 @@ impl ContainerOrchestrator {
     /// Returns None if the variable is not set (all languages enabled)
     /// Returns Some(HashSet) with the parsed languages if set
     fn get_enabled_languages() -> Option<HashSet<SupportedLanguages>> {
-        std::env::var("ENABLED_LANGUAGES").ok().map(|enabled_langs| {
-            enabled_langs
-                .split(',')
-                .filter_map(Self::parse_language)
-                .collect()
-        })
+        std::env::var("ENABLED_LANGUAGES")
+            .ok()
+            .map(|enabled_langs| {
+                enabled_langs
+                    .split(',')
+                    .filter_map(Self::parse_language)
+                    .collect()
+            })
     }
 
     /// Initialize workspace by detecting languages and spawning containers upfront
     /// This matches the behavior of the original Manager::start_langservers()
-    pub async fn initialize_workspace(&self, workspace_path: &str) -> Result<(), OrchestratorError> {
+    pub async fn initialize_workspace(
+        &self,
+        workspace_path: &str,
+    ) -> Result<(), OrchestratorError> {
         use crate::container::language_manager::*;
         use lsproxy_common::utils::file_utils::search_files;
         use lsproxy_common::utils::workspace_documents::DEFAULT_EXCLUDE_PATTERNS;
@@ -196,13 +201,13 @@ impl ContainerOrchestrator {
             Box::new(PHPManager::new()),
         ];
 
-        log::info!("Scanning workspace with {} language managers", managers.len());
+        log::info!(
+            "Scanning workspace with {} language managers",
+            managers.len()
+        );
 
         // Collect all patterns from all managers
-        let all_patterns: Vec<String> = managers
-            .iter()
-            .flat_map(|m| m.file_patterns())
-            .collect();
+        let all_patterns: Vec<String> = managers.iter().flat_map(|m| m.file_patterns()).collect();
 
         log::info!("Scanning for {} file patterns", all_patterns.len());
 
@@ -244,7 +249,8 @@ impl ContainerOrchestrator {
 
         // Filter based on ENABLED_LANGUAGES environment variable
         let enabled_languages = Self::get_enabled_languages();
-        let languages_to_spawn: Vec<SupportedLanguages> = if let Some(enabled) = &enabled_languages {
+        let languages_to_spawn: Vec<SupportedLanguages> = if let Some(enabled) = &enabled_languages
+        {
             log::info!("Filtering detected languages. Enabled: {:?}", enabled);
             detected_languages
                 .into_iter()
@@ -269,7 +275,11 @@ impl ContainerOrchestrator {
             log::info!("Spawning container for {:?}", language);
             match self.spawn_container(language.clone()).await {
                 Ok(info) => {
-                    log::info!("Successfully spawned container for {:?} at {}", language, info.endpoint);
+                    log::info!(
+                        "Successfully spawned container for {:?} at {}",
+                        language,
+                        info.endpoint
+                    );
                 }
                 Err(e) => {
                     log::error!("Failed to spawn container for {:?}: {}", language, e);
@@ -381,7 +391,11 @@ impl ContainerOrchestrator {
                 ..Default::default()
             };
 
-            match self.docker.remove_container(&id, Some(remove_options)).await {
+            match self
+                .docker
+                .remove_container(&id, Some(remove_options))
+                .await
+            {
                 Ok(_) => log::info!("Stopped wrapper container: {}", id),
                 Err(e) => log::warn!("Failed to remove wrapper container {}: {}", id, e),
             }
@@ -408,7 +422,10 @@ impl ContainerOrchestrator {
     }
 
     /// Stop a specific container
-    pub async fn stop_container(&self, language: &SupportedLanguages) -> Result<(), OrchestratorError> {
+    pub async fn stop_container(
+        &self,
+        language: &SupportedLanguages,
+    ) -> Result<(), OrchestratorError> {
         use bollard::container::{RemoveContainerOptions, StopContainerOptions};
 
         if let Some(info) = self.remove_container(language).await {
@@ -417,7 +434,11 @@ impl ContainerOrchestrator {
                 t: 10, // 10 second timeout
             };
 
-            match self.docker.stop_container(&info.container_id, Some(stop_options)).await {
+            match self
+                .docker
+                .stop_container(&info.container_id, Some(stop_options))
+                .await
+            {
                 Ok(_) => log::info!("Stopped container {} for {:?}", info.container_id, language),
                 Err(e) => log::warn!("Failed to stop container {}: {}", info.container_id, e),
             }
@@ -428,7 +449,9 @@ impl ContainerOrchestrator {
                 ..Default::default()
             };
 
-            self.docker.remove_container(&info.container_id, Some(remove_options)).await?;
+            self.docker
+                .remove_container(&info.container_id, Some(remove_options))
+                .await?;
             log::info!("Removed container {} for {:?}", info.container_id, language);
         }
 
@@ -441,10 +464,14 @@ impl ContainerOrchestrator {
         use bollard::container::{Config, CreateContainerOptions};
         use bollard::models::HostConfig;
 
-        let parent_id = Self::get_own_container_id()
-            .ok_or_else(|| OrchestratorError::Network("Cannot determine own container ID for watchdog".to_string()))?;
+        let parent_id = Self::get_own_container_id().ok_or_else(|| {
+            OrchestratorError::Network("Cannot determine own container ID for watchdog".to_string())
+        })?;
 
-        log::info!("Spawning watchdog to monitor parent container: {}", parent_id);
+        log::info!(
+            "Spawning watchdog to monitor parent container: {}",
+            parent_id
+        );
 
         let watchdog_name = format!("lsproxy-watchdog-{}", &parent_id[..12]);
 
@@ -456,13 +483,9 @@ impl ContainerOrchestrator {
 
         let config = Config {
             image: Some("lsproxy-watchdog:latest".to_string()),
-            env: Some(vec![
-                format!("PARENT_CONTAINER_ID={}", parent_id)
-            ]),
+            env: Some(vec![format!("PARENT_CONTAINER_ID={}", parent_id)]),
             host_config: Some(HostConfig {
-                binds: Some(vec![
-                    "/var/run/docker.sock:/var/run/docker.sock".to_string()
-                ]),
+                binds: Some(vec!["/var/run/docker.sock:/var/run/docker.sock".to_string()]),
                 auto_remove: Some(true), // Auto-remove container when it exits
                 ..Default::default()
             }),
@@ -475,9 +498,15 @@ impl ContainerOrchestrator {
         };
 
         let container = self.docker.create_container(Some(options), config).await?;
-        self.docker.start_container::<String>(&container.id, None).await?;
+        self.docker
+            .start_container::<String>(&container.id, None)
+            .await?;
 
-        log::info!("Watchdog spawned: {} (monitoring {})", watchdog_name, parent_id);
+        log::info!(
+            "Watchdog spawned: {} (monitoring {})",
+            watchdog_name,
+            parent_id
+        );
 
         Ok(watchdog_name)
     }
@@ -495,7 +524,11 @@ impl ContainerOrchestrator {
                 ..Default::default()
             };
 
-            match self.docker.remove_container(&watchdog_name, Some(remove_options)).await {
+            match self
+                .docker
+                .remove_container(&watchdog_name, Some(remove_options))
+                .await
+            {
                 Ok(_) => log::info!("Stopped watchdog: {}", watchdog_name),
                 Err(e) => log::debug!("Watchdog removal failed (may not exist): {}", e),
             }
@@ -580,10 +613,7 @@ mod tests {
             Some(SupportedLanguages::Golang)
         );
         // Verify "golang" is NOT accepted (removed for consistency)
-        assert_eq!(
-            ContainerOrchestrator::parse_language("golang"),
-            None
-        );
+        assert_eq!(ContainerOrchestrator::parse_language("golang"), None);
         assert_eq!(
             ContainerOrchestrator::parse_language("cpp"),
             Some(SupportedLanguages::CPP)

@@ -1,9 +1,11 @@
-use lsproxy_common::api_types::{ErrorResponse, GetReferencedSymbolsRequest, ReferencedSymbolsResponse};
 use crate::handlers::container_proxy;
 use crate::AppState;
 use actix_web::web::{Data, Json};
 use actix_web::HttpResponse;
 use log::{error, info};
+use lsproxy_common::api_types::{
+    ErrorResponse, GetReferencedSymbolsRequest, ReferencedSymbolsResponse,
+};
 
 /// Find all symbols referenced within a given symbol
 #[utoipa::path(

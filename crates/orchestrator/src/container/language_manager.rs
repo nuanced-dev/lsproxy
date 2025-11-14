@@ -1,5 +1,7 @@
 use lsproxy_common::api_types::SupportedLanguages;
-use lsproxy_common::utils::ruby_utils::{extract_ruby_version_from_file, has_sorbet_config, has_sorbet_type_annotation};
+use lsproxy_common::utils::ruby_utils::{
+    extract_ruby_version_from_file, has_sorbet_config, has_sorbet_type_annotation,
+};
 use lsproxy_common::utils::workspace_documents::*;
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
@@ -310,10 +312,7 @@ impl CSharpManager {
 
 impl LanguageManager for CSharpManager {
     fn file_patterns(&self) -> Vec<String> {
-        CSHARP_FILE_PATTERNS
-            .iter()
-            .map(|s| s.to_string())
-            .collect()
+        CSHARP_FILE_PATTERNS.iter().map(|s| s.to_string()).collect()
     }
 
     fn process_file(&mut self, file_path: &Path) {
@@ -387,10 +386,7 @@ impl GolangManager {
 
 impl LanguageManager for GolangManager {
     fn file_patterns(&self) -> Vec<String> {
-        GOLANG_FILE_PATTERNS
-            .iter()
-            .map(|s| s.to_string())
-            .collect()
+        GOLANG_FILE_PATTERNS.iter().map(|s| s.to_string()).collect()
     }
 
     fn process_file(&mut self, file_path: &Path) {
