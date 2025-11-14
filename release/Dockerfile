@@ -66,9 +66,9 @@ RUN case "$TARGETPLATFORM" in \
     ;; \
     esac
 
-RUN curl -O -L "https://go.dev/dl/go1.23.5.linux-${BUILDARCH}.tar.gz" && \
-    tar -C /usr/local -xzf go1.23.5.linux-${BUILDARCH}.tar.gz && \
-    rm go1.23.5.linux-${BUILDARCH}.tar.gz && \
+RUN curl -O -L "https://go.dev/dl/go1.24.2.linux-${BUILDARCH}.tar.gz" && \
+    tar -C /usr/local -xzf go1.24.2.linux-${BUILDARCH}.tar.gz && \
+    rm go1.24.2.linux-${BUILDARCH}.tar.gz && \
     GOARCH=${TARGETARCH} /usr/local/go/bin/go install golang.org/x/tools/gopls@latest && \
     if [ "${TARGETARCH}" = "${BUILDARCH}" ]; then \
     cp ~/go/bin/gopls /usr/src/bin/ ; \
@@ -165,9 +165,9 @@ RUN npm install -g typescript-language-server typescript
 
 # Install go and Gopls
 ARG TARGETARCH
-RUN curl -O -L "https://go.dev/dl/go1.23.5.linux-${TARGETARCH}.tar.gz" && \
-    tar -C /usr/local -xzf go1.23.5.linux-${TARGETARCH}.tar.gz && \
-    rm go1.23.5.linux-${TARGETARCH}.tar.gz
+RUN curl -O -L "https://go.dev/dl/go1.24.2.linux-${TARGETARCH}.tar.gz" && \
+    tar -C /usr/local -xzf go1.24.2.linux-${TARGETARCH}.tar.gz && \
+    rm go1.24.2.linux-${TARGETARCH}.tar.gz
 COPY --from=builder /usr/src/bin/gopls /usr/bin/gopls
 
 ENV GOROOT=/usr/local/go

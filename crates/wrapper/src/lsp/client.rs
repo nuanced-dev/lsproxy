@@ -398,7 +398,7 @@ pub trait LspClient: Send {
             .map(|&s| s.to_string())
             .collect();
 
-        match search_directories(Path::new(&root_path), include_patterns, exclude_patterns) {
+        match search_paths(Path::new(&root_path), include_patterns, exclude_patterns, true, FileType::Dir) {
             Ok(dirs) => {
                 for dir in dirs {
                     let folder_path = Path::new(&root_path).join(&dir);
