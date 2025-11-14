@@ -281,6 +281,44 @@ impl Manager {
     pub fn get_client(&self, _lang: lsproxy_common::api_types::SupportedLanguages) -> Option<()> {
         Some(())
     }
+
+    /// Forward a raw LSP JSON-RPC request to the LSP server
+    ///
+    /// This provides lightweight pass-through of JSON-RPC requests with minimal processing.
+    pub async fn forward_lsp_request(
+        &self,
+        request: serde_json::Value,
+    ) -> Result<serde_json::Value, LspManagerError> {
+        // Parse method from request
+        let method = request
+            .get("method")
+            .and_then(|m| m.as_str())
+            .ok_or_else(|| {
+                LspManagerError::InternalError("Missing method in LSP request".to_string())
+            })?;
+
+        // Get params from request
+        let params = request.get("params").cloned();
+
+        // Forward to LSP server
+        let mut locked_client = self.client.lock().await;
+        let result = locked_client
+            .send_request(method, params)
+            .await
+            .map_err(|e| {
+                error!("Failed to forward LSP request: {}", e);
+                LspManagerError::InternalError(format!("LSP request failed: {}", e))
+            })?;
+
+        // Build response
+        let response = serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": request.get("id"),
+            "result": result
+        });
+
+        Ok(response)
+    }
 }
 
 // Convert from common LspError to wrapper-specific LspManagerError

@@ -264,6 +264,7 @@ async fn main() -> std::io::Result<()> {
                 "/symbol/definitions-in-file",
                 web::get().to(handlers::definitions_in_file::definitions_in_file),
             )
+            .route("/lsp", web::post().to(handlers::lsp::lsp))
     })
     .bind(("0.0.0.0", args.port))?
     .run()

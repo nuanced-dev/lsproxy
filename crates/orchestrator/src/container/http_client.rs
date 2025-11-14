@@ -98,4 +98,20 @@ impl ContainerHttpClient {
         // Response is directly Vec<Symbol>
         Ok(response.json().await?)
     }
+
+    /// Forward a raw LSP JSON-RPC request to the container
+    pub async fn forward_lsp_request(
+        &self,
+        request: &serde_json::Value,
+    ) -> Result<serde_json::Value, Box<dyn Error + Send + Sync>> {
+        let url = format!("{}/lsp", self.base_url);
+        let response = self.client.post(&url).json(request).send().await?;
+
+        if !response.status().is_success() {
+            let error_text = response.text().await?;
+            return Err(format!("LSP request failed: {}", error_text).into());
+        }
+
+        Ok(response.json().await?)
+    }
 }

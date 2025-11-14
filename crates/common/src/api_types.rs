@@ -566,6 +566,59 @@ pub struct ReadSourceCodeRequest {
     pub range: Option<Range>,
 }
 
+/// JSON-RPC request
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, IntoParams)]
+pub struct JsonRpcRequest {
+    /// The JSON-RPC version (always "2.0")
+    #[schema(example = "2.0")]
+    pub jsonrpc: String,
+
+    /// Optional request ID (for requests that expect a response)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub id: Option<Value>,
+
+    /// The method name
+    #[schema(example = "textDocument/hover")]
+    pub method: String,
+
+    /// The method parameters (structure varies by method)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub params: Option<Value>,
+}
+
+/// JSON-RPC response
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct JsonRpcResponse {
+    /// The JSON-RPC version (always "2.0")
+    #[schema(example = "2.0")]
+    pub jsonrpc: String,
+
+    /// The request ID (matches the request)
+    pub id: Value,
+
+    /// The result (present on success)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub result: Option<Value>,
+
+    /// The error (present on failure)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<JsonRpcError>,
+}
+
+/// JSON-RPC error
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct JsonRpcError {
+    /// Error code
+    pub code: i32,
+
+    /// Error message
+    pub message: String,
+
+    /// Optional additional error data
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub data: Option<Value>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

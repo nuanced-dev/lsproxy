@@ -23,13 +23,14 @@ mod handlers;
 
 use crate::handlers::{
     definitions_in_file, find_definition, find_referenced_symbols, find_references, health_check,
-    list_files,
+    list_files, lsp,
 };
 use lsproxy_common::api_types::{
     get_mount_dir, set_global_mount_dir, CodeContext, DefinitionResponse, ErrorResponse,
     FilePosition, FileRange, FileSymbolsRequest, GetDefinitionRequest, GetReferencedSymbolsRequest,
-    GetReferencesRequest, HealthResponse, Position, ReferenceWithSymbolDefinitions,
-    ReferencedSymbolsResponse, ReferencesResponse, SupportedLanguages, Symbol, SymbolResponse,
+    GetReferencesRequest, HealthResponse, JsonRpcError, JsonRpcRequest, JsonRpcResponse, Position,
+    ReferenceWithSymbolDefinitions, ReferencedSymbolsResponse, ReferencesResponse,
+    SupportedLanguages, Symbol, SymbolResponse,
 };
 // use lsproxy_common::utils::doc_utils::make_code_sample;
 
@@ -72,6 +73,9 @@ pub fn check_mount_dir() -> std::io::Result<()> {
             HealthResponse,
             FindIdentifierRequest,
             IdentifierResponse,
+            JsonRpcRequest,
+            JsonRpcResponse,
+            JsonRpcError,
         )
     ),
     paths(
@@ -83,6 +87,7 @@ pub fn check_mount_dir() -> std::io::Result<()> {
         crate::handlers::read_source_code,
         crate::handlers::find_referenced_symbols,
         crate::handlers::find_identifier,
+        crate::handlers::lsp,
     ),
     tags(
         (name = "lsproxy-api", description = "LSP Proxy API")
@@ -274,6 +279,8 @@ pub async fn run_server_with_port_and_host(
                     api_scope.service(resource(path).route(post().to(read_source_code))),
                 ("/system/health", Some(Method::Get)) =>
                     api_scope.service(resource(path).route(get().to(health_check))),
+                ("/lsp", Some(Method::Post)) =>
+                    api_scope.service(resource(path).route(post().to(lsp))),
                 (p, m) => panic!(
                     "Invalid path configuration for {}: {:?}. Ensure the OpenAPI spec matches your handlers.",
                     p,
