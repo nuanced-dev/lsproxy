@@ -242,7 +242,11 @@ impl ContainerOrchestrator {
             log::info!("Filtering detected languages. Enabled: {:?}", enabled);
             detected_languages
                 .into_iter()
-                .filter(|lang| enabled.contains(lang))
+                .filter(|lang| {
+                    // Check if this language matches any enabled language family
+                    // e.g., Ruby3_2_6 matches if "ruby" (Ruby3_4_4) is enabled
+                    enabled.iter().any(|family| lang.matches_family(family))
+                })
                 .collect()
         } else {
             detected_languages

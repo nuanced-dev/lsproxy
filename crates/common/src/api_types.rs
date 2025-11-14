@@ -156,6 +156,34 @@ impl SupportedLanguages {
             (_, true) => Self::RubySorbet3_4_4,
         }
     }
+
+    /// Check if this language matches a language family
+    /// Used for filtering with ENABLED_LANGUAGES which uses generic names like "ruby"
+    /// while actual containers use specific versions like "Ruby3_2_6"
+    ///
+    /// TODO: This is a temporary solution. We should improve the language version system to:
+    /// 1. Separate language family from version (e.g., Language::Ruby(Version::V3_2_6))
+    /// 2. Make ENABLED_LANGUAGES support both family-level (ruby) and version-level (ruby:3.2.6) filtering
+    /// 3. Remove the need for manual pattern matching across all Ruby versions
+    pub fn matches_family(&self, family: &SupportedLanguages) -> bool {
+        use SupportedLanguages::*;
+
+        match (self, family) {
+            // Exact match
+            (a, b) if a == b => true,
+
+            // Ruby family matching - any Ruby version matches "ruby" family enablement
+            (Ruby3_4_4 | Ruby3_4_2 | Ruby3_4_1 | Ruby3_3_6 | Ruby3_3_5 | Ruby3_2_6 | Ruby3_2_2,
+             Ruby3_4_4 | Ruby3_4_2 | Ruby3_4_1 | Ruby3_3_6 | Ruby3_3_5 | Ruby3_2_6 | Ruby3_2_2) => true,
+
+            // RubySorbet family matching
+            (RubySorbet3_4_4 | RubySorbet3_4_2 | RubySorbet3_4_1 | RubySorbet3_3_6 | RubySorbet3_3_5 | RubySorbet3_2_6 | RubySorbet3_2_2,
+             RubySorbet3_4_4 | RubySorbet3_4_2 | RubySorbet3_4_1 | RubySorbet3_3_6 | RubySorbet3_3_5 | RubySorbet3_2_6 | RubySorbet3_2_2) => true,
+
+            // No match
+            _ => false,
+        }
+    }
 }
 
 /// A position within a text document, using 0-based indexing
