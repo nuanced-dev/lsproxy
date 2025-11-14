@@ -1,0 +1,12 @@
+id: class-instantiation
+language: tsx
+rule:
+  any:
+    - kind: identifier
+      pattern: $NAME
+      inside:
+        kind: new_expression
+    - kind: type_identifier
+      pattern: $NAME
+      inside:
+        kind: new_expression

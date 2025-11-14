@@ -1,0 +1,36 @@
+[workspace]
+members = [
+    "crates/common",
+    "crates/orchestrator",
+    "crates/wrapper",
+]
+resolver = "2"
+
+[workspace.package]
+version = "0.4.5"
+edition = "2021"
+authors = ["Agentic Labs"]
+
+[workspace.dependencies]
+# Shared dependencies
+actix-web = "4.0"
+tokio = { version = "1.0", features = ["full", "process"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+log = "0.4"
+env_logger = "0.10"
+clap = { version = "4.3", features = ["derive"] }
+thiserror = "1.0"
+lsp-types = "0.95"
+async-trait = "0.1"
+glob = "0.3"
+ignore = "0.4.23"  # Pin to avoid edition2024 requirement in 0.4.25+
+
+# Common crate (internal)
+lsproxy-common = { path = "crates/common" }
+
+[profile.release]
+incremental = true
+
+[profile.dev]
+incremental = true

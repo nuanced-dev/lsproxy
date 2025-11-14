@@ -45,15 +45,19 @@ Before committing, make sure to format the code with
 
 ## Running locally
 
-Running is also pretty simple (the no auth is optional but is easier to interact with locally).
+First, build the service container:
 
+```bash
+./scripts/build-rust-containers.sh
 ```
-./scripts/run.sh $WORKSPACE_PATH --no-auth
+
+Then start the service with your workspace:
+
+```bash
+./scripts/start-service.sh $WORKSPACE_PATH
 ```
 
-The run script also builds as well, so you can just use this single script if you're iterating in development.
-
-> :warning: Like above the run script runs `lsproxy` inside the docker container, we do not support running `lsproxy` directly on the host.
+> :warning: The service runs `lsproxy` inside Docker containers, we do not support running `lsproxy` directly on the host.
 
 ## <a name="tests">Testing</a>
 
