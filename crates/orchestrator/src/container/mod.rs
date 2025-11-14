@@ -25,6 +25,8 @@ pub struct ContainerOrchestrator {
     wrapper_container_id: Arc<Mutex<Option<String>>>,
     // Per-language locks to prevent duplicate spawns while allowing concurrent spawns of different languages
     spawning_locks: Arc<Mutex<HashMap<SupportedLanguages, Arc<Mutex<()>>>>>,
+    // Global lock for port allocation to prevent port conflicts across all languages
+    port_allocation_lock: Arc<Mutex<()>>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -62,6 +64,7 @@ impl ContainerOrchestrator {
             containers: Arc::new(Mutex::new(HashMap::new())),
             wrapper_container_id: Arc::new(Mutex::new(None)),
             spawning_locks: Arc::new(Mutex::new(HashMap::new())),
+            port_allocation_lock: Arc::new(Mutex::new(())),
         })
     }
 

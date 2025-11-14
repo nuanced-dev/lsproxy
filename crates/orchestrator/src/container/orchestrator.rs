@@ -80,6 +80,10 @@ impl ContainerOrchestrator {
             .and_then(|s| s.parse().ok())
             .unwrap_or(20480); // Default 20GB (in MB)
 
+        // Acquire global port allocation lock to prevent port conflicts across all languages
+        // This lock is held briefly - just long enough to allocate a port and start the container
+        let _port_lock = self.port_allocation_lock.lock().await;
+
         // Reserve a port by keeping the listener alive until container is created
         let bind_addr = format!("{}:0", host);
         let port_listener = TcpListener::bind(&bind_addr)?;
@@ -166,6 +170,9 @@ impl ContainerOrchestrator {
 
         // Now that container is starting and will bind to the port, we can release our reservation
         drop(port_listener);
+
+        // Release port allocation lock - container has started and port is bound
+        drop(_port_lock);
 
         // Build endpoint URL for HTTP requests
         // For Docker-outside-of-Docker sibling container communication, we need to use the container's
