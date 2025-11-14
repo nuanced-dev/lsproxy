@@ -202,12 +202,15 @@ impl SupportedLanguages {
             // Exact match
             (a, b) if a == b => true,
 
-            // Ruby family matching - any Ruby version matches "ruby" family enablement
+            // Ruby family matching - any Ruby version matches any other Ruby version
+            // This includes cross-variant matching: regular Ruby matches Sorbet and vice versa
             (Ruby3_4_7 | Ruby3_4_6 | Ruby3_4_5 | Ruby3_4_4 | Ruby3_4_3 | Ruby3_4_2 | Ruby3_4_1 | Ruby3_4_0 | Ruby3_3_6 | Ruby3_3_5 | Ruby3_2_6 | Ruby3_2_2,
-             Ruby3_4_7 | Ruby3_4_6 | Ruby3_4_5 | Ruby3_4_4 | Ruby3_4_3 | Ruby3_4_2 | Ruby3_4_1 | Ruby3_4_0 | Ruby3_3_6 | Ruby3_3_5 | Ruby3_2_6 | Ruby3_2_2) => true,
+             Ruby3_4_7 | Ruby3_4_6 | Ruby3_4_5 | Ruby3_4_4 | Ruby3_4_3 | Ruby3_4_2 | Ruby3_4_1 | Ruby3_4_0 | Ruby3_3_6 | Ruby3_3_5 | Ruby3_2_6 | Ruby3_2_2 |
+             RubySorbet3_4_7 | RubySorbet3_4_6 | RubySorbet3_4_5 | RubySorbet3_4_4 | RubySorbet3_4_3 | RubySorbet3_4_2 | RubySorbet3_4_1 | RubySorbet3_4_0 | RubySorbet3_3_6 | RubySorbet3_3_5 | RubySorbet3_2_6 | RubySorbet3_2_2) => true,
 
-            // RubySorbet family matching
+            // RubySorbet family matching - any RubySorbet version matches any Ruby version (regular or Sorbet)
             (RubySorbet3_4_7 | RubySorbet3_4_6 | RubySorbet3_4_5 | RubySorbet3_4_4 | RubySorbet3_4_3 | RubySorbet3_4_2 | RubySorbet3_4_1 | RubySorbet3_4_0 | RubySorbet3_3_6 | RubySorbet3_3_5 | RubySorbet3_2_6 | RubySorbet3_2_2,
+             Ruby3_4_7 | Ruby3_4_6 | Ruby3_4_5 | Ruby3_4_4 | Ruby3_4_3 | Ruby3_4_2 | Ruby3_4_1 | Ruby3_4_0 | Ruby3_3_6 | Ruby3_3_5 | Ruby3_2_6 | Ruby3_2_2 |
              RubySorbet3_4_7 | RubySorbet3_4_6 | RubySorbet3_4_5 | RubySorbet3_4_4 | RubySorbet3_4_3 | RubySorbet3_4_2 | RubySorbet3_4_1 | RubySorbet3_4_0 | RubySorbet3_3_6 | RubySorbet3_3_5 | RubySorbet3_2_6 | RubySorbet3_2_2) => true,
 
             // No match
