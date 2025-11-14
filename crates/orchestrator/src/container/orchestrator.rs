@@ -207,12 +207,8 @@ impl ContainerOrchestrator {
             endpoint: endpoint.clone(),
         };
 
-        // Wait for container to be healthy before registering it
-        // IMPORTANT: Do this BEFORE inserting into the map to avoid registering unhealthy containers
-        self.check_container_health(&info).await?;
-
-        // Store container info after health check passes
-        // Only insert after health check passes to ensure we don't register unhealthy containers
+        // Store container info immediately after starting
+        // The container will become available once it's ready to accept requests
         {
             let mut containers_guard = self.containers.lock().await;
             containers_guard.insert(language.clone(), info.clone());
