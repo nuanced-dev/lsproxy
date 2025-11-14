@@ -175,16 +175,16 @@ impl SupportedLanguages {
             ("3.2.6", true) => Self::RubySorbet3_2_6,
             ("3.2.2", true) => Self::RubySorbet3_2_2,
             // For partial versions like "3.4" or unsupported patch versions like "3.4.8",
-            // default to the LATEST supported patch version for that minor version
-            (v, false) if v.starts_with("3.4") => Self::Ruby3_4_7,  // Latest 3.4.x
-            (v, false) if v.starts_with("3.3") => Self::Ruby3_3_6,  // Latest 3.3.x
-            (v, false) if v.starts_with("3.2") => Self::Ruby3_2_6,  // Latest 3.2.x
-            (v, true) if v.starts_with("3.4") => Self::RubySorbet3_4_7,  // Latest 3.4.x
-            (v, true) if v.starts_with("3.3") => Self::RubySorbet3_3_6,  // Latest 3.3.x
-            (v, true) if v.starts_with("3.2") => Self::RubySorbet3_2_6,  // Latest 3.2.x
-            // Default to latest overall version for completely unsupported versions
-            (_, false) => Self::Ruby3_4_7,
-            (_, true) => Self::RubySorbet3_4_7,
+            // default to a stable supported patch version for that minor version
+            (v, false) if v.starts_with("3.4") => Self::Ruby3_4_4,  // Stable default for 3.4.x
+            (v, false) if v.starts_with("3.3") => Self::Ruby3_3_6,  // Stable default for 3.3.x
+            (v, false) if v.starts_with("3.2") => Self::Ruby3_2_6,  // Stable default for 3.2.x
+            (v, true) if v.starts_with("3.4") => Self::RubySorbet3_4_4,  // Stable default for 3.4.x
+            (v, true) if v.starts_with("3.3") => Self::RubySorbet3_3_6,  // Stable default for 3.3.x
+            (v, true) if v.starts_with("3.2") => Self::RubySorbet3_2_6,  // Stable default for 3.2.x
+            // Default to stable version for completely unsupported versions
+            (_, false) => Self::Ruby3_4_4,
+            (_, true) => Self::RubySorbet3_4_4,
         }
     }
 
