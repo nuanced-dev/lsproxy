@@ -5,7 +5,9 @@ use bollard::models::{HostConfig, PortBinding};
 use futures_util::stream::StreamExt;
 use std::collections::HashMap;
 use std::net::TcpListener;
+use std::sync::Arc;
 use std::time::Duration;
+use tokio::sync::Mutex;
 
 impl ContainerOrchestrator {
     /// Spawn a container for a specific language
@@ -20,18 +22,43 @@ impl ContainerOrchestrator {
         &self,
         language: SupportedLanguages,
     ) -> Result<ContainerInfo, OrchestratorError> {
-        // Acquire lock at the start to prevent race condition where multiple concurrent
-        // requests could spawn duplicate containers. Keep it simple and hold for entire operation.
-        let mut containers_guard = self.containers.lock().await;
+        // Quick check without holding lock for long - fast path for existing containers
+        {
+            let containers_guard = self.containers.lock().await;
+            if let Some(existing) = containers_guard.get(&language).cloned() {
+                log::info!(
+                    "Container already exists for {:?}: {}",
+                    language,
+                    existing.container_id
+                );
+                return Ok(existing);
+            }
+        }
 
-        // Check if container already exists while holding the lock
-        if let Some(existing) = containers_guard.get(&language).cloned() {
-            log::info!(
-                "Container already exists for {:?}: {}",
-                language,
-                existing.container_id
-            );
-            return Ok(existing);
+        // Get or create a per-language spawning lock to prevent duplicate spawns of same language
+        // while allowing concurrent spawns of different languages
+        let language_lock = {
+            let mut spawning_locks = self.spawning_locks.lock().await;
+            spawning_locks
+                .entry(language.clone())
+                .or_insert_with(|| Arc::new(Mutex::new(())))
+                .clone()
+        };
+
+        // Acquire the per-language lock for the entire spawn operation
+        let _language_guard = language_lock.lock().await;
+
+        // Double-check container doesn't exist (another request might have created it while we waited for the lock)
+        {
+            let containers_guard = self.containers.lock().await;
+            if let Some(existing) = containers_guard.get(&language).cloned() {
+                log::info!(
+                    "Container already exists for {:?}: {} (created while waiting for spawn lock)",
+                    language,
+                    existing.container_id
+                );
+                return Ok(existing);
+            }
         }
 
         // Ensure wrapper container is running before spawning language containers
@@ -180,17 +207,15 @@ impl ContainerOrchestrator {
             endpoint: endpoint.clone(),
         };
 
-        // Store container info using the lock we're already holding
-        containers_guard.insert(language.clone(), info.clone());
+        // Wait for container to be healthy before registering it
+        // IMPORTANT: Do this BEFORE inserting into the map to avoid registering unhealthy containers
+        self.check_container_health(&info).await?;
 
-        // Wait for container to be healthy (optional - controlled by env var)
-        // This will be used once Phase 4 (HTTP wrapper) is implemented
-        if std::env::var("LSPROXY_ENABLE_HEALTH_CHECK").is_ok() {
-            self.check_container_health(&info).await?;
-        } else {
-            log::debug!("Skipping health check (LSPROXY_ENABLE_HEALTH_CHECK not set)");
-            // Give container a moment to start
-            tokio::time::sleep(Duration::from_millis(500)).await;
+        // Store container info after health check passes
+        // Only insert after health check passes to ensure we don't register unhealthy containers
+        {
+            let mut containers_guard = self.containers.lock().await;
+            containers_guard.insert(language.clone(), info.clone());
         }
 
         log::info!(

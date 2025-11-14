@@ -23,6 +23,8 @@ pub struct ContainerOrchestrator {
     docker: Arc<Docker>,
     containers: Arc<Mutex<HashMap<SupportedLanguages, ContainerInfo>>>,
     wrapper_container_id: Arc<Mutex<Option<String>>>,
+    // Per-language locks to prevent duplicate spawns while allowing concurrent spawns of different languages
+    spawning_locks: Arc<Mutex<HashMap<SupportedLanguages, Arc<Mutex<()>>>>>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -59,6 +61,7 @@ impl ContainerOrchestrator {
             docker: Arc::new(docker),
             containers: Arc::new(Mutex::new(HashMap::new())),
             wrapper_container_id: Arc::new(Mutex::new(None)),
+            spawning_locks: Arc::new(Mutex::new(HashMap::new())),
         })
     }
 
