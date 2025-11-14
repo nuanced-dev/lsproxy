@@ -94,8 +94,7 @@ public class AStar {
                                         private double distance(int x, int y) {
                                             return Math.sqrt(Math.pow(x - this.xend, 2) + Math.pow(y - this.yend, 2));
                                         }
-                    }
-                
+
                                         public static void main(String[] args) {
         // -1 = blocked
         // 0+ = additional movement cost
@@ -138,6 +137,5 @@ public class AStar {
 
     private boolean findNeighborInList(List<Node> list, Node node) {
         return list.stream().anyMatch(n -> n.x == node.x && n.y == node.y);
-    }
     }
 } 
