@@ -157,7 +157,7 @@ async fn fetch_definition_source_code(
                         character: 0,
                     },
                     end: LspPosition {
-                        line: definition.range.end.line + 3,
+                        line: definition.range.end.line.saturating_add(3),
                         character: 0,
                     },
                 };
@@ -173,7 +173,7 @@ async fn fetch_definition_source_code(
                                 character: 0,
                             },
                             end: Position {
-                                line: definition.range.end.line + 3,
+                                line: definition.range.end.line.saturating_add(3),
                                 character: 0,
                             },
                         },
