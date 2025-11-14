@@ -419,7 +419,7 @@ async fn test_multiple_requests_same_container() -> Result<(), Box<dyn std::erro
                 "path": "test.py",
                 "position": {"line": 0, "character": 4}
             },
-            "context_lines": 0
+            "include_code_context_lines": 0
         }))
         .send()
         .await?;
@@ -475,7 +475,7 @@ async fn test_find_references() -> Result<(), Box<dyn std::error::Error>> {
                 "path": "test.py",
                 "position": {"line": 0, "character": 4}
             },
-            "context_lines": 0
+            "include_code_context_lines": 0
         }))
         .send()
         .await?;
@@ -485,6 +485,81 @@ async fn test_find_references() -> Result<(), Box<dyn std::error::Error>> {
 
     // Should have references field
     assert!(body.get("references").is_some());
+
+    fixture.cleanup().await?;
+    Ok(())
+}
+
+#[tokio::test]
+#[serial]
+async fn test_find_references_with_context_lines() -> Result<(), Box<dyn std::error::Error>> {
+    let mut fixture = ContainerFixture::new().await?;
+    fixture.start_service().await?;
+
+    let client = Client::builder().timeout(Duration::from_secs(30)).build()?;
+
+    // Test with include_code_context_lines = 3
+    // Looking for references to "hello" function in test.py
+    // test.py contains:
+    // def hello():\n    return \"hello\"\n\ndef world():\n    return \"world\"\n\nmessage = hello()\n
+    let response = client
+        .post(&format!("{}/v1/symbol/find-references", BASE_URL))
+        .json(&json!({
+            "identifier_position": {
+                "path": "test.py",
+                "position": {"line": 0, "character": 4}  // "hello" function definition
+            },
+            "include_code_context_lines": 3
+        }))
+        .send()
+        .await?;
+
+    assert!(response.status().is_success());
+    let body: serde_json::Value = response.json().await?;
+
+    // Verify references field exists
+    assert!(body.get("references").is_some());
+    let references = body["references"].as_array().unwrap();
+    assert!(references.len() > 0, "Should find at least one reference to 'hello'");
+
+    // Verify that references with context have source_code field
+    for reference in references {
+        if let Some(source_code) = reference.get("source_code") {
+            let source = source_code.as_str().unwrap();
+
+            // Source code should not be empty when context_lines is provided
+            assert!(!source.is_empty(), "Source code should not be empty with context_lines=3");
+
+            // Source code should contain multiple lines (definition + context)
+            let line_count = source.lines().count();
+            assert!(line_count > 1, "Expected multiple lines with context_lines=3, got {}", line_count);
+        }
+    }
+
+    // Now test with include_code_context_lines = 0 and verify NO source code is included
+    let response_no_context = client
+        .post(&format!("{}/v1/symbol/find-references", BASE_URL))
+        .json(&json!({
+            "identifier_position": {
+                "path": "test.py",
+                "position": {"line": 0, "character": 4}
+            },
+            "include_code_context_lines": 0
+        }))
+        .send()
+        .await?;
+
+    assert!(response_no_context.status().is_success());
+    let body_no_context: serde_json::Value = response_no_context.json().await?;
+
+    let references_no_context = body_no_context["references"].as_array().unwrap();
+    for reference in references_no_context {
+        // With context_lines=0, source_code field should be absent or empty
+        if let Some(source_code) = reference.get("source_code") {
+            let source = source_code.as_str().unwrap_or("");
+            assert!(source.is_empty(), "Source code should be empty with context_lines=0");
+        }
+    }
 
     fixture.cleanup().await?;
     Ok(())

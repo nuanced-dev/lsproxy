@@ -423,7 +423,7 @@ while IFS='|' read -r lang test_file symbol_name symbol_line symbol_char health_
     test_endpoint "Find References ($lang)" \
         "POST" \
         "/symbol/find-references" \
-        "{\"identifier_position\":{\"path\":\"$test_file\",\"position\":{\"line\":$symbol_line,\"character\":$symbol_char}},\"context_lines\":0}" \
+        "{\"identifier_position\":{\"path\":\"$test_file\",\"position\":{\"line\":$symbol_line,\"character\":$symbol_char}},\"include_code_context_lines\":0}" \
         "200" \
         "jq -e '.references | type == \"array\"' > /dev/null"
 
