@@ -20,8 +20,12 @@ impl ContainerOrchestrator {
         &self,
         language: SupportedLanguages,
     ) -> Result<ContainerInfo, OrchestratorError> {
-        // Check if container already exists for this language
-        if let Some(existing) = self.get_container(&language).await {
+        // Acquire lock at the start to prevent race condition where multiple concurrent
+        // requests could spawn duplicate containers. Keep it simple and hold for entire operation.
+        let mut containers_guard = self.containers.lock().await;
+
+        // Check if container already exists while holding the lock
+        if let Some(existing) = containers_guard.get(&language).cloned() {
             log::info!(
                 "Container already exists for {:?}: {}",
                 language,
@@ -176,8 +180,8 @@ impl ContainerOrchestrator {
             endpoint: endpoint.clone(),
         };
 
-        // Store container info
-        self.store_container(language.clone(), info.clone()).await;
+        // Store container info using the lock we're already holding
+        containers_guard.insert(language.clone(), info.clone());
 
         // Wait for container to be healthy (optional - controlled by env var)
         // This will be used once Phase 4 (HTTP wrapper) is implemented
