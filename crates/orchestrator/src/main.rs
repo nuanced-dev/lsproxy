@@ -71,12 +71,15 @@ async fn main() -> std::io::Result<()> {
     // After server stops (normal shutdown or error), cleanup all containers
     // Note: This won't run if the process panics - that's what the watchdog is for
     info!("Server stopped, cleaning up containers...");
+
+    // Signal that we're performing graceful cleanup BEFORE we start
+    // This must be written while the container is still running so watchdog can check it via docker exec
+    let _ = std::fs::write("/tmp/cleanup_complete", "ok");
+
     if let Err(e) = orchestrator.cleanup_all().await {
         error!("Error during container cleanup: {}", e);
     } else {
         info!("All containers cleaned up successfully");
-        // Signal successful cleanup (watchdog can check for this)
-        let _ = std::fs::write("/tmp/cleanup_complete", "ok");
 
         // Stop the watchdog since we cleaned up successfully
         if let Err(e) = orchestrator.stop_watchdog().await {
