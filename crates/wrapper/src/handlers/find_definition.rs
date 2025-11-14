@@ -27,7 +27,7 @@ use lsp_types::{GotoDefinitionResponse, Location, Position as LspPosition, Range
 /// 4:
 /// 5: user = User("John", 30)
 /// input_____^^^^
-/// ```text
+/// ```
 #[utoipa::path(
     post,
     path = "/symbol/find-definition",

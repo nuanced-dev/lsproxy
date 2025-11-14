@@ -295,7 +295,7 @@ impl From<lsp_types::Position> for Position {
 /// ```python
 /// user = User("John", 30)
 /// _______^
-/// ```text
+/// ```
 /// This would contain:
 /// - The reference location and name ("User" at line 0)
 /// - The symbol definition(s) (e.g. "class User" in models.py)
@@ -427,7 +427,7 @@ pub struct WorkspaceSymbolsRequest {
 /// 4:
 /// 5: user = User("John", 30)
 /// __________^
-/// ```text
+/// ```
 /// The definition(s) will be `[{"path": "src/main.py", "line": 0, "character": 6}]`.
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize, ToSchema)]
 pub struct DefinitionResponse {
@@ -459,7 +459,7 @@ pub struct DefinitionResponse {
 /// _________^
 /// 6:
 /// 7: print(user.name)
-/// ```text
+/// ```
 /// The references will be `[{"path": "src/main.py", "line": 5, "character": 7}]`.
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize, ToSchema)]
 pub struct ReferencesResponse {

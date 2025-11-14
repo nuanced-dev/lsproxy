@@ -23,7 +23,7 @@ use log::{error, info};
 /// ```text
 /// let user_name = "John";  // First occurrence
 /// println!("{}", user_name); // Second occurrence
-/// ```text
+/// ```
 ///
 /// When a position is provided, it searches for an exact match at that location.
 /// If no exact match exists, returns the 3 identifiers closest to the position

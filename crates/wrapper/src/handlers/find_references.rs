@@ -31,7 +31,7 @@ use crate::AppState;
 ///  4:
 ///  5: user = User("John", 30)
 ///  output____^
-/// ```text
+/// ```
 #[utoipa::path(
     post,
     path = "/symbol/find-references",

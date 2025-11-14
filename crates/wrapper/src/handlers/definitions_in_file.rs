@@ -20,7 +20,7 @@ use crate::AppState;
 /// 1:     def __init__(self, name, age):
 /// 2:         self.name = name
 /// 3:         self.age = age
-/// ```text
+/// ```
 #[utoipa::path(
     get,
     path = "/symbol/definitions-in-file",

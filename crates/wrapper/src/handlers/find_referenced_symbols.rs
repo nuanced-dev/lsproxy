@@ -23,7 +23,7 @@ use lsp_types::{GotoDefinitionResponse, Position as LspPosition};
 /// def process_user():     # <-- Input position here
 ///     user = User()       # Reference to User class
 ///     print("Done")       # Reference to built-in function
-/// ```text
+/// ```
 /// This would return:
 /// - Workspace symbols: [
 ///     log_execution_time (with definition from decorators.py),
