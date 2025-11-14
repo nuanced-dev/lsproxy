@@ -7,7 +7,7 @@ use actix_web::{
 use lsproxy_common::api_types::{FindIdentifierRequest, IdentifierResponse};
 use handlers::{find_identifier, read_source_code};
 use log::{error, info, warn};
-use middleware::{validate_jwt_config, JwtMiddleware};
+use middleware::JwtMiddleware;
 use std::fs;
 use std::fs::File;
 use std::io::Write;
@@ -203,12 +203,18 @@ pub async fn run_server_with_port_and_host(
         .and_then(|path| path.strip_prefix('/').map(|s| s.to_string())) // Convert stripped result to String
         .unwrap_or_else(String::new); // Use empty string as default
 
-    match validate_jwt_config() {
-        Ok(secret) => secret,
-        Err(e) => {
-            info!("Configuration error: {}", e);
-            std::process::exit(1);
+    // Initialize JWT middleware once before creating workers to fail fast
+    // If this panics, it happens in the main thread before any workers start
+    let jwt_middleware = if middleware::is_auth_enabled() {
+        match JwtMiddleware::from_env() {
+            Ok(middleware) => Some(middleware),
+            Err(e) => {
+                error!("Failed to initialize JWT middleware: {}", e);
+                std::process::exit(1);
+            }
         }
+    } else {
+        None
     };
 
     HttpServer::new(move || {
@@ -253,15 +259,8 @@ pub async fn run_server_with_port_and_host(
             .wrap(Cors::permissive())
             .app_data(app_state.clone())
             .configure(|cfg| {
-                if middleware::is_auth_enabled() {
-                    match JwtMiddleware::from_env() {
-                        Ok(jwt_middleware) => {
-                            cfg.service(api_scope.wrap(jwt_middleware));
-                        }
-                        Err(e) => {
-                            panic!("Failed to initialize JWT middleware: {}", e);
-                        }
-                    }
+                if let Some(ref middleware) = jwt_middleware {
+                    cfg.service(api_scope.wrap(middleware.clone()));
                 } else {
                     cfg.service(api_scope);
                 }
