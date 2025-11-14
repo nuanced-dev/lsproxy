@@ -86,13 +86,23 @@ pub enum SupportedLanguages {
     PHP,
     // These are the existing Ruby versions in lsproxy that we support for Tusk.
     // TODO: Update how supported languages work to encode language versions in a more maintainable
-    // way.
+    // way (e.g., Ruby(Version("3.4.4")) instead of individual enum variants for each version).
+    #[serde(rename = "ruby_3_4_7")]
+    Ruby3_4_7,
+    #[serde(rename = "ruby_3_4_6")]
+    Ruby3_4_6,
+    #[serde(rename = "ruby_3_4_5")]
+    Ruby3_4_5,
     #[serde(rename = "ruby_3_4_4")]
     Ruby3_4_4,
+    #[serde(rename = "ruby_3_4_3")]
+    Ruby3_4_3,
     #[serde(rename = "ruby_3_4_2")]
     Ruby3_4_2,
     #[serde(rename = "ruby_3_4_1")]
     Ruby3_4_1,
+    #[serde(rename = "ruby_3_4_0")]
+    Ruby3_4_0,
     #[serde(rename = "ruby_3_3_6")]
     Ruby3_3_6,
     #[serde(rename = "ruby_3_3_5")]
@@ -101,12 +111,22 @@ pub enum SupportedLanguages {
     Ruby3_2_6,
     #[serde(rename = "ruby_3_2_2")]
     Ruby3_2_2,
+    #[serde(rename = "ruby_sorbet_3_4_7")]
+    RubySorbet3_4_7,
+    #[serde(rename = "ruby_sorbet_3_4_6")]
+    RubySorbet3_4_6,
+    #[serde(rename = "ruby_sorbet_3_4_5")]
+    RubySorbet3_4_5,
     #[serde(rename = "ruby_sorbet_3_4_4")]
     RubySorbet3_4_4,
+    #[serde(rename = "ruby_sorbet_3_4_3")]
+    RubySorbet3_4_3,
     #[serde(rename = "ruby_sorbet_3_4_2")]
     RubySorbet3_4_2,
     #[serde(rename = "ruby_sorbet_3_4_1")]
     RubySorbet3_4_1,
+    #[serde(rename = "ruby_sorbet_3_4_0")]
+    RubySorbet3_4_0,
     #[serde(rename = "ruby_sorbet_3_3_6")]
     RubySorbet3_3_6,
     #[serde(rename = "ruby_sorbet_3_3_5")]
@@ -130,21 +150,31 @@ impl SupportedLanguages {
         let normalized = version.trim();
 
         match (normalized, is_sorbet) {
+            ("3.4.7", false) => Self::Ruby3_4_7,
+            ("3.4.6", false) => Self::Ruby3_4_6,
+            ("3.4.5", false) => Self::Ruby3_4_5,
             ("3.4.4", false) => Self::Ruby3_4_4,
+            ("3.4.3", false) => Self::Ruby3_4_3,
             ("3.4.2", false) => Self::Ruby3_4_2,
             ("3.4.1", false) => Self::Ruby3_4_1,
+            ("3.4.0", false) => Self::Ruby3_4_0,
             ("3.3.6", false) => Self::Ruby3_3_6,
             ("3.3.5", false) => Self::Ruby3_3_5,
             ("3.2.6", false) => Self::Ruby3_2_6,
             ("3.2.2", false) => Self::Ruby3_2_2,
+            ("3.4.7", true) => Self::RubySorbet3_4_7,
+            ("3.4.6", true) => Self::RubySorbet3_4_6,
+            ("3.4.5", true) => Self::RubySorbet3_4_5,
             ("3.4.4", true) => Self::RubySorbet3_4_4,
+            ("3.4.3", true) => Self::RubySorbet3_4_3,
             ("3.4.2", true) => Self::RubySorbet3_4_2,
             ("3.4.1", true) => Self::RubySorbet3_4_1,
+            ("3.4.0", true) => Self::RubySorbet3_4_0,
             ("3.3.6", true) => Self::RubySorbet3_3_6,
             ("3.3.5", true) => Self::RubySorbet3_3_5,
             ("3.2.6", true) => Self::RubySorbet3_2_6,
             ("3.2.2", true) => Self::RubySorbet3_2_2,
-            // For partial versions like "3.4" or "3.3", default to the latest patch version
+            // For partial versions like "3.4" or "3.3", default to stable patch version
             (v, false) if v.starts_with("3.4") => Self::Ruby3_4_4,
             (v, false) if v.starts_with("3.3") => Self::Ruby3_3_6,
             (v, false) if v.starts_with("3.2") => Self::Ruby3_2_6,
@@ -173,12 +203,12 @@ impl SupportedLanguages {
             (a, b) if a == b => true,
 
             // Ruby family matching - any Ruby version matches "ruby" family enablement
-            (Ruby3_4_4 | Ruby3_4_2 | Ruby3_4_1 | Ruby3_3_6 | Ruby3_3_5 | Ruby3_2_6 | Ruby3_2_2,
-             Ruby3_4_4 | Ruby3_4_2 | Ruby3_4_1 | Ruby3_3_6 | Ruby3_3_5 | Ruby3_2_6 | Ruby3_2_2) => true,
+            (Ruby3_4_7 | Ruby3_4_6 | Ruby3_4_5 | Ruby3_4_4 | Ruby3_4_3 | Ruby3_4_2 | Ruby3_4_1 | Ruby3_4_0 | Ruby3_3_6 | Ruby3_3_5 | Ruby3_2_6 | Ruby3_2_2,
+             Ruby3_4_7 | Ruby3_4_6 | Ruby3_4_5 | Ruby3_4_4 | Ruby3_4_3 | Ruby3_4_2 | Ruby3_4_1 | Ruby3_4_0 | Ruby3_3_6 | Ruby3_3_5 | Ruby3_2_6 | Ruby3_2_2) => true,
 
             // RubySorbet family matching
-            (RubySorbet3_4_4 | RubySorbet3_4_2 | RubySorbet3_4_1 | RubySorbet3_3_6 | RubySorbet3_3_5 | RubySorbet3_2_6 | RubySorbet3_2_2,
-             RubySorbet3_4_4 | RubySorbet3_4_2 | RubySorbet3_4_1 | RubySorbet3_3_6 | RubySorbet3_3_5 | RubySorbet3_2_6 | RubySorbet3_2_2) => true,
+            (RubySorbet3_4_7 | RubySorbet3_4_6 | RubySorbet3_4_5 | RubySorbet3_4_4 | RubySorbet3_4_3 | RubySorbet3_4_2 | RubySorbet3_4_1 | RubySorbet3_4_0 | RubySorbet3_3_6 | RubySorbet3_3_5 | RubySorbet3_2_6 | RubySorbet3_2_2,
+             RubySorbet3_4_7 | RubySorbet3_4_6 | RubySorbet3_4_5 | RubySorbet3_4_4 | RubySorbet3_4_3 | RubySorbet3_4_2 | RubySorbet3_4_1 | RubySorbet3_4_0 | RubySorbet3_3_6 | RubySorbet3_3_5 | RubySorbet3_2_6 | RubySorbet3_2_2) => true,
 
             // No match
             _ => false,
