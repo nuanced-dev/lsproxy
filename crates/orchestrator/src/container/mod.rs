@@ -149,7 +149,7 @@ impl ContainerOrchestrator {
             "cpp" | "c++" | "c" => Some(SupportedLanguages::CPP),
             "csharp" | "c#" => Some(SupportedLanguages::CSharp),
             "java" => Some(SupportedLanguages::Java),
-            "golang" | "go" => Some(SupportedLanguages::Golang),
+            "go" => Some(SupportedLanguages::Golang),
             "php" => Some(SupportedLanguages::PHP),
             "ruby" => Some(SupportedLanguages::Ruby3_4_4),
             "ruby-sorbet" | "sorbet" => Some(SupportedLanguages::RubySorbet3_4_4),

@@ -89,7 +89,7 @@ python|main.py|main|15|4|python
 typescript|src/main.ts|main|5|6|typescript_javascript
 javascript|src/main.ts|main|5|6|typescript_javascript
 rust|src/main.rs|main|10|3|rust
-golang|main.go|main|7|5|golang
+go|main.go|main|7|5|go
 java|Main.java|main|5|23|java
 cpp|astar_search.cpp|main|2|4|cpp
 csharp|Program.cs|Main|4|20|csharp

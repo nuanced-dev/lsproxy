@@ -113,12 +113,12 @@ async fn main() -> std::io::Result<()> {
         },
         "typescript" | "javascript" => (TYPESCRIPT_AND_JAVASCRIPT_FILE_PATTERNS.to_vec(), DidOpenConfiguration::Lazy),
         "rust" => (RUST_FILE_PATTERNS.to_vec(), DidOpenConfiguration::None),
-        "go" | "golang" => (GOLANG_FILE_PATTERNS.to_vec(), DidOpenConfiguration::None),
+        "go" => (GOLANG_FILE_PATTERNS.to_vec(), DidOpenConfiguration::None),
         "java" => (JAVA_FILE_PATTERNS.to_vec(), DidOpenConfiguration::None),
         "cpp" | "c" => (C_AND_CPP_FILE_PATTERNS.to_vec(), DidOpenConfiguration::Lazy),
         "csharp" => (CSHARP_FILE_PATTERNS.to_vec(), DidOpenConfiguration::None),
         _ => {
-            error!("Unknown language '{}'. Supported languages: php, python, ruby, ruby-sorbet, typescript, javascript, rust, go, golang, java, cpp, c, csharp", language);
+            error!("Unknown language '{}'. Supported languages: php, python, ruby, ruby-sorbet, typescript, javascript, rust, go, java, cpp, c, csharp", language);
             return Err(std::io::Error::new(
                 std::io::ErrorKind::Other,
                 format!("Unsupported language: {}", language),

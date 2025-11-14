@@ -91,7 +91,7 @@ pub fn detect_language_string(file_path: &str) -> Result<String, LspError> {
         ext if CPP_EXTENSIONS.contains(&ext) => Ok("cpp".to_string()),
         ext if CSHARP_EXTENSIONS.contains(&ext) => Ok("csharp".to_string()),
         ext if JAVA_EXTENSIONS.contains(&ext) => Ok("java".to_string()),
-        ext if GOLANG_EXTENSIONS.contains(&ext) => Ok("golang".to_string()),
+        ext if GOLANG_EXTENSIONS.contains(&ext) => Ok("go".to_string()),
         ext if PHP_EXTENSIONS.contains(&ext) => Ok("php".to_string()),
         ext if RUBY_EXTENSIONS.contains(&ext) => Ok("ruby".to_string()),
         _ => Err(LspError::UnsupportedFileType(file_path.to_string())),

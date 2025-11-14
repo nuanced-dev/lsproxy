@@ -366,7 +366,7 @@ docker rm -f lsproxy-service
   - `python`
   - `typescript`, `javascript`
   - `rust`
-  - `golang`, `go`
+  - `go`
   - `java`
   - `php`
   - `ruby`, `ruby-sorbet`, `sorbet`
@@ -394,7 +394,7 @@ ENABLED_LANGUAGES="Python, TypeScript, Rust" ./scripts/start-service.sh
 LSPROXY_MAX_MEMORY=8192 ./scripts/start-service.sh
 
 # Combine environment variables
-ENABLED_LANGUAGES="golang" LSPROXY_MAX_MEMORY=16384 ./scripts/start-service.sh
+ENABLED_LANGUAGES="go" LSPROXY_MAX_MEMORY=16384 ./scripts/start-service.sh
 
 # Without ENABLED_LANGUAGES, all detected languages spawn (default)
 ./scripts/start-service.sh
