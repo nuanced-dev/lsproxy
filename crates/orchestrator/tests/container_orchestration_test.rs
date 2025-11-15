@@ -21,8 +21,14 @@ use tempfile::TempDir;
 use tokio::sync::Mutex;
 use tokio::time::sleep;
 
-const BASE_IMAGE: &str = "lsproxy-service:latest";
-const PYTHON_IMAGE: &str = "lsproxy-python:latest";
+use lsproxy_orchestrator::container::{
+    proxy_image, wrapper_image, LANGUAGE_CONTAINER_VERSION, WRAPPER_IMAGE_BASE,
+};
+
+// Helper function for Python test image
+fn python_image() -> String {
+    format!("nuanced-lsp-python:{}", LANGUAGE_CONTAINER_VERSION)
+}
 const SERVICE_PORT: u16 = 14444; // Use non-standard port to avoid conflicts
 const CONTAINER_PORT: u16 = 4444; // Port the service listens on inside container
 const BASE_URL: &str = "http://localhost:14444";
@@ -51,9 +57,9 @@ impl ContainerFixture {
     ) -> Result<(), Box<dyn std::error::Error>> {
         println!("Cleaning up all test-related containers...");
 
-        // Clean up all lsproxy-python-* containers (test language containers)
+        // Clean up all nuanced-lsp-python-* containers (test language containers)
         let mut filters = HashMap::new();
-        filters.insert("name".to_string(), vec!["lsproxy-python-".to_string()]);
+        filters.insert("name".to_string(), vec!["nuanced-lsp-python-".to_string()]);
 
         let options = ListContainersOptions {
             all: true,
@@ -78,7 +84,7 @@ impl ContainerFixture {
 
         // Clean up test watchdog containers
         let mut filters = HashMap::new();
-        filters.insert("name".to_string(), vec!["lsproxy-watchdog-".to_string()]);
+        filters.insert("name".to_string(), vec!["nuanced-lsp-watchdog-".to_string()]);
 
         let options = ListContainersOptions {
             all: true,
@@ -104,7 +110,7 @@ impl ContainerFixture {
         // Clean up wrapper container
         let _ = docker
             .remove_container(
-                "lsproxy-wrapper",
+                WRAPPER_IMAGE_BASE,
                 Some(RemoveContainerOptions {
                     force: true,
                     ..Default::default()
@@ -115,7 +121,7 @@ impl ContainerFixture {
         // Clean up test service container
         let _ = docker
             .remove_container(
-                "lsproxy-test-service",
+                "nuanced-lsp-test-service",
                 Some(RemoveContainerOptions {
                     force: true,
                     ..Default::default()
@@ -153,8 +159,9 @@ impl ContainerFixture {
 
     /// Verify required Docker images are available
     async fn verify_images(docker: &Docker) -> Result<(), Box<dyn std::error::Error>> {
+        let proxy_img = proxy_image();
         let mut filters = HashMap::new();
-        filters.insert("reference".to_string(), vec![BASE_IMAGE.to_string()]);
+        filters.insert("reference".to_string(), vec![proxy_img.clone()]);
 
         let options = ListImagesOptions {
             filters,
@@ -163,11 +170,12 @@ impl ContainerFixture {
 
         let images = docker.list_images(Some(options)).await?;
         if images.is_empty() {
-            return Err(format!("Required image {} not found. Run: docker build -f dockerfiles/service.Dockerfile -t {} .", BASE_IMAGE, BASE_IMAGE).into());
+            return Err(format!("Required image {} not found. Run: ./scripts/build-rust-containers.sh", proxy_img).into());
         }
 
+        let python_img = python_image();
         let mut filters = HashMap::new();
-        filters.insert("reference".to_string(), vec![PYTHON_IMAGE.to_string()]);
+        filters.insert("reference".to_string(), vec![python_img.clone()]);
 
         let options = ListImagesOptions {
             filters,
@@ -176,7 +184,7 @@ impl ContainerFixture {
 
         let images = docker.list_images(Some(options)).await?;
         if images.is_empty() {
-            return Err(format!("Required image {} not found. Run: docker build -f dockerfiles/python.Dockerfile -t {} .", PYTHON_IMAGE, PYTHON_IMAGE).into());
+            return Err(format!("Required image {} not found. Run: ./scripts/build-language-containers.sh", python_img).into());
         }
 
         Ok(())
@@ -206,7 +214,7 @@ impl ContainerFixture {
             .ok_or("Invalid workspace path")?;
 
         let config = Config {
-            image: Some(BASE_IMAGE),
+            image: Some(&proxy_image()),
             env: Some(vec!["USE_AUTH=false", "RUST_LOG=info"]),
             host_config: Some(bollard::models::HostConfig {
                 binds: Some(vec![
@@ -232,7 +240,7 @@ impl ContainerFixture {
         };
 
         let options = CreateContainerOptions {
-            name: "lsproxy-test-service",
+            name: "nuanced-lsp-test-service",
             ..Default::default()
         };
 
@@ -344,7 +352,7 @@ async fn test_container_spawn_on_request() -> Result<(), Box<dyn std::error::Err
 
     // With eager initialization, Python container should be spawned during service startup
     let mut filters = HashMap::new();
-    filters.insert("name".to_string(), vec!["lsproxy-python-".to_string()]);
+    filters.insert("name".to_string(), vec!["nuanced-lsp-python-".to_string()]);
     filters.insert("status".to_string(), vec!["running".to_string()]);
     let options = ListContainersOptions {
         filters,
@@ -458,7 +466,7 @@ async fn test_multiple_requests_same_container() -> Result<(), Box<dyn std::erro
     sleep(Duration::from_secs(2)).await;
 
     let mut filters = HashMap::new();
-    filters.insert("name".to_string(), vec!["lsproxy-python-".to_string()]);
+    filters.insert("name".to_string(), vec!["nuanced-lsp-python-".to_string()]);
     filters.insert("status".to_string(), vec!["running".to_string()]);
     let options = ListContainersOptions {
         filters,

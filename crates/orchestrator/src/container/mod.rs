@@ -9,6 +9,36 @@ pub mod http_client;
 pub mod language_manager;
 pub mod orchestrator;
 
+// Container image configuration
+// These correspond to the Docker images built by scripts/build-rust-containers.sh
+// and scripts/build-language-containers.sh
+
+/// Version tag for Rust containers (wrapper, proxy, watchdog)
+/// This should match the release version from Cargo.toml
+pub const RUST_CONTAINER_VERSION: &str = "0.4.8";
+
+/// Version tag for language containers (python, ruby, typescript, etc.)
+/// Language containers use independent semver versioning for API compatibility
+pub const LANGUAGE_CONTAINER_VERSION: &str = "1.0.0";
+
+/// Base image names (without version tags)
+pub const PROXY_IMAGE_BASE: &str = "nuanced-lsp-proxy";
+pub const WRAPPER_IMAGE_BASE: &str = "nuanced-lsp-wrapper";
+pub const WATCHDOG_IMAGE_BASE: &str = "nuanced-lsp-watchdog";
+
+/// Helper functions to get full image names with version tags
+pub fn proxy_image() -> String {
+    format!("{}:{}", PROXY_IMAGE_BASE, RUST_CONTAINER_VERSION)
+}
+
+pub fn wrapper_image() -> String {
+    format!("{}:{}", WRAPPER_IMAGE_BASE, RUST_CONTAINER_VERSION)
+}
+
+pub fn watchdog_image() -> String {
+    format!("{}:{}", WATCHDOG_IMAGE_BASE, RUST_CONTAINER_VERSION)
+}
+
 pub use http_client::ContainerHttpClient;
 
 #[derive(Debug, Clone)]
@@ -321,7 +351,7 @@ impl ContainerOrchestrator {
         use bollard::container::{Config, CreateContainerOptions};
         use bollard::models::HostConfig;
 
-        let wrapper_name = "lsproxy-wrapper";
+        let wrapper_name = "nuanced-lsp-wrapper";
 
         // Check if wrapper container already exists (by name)
         if let Ok(info) = self.docker.inspect_container(wrapper_name, None).await {
@@ -347,7 +377,7 @@ impl ContainerOrchestrator {
         log::info!("Creating new wrapper container");
 
         let config = Config {
-            image: Some("lsproxy-wrapper:latest".to_string()),
+            image: Some(wrapper_image()),
             host_config: Some(HostConfig {
                 auto_remove: Some(false), // Keep container around for volume sharing
                 ..Default::default()
@@ -473,7 +503,7 @@ impl ContainerOrchestrator {
             parent_id
         );
 
-        let watchdog_name = format!("lsproxy-watchdog-{}", &parent_id[..12]);
+        let watchdog_name = format!("nuanced-lsp-watchdog-{}", &parent_id[..12]);
 
         // Check if watchdog already exists
         if let Ok(_) = self.docker.inspect_container(&watchdog_name, None).await {
@@ -482,7 +512,7 @@ impl ContainerOrchestrator {
         }
 
         let config = Config {
-            image: Some("lsproxy-watchdog:latest".to_string()),
+            image: Some(watchdog_image()),
             env: Some(vec![format!("PARENT_CONTAINER_ID={}", parent_id)]),
             host_config: Some(HostConfig {
                 binds: Some(vec!["/var/run/docker.sock:/var/run/docker.sock".to_string()]),
@@ -516,7 +546,7 @@ impl ContainerOrchestrator {
         use bollard::container::RemoveContainerOptions;
 
         if let Some(parent_id) = Self::get_own_container_id() {
-            let watchdog_name = format!("lsproxy-watchdog-{}", &parent_id[..12]);
+            let watchdog_name = format!("nuanced-lsp-watchdog-{}", &parent_id[..12]);
 
             // Try to remove the watchdog (force=true handles running containers)
             let remove_options = RemoveContainerOptions {

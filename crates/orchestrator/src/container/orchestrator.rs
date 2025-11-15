@@ -326,40 +326,46 @@ impl ContainerOrchestrator {
     }
 
     /// Get the Docker image name for a language
+    /// Language container images follow the naming convention:
+    /// - Non-Ruby: nuanced-lsp-{language}:{LANGUAGE_CONTAINER_VERSION}
+    /// - Ruby: nuanced-lsp-ruby-{version}:{LANGUAGE_CONTAINER_VERSION}
+    /// - Ruby Sorbet: nuanced-lsp-ruby-sorbet-{version}:{LANGUAGE_CONTAINER_VERSION}
     fn image_name_for_language(language: &SupportedLanguages) -> String {
+        use super::LANGUAGE_CONTAINER_VERSION;
+
         match language {
-            SupportedLanguages::Golang => "lsproxy-golang:latest".to_string(),
-            SupportedLanguages::Python => "lsproxy-python:latest".to_string(),
-            SupportedLanguages::TypeScriptJavaScript => "lsproxy-typescript:latest".to_string(),
-            SupportedLanguages::Ruby3_4_7 => "lsproxy-ruby-3.4.7:latest".to_string(),
-            SupportedLanguages::Ruby3_4_6 => "lsproxy-ruby-3.4.6:latest".to_string(),
-            SupportedLanguages::Ruby3_4_5 => "lsproxy-ruby-3.4.5:latest".to_string(),
-            SupportedLanguages::Ruby3_4_4 => "lsproxy-ruby-3.4.4:latest".to_string(),
-            SupportedLanguages::Ruby3_4_3 => "lsproxy-ruby-3.4.3:latest".to_string(),
-            SupportedLanguages::Ruby3_4_2 => "lsproxy-ruby-3.4.2:latest".to_string(),
-            SupportedLanguages::Ruby3_4_1 => "lsproxy-ruby-3.4.1:latest".to_string(),
-            SupportedLanguages::Ruby3_4_0 => "lsproxy-ruby-3.4.0:latest".to_string(),
-            SupportedLanguages::Ruby3_3_6 => "lsproxy-ruby-3.3.6:latest".to_string(),
-            SupportedLanguages::Ruby3_3_5 => "lsproxy-ruby-3.3.5:latest".to_string(),
-            SupportedLanguages::Ruby3_2_6 => "lsproxy-ruby-3.2.6:latest".to_string(),
-            SupportedLanguages::Ruby3_2_2 => "lsproxy-ruby-3.2.2:latest".to_string(),
-            SupportedLanguages::RubySorbet3_4_7 => "lsproxy-ruby-sorbet-3.4.7:latest".to_string(),
-            SupportedLanguages::RubySorbet3_4_6 => "lsproxy-ruby-sorbet-3.4.6:latest".to_string(),
-            SupportedLanguages::RubySorbet3_4_5 => "lsproxy-ruby-sorbet-3.4.5:latest".to_string(),
-            SupportedLanguages::RubySorbet3_4_4 => "lsproxy-ruby-sorbet-3.4.4:latest".to_string(),
-            SupportedLanguages::RubySorbet3_4_3 => "lsproxy-ruby-sorbet-3.4.3:latest".to_string(),
-            SupportedLanguages::RubySorbet3_4_2 => "lsproxy-ruby-sorbet-3.4.2:latest".to_string(),
-            SupportedLanguages::RubySorbet3_4_1 => "lsproxy-ruby-sorbet-3.4.1:latest".to_string(),
-            SupportedLanguages::RubySorbet3_4_0 => "lsproxy-ruby-sorbet-3.4.0:latest".to_string(),
-            SupportedLanguages::RubySorbet3_3_6 => "lsproxy-ruby-sorbet-3.3.6:latest".to_string(),
-            SupportedLanguages::RubySorbet3_3_5 => "lsproxy-ruby-sorbet-3.3.5:latest".to_string(),
-            SupportedLanguages::RubySorbet3_2_6 => "lsproxy-ruby-sorbet-3.2.6:latest".to_string(),
-            SupportedLanguages::RubySorbet3_2_2 => "lsproxy-ruby-sorbet-3.2.2:latest".to_string(),
-            SupportedLanguages::Rust => "lsproxy-rust:latest".to_string(),
-            SupportedLanguages::CPP => "lsproxy-clangd:latest".to_string(),
-            SupportedLanguages::Java => "lsproxy-java:latest".to_string(),
-            SupportedLanguages::PHP => "lsproxy-php:latest".to_string(),
-            SupportedLanguages::CSharp => "lsproxy-csharp:latest".to_string(),
+            SupportedLanguages::Golang => format!("nuanced-lsp-golang:{}", LANGUAGE_CONTAINER_VERSION),
+            SupportedLanguages::Python => format!("nuanced-lsp-python:{}", LANGUAGE_CONTAINER_VERSION),
+            SupportedLanguages::TypeScriptJavaScript => format!("nuanced-lsp-typescript:{}", LANGUAGE_CONTAINER_VERSION),
+            SupportedLanguages::Ruby3_4_7 => format!("nuanced-lsp-ruby-3.4.7:{}", LANGUAGE_CONTAINER_VERSION),
+            SupportedLanguages::Ruby3_4_6 => format!("nuanced-lsp-ruby-3.4.6:{}", LANGUAGE_CONTAINER_VERSION),
+            SupportedLanguages::Ruby3_4_5 => format!("nuanced-lsp-ruby-3.4.5:{}", LANGUAGE_CONTAINER_VERSION),
+            SupportedLanguages::Ruby3_4_4 => format!("nuanced-lsp-ruby-3.4.4:{}", LANGUAGE_CONTAINER_VERSION),
+            SupportedLanguages::Ruby3_4_3 => format!("nuanced-lsp-ruby-3.4.3:{}", LANGUAGE_CONTAINER_VERSION),
+            SupportedLanguages::Ruby3_4_2 => format!("nuanced-lsp-ruby-3.4.2:{}", LANGUAGE_CONTAINER_VERSION),
+            SupportedLanguages::Ruby3_4_1 => format!("nuanced-lsp-ruby-3.4.1:{}", LANGUAGE_CONTAINER_VERSION),
+            SupportedLanguages::Ruby3_4_0 => format!("nuanced-lsp-ruby-3.4.0:{}", LANGUAGE_CONTAINER_VERSION),
+            SupportedLanguages::Ruby3_3_6 => format!("nuanced-lsp-ruby-3.3.6:{}", LANGUAGE_CONTAINER_VERSION),
+            SupportedLanguages::Ruby3_3_5 => format!("nuanced-lsp-ruby-3.3.5:{}", LANGUAGE_CONTAINER_VERSION),
+            SupportedLanguages::Ruby3_2_6 => format!("nuanced-lsp-ruby-3.2.6:{}", LANGUAGE_CONTAINER_VERSION),
+            SupportedLanguages::Ruby3_2_2 => format!("nuanced-lsp-ruby-3.2.2:{}", LANGUAGE_CONTAINER_VERSION),
+            SupportedLanguages::RubySorbet3_4_7 => format!("nuanced-lsp-ruby-sorbet-3.4.7:{}", LANGUAGE_CONTAINER_VERSION),
+            SupportedLanguages::RubySorbet3_4_6 => format!("nuanced-lsp-ruby-sorbet-3.4.6:{}", LANGUAGE_CONTAINER_VERSION),
+            SupportedLanguages::RubySorbet3_4_5 => format!("nuanced-lsp-ruby-sorbet-3.4.5:{}", LANGUAGE_CONTAINER_VERSION),
+            SupportedLanguages::RubySorbet3_4_4 => format!("nuanced-lsp-ruby-sorbet-3.4.4:{}", LANGUAGE_CONTAINER_VERSION),
+            SupportedLanguages::RubySorbet3_4_3 => format!("nuanced-lsp-ruby-sorbet-3.4.3:{}", LANGUAGE_CONTAINER_VERSION),
+            SupportedLanguages::RubySorbet3_4_2 => format!("nuanced-lsp-ruby-sorbet-3.4.2:{}", LANGUAGE_CONTAINER_VERSION),
+            SupportedLanguages::RubySorbet3_4_1 => format!("nuanced-lsp-ruby-sorbet-3.4.1:{}", LANGUAGE_CONTAINER_VERSION),
+            SupportedLanguages::RubySorbet3_4_0 => format!("nuanced-lsp-ruby-sorbet-3.4.0:{}", LANGUAGE_CONTAINER_VERSION),
+            SupportedLanguages::RubySorbet3_3_6 => format!("nuanced-lsp-ruby-sorbet-3.3.6:{}", LANGUAGE_CONTAINER_VERSION),
+            SupportedLanguages::RubySorbet3_3_5 => format!("nuanced-lsp-ruby-sorbet-3.3.5:{}", LANGUAGE_CONTAINER_VERSION),
+            SupportedLanguages::RubySorbet3_2_6 => format!("nuanced-lsp-ruby-sorbet-3.2.6:{}", LANGUAGE_CONTAINER_VERSION),
+            SupportedLanguages::RubySorbet3_2_2 => format!("nuanced-lsp-ruby-sorbet-3.2.2:{}", LANGUAGE_CONTAINER_VERSION),
+            SupportedLanguages::Rust => format!("nuanced-lsp-rust:{}", LANGUAGE_CONTAINER_VERSION),
+            SupportedLanguages::CPP => format!("nuanced-lsp-clangd:{}", LANGUAGE_CONTAINER_VERSION),
+            SupportedLanguages::Java => format!("nuanced-lsp-java:{}", LANGUAGE_CONTAINER_VERSION),
+            SupportedLanguages::PHP => format!("nuanced-lsp-php:{}", LANGUAGE_CONTAINER_VERSION),
+            SupportedLanguages::CSharp => format!("nuanced-lsp-csharp:{}", LANGUAGE_CONTAINER_VERSION),
         }
     }
 
