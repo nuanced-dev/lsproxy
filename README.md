@@ -199,6 +199,91 @@ For full API documentation, see [Nuanced LSP API Reference](https://docs.nuanced
 - Use `./scripts/stop-service.sh` to stop the service
 - See [docs/quickstart.md](docs/quickstart.md) for detailed instructions
 
+#### Building Multi-Architecture Images
+
+LSProxy supports multi-architecture Docker images for both `linux/amd64` and `linux/arm64` platforms. This section describes how to build and publish these images.
+
+**Building for Local Development (Single Architecture)**
+
+For local development, you can build images for your native platform:
+
+```bash
+# Build Rust containers (wrapper, service, watchdog) without cache
+./scripts/build-rust-containers.sh
+
+# Build Rust containers with cache (faster rebuilds)
+./scripts/build-rust-containers.sh --use-cache
+
+# Build main language containers (8 languages + 7 common Ruby versions)
+./scripts/build-language-containers.sh
+
+# Build all Ruby versions (110+ versions, takes hours)
+./scripts/build-language-containers.sh --all-ruby-versions
+
+# Build language containers sequentially (useful for debugging)
+./scripts/build-language-containers.sh --sequential
+```
+
+**Building Multi-Architecture Images for Release**
+
+For building images that support both amd64 and arm64:
+
+```bash
+# Build multi-arch Rust containers
+./scripts/build-rust-containers.sh --multiarch --use-cache
+
+# Build multi-arch language containers (main Ruby versions)
+./scripts/build-language-containers.sh --multiarch --use-cache
+
+# Build multi-arch language containers (all Ruby versions)
+./scripts/build-language-containers.sh --multiarch --use-cache --all-ruby-versions
+```
+
+**Note:** Multi-arch builds use Docker Buildx and may require QEMU for cross-compilation. The build process will be slower than single-architecture builds (2-3x).
+
+**Publishing Images to Registries**
+
+Images can be published to GitHub Container Registry (ghcr.io) and/or Docker Hub for redundancy:
+
+```bash
+# Publish to both GHCR and Docker Hub (default)
+./scripts/publish-images.sh 0.4.0 --all-ruby-versions
+
+# Publish only to GHCR
+./scripts/publish-images.sh 0.4.0 --registry=ghcr
+
+# Publish only to Docker Hub
+./scripts/publish-images.sh 0.4.0 --registry=dockerhub
+
+# Dry run to see what would be published
+./scripts/publish-images.sh 0.4.0 --dry-run
+```
+
+**Environment Variables for Publishing:**
+- `GITHUB_TOKEN` - Required for publishing to ghcr.io
+- `DOCKER_HUB_TOKEN` - Required for publishing to Docker Hub
+
+**Published Image Naming:**
+- **GHCR**: `ghcr.io/nuanced-dev/{image-name}:{version}`
+- **Docker Hub**: `nuanced/{image-name}:{version}`
+
+Example published images:
+```
+ghcr.io/nuanced-dev/nuanced-lsp-proxy:0.4.0
+ghcr.io/nuanced-dev/nuanced-lsp-wrapper:0.4.0
+ghcr.io/nuanced-dev/nuanced-lsp-watchdog:0.4.0
+ghcr.io/nuanced-dev/lsproxy-python:0.4.0
+ghcr.io/nuanced-dev/lsproxy-ruby-3.4.4:0.4.0
+ghcr.io/nuanced-dev/lsproxy-ruby-sorbet-3.4.4:0.4.0
+
+nuanced/nuanced-lsp-proxy:0.4.0
+nuanced/nuanced-lsp-wrapper:0.4.0
+nuanced/nuanced-lsp-watchdog:0.4.0
+nuanced/lsproxy-python:0.4.0
+nuanced/lsproxy-ruby-3.4.4:0.4.0
+nuanced/lsproxy-ruby-sorbet-3.4.4:0.4.0
+```
+
 ### Architecture
 
 LSProxy uses a **service container** that dynamically spawns **language-specific containers**. This provides massive space savings compared to the original monolithic implementation.
