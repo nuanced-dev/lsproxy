@@ -1,7 +1,7 @@
 # C/C++ LSP server container (clangd)
 # Uses build tools since C/C++ development needs compilers (gcc, g++, etc.)
 
-# Runtime stage: Pure Debian base (no dependency on lsproxy-base)
+# Runtime stage: Pure Debian base (standalone image with language-specific LSP server)
 # Wrapper binary will be mounted at runtime via --volumes-from
 FROM debian:bookworm-slim
 

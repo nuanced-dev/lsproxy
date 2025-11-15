@@ -19,7 +19,7 @@ RUN curl -L -o /tmp/jdt-language-server.tar.gz https://www.eclipse.org/downloads
     tar -xzf /tmp/jdt-language-server.tar.gz -C /opt/jdtls --no-same-owner && \
     rm /tmp/jdt-language-server.tar.gz
 
-# Runtime stage: Pure Debian base (no dependency on lsproxy-base)
+# Runtime stage: Pure Debian base (standalone image with language-specific LSP server)
 # Wrapper binary will be mounted at runtime via --volumes-from
 # Java is JVM-based, doesn't need build tools
 FROM debian:bookworm-slim

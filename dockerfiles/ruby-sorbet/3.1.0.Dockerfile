@@ -1,7 +1,7 @@
 # Ruby Sorbet 3.1.0 LSP server container
 # Builds on top of the Ruby 3.1.0 image and adds sorbet gem
 
-FROM lsproxy-ruby-3.1.0:latest
+FROM nuanced-lsp-ruby-3.1.0:1.0.0
 
 ENV DEBIAN_FRONTEND=noninteractive
 

@@ -20,7 +20,7 @@ RUN python3 -m venv /opt/jedi-venv && \
     /opt/jedi-venv/bin/pip install --no-cache-dir \
     jedi-language-server
 
-# Runtime stage: Pure Debian base (no dependency on lsproxy-base)
+# Runtime stage: Pure Debian base (standalone image with language-specific LSP server)
 # Wrapper binary will be mounted at runtime via --volumes-from
 FROM debian:bookworm-slim
 

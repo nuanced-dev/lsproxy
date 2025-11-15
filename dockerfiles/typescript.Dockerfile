@@ -18,7 +18,7 @@ RUN apt-get update && \
 RUN npm install -g typescript-language-server typescript && \
     npm cache clean --force
 
-# Runtime stage: Pure Debian base (no dependency on lsproxy-base)
+# Runtime stage: Pure Debian base (standalone image with language-specific LSP server)
 # Wrapper binary will be mounted at runtime via --volumes-from
 FROM debian:bookworm-slim
 

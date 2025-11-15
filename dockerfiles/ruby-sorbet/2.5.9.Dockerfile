@@ -1,7 +1,7 @@
 # Ruby Sorbet 2.5.9 LSP server container
 # Builds on top of the Ruby 2.5.9 image and adds sorbet gem
 
-FROM lsproxy-ruby-2.5.9:latest
+FROM nuanced-lsp-ruby-2.5.9:1.0.0
 
 ENV DEBIAN_FRONTEND=noninteractive
 

@@ -1,10 +1,12 @@
 # Golang LSP server container
 # Multi-stage build to minimize image size
+# Supports linux/amd64 and linux/arm64
 
 # Builder stage: Install Go and build gopls
 FROM debian:bookworm-slim AS builder
 
 ARG GO_VERSION=1.24.2
+ARG TARGETPLATFORM
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Install curl for downloading Go
@@ -13,8 +15,14 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# Download and install Go
-RUN curl -fsSL https://go.dev/dl/go${GO_VERSION}.linux-$(dpkg --print-architecture).tar.gz \
+# Download and install Go for the target platform
+# Convert TARGETPLATFORM (linux/amd64 or linux/arm64) to Go's arch naming
+RUN case "${TARGETPLATFORM:-linux/amd64}" in \
+        "linux/amd64") GOARCH=amd64 ;; \
+        "linux/arm64") GOARCH=arm64 ;; \
+        *) echo "Unsupported platform: $TARGETPLATFORM" && exit 1 ;; \
+    esac && \
+    curl -fsSL https://go.dev/dl/go${GO_VERSION}.linux-${GOARCH}.tar.gz \
     | tar -C /usr/local -xz
 
 ENV GOROOT=/usr/local/go
@@ -24,7 +32,7 @@ ENV PATH=$GOROOT/bin:$PATH
 # Build gopls
 RUN go install golang.org/x/tools/gopls@latest
 
-# Runtime stage: Pure Debian base (no dependency on lsproxy-base)
+# Runtime stage: Pure Debian base (standalone image with language-specific LSP server)
 # Wrapper binary will be mounted at runtime via --volumes-from
 FROM debian:bookworm-slim
 

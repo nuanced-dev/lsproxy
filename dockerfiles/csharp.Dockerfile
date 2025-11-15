@@ -25,7 +25,7 @@ ENV DOTNET_ROOT=/opt/dotnet
 # Install csharp-ls globally
 RUN dotnet tool install --global csharp-ls
 
-# Runtime stage: Pure Debian base (no dependency on lsproxy-base)
+# Runtime stage: Pure Debian base (standalone image with language-specific LSP server)
 # Wrapper binary will be mounted at runtime via --volumes-from
 # .NET is self-contained, doesn't need build tools
 FROM debian:bookworm-slim
