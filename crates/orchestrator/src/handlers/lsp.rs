@@ -3,8 +3,12 @@ use crate::AppState;
 use actix_web::web::{Data, Json};
 use actix_web::HttpResponse;
 use log::{error, info, warn};
+use lsp_types::{
+    DeclarationCapability, HoverProviderCapability, InitializeResult, OneOf, PositionEncodingKind,
+    ServerCapabilities, ServerInfo,
+};
 use lsproxy_common::api_types::{JsonRpcRequest, JsonRpcResponse};
-use serde_json::{json, Value};
+use serde_json::Value;
 
 /// Forward LSP JSON-RPC requests to language servers
 #[utoipa::path(
@@ -106,23 +110,24 @@ fn handle_lifecycle_request(request: &JsonRpcRequest, method: &str) -> HttpRespo
     match method {
         "initialize" => {
             // Return capabilities advertised by the orchestrator
+            let mut capabilities = ServerCapabilities::default();
+            capabilities.call_hierarchy_provider = Some(true.into());
+            capabilities.declaration_provider = Some(DeclarationCapability::Simple(true));
+            capabilities.definition_provider = Some(OneOf::Left(true));
+            capabilities.document_symbol_provider = Some(OneOf::Left(true));
+            capabilities.hover_provider = Some(HoverProviderCapability::Simple(true));
+            capabilities.position_encoding = Some(PositionEncodingKind::UTF8);
+            capabilities.references_provider = Some(OneOf::Left(true));
+            capabilities.type_definition_provider = Some(true.into());
             let response = JsonRpcResponse::new_result(
                 req_id,
-                json!({
-                    "capabilities": {
-                        "hoverProvider": true,
-                        "declarationProvider": true,
-                        "definitionProvider": true,
-                        "typeDefinitionProvider": true,
-                        "referencesProvider": true,
-                        "documentSymbolProvider": true,
-                        "typeHierarchyProvider": true,
-                    },
-                    "serverInfo": {
-                        "name": "nuanced-lsp",
-                        "version": env!("CARGO_PKG_VERSION"),
-                    },
-                }),
+                InitializeResult {
+                    capabilities,
+                    server_info: Some(ServerInfo {
+                        name: "nuanced-lsp".to_string(),
+                        version: Some(env!("CARGO_PKG_VERSION").to_string()),
+                    }),
+                },
             );
             HttpResponse::Ok().json(response)
         }
