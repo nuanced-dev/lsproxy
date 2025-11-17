@@ -2,7 +2,7 @@ use crate::handlers::container_proxy;
 use crate::AppState;
 use actix_web::web::{Data, Json};
 use actix_web::HttpResponse;
-use log::{error, info, warn};
+use log::{debug, error, info, warn};
 use lsp_types::{
     DeclarationCapability, HoverProviderCapability, InitializeResult, OneOf, PositionEncodingKind,
     ServerCapabilities, ServerInfo,
@@ -28,6 +28,7 @@ pub async fn lsp(data: Data<AppState>, request: Json<JsonRpcRequest>) -> HttpRes
     let method = &lsp_req.method;
     let req_id = lsp_req.id.clone();
     info!("Received LSP request: id={:?} method={}", &req_id, method);
+    debug!("LSP request: id={:?}", &lsp_req);
 
     // Handle lifecycle requests locally
     if is_lifecycle_method(method) {
@@ -79,10 +80,8 @@ pub async fn lsp(data: Data<AppState>, request: Json<JsonRpcRequest>) -> HttpRes
     // Forward request to container
     match client.forward_lsp_request(&lsp_req).await {
         Ok(response) => {
-            info!(
-                "Received container response: id={} method={}",
-                response.id, method
-            );
+            info!("Received container response: id={}", response.id);
+            debug!("Container response: {:?}", response);
             HttpResponse::Ok().json(response)
         }
         Err(e) => {
@@ -167,11 +166,6 @@ fn extract_document_uri(params: Option<&Value>) -> Option<String> {
         .and_then(|td| td.get("uri"))
         .and_then(|u| u.as_str())
     {
-        return Some(uri.to_string());
-    }
-
-    // Try uri directly
-    if let Some(uri) = params.and_then(|p| p.get("uri")).and_then(|u| u.as_str()) {
         return Some(uri.to_string());
     }
 

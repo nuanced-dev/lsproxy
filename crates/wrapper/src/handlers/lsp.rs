@@ -1,6 +1,6 @@
 use crate::AppState;
 use actix_web::{web, HttpResponse};
-use log::{error, info};
+use log::{debug, error, info};
 use lsproxy_common::api_types::{JsonRpcRequest, JsonRpcResponse};
 
 /// Forward raw LSP JSON-RPC requests to the LSP server
@@ -12,21 +12,19 @@ pub async fn lsp(
     request: web::Json<JsonRpcRequest>,
 ) -> HttpResponse {
     let lsp_req = request.into_inner();
-    let method = lsp_req.method.clone();
     let req_id = lsp_req.id.clone();
 
     info!(
         "Received LSP request: id={:?} method={}",
         &req_id, &lsp_req.method
     );
+    debug!("LSP request: {:?}", &lsp_req);
 
     // Forward the request to the LSP server
     match app_state.manager.lsp(lsp_req).await {
         Ok(response) => {
-            info!(
-                "Received process response: id={} method={}",
-                response.id, method
-            );
+            info!("Received process response: id={}", response.id);
+            debug!("Process response: {:?}", response);
             HttpResponse::Ok().json(response)
         }
         Err(e) => {
