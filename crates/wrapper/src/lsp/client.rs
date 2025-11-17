@@ -5,10 +5,11 @@ use async_trait::async_trait;
 use log::{debug, error, info, warn};
 use lsp_types::{
     ClientCapabilities, DidOpenTextDocumentParams, DocumentSymbolClientCapabilities,
-    GotoDefinitionParams, GotoDefinitionResponse, InitializeParams, InitializeResult, Location,
-    PartialResultParams, Position, PublishDiagnosticsClientCapabilities, ReferenceContext,
-    ReferenceParams, TagSupport, TextDocumentClientCapabilities, TextDocumentIdentifier,
-    TextDocumentItem, TextDocumentPositionParams, Url, WorkDoneProgressParams, WorkspaceFolder,
+    GeneralClientCapabilities, GotoDefinitionParams, GotoDefinitionResponse, InitializeParams,
+    InitializeResult, Location, PartialResultParams, Position, PositionEncodingKind,
+    PublishDiagnosticsClientCapabilities, ReferenceContext, ReferenceParams, TagSupport,
+    TextDocumentClientCapabilities, TextDocumentIdentifier, TextDocumentItem,
+    TextDocumentPositionParams, Url, WorkDoneProgressParams, WorkspaceFolder,
 };
 use lsproxy_common::utils::file_utils::{fix_relative_uris, search_paths, FileType};
 use lsproxy_common::utils::language_utils::detect_language_string;
@@ -44,6 +45,10 @@ pub trait LspClient: Send {
 
     fn get_capabilities(&mut self) -> ClientCapabilities {
         let mut capabilities = ClientCapabilities::default();
+        capabilities.general = Some(GeneralClientCapabilities {
+            position_encodings: Some(vec![PositionEncodingKind::UTF16]),
+            ..Default::default()
+        });
         capabilities.text_document = Some(TextDocumentClientCapabilities {
             document_symbol: Some(DocumentSymbolClientCapabilities {
                 dynamic_registration: Some(false),

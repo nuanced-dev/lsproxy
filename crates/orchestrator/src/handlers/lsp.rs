@@ -115,8 +115,8 @@ fn handle_lifecycle_request(request: &JsonRpcRequest, method: &str) -> HttpRespo
             capabilities.declaration_provider = Some(DeclarationCapability::Simple(true));
             capabilities.definition_provider = Some(OneOf::Left(true));
             capabilities.document_symbol_provider = Some(OneOf::Left(true));
-            capabilities.hover_provider = Some(HoverProviderCapability::Simple(true));
-            capabilities.position_encoding = Some(PositionEncodingKind::UTF8);
+            capabilities.hover_provider = Some(HoverProviderCapability::Simple(false));
+            capabilities.position_encoding = Some(PositionEncodingKind::UTF16);
             capabilities.references_provider = Some(OneOf::Left(true));
             capabilities.type_definition_provider = Some(true.into());
             let response = JsonRpcResponse::new_result(
