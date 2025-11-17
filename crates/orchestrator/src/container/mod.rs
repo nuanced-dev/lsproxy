@@ -224,6 +224,62 @@ impl ContainerOrchestrator {
         }
     }
 
+    /// Convert a host path to a container path
+    /// Only converts absolute paths; relative paths are returned unchanged
+    pub async fn convert_path_host_to_container(&self, path: &str) -> Option<String> {
+        use std::path::Path;
+
+        let path_obj = Path::new(path);
+
+        // Only convert absolute paths
+        if !path_obj.is_absolute() {
+            return Some(path.to_string());
+        }
+
+        // Get the host workspace path
+        let host_workspace = self.get_host_workspace_path().await?;
+        let host_workspace_path = Path::new(&host_workspace);
+
+        // Check if the path starts with the host workspace path
+        if let Ok(relative) = path_obj.strip_prefix(host_workspace_path) {
+            // Convert to container path
+            let container_path = Path::new("/mnt/workspace").join(relative);
+            Some(container_path.to_string_lossy().to_string())
+        } else {
+            // Path is absolute but not in workspace - return as is
+            Some(path.to_string())
+        }
+    }
+
+    /// Convert a container path to a host path
+    /// Only converts absolute paths; relative paths are returned unchanged
+    pub async fn convert_path_container_to_host(&self, path: &str) -> Option<String> {
+        use std::path::Path;
+
+        let path_obj = Path::new(path);
+
+        // Only convert absolute paths
+        if !path_obj.is_absolute() {
+            return Some(path.to_string());
+        }
+
+        let container_workspace = Path::new("/mnt/workspace");
+
+        // Check if the path starts with the container workspace path
+        if let Ok(relative) = path_obj.strip_prefix(container_workspace) {
+            // Get the host workspace path
+            let host_workspace = self.get_host_workspace_path().await?;
+            let host_workspace_path = Path::new(&host_workspace);
+
+            // Convert to host path
+            let host_path = host_workspace_path.join(relative);
+            Some(host_path.to_string_lossy().to_string())
+        } else {
+            // Path is absolute but not in container workspace - return as is
+            Some(path.to_string())
+        }
+    }
+
     /// Parse a language string (case-insensitive, handles aliases)
     fn parse_language(s: &str) -> Option<SupportedLanguages> {
         match s.trim().to_lowercase().as_str() {

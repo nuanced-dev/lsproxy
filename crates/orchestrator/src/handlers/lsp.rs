@@ -1,3 +1,4 @@
+use crate::container::ContainerOrchestrator;
 use crate::handlers::container_proxy;
 use crate::AppState;
 use actix_web::web::{Data, Json};
@@ -9,6 +10,8 @@ use lsp_types::{
 };
 use lsproxy_common::api_types::{JsonRpcRequest, JsonRpcResponse};
 use serde_json::Value;
+use std::sync::Arc;
+use url::Url;
 
 /// Forward LSP JSON-RPC requests to language servers
 #[utoipa::path(
@@ -52,10 +55,28 @@ pub async fn lsp(data: Data<AppState>, request: Json<JsonRpcRequest>) -> HttpRes
     };
 
     // Convert file:// URI to path
-    let file_path = match uri_to_path(&document_uri) {
-        Some(path) => path,
-        None => {
-            error!("Invalid document URI: {}", document_uri);
+    let file_path = match Url::parse(&document_uri) {
+        Ok(url) if url.scheme() == "file" => match url.to_file_path() {
+            Ok(path) => path.to_string_lossy().to_string(),
+            Err(_) => {
+                error!("Invalid file URI path: {}", document_uri);
+                return HttpResponse::BadRequest().json(JsonRpcResponse::new_error(
+                    req_id,
+                    -32602,
+                    "Invalid params: invalid file URI path",
+                ));
+            }
+        },
+        Ok(_) => {
+            error!("Non-file URI: {}", document_uri);
+            return HttpResponse::BadRequest().json(JsonRpcResponse::new_error(
+                req_id,
+                -32602,
+                "Invalid params: expected file URI",
+            ));
+        }
+        Err(e) => {
+            error!("Invalid document URI: {} - {}", document_uri, e);
             return HttpResponse::BadRequest().json(JsonRpcResponse::new_error(
                 req_id,
                 -32602,
@@ -77,11 +98,39 @@ pub async fn lsp(data: Data<AppState>, request: Json<JsonRpcRequest>) -> HttpRes
         }
     };
 
+    // Convert request paths from host to container
+    let mut converted_request = lsp_req.clone();
+    if let Some(ref mut params) = converted_request.params {
+        if let Err(e) = convert_json_paths_host_to_container(&data.orchestrator, params).await {
+            error!("Failed to convert request paths: {}", e);
+            return HttpResponse::InternalServerError().json(JsonRpcResponse::new_error(
+                req_id,
+                -32603,
+                &format!("Path conversion error: {}", e),
+            ));
+        }
+    }
+
     // Forward request to container
-    match client.forward_lsp_request(&lsp_req).await {
-        Ok(response) => {
+    match client.forward_lsp_request(&converted_request).await {
+        Ok(mut response) => {
             info!("Received container response: id={}", response.id);
             debug!("Container response: {:?}", response);
+
+            // Convert response paths from container to host
+            if let Some(ref mut result) = response.result {
+                if let Err(e) =
+                    convert_json_paths_container_to_host(&data.orchestrator, result).await
+                {
+                    error!("Failed to convert response paths: {}", e);
+                    return HttpResponse::InternalServerError().json(JsonRpcResponse::new_error(
+                        req_id,
+                        -32603,
+                        &format!("Path conversion error: {}", e),
+                    ));
+                }
+            }
+
             HttpResponse::Ok().json(response)
         }
         Err(e) => {
@@ -172,20 +221,100 @@ fn extract_document_uri(params: Option<&Value>) -> Option<String> {
     None
 }
 
-/// Convert file:// URI to file path
-fn uri_to_path(uri: &str) -> Option<String> {
-    if !uri.starts_with("file://") {
-        return None;
-    }
+/// Recursively convert paths in JSON value from host to container
+fn convert_json_paths_host_to_container<'a>(
+    orchestrator: &'a Arc<ContainerOrchestrator>,
+    value: &'a mut Value,
+) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<(), String>> + 'a>> {
+    Box::pin(async move {
+        match value {
+            Value::String(s) => {
+                // Try to parse as URI
+                if let Ok(url) = Url::parse(s) {
+                    // Only process file URIs
+                    if url.scheme() == "file" {
+                        // Extract path from URI
+                        if let Ok(path) = url.to_file_path() {
+                            let path_str = path.to_string_lossy().to_string();
 
-    // Remove file:// prefix
-    let path = &uri[7..];
+                            // Convert path if it's absolute
+                            if let Some(converted) =
+                                orchestrator.convert_path_host_to_container(&path_str).await
+                            {
+                                // Only update if path changed
+                                if converted != path_str {
+                                    // Create new URI from converted path
+                                    let converted_path = std::path::PathBuf::from(&converted);
+                                    if let Ok(new_url) = Url::from_file_path(&converted_path) {
+                                        *s = new_url.to_string();
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            Value::Object(map) => {
+                for (_, v) in map.iter_mut() {
+                    convert_json_paths_host_to_container(orchestrator, v).await?;
+                }
+            }
+            Value::Array(arr) => {
+                for item in arr.iter_mut() {
+                    convert_json_paths_host_to_container(orchestrator, item).await?;
+                }
+            }
+            _ => {}
+        }
+        Ok(())
+    })
+}
 
-    // Handle Windows-style paths (file:///C:/...)
-    if path.starts_with('/') && path.len() > 2 && path.chars().nth(2) == Some(':') {
-        return Some(path[1..].to_string());
-    }
+/// Recursively convert paths in JSON value from container to host
+fn convert_json_paths_container_to_host<'a>(
+    orchestrator: &'a Arc<ContainerOrchestrator>,
+    value: &'a mut Value,
+) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<(), String>> + 'a>> {
+    Box::pin(async move {
+        match value {
+            Value::String(s) => {
+                // Try to parse as URI
+                if let Ok(url) = Url::parse(s) {
+                    // Only process file URIs
+                    if url.scheme() == "file" {
+                        // Extract path from URI
+                        if let Ok(path) = url.to_file_path() {
+                            let path_str = path.to_string_lossy().to_string();
 
-    // Unix-style paths
-    Some(path.to_string())
+                            // Convert path if it's absolute
+                            if let Some(converted) =
+                                orchestrator.convert_path_container_to_host(&path_str).await
+                            {
+                                // Only update if path changed
+                                if converted != path_str {
+                                    // Create new URI from converted path
+                                    let converted_path = std::path::PathBuf::from(&converted);
+                                    if let Ok(new_url) = Url::from_file_path(&converted_path) {
+                                        *s = new_url.to_string();
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            Value::Object(map) => {
+                for (_, v) in map.iter_mut() {
+                    convert_json_paths_container_to_host(orchestrator, v).await?;
+                }
+            }
+            Value::Array(arr) => {
+                for item in arr.iter_mut() {
+                    convert_json_paths_container_to_host(orchestrator, item).await?;
+                }
+            }
+            _ => {}
+        }
+        Ok(())
+    })
 }
