@@ -5,7 +5,9 @@ use lsp_types::{GotoDefinitionResponse, Location, Position, Range};
 ///
 /// Unlike the main LSProxy Manager that orchestrates multiple language servers,
 /// this Manager wraps a single LSP client for the configured language.
-use lsproxy_common::api_types::{get_mount_dir, Identifier, Symbol};
+use lsproxy_common::api_types::{
+    get_mount_dir, Identifier, JsonRpcRequest, JsonRpcResponse, Symbol,
+};
 use lsproxy_common::ast_grep::client::AstGrepClient;
 use lsproxy_common::ast_grep::types::AstGrepMatch;
 use lsproxy_common::utils::file_utils::uri_to_relative_path_string;
@@ -285,25 +287,13 @@ impl Manager {
     /// Forward a raw LSP JSON-RPC request to the LSP server
     ///
     /// This provides lightweight pass-through of JSON-RPC requests with minimal processing.
-    pub async fn forward_lsp_request(
-        &self,
-        request: serde_json::Value,
-    ) -> Result<serde_json::Value, LspManagerError> {
-        // Parse method from request
-        let method = request
-            .get("method")
-            .and_then(|m| m.as_str())
-            .ok_or_else(|| {
-                LspManagerError::InternalError("Missing method in LSP request".to_string())
-            })?;
-
-        // Get params from request
-        let params = request.get("params").cloned();
+    pub async fn lsp(&self, request: JsonRpcRequest) -> Result<JsonRpcResponse, LspManagerError> {
+        let req_id = request.id;
 
         // Forward to LSP server
         let mut locked_client = self.client.lock().await;
         let result = locked_client
-            .send_request(method, params)
+            .send_request(&request.method, request.params)
             .await
             .map_err(|e| {
                 error!("Failed to forward LSP request: {}", e);
@@ -311,11 +301,7 @@ impl Manager {
             })?;
 
         // Build response
-        let response = serde_json::json!({
-            "jsonrpc": "2.0",
-            "id": request.get("id"),
-            "result": result
-        });
+        let response = JsonRpcResponse::new_result(req_id, result);
 
         Ok(response)
     }

@@ -566,7 +566,7 @@ pub struct ReadSourceCodeRequest {
     pub range: Option<Range>,
 }
 
-/// JSON-RPC request
+/// JSON-RPC request or notification
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema, IntoParams)]
 pub struct JsonRpcRequest {
     /// The JSON-RPC version (always "2.0")
@@ -586,6 +586,21 @@ pub struct JsonRpcRequest {
     pub params: Option<Value>,
 }
 
+impl JsonRpcRequest {
+    pub fn new<Id: Serialize, P: Serialize>(
+        id: Option<Id>,
+        method: String,
+        params: Option<P>,
+    ) -> Self {
+        Self {
+            jsonrpc: "2.0".to_string(),
+            id: id.map(|id| serde_json::to_value(id).unwrap()),
+            method,
+            params: params.map(|p| serde_json::to_value(p).unwrap()),
+        }
+    }
+}
+
 /// JSON-RPC response
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct JsonRpcResponse {
@@ -603,6 +618,34 @@ pub struct JsonRpcResponse {
     /// The error (present on failure)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<JsonRpcError>,
+}
+
+impl JsonRpcResponse {
+    pub fn new_result<Id: Serialize, R: Serialize>(id: Option<Id>, result: R) -> Self {
+        Self {
+            jsonrpc: "2.0".to_string(),
+            id: id
+                .map(|id| serde_json::to_value(id).unwrap())
+                .unwrap_or(Value::Null),
+            result: Some(serde_json::to_value(result).unwrap()),
+            error: None,
+        }
+    }
+
+    pub fn new_error<Id: Serialize>(id: Option<Id>, code: i32, message: impl ToString) -> Self {
+        Self {
+            jsonrpc: "2.0".to_string(),
+            id: id
+                .map(|id| serde_json::to_value(id).unwrap())
+                .unwrap_or(Value::Null),
+            result: None,
+            error: Some(JsonRpcError {
+                code,
+                message: message.to_string(),
+                data: None,
+            }),
+        }
+    }
 }
 
 /// JSON-RPC error

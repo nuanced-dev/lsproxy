@@ -1,7 +1,7 @@
 use crate::AppState;
 use actix_web::{web, HttpResponse};
-use log::{debug, error};
-use lsproxy_common::api_types::JsonRpcRequest;
+use log::{error, info};
+use lsproxy_common::api_types::{JsonRpcRequest, JsonRpcResponse};
 
 /// Forward raw LSP JSON-RPC requests to the LSP server
 ///
@@ -12,22 +12,28 @@ pub async fn lsp(
     request: web::Json<JsonRpcRequest>,
 ) -> HttpResponse {
     let lsp_req = request.into_inner();
-    let req_value = serde_json::to_value(&lsp_req).unwrap_or_else(|_| serde_json::json!({}));
+    let method = lsp_req.method.clone();
+    let req_id = lsp_req.id.clone();
 
-    debug!("Forwarding LSP request: {:?}", req_value);
+    info!(
+        "Received LSP request: id={:?} method={}",
+        &req_id, &lsp_req.method
+    );
 
     // Forward the request to the LSP server
-    match app_state.manager.forward_lsp_request(req_value).await {
-        Ok(response) => HttpResponse::Ok().json(response),
+    match app_state.manager.lsp(lsp_req).await {
+        Ok(response) => {
+            info!(
+                "Received process response: id={} method={}",
+                response.id, method
+            );
+            HttpResponse::Ok().json(response)
+        }
         Err(e) => {
             error!("LSP request failed: {}", e);
-            HttpResponse::InternalServerError().json(serde_json::json!({
-                "jsonrpc": "2.0",
-                "error": {
-                    "code": -32603,
-                    "message": format!("Internal error: {}", e)
-                }
-            }))
+            let error =
+                JsonRpcResponse::new_error(req_id, -32603, format!("Internal error: {}", e));
+            HttpResponse::InternalServerError().json(error)
         }
     }
 }

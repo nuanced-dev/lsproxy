@@ -21,27 +21,25 @@ use serde_json::{json, Value};
 pub async fn lsp(data: Data<AppState>, request: Json<JsonRpcRequest>) -> HttpResponse {
     let lsp_req = request.into_inner();
 
-    // Convert LspRequest to Value for internal processing
-    let req_value = serde_json::to_value(&lsp_req).unwrap_or_else(|_| json!({}));
-
     let method = &lsp_req.method;
-    info!("Received LSP request: method={}", method);
+    let req_id = lsp_req.id.clone();
+    info!("Received LSP request: id={:?} method={}", &req_id, method);
 
     // Handle lifecycle requests locally
     if is_lifecycle_method(method) {
-        return handle_lifecycle_request(&req_value, method);
+        return handle_lifecycle_request(&lsp_req, method);
     }
 
     // For language feature requests, extract document URI and route to appropriate backend
-    let document_uri = match extract_document_uri(&req_value) {
+    let document_uri = match extract_document_uri(lsp_req.params.as_ref()) {
         Some(uri) => uri,
         None => {
             warn!(
                 "Could not extract document URI from request for method: {}",
                 method
             );
-            return HttpResponse::BadRequest().json(create_error_response(
-                req_value.get("id").and_then(|id| id.as_u64()),
+            return HttpResponse::BadRequest().json(JsonRpcResponse::new_error(
+                req_id,
                 -32602,
                 "Invalid params: could not extract document URI",
             ));
@@ -53,8 +51,8 @@ pub async fn lsp(data: Data<AppState>, request: Json<JsonRpcRequest>) -> HttpRes
         Some(path) => path,
         None => {
             error!("Invalid document URI: {}", document_uri);
-            return HttpResponse::BadRequest().json(create_error_response(
-                req_value.get("id").and_then(|id| id.as_u64()),
+            return HttpResponse::BadRequest().json(JsonRpcResponse::new_error(
+                req_id,
                 -32602,
                 "Invalid params: invalid document URI",
             ));
@@ -66,8 +64,8 @@ pub async fn lsp(data: Data<AppState>, request: Json<JsonRpcRequest>) -> HttpRes
         Ok(client) => client,
         Err(e) => {
             error!("Failed to get container client: {}", e);
-            return HttpResponse::InternalServerError().json(create_error_response(
-                req_value.get("id").and_then(|id| id.as_u64()),
+            return HttpResponse::InternalServerError().json(JsonRpcResponse::new_error(
+                req_id,
                 -32603,
                 &format!("Internal error: {}", e),
             ));
@@ -75,12 +73,18 @@ pub async fn lsp(data: Data<AppState>, request: Json<JsonRpcRequest>) -> HttpRes
     };
 
     // Forward request to container
-    match client.forward_lsp_request(&req_value).await {
-        Ok(response) => HttpResponse::Ok().json(response),
+    match client.forward_lsp_request(&lsp_req).await {
+        Ok(response) => {
+            info!(
+                "Received container response: id={} method={}",
+                response.id, method
+            );
+            HttpResponse::Ok().json(response)
+        }
         Err(e) => {
             error!("Container request failed: {}", e);
-            HttpResponse::InternalServerError().json(create_error_response(
-                req_value.get("id").and_then(|id| id.as_u64()),
+            HttpResponse::InternalServerError().json(JsonRpcResponse::new_error(
+                req_id,
                 -32603,
                 &format!("Internal error: {}", e),
             ))
@@ -97,16 +101,14 @@ fn is_lifecycle_method(method: &str) -> bool {
 }
 
 /// Handle lifecycle requests locally
-fn handle_lifecycle_request(request: &Value, method: &str) -> HttpResponse {
-    let id = request.get("id").and_then(|id| id.as_u64());
-
+fn handle_lifecycle_request(request: &JsonRpcRequest, method: &str) -> HttpResponse {
+    let req_id = request.id.clone();
     match method {
         "initialize" => {
             // Return capabilities advertised by the orchestrator
-            let response = json!({
-                "jsonrpc": "2.0",
-                "id": id,
-                "result": {
+            let response = JsonRpcResponse::new_result(
+                req_id,
+                json!({
                     "capabilities": {
                         "hoverProvider": true,
                         "declarationProvider": true,
@@ -118,10 +120,10 @@ fn handle_lifecycle_request(request: &Value, method: &str) -> HttpResponse {
                     },
                     "serverInfo": {
                         "name": "nuanced-lsp",
-                        "version": env!("CARGO_PKG_VERSION")
-                    }
-                }
-            });
+                        "version": env!("CARGO_PKG_VERSION"),
+                    },
+                }),
+            );
             HttpResponse::Ok().json(response)
         }
         "initialized" => {
@@ -130,11 +132,7 @@ fn handle_lifecycle_request(request: &Value, method: &str) -> HttpResponse {
         }
         "shutdown" => {
             // Acknowledge shutdown
-            let response = json!({
-                "jsonrpc": "2.0",
-                "id": id,
-                "result": null
-            });
+            let response = JsonRpcResponse::new_result(req_id, Value::Null);
             HttpResponse::Ok().json(response)
         }
         "exit" => {
@@ -147,16 +145,19 @@ fn handle_lifecycle_request(request: &Value, method: &str) -> HttpResponse {
         }
         _ => {
             // Unknown lifecycle method
-            HttpResponse::BadRequest().json(create_error_response(id, -32601, "Method not found"))
+            HttpResponse::BadRequest().json(JsonRpcResponse::new_error(
+                req_id,
+                -32601,
+                "Method not found",
+            ))
         }
     }
 }
 
 /// Extract document URI from JSON-RPC request parameters
-fn extract_document_uri(request: &Value) -> Option<String> {
+fn extract_document_uri(params: Option<&Value>) -> Option<String> {
     // Try textDocument.uri
-    if let Some(uri) = request
-        .get("params")
+    if let Some(uri) = params
         .and_then(|p| p.get("textDocument"))
         .and_then(|td| td.get("uri"))
         .and_then(|u| u.as_str())
@@ -165,11 +166,7 @@ fn extract_document_uri(request: &Value) -> Option<String> {
     }
 
     // Try uri directly
-    if let Some(uri) = request
-        .get("params")
-        .and_then(|p| p.get("uri"))
-        .and_then(|u| u.as_str())
-    {
+    if let Some(uri) = params.and_then(|p| p.get("uri")).and_then(|u| u.as_str()) {
         return Some(uri.to_string());
     }
 
@@ -192,16 +189,4 @@ fn uri_to_path(uri: &str) -> Option<String> {
 
     // Unix-style paths
     Some(path.to_string())
-}
-
-/// Create a JSON-RPC error response
-fn create_error_response(id: Option<u64>, code: i32, message: &str) -> Value {
-    json!({
-        "jsonrpc": "2.0",
-        "id": id,
-        "error": {
-            "code": code,
-            "message": message
-        }
-    })
 }

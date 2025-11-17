@@ -102,8 +102,8 @@ impl ContainerHttpClient {
     /// Forward a raw LSP JSON-RPC request to the container
     pub async fn forward_lsp_request(
         &self,
-        request: &serde_json::Value,
-    ) -> Result<serde_json::Value, Box<dyn Error + Send + Sync>> {
+        request: &JsonRpcRequest,
+    ) -> Result<JsonRpcResponse, Box<dyn Error + Send + Sync>> {
         let url = format!("{}/lsp", self.base_url);
         let response = self.client.post(&url).json(request).send().await?;
 
