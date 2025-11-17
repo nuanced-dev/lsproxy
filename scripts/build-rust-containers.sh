@@ -157,11 +157,6 @@ else
 fi
 echo
 
-echo -e "${GREEN}=========================================${NC}"
-echo -e "${GREEN}  Rust Containers Built Successfully${NC}"
-echo -e "${GREEN}=========================================${NC}"
-echo
-
 if [ "$MULTIARCH" = true ]; then
     echo -e "${BLUE}Multi-arch images built and cached (not loaded into local Docker)${NC}"
     echo
@@ -185,6 +180,16 @@ if [ "$MULTIARCH" = true ]; then
 
         echo -e "${GREEN}✓ Local platform images loaded into Docker${NC}"
         echo
+    fi
+fi
+
+echo -e "${GREEN}=========================================${NC}"
+echo -e "${GREEN}  Rust Containers Built Successfully${NC}"
+echo -e "${GREEN}=========================================${NC}"
+echo
+
+if [ "$MULTIARCH" = true ]; then
+    if [ "$LOAD_LOCAL" = true ]; then
         echo -e "${BLUE}Container Images (Local):${NC}"
         docker images | grep -E "nuanced-lsp-(wrapper|proxy|watchdog)" | awk '{printf "  %-30s %10s\n", $1":"$2, $7}'
         echo
