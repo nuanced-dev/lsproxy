@@ -227,47 +227,34 @@ fn convert_json_paths_host_to_container<'a>(
     value: &'a mut Value,
 ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<(), String>> + 'a>> {
     Box::pin(async move {
-        match value {
-            Value::String(s) => {
-                // Try to parse as URI
-                if let Ok(url) = Url::parse(s) {
-                    // Only process file URIs
-                    if url.scheme() == "file" {
-                        // Extract path from URI
-                        if let Ok(path) = url.to_file_path() {
-                            let path_str = path.to_string_lossy().to_string();
+        let host_workspace = orchestrator
+            .get_host_workspace_path()
+            .await
+            .ok_or_else(|| "Failed to get host workspace path".to_string())?;
 
-                            // Convert path if it's absolute
-                            if let Some(converted) =
-                                orchestrator.convert_path_host_to_container(&path_str).await
-                            {
-                                // Only update if path changed
-                                if converted != path_str {
-                                    // Create new URI from converted path
-                                    let converted_path = std::path::PathBuf::from(&converted);
-                                    if let Ok(new_url) = Url::from_file_path(&converted_path) {
-                                        *s = new_url.to_string();
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            Value::Object(map) => {
-                for (_, v) in map.iter_mut() {
-                    convert_json_paths_host_to_container(orchestrator, v).await?;
-                }
-            }
-            Value::Array(arr) => {
-                for item in arr.iter_mut() {
-                    convert_json_paths_host_to_container(orchestrator, item).await?;
-                }
-            }
-            _ => {}
-        }
+        convert_json_paths_recursive(value, &host_workspace, "/mnt/workspace");
         Ok(())
     })
+}
+
+/// Recursively replace path strings in JSON values
+fn convert_json_paths_recursive(value: &mut Value, from: &str, to: &str) {
+    match value {
+        Value::String(s) => {
+            *s = s.replace(from, to);
+        }
+        Value::Object(map) => {
+            for (_, v) in map.iter_mut() {
+                convert_json_paths_recursive(v, from, to);
+            }
+        }
+        Value::Array(arr) => {
+            for item in arr.iter_mut() {
+                convert_json_paths_recursive(item, from, to);
+            }
+        }
+        _ => {}
+    }
 }
 
 /// Recursively convert paths in JSON value from container to host
@@ -276,45 +263,12 @@ fn convert_json_paths_container_to_host<'a>(
     value: &'a mut Value,
 ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<(), String>> + 'a>> {
     Box::pin(async move {
-        match value {
-            Value::String(s) => {
-                // Try to parse as URI
-                if let Ok(url) = Url::parse(s) {
-                    // Only process file URIs
-                    if url.scheme() == "file" {
-                        // Extract path from URI
-                        if let Ok(path) = url.to_file_path() {
-                            let path_str = path.to_string_lossy().to_string();
+        let host_workspace = orchestrator
+            .get_host_workspace_path()
+            .await
+            .ok_or_else(|| "Failed to get host workspace path".to_string())?;
 
-                            // Convert path if it's absolute
-                            if let Some(converted) =
-                                orchestrator.convert_path_container_to_host(&path_str).await
-                            {
-                                // Only update if path changed
-                                if converted != path_str {
-                                    // Create new URI from converted path
-                                    let converted_path = std::path::PathBuf::from(&converted);
-                                    if let Ok(new_url) = Url::from_file_path(&converted_path) {
-                                        *s = new_url.to_string();
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            Value::Object(map) => {
-                for (_, v) in map.iter_mut() {
-                    convert_json_paths_container_to_host(orchestrator, v).await?;
-                }
-            }
-            Value::Array(arr) => {
-                for item in arr.iter_mut() {
-                    convert_json_paths_container_to_host(orchestrator, item).await?;
-                }
-            }
-            _ => {}
-        }
+        convert_json_paths_recursive(value, "/mnt/workspace", &host_workspace);
         Ok(())
     })
 }
