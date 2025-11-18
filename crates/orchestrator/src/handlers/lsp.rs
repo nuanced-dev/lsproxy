@@ -5,7 +5,8 @@ use actix_web::web::{Data, Json};
 use actix_web::HttpResponse;
 use log::{debug, error, info, warn};
 use lsp_types::{
-    DeclarationCapability, HoverProviderCapability, InitializeResult, OneOf, PositionEncodingKind,
+    DeclarationCapability, FoldingRangeProviderCapability, HoverProviderCapability,
+    ImplementationProviderCapability, InitializeResult, OneOf, PositionEncodingKind,
     ServerCapabilities, ServerInfo,
 };
 use lsproxy_common::api_types::{JsonRpcRequest, JsonRpcResponse};
@@ -154,7 +155,12 @@ fn handle_lifecycle_request(request: &JsonRpcRequest) -> Option<HttpResponse> {
             capabilities.declaration_provider = Some(DeclarationCapability::Simple(true));
             capabilities.definition_provider = Some(OneOf::Left(true));
             capabilities.document_symbol_provider = Some(OneOf::Left(true));
+            capabilities.folding_range_provider =
+                Some(FoldingRangeProviderCapability::Simple(true));
             capabilities.hover_provider = Some(HoverProviderCapability::Simple(false));
+            capabilities.implementation_provider =
+                Some(ImplementationProviderCapability::Simple(true));
+            capabilities.inline_value_provider = Some(OneOf::Left(true));
             capabilities.position_encoding = Some(PositionEncodingKind::UTF16);
             capabilities.references_provider = Some(OneOf::Left(true));
             capabilities.type_definition_provider = Some(true.into());
