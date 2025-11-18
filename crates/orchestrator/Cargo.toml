@@ -3,13 +3,13 @@ name = "lsproxy-orchestrator"
 version.workspace = true
 edition.workspace = true
 
+[lib]
+name = "lsproxy_orchestrator"
+path = "src/lib.rs"
+
 [[bin]]
 name = "lsproxy"
 path = "src/main.rs"
-
-[lib]
-name = "lsproxy"
-path = "src/lib.rs"
 
 [dependencies]
 lsproxy-common.workspace = true

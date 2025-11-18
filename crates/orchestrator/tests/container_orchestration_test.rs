@@ -22,7 +22,7 @@ use tokio::sync::Mutex;
 use tokio::time::sleep;
 
 use lsproxy_orchestrator::container::{
-    proxy_image, wrapper_image, LANGUAGE_CONTAINER_VERSION, WRAPPER_IMAGE_BASE,
+    proxy_image, LANGUAGE_CONTAINER_VERSION, WRAPPER_IMAGE_BASE,
 };
 
 // Helper function for Python test image
@@ -224,7 +224,7 @@ impl ContainerFixture {
             .to_str()
             .ok_or("Invalid workspace path")?;
 
-        let config = Config {
+        let config: Config<&str> = Config {
             image: Some(&proxy_image()),
             env: Some(vec!["USE_AUTH=false", "RUST_LOG=info"]),
             host_config: Some(bollard::models::HostConfig {

@@ -17,7 +17,7 @@ use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
 
 // Local modules
-mod container;
+pub mod container;
 mod handlers;
 
 use crate::handlers::{
