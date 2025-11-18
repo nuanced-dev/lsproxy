@@ -1,5 +1,5 @@
 use lsp_types::{Location, LocationLink};
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::Value;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -582,7 +582,11 @@ pub struct JsonRpcRequest {
     pub method: String,
 
     /// The method parameters (structure varies by method)
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_option_value"
+    )]
     pub params: Option<Value>,
 }
 
@@ -612,7 +616,11 @@ pub struct JsonRpcResponse {
     pub id: Value,
 
     /// The result (present on success)
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_option_value"
+    )]
     pub result: Option<Value>,
 
     /// The error (present on failure)
@@ -660,6 +668,23 @@ pub struct JsonRpcError {
     /// Optional additional error data
     #[serde(skip_serializing_if = "Option::is_none")]
     pub data: Option<Value>,
+}
+
+/// Custom deserialize function to ensure `Some(Null)` is not reduced to `None`.
+/// Fields need to be annotated as follows:
+/// ```skip
+/// #[serde(
+///     default,
+///     skip_serializing_if = "Option::is_none",
+///     deserialize_with = "deserialize_option_value"
+/// )]
+/// ```
+/// Solution from: <https://github.com/serde-rs/serde/issues/984#issuecomment-314143738>
+fn deserialize_option_value<'de, D>(deserializer: D) -> Result<Option<Value>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    Deserialize::deserialize(deserializer).map(Some)
 }
 
 #[cfg(test)]
