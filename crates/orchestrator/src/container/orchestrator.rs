@@ -67,7 +67,7 @@ impl ContainerOrchestrator {
 
         let image_name = Self::image_name_for_language(&language);
         let container_name = format!(
-            "lsproxy-{}-{}",
+            "nuanced-lsp-{}-{}",
             Self::language_slug(&language),
             uuid::Uuid::new_v4()
         );
@@ -134,9 +134,9 @@ impl ContainerOrchestrator {
 
         // Label containers with parent ID for watchdog cleanup
         let mut labels = HashMap::new();
-        labels.insert("lsproxy.role".to_string(), "language-server".to_string());
+        labels.insert("nuanced.role".to_string(), "language-server".to_string());
         if let Some(parent_id) = ContainerOrchestrator::get_own_container_id() {
-            labels.insert("lsproxy.parent".to_string(), parent_id);
+            labels.insert("nuanced.parent".to_string(), parent_id);
         }
 
         let config = Config {
@@ -220,6 +220,10 @@ impl ContainerOrchestrator {
             let mut containers_guard = self.containers.lock().await;
             containers_guard.insert(language.clone(), info.clone());
         }
+
+        // Wait for container to be healthy before returning
+        log::info!("Waiting for container {} to be healthy...", container_id);
+        self.check_container_health(&info).await?;
 
         log::info!(
             "Successfully spawned container {} for {:?} at {}",
@@ -419,51 +423,53 @@ mod tests {
 
     #[test]
     fn test_image_name_for_language() {
+        use super::super::LANGUAGE_CONTAINER_VERSION;
+
         assert_eq!(
             ContainerOrchestrator::image_name_for_language(&SupportedLanguages::Golang),
-            "lsproxy-golang:latest"
+            format!("nuanced-lsp-golang:{}", LANGUAGE_CONTAINER_VERSION)
         );
         assert_eq!(
             ContainerOrchestrator::image_name_for_language(&SupportedLanguages::Python),
-            "lsproxy-python:latest"
+            format!("nuanced-lsp-python:{}", LANGUAGE_CONTAINER_VERSION)
         );
         assert_eq!(
             ContainerOrchestrator::image_name_for_language(
                 &SupportedLanguages::TypeScriptJavaScript
             ),
-            "lsproxy-typescript:latest"
+            format!("nuanced-lsp-typescript:{}", LANGUAGE_CONTAINER_VERSION)
         );
         assert_eq!(
             ContainerOrchestrator::image_name_for_language(&SupportedLanguages::Ruby3_4_4),
-            "lsproxy-ruby-3.4.4:latest"
+            format!("nuanced-lsp-ruby-3.4.4:{}", LANGUAGE_CONTAINER_VERSION)
         );
         assert_eq!(
             ContainerOrchestrator::image_name_for_language(&SupportedLanguages::Ruby3_3_6),
-            "lsproxy-ruby-3.3.6:latest"
+            format!("nuanced-lsp-ruby-3.3.6:{}", LANGUAGE_CONTAINER_VERSION)
         );
         assert_eq!(
             ContainerOrchestrator::image_name_for_language(&SupportedLanguages::RubySorbet3_4_4),
-            "lsproxy-ruby-sorbet-3.4.4:latest"
+            format!("nuanced-lsp-ruby-sorbet-3.4.4:{}", LANGUAGE_CONTAINER_VERSION)
         );
         assert_eq!(
             ContainerOrchestrator::image_name_for_language(&SupportedLanguages::Rust),
-            "lsproxy-rust:latest"
+            format!("nuanced-lsp-rust:{}", LANGUAGE_CONTAINER_VERSION)
         );
         assert_eq!(
             ContainerOrchestrator::image_name_for_language(&SupportedLanguages::CPP),
-            "lsproxy-clangd:latest"
+            format!("nuanced-lsp-clangd:{}", LANGUAGE_CONTAINER_VERSION)
         );
         assert_eq!(
             ContainerOrchestrator::image_name_for_language(&SupportedLanguages::Java),
-            "lsproxy-java:latest"
+            format!("nuanced-lsp-java:{}", LANGUAGE_CONTAINER_VERSION)
         );
         assert_eq!(
             ContainerOrchestrator::image_name_for_language(&SupportedLanguages::PHP),
-            "lsproxy-php:latest"
+            format!("nuanced-lsp-php:{}", LANGUAGE_CONTAINER_VERSION)
         );
         assert_eq!(
             ContainerOrchestrator::image_name_for_language(&SupportedLanguages::CSharp),
-            "lsproxy-csharp:latest"
+            format!("nuanced-lsp-csharp:{}", LANGUAGE_CONTAINER_VERSION)
         );
     }
 
