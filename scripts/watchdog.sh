@@ -30,7 +30,7 @@ echo "Watchdog: Parent container $PARENT_ID is no longer running"
 echo "Watchdog: Performing cleanup (will be no-op if parent already cleaned up)..."
 
 # Find and remove all language server containers spawned by this parent
-CHILD_CONTAINERS=$(docker ps -aq --filter "label=lsproxy.parent=$PARENT_ID" --filter "label=lsproxy.role=language-server")
+CHILD_CONTAINERS=$(docker ps -aq --filter "label=nuanced.parent=$PARENT_ID" --filter "label=nuanced.role=language-server")
 
 if [ -n "$CHILD_CONTAINERS" ]; then
     CHILD_COUNT=$(echo "$CHILD_CONTAINERS" | wc -l)
@@ -48,13 +48,13 @@ else
 fi
 
 # Clean up wrapper container
-WRAPPER_CONTAINER=$(docker ps -aq --filter "name=lsproxy-wrapper")
+WRAPPER_CONTAINER=$(docker ps -aq --filter "name=nuanced-lsp-wrapper")
 if [ -n "$WRAPPER_CONTAINER" ]; then
-    echo "Watchdog: Cleaning up lsproxy-wrapper container..."
+    echo "Watchdog: Cleaning up nuanced-lsp-wrapper container..."
     docker rm -f "$WRAPPER_CONTAINER" 2>/dev/null || true
-    echo "Watchdog: lsproxy-wrapper container removed"
+    echo "Watchdog: nuanced-lsp-wrapper container removed"
 else
-    echo "Watchdog: No lsproxy-wrapper container found"
+    echo "Watchdog: No nuanced-lsp-wrapper container found"
 fi
 
 echo "Watchdog: Exiting"

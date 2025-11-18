@@ -27,7 +27,7 @@ echo
 # 2. Build all containers (if not already built)
 echo "2. Checking Docker images..."
 echo "----------------------------------------"
-if ! docker images | grep -q "lsproxy-service.*latest"; then
+if ! docker images | grep -q "nuanced-lsp-proxy.*latest"; then
     echo "Service image not found. Building Rust containers..."
     ./scripts/build-rust-containers.sh
     echo "Building language containers..."

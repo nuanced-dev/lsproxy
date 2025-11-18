@@ -83,13 +83,13 @@ echo -e "${BLUE}=========================================${NC}"
 echo
 
 # Check if service is already running
-if docker ps --filter "name=lsproxy-service" --format "{{.Names}}" | grep -q "lsproxy-service"; then
-    echo -e "${YELLOW}Warning: lsproxy-service is already running${NC}"
+if docker ps --filter "name=nuanced-lsp-proxy" --format "{{.Names}}" | grep -q "nuanced-lsp-proxy"; then
+    echo -e "${YELLOW}Warning: nuanced-lsp-proxy is already running${NC}"
     read -p "Stop and restart? (y/N): " -n 1 -r
     echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then
         echo -e "${BLUE}Stopping existing service...${NC}"
-        docker rm -f lsproxy-service
+        docker rm -f nuanced-lsp-proxy
         # Also stop any orphaned language containers
         docker rm -f $(docker ps -aq --filter "name=lsproxy-") 2>/dev/null || true
     else
@@ -108,7 +108,7 @@ else
 fi
 
 DOCKER_RUN_CMD="$DOCKER_RUN_CMD \
-    --name lsproxy-service \
+    --name nuanced-lsp-proxy \
     -p ${PORT}:4444 \
     -v /var/run/docker.sock:/var/run/docker.sock \
     -v \"${WORKSPACE_PATH}:/mnt/workspace\" \
@@ -124,7 +124,7 @@ if [ -n "$ENABLED_LANGUAGES" ]; then
     DOCKER_RUN_CMD="$DOCKER_RUN_CMD -e ENABLED_LANGUAGES=\"${ENABLED_LANGUAGES}\""
 fi
 
-DOCKER_RUN_CMD="$DOCKER_RUN_CMD lsproxy-service:latest"
+DOCKER_RUN_CMD="$DOCKER_RUN_CMD nuanced-lsp-proxy:latest"
 
 # Start the service
 echo -e "${BLUE}Starting service container...${NC}"
@@ -139,10 +139,10 @@ if [ "$DETACHED" = true ]; then
     sleep 3
 
     # Check if container is running
-    if ! docker ps --filter "name=lsproxy-service" --format "{{.Names}}" | grep -q "lsproxy-service"; then
+    if ! docker ps --filter "name=nuanced-lsp-proxy" --format "{{.Names}}" | grep -q "nuanced-lsp-proxy"; then
         echo -e "${RED}✗ Service failed to start${NC}"
         echo -e "${YELLOW}Showing logs:${NC}"
-        docker logs lsproxy-service
+        docker logs nuanced-lsp-proxy
         exit 1
     fi
 
@@ -151,7 +151,7 @@ if [ "$DETACHED" = true ]; then
 
     # Show info
     echo -e "${BLUE}Service Information:${NC}"
-    echo -e "  Container: lsproxy-service"
+    echo -e "  Container: nuanced-lsp-proxy"
     echo -e "  URL:       http://localhost:${PORT}/v1"
     echo -e "  Health:    http://localhost:${PORT}/v1/system/health"
     echo -e "  Swagger:   http://localhost:${PORT}/swagger-ui/"
@@ -165,7 +165,7 @@ if [ "$DETACHED" = true ]; then
     TIMEOUT=60
     ELAPSED=0
     while [ $ELAPSED -lt $TIMEOUT ]; do
-        if docker logs lsproxy-service 2>&1 | grep -q "Workspace initialization complete"; then
+        if docker logs nuanced-lsp-proxy 2>&1 | grep -q "Workspace initialization complete"; then
             echo -e "${GREEN}✓ Workspace initialization complete${NC}"
             break
         fi
@@ -177,7 +177,7 @@ if [ "$DETACHED" = true ]; then
 
     if [ $ELAPSED -ge $TIMEOUT ]; then
         echo -e "${YELLOW}Warning: Timeout waiting for initialization${NC}"
-        echo -e "${YELLOW}Check logs with: docker logs lsproxy-service${NC}"
+        echo -e "${YELLOW}Check logs with: docker logs nuanced-lsp-proxy${NC}"
     fi
 
     # Show running containers
@@ -186,8 +186,8 @@ if [ "$DETACHED" = true ]; then
     echo
 
     echo -e "${BLUE}Useful commands:${NC}"
-    echo -e "  View logs:        docker logs -f lsproxy-service"
-    echo -e "  Stop service:     docker rm -f lsproxy-service"
+    echo -e "  View logs:        docker logs -f nuanced-lsp-proxy"
+    echo -e "  Stop service:     docker rm -f nuanced-lsp-proxy"
     echo -e "  Test health:      curl http://localhost:${PORT}/v1/system/health | jq"
     echo -e "  Run tests:        ./scripts/test-all-endpoints.sh"
     echo
@@ -195,7 +195,7 @@ if [ "$DETACHED" = true ]; then
     # Tail logs if requested
     if [ "$TAIL_LOGS" = true ]; then
         echo -e "${BLUE}Tailing logs (Ctrl+C to exit):${NC}"
-        docker logs -f lsproxy-service
+        docker logs -f nuanced-lsp-proxy
     fi
 else
     # Foreground mode - logs will display automatically

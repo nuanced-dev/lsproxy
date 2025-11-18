@@ -53,7 +53,7 @@ cleanup() {
     docker rm -f test-watchdog-svc test-watchdog-kill test-watchdog-multi1 test-watchdog-multi2 2>/dev/null || true
 
     # Clean up any orphaned containers
-    ORPHANS=$(docker ps -aq --filter "name=lsproxy-" 2>/dev/null || true)
+    ORPHANS=$(docker ps -aq --filter "name=nuanced-lsp-" 2>/dev/null || true)
     if [ -n "$ORPHANS" ]; then
         echo "$ORPHANS" | xargs docker rm -f > /dev/null 2>&1 || true
     fi
@@ -79,7 +79,7 @@ docker run -d \
     -v "$WORKSPACE_PATH:/mnt/workspace" \
     -e RUST_LOG=info \
     -e USE_AUTH=false \
-    lsproxy-service:latest > /dev/null
+    nuanced-lsp-proxy:latest > /dev/null
 
 # Wait for initialization
 echo "Waiting for service to initialize (30s)..."
@@ -93,13 +93,13 @@ test_step "Service container is running" \
     "docker ps --filter 'name=test-watchdog-svc' --format '{{.Names}}' | grep -q test-watchdog-svc"
 
 test_step "Watchdog container is spawned" \
-    "docker ps --filter 'name=lsproxy-watchdog-$SERVICE_SHORT_ID' --format '{{.Names}}' | grep -q lsproxy-watchdog"
+    "docker ps --filter 'name=nuanced-lsp-watchdog-$SERVICE_SHORT_ID' --format '{{.Names}}' | grep -q nuanced-lsp-watchdog"
 
 test_step "Language containers are spawned" \
-    "[ \$(docker ps --filter 'name=lsproxy-python' --filter 'name=lsproxy-rust' --filter 'name=lsproxy-typescript' --format '{{.Names}}' | wc -l) -ge 3 ]"
+    "[ \$(docker ps --filter 'name=nuanced-lsp-python' --filter 'name=nuanced-lsp-rust' --filter 'name=nuanced-lsp-typescript' --format '{{.Names}}' | wc -l) -ge 3 ]"
 
 test_step "Language containers have parent labels" \
-    "docker inspect \$(docker ps -q --filter 'name=lsproxy-python' | head -1) --format '{{.Config.Labels}}' | grep -q 'lsproxy.parent:$SERVICE_SHORT_ID'"
+    "docker inspect \$(docker ps -q --filter 'name=nuanced-lsp-python' | head -1) --format '{{.Config.Labels}}' | grep -q 'nuanced.parent:$SERVICE_SHORT_ID'"
 
 # Note: LSP wrapper readiness is thoroughly tested by the integration tests
 # which perform actual LSP operations through the service. The watchdog tests
@@ -121,10 +121,10 @@ test_step "Service container stopped" \
     "[ \$(docker ps --filter 'name=test-watchdog-svc' --format '{{.Names}}' | wc -l) -eq 0 ]"
 
 test_step "Language containers cleaned up" \
-    "[ \$(docker ps -a --filter 'label=lsproxy.parent=$SERVICE_SHORT_ID' --format '{{.Names}}' | wc -l) -eq 0 ]"
+    "[ \$(docker ps -a --filter 'label=nuanced.parent=$SERVICE_SHORT_ID' --format '{{.Names}}' | wc -l) -eq 0 ]"
 
 test_step "Watchdog auto-removed after clean shutdown" \
-    "[ \$(docker ps -a --filter 'name=lsproxy-watchdog-$SERVICE_SHORT_ID' --format '{{.Names}}' | wc -l) -eq 0 ]"
+    "[ \$(docker ps -a --filter 'name=nuanced-lsp-watchdog-$SERVICE_SHORT_ID' --format '{{.Names}}' | wc -l) -eq 0 ]"
 
 # Remove stopped service container
 docker rm test-watchdog-svc > /dev/null 2>&1 || true
@@ -144,7 +144,7 @@ docker run -d \
     -v "$WORKSPACE_PATH:/mnt/workspace" \
     -e RUST_LOG=info \
     -e USE_AUTH=false \
-    lsproxy-service:latest > /dev/null
+    nuanced-lsp-proxy:latest > /dev/null
 
 echo "Waiting for service to initialize (30s)..."
 sleep 30
@@ -153,7 +153,7 @@ KILL_SERVICE_ID=$(docker ps --filter "name=test-watchdog-kill" --format "{{.ID}}
 KILL_SHORT_ID="${KILL_SERVICE_ID:0:12}"
 
 # Count language containers before kill
-BEFORE_COUNT=$(docker ps --filter "label=lsproxy.parent=$KILL_SHORT_ID" --format '{{.Names}}' | wc -l | tr -d ' ')
+BEFORE_COUNT=$(docker ps --filter "label=nuanced.parent=$KILL_SHORT_ID" --format '{{.Names}}' | wc -l | tr -d ' ')
 
 echo -e "${BLUE}Language containers before SIGKILL: $BEFORE_COUNT${NC}"
 
@@ -169,10 +169,10 @@ echo "Waiting for watchdog to detect death and cleanup (15s)..."
 sleep 15
 
 test_step "Language containers cleaned up by watchdog" \
-    "[ \$(docker ps -a --filter 'label=lsproxy.parent=$KILL_SHORT_ID' --format '{{.Names}}' | wc -l) -eq 0 ]"
+    "[ \$(docker ps -a --filter 'label=nuanced.parent=$KILL_SHORT_ID' --format '{{.Names}}' | wc -l) -eq 0 ]"
 
 test_step "Watchdog auto-removed after emergency cleanup" \
-    "[ \$(docker ps -a --filter 'name=lsproxy-watchdog-$KILL_SHORT_ID' --format '{{.Names}}' | wc -l) -eq 0 ]"
+    "[ \$(docker ps -a --filter 'name=nuanced-lsp-watchdog-$KILL_SHORT_ID' --format '{{.Names}}' | wc -l) -eq 0 ]"
 
 # Verify watchdog logged the cleanup
 docker rm test-watchdog-kill > /dev/null 2>&1 || true
@@ -192,7 +192,7 @@ docker run -d \
     -v "$WORKSPACE_PATH:/mnt/workspace" \
     -e RUST_LOG=warn \
     -e USE_AUTH=false \
-    lsproxy-service:latest > /dev/null
+    nuanced-lsp-proxy:latest > /dev/null
 
 docker run -d \
     --name test-watchdog-multi2 \
@@ -201,10 +201,10 @@ docker run -d \
     -v "$WORKSPACE_PATH:/mnt/workspace" \
     -e RUST_LOG=warn \
     -e USE_AUTH=false \
-    lsproxy-service:latest > /dev/null
+    nuanced-lsp-proxy:latest > /dev/null
 
-echo "Waiting for both services to initialize (30s)..."
-sleep 30
+echo "Waiting for both services to initialize (60s)..."
+sleep 60
 
 MULTI1_ID=$(docker ps --filter "name=test-watchdog-multi1" --format "{{.ID}}")
 MULTI1_SHORT="${MULTI1_ID:0:12}"
@@ -212,13 +212,13 @@ MULTI2_ID=$(docker ps --filter "name=test-watchdog-multi2" --format "{{.ID}}")
 MULTI2_SHORT="${MULTI2_ID:0:12}"
 
 test_step "Both watchdogs are running" \
-    "[ \$(docker ps --filter 'name=lsproxy-watchdog-' --format '{{.Names}}' | wc -l) -eq 2 ]"
+    "[ \$(docker ps --filter 'name=nuanced-lsp-watchdog-' --format '{{.Names}}' | wc -l) -eq 2 ]"
 
 test_step "Service 1 has language containers" \
-    "[ \$(docker ps --filter 'label=lsproxy.parent=$MULTI1_SHORT' --format '{{.Names}}' | wc -l) -gt 0 ]"
+    "[ \$(docker ps --filter 'label=nuanced.parent=$MULTI1_SHORT' --format '{{.Names}}' | wc -l) -gt 0 ]"
 
 test_step "Service 2 has language containers" \
-    "[ \$(docker ps --filter 'label=lsproxy.parent=$MULTI2_SHORT' --format '{{.Names}}' | wc -l) -gt 0 ]"
+    "[ \$(docker ps --filter 'label=nuanced.parent=$MULTI2_SHORT' --format '{{.Names}}' | wc -l) -gt 0 ]"
 
 # Kill first service
 echo -e "${BLUE}Killing first service instance...${NC}"
@@ -227,13 +227,13 @@ echo "Waiting for watchdog to cleanup (15s)..."
 sleep 15
 
 test_step "Service 1 containers cleaned up" \
-    "[ \$(docker ps -a --filter 'label=lsproxy.parent=$MULTI1_SHORT' --format '{{.Names}}' | wc -l) -eq 0 ]"
+    "[ \$(docker ps -a --filter 'label=nuanced.parent=$MULTI1_SHORT' --format '{{.Names}}' | wc -l) -eq 0 ]"
 
 test_step "Service 2 containers still running" \
-    "[ \$(docker ps --filter 'label=lsproxy.parent=$MULTI2_SHORT' --format '{{.Names}}' | wc -l) -gt 0 ]"
+    "[ \$(docker ps --filter 'label=nuanced.parent=$MULTI2_SHORT' --format '{{.Names}}' | wc -l) -gt 0 ]"
 
 test_step "Service 2 watchdog still running" \
-    "docker ps --filter 'name=lsproxy-watchdog-$MULTI2_SHORT' --format '{{.Names}}' | grep -q lsproxy-watchdog"
+    "docker ps --filter 'name=nuanced-lsp-watchdog-$MULTI2_SHORT' --format '{{.Names}}' | grep -q nuanced-lsp-watchdog"
 
 # Clean up second service
 echo -e "${BLUE}Stopping second service instance...${NC}"
@@ -242,10 +242,10 @@ docker stop test-watchdog-multi2 > /dev/null
 sleep 10
 
 test_step "Service 2 containers cleaned up" \
-    "[ \$(docker ps -a --filter 'label=lsproxy.parent=$MULTI2_SHORT' --format '{{.Names}}' | wc -l) -eq 0 ]"
+    "[ \$(docker ps -a --filter 'label=nuanced.parent=$MULTI2_SHORT' --format '{{.Names}}' | wc -l) -eq 0 ]"
 
 test_step "All watchdogs auto-removed" \
-    "[ \$(docker ps -a --filter 'name=lsproxy-watchdog-' --format '{{.Names}}' | wc -l) -eq 0 ]"
+    "[ \$(docker ps -a --filter 'name=nuanced-lsp-watchdog-' --format '{{.Names}}' | wc -l) -eq 0 ]"
 
 # Summary
 echo

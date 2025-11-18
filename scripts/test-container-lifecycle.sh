@@ -54,18 +54,18 @@ cleanup() {
     if [ "$CONTAINERS_STARTED" = true ]; then
         echo
         echo -e "${YELLOW}Cleaning up...${NC}"
-        docker rm -f lsproxy-service 2>/dev/null || true
+        docker rm -f nuanced-lsp-proxy 2>/dev/null || true
 
         # Give it a moment for language containers to stop
         sleep 2
 
         # Clean up any remaining language containers
-        ORPHANS=$(docker ps -aq --filter "name=lsproxy-" 2>/dev/null || true)
+        ORPHANS=$(docker ps -aq --filter "name=nuanced-lsp-" 2>/dev/null || true)
         if [ -n "$ORPHANS" ]; then
             echo "$ORPHANS" | xargs docker rm -f > /dev/null 2>&1 || true
         fi
 
-        docker network rm lsproxy-network 2>/dev/null || true
+        docker network rm nuanced-lsp-network 2>/dev/null || true
         echo -e "${GREEN}Cleanup complete${NC}"
     fi
 
@@ -77,19 +77,19 @@ trap cleanup EXIT INT TERM
 
 # Test 1: Service image exists
 test_step "Service image exists" \
-    "docker images lsproxy-service:latest --format '{{.Repository}}' | grep -q lsproxy-service"
+    "docker images nuanced-lsp-proxy:latest --format '{{.Repository}}' | grep -q nuanced-lsp-proxy"
 
 # Test 2: Start service container
 echo
 echo -e "${BLUE}Starting service container...${NC}"
 docker run -d \
-    --name lsproxy-service \
+    --name nuanced-lsp-proxy \
     -p 4444:4444 \
     -v /var/run/docker.sock:/var/run/docker.sock \
     -v "$WORKSPACE_PATH:/mnt/workspace" \
     -e RUST_LOG=info \
     -e USE_AUTH=false \
-    lsproxy-service:latest
+    nuanced-lsp-proxy:latest
 
 CONTAINERS_STARTED=true
 
@@ -99,7 +99,7 @@ sleep 30
 
 # Test 3: Service container is running
 test_step "Service container running" \
-    "docker ps --filter name=lsproxy-service --format '{{.Names}}' | grep -q lsproxy-service"
+    "docker ps --filter name=nuanced-lsp-proxy --format '{{.Names}}' | grep -q nuanced-lsp-proxy"
 
 # Test 4: Service health check
 test_step "Service health check responds" \
@@ -108,13 +108,13 @@ test_step "Service health check responds" \
 # Test 5: Verify language containers were spawned
 echo
 echo -e "${BLUE}Checking language containers...${NC}"
-CONTAINER_COUNT=$(docker ps --filter "name=lsproxy-" --format '{{.Names}}' | wc -l | tr -d ' ')
+CONTAINER_COUNT=$(docker ps --filter "name=nuanced-lsp-" --format '{{.Names}}' | wc -l | tr -d ' ')
 echo "Language containers running: $CONTAINER_COUNT"
 
 if [ $CONTAINER_COUNT -gt 1 ]; then
     echo -e "${GREEN}✓ Language containers spawned${NC}"
     TESTS_PASSED=$((TESTS_PASSED + 1))
-    docker ps --filter "name=lsproxy-" --format "  - {{.Names}} ({{.Status}})"
+    docker ps --filter "name=nuanced-lsp-" --format "  - {{.Names}} ({{.Status}})"
 else
     echo -e "${RED}✗ No language containers found${NC}"
     TESTS_FAILED=$((TESTS_FAILED + 1))
@@ -138,11 +138,12 @@ test_step "LSProxy Docker network exists" \
 # Test 9: Stop service and verify cleanup
 echo
 echo -e "${BLUE}Testing cleanup...${NC}"
-docker stop lsproxy-service
-sleep 5
+docker stop nuanced-lsp-proxy
+echo "Waiting for watchdog to clean up language containers (15s)..."
+sleep 15
 
 test_step "Language containers stopped" \
-    "[ \$(docker ps --filter 'name=lsproxy-' --format '{{.Names}}' | wc -l) -eq 0 ]"
+    "[ \$(docker ps --filter 'name=nuanced-lsp-' --format '{{.Names}}' | wc -l) -eq 0 ]"
 
 # Summary
 echo

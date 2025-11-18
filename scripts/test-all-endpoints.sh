@@ -56,13 +56,13 @@ cleanup() {
         echo -e "${BLUE}=========================================${NC}"
 
         # Stop service container (language containers stop automatically)
-        if docker ps -q --filter "name=lsproxy-service" > /dev/null 2>&1; then
-            docker rm -f lsproxy-service > /dev/null 2>&1 || true
+        if docker ps -q --filter "name=nuanced-lsp-proxy" > /dev/null 2>&1; then
+            docker rm -f nuanced-lsp-proxy > /dev/null 2>&1 || true
             echo -e "${GREEN}✓ Containers stopped${NC}"
         fi
 
         # Clean up any orphaned language containers
-        ORPHANS=$(docker ps -aq --filter "name=lsproxy-" 2>/dev/null || true)
+        ORPHANS=$(docker ps -aq --filter "name=nuanced-lsp-" 2>/dev/null || true)
         if [ -n "$ORPHANS" ]; then
             echo "$ORPHANS" | xargs docker rm -f > /dev/null 2>&1 || true
             echo -e "${GREEN}✓ Orphaned containers cleaned${NC}"
@@ -315,7 +315,7 @@ echo -e "${BLUE}=========================================${NC}"
 echo -e "${BLUE}  LSProxy Service Check${NC}"
 echo -e "${BLUE}=========================================${NC}"
 
-if docker ps --filter "name=lsproxy-service" --format '{{.Names}}' | grep -q "lsproxy-service"; then
+if docker ps --filter "name=nuanced-lsp-proxy" --format '{{.Names}}' | grep -q "nuanced-lsp-proxy"; then
     echo -e "${GREEN}✓ Service already running${NC}"
     echo -e "${YELLOW}  Using existing containers (will not clean up on exit)${NC}"
     STARTED_SERVICE=false
