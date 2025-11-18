@@ -34,8 +34,8 @@ pub async fn lsp(data: Data<AppState>, request: Json<JsonRpcRequest>) -> HttpRes
     debug!("LSP request: id={:?}", &lsp_req);
 
     // Handle lifecycle requests locally
-    if is_lifecycle_method(method) {
-        return handle_lifecycle_request(&lsp_req, method);
+    if let Some(response) = handle_lifecycle_request(&lsp_req) {
+        return response;
     }
 
     // For language feature requests, extract document URI and route to appropriate backend
@@ -144,20 +144,11 @@ pub async fn lsp(data: Data<AppState>, request: Json<JsonRpcRequest>) -> HttpRes
     }
 }
 
-/// Check if a method is a lifecycle method that should be handled by the orchestrator
-fn is_lifecycle_method(method: &str) -> bool {
-    matches!(
-        method,
-        "initialize" | "initialized" | "shutdown" | "exit" | "$/cancelRequest" | "$/setTrace"
-    )
-}
-
 /// Handle lifecycle requests locally
-fn handle_lifecycle_request(request: &JsonRpcRequest, method: &str) -> HttpResponse {
+fn handle_lifecycle_request(request: &JsonRpcRequest) -> Option<HttpResponse> {
     let req_id = request.id.clone();
-    match method {
+    match request.method.as_str() {
         "initialize" => {
-            // Return capabilities advertised by the orchestrator
             let mut capabilities = ServerCapabilities::default();
             capabilities.call_hierarchy_provider = Some(true.into());
             capabilities.declaration_provider = Some(DeclarationCapability::Simple(true));
@@ -177,33 +168,22 @@ fn handle_lifecycle_request(request: &JsonRpcRequest, method: &str) -> HttpRespo
                     }),
                 },
             );
-            HttpResponse::Ok().json(response)
+            Some(HttpResponse::Ok().json(response))
         }
-        "initialized" => {
-            // Notification - no response needed
-            HttpResponse::Ok().finish()
-        }
+        "initialized" | "exit" => Some(HttpResponse::Ok().finish()),
         "shutdown" => {
-            // Acknowledge shutdown
             let response = JsonRpcResponse::new_result(req_id, Value::Null);
-            HttpResponse::Ok().json(response)
+            Some(HttpResponse::Ok().json(response))
         }
-        "exit" => {
-            // Notification - no response needed
-            HttpResponse::Ok().finish()
+        dollar_method if dollar_method.starts_with("$/") => {
+            if req_id.is_some() {
+                let response = JsonRpcResponse::new_error(req_id, -32601, "Method not found");
+                Some(HttpResponse::Ok().json(response))
+            } else {
+                Some(HttpResponse::Ok().finish())
+            }
         }
-        "$/cancelRequest" | "$/setTrace" => {
-            // These are notifications or special requests - acknowledge
-            HttpResponse::Ok().finish()
-        }
-        _ => {
-            // Unknown lifecycle method
-            HttpResponse::BadRequest().json(JsonRpcResponse::new_error(
-                req_id,
-                -32601,
-                "Method not found",
-            ))
-        }
+        _ => None,
     }
 }
 
