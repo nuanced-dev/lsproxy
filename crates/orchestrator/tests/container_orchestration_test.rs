@@ -84,7 +84,10 @@ impl ContainerFixture {
 
         // Clean up test watchdog containers
         let mut filters = HashMap::new();
-        filters.insert("name".to_string(), vec!["nuanced-lsp-watchdog-".to_string()]);
+        filters.insert(
+            "name".to_string(),
+            vec!["nuanced-lsp-watchdog-".to_string()],
+        );
 
         let options = ListContainersOptions {
             all: true,
@@ -170,7 +173,11 @@ impl ContainerFixture {
 
         let images = docker.list_images(Some(options)).await?;
         if images.is_empty() {
-            return Err(format!("Required image {} not found. Run: ./scripts/build-rust-containers.sh", proxy_img).into());
+            return Err(format!(
+                "Required image {} not found. Run: ./scripts/build-rust-containers.sh",
+                proxy_img
+            )
+            .into());
         }
 
         let python_img = python_image();
@@ -184,7 +191,11 @@ impl ContainerFixture {
 
         let images = docker.list_images(Some(options)).await?;
         if images.is_empty() {
-            return Err(format!("Required image {} not found. Run: ./scripts/build-language-containers.sh", python_img).into());
+            return Err(format!(
+                "Required image {} not found. Run: ./scripts/build-language-containers.sh",
+                python_img
+            )
+            .into());
         }
 
         Ok(())

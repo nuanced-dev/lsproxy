@@ -330,6 +330,7 @@ impl ContainerOrchestrator {
     /// - Non-Ruby: nuanced-lsp-{language}:{LANGUAGE_CONTAINER_VERSION}
     /// - Ruby: nuanced-lsp-ruby-{version}:{LANGUAGE_CONTAINER_VERSION}
     /// - Ruby Sorbet: nuanced-lsp-ruby-sorbet-{version}:{LANGUAGE_CONTAINER_VERSION}
+    #[rustfmt::skip]
     fn image_name_for_language(language: &SupportedLanguages) -> String {
         use super::LANGUAGE_CONTAINER_VERSION;
 
@@ -370,6 +371,7 @@ impl ContainerOrchestrator {
     }
 
     /// Get a URL-safe slug for a language
+    #[rustfmt::skip]
     fn language_slug(language: &SupportedLanguages) -> String {
         match language {
             SupportedLanguages::Golang => "golang",
