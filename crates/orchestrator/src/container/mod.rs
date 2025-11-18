@@ -26,6 +26,9 @@ pub const PROXY_IMAGE_BASE: &str = "nuanced-lsp-proxy";
 pub const WRAPPER_IMAGE_BASE: &str = "nuanced-lsp-wrapper";
 pub const WATCHDOG_IMAGE_BASE: &str = "nuanced-lsp-watchdog";
 
+/// Container registry for published images
+pub const CONTAINER_REGISTRY: &str = "ghcr.io/nuanced-dev";
+
 /// Helper functions to get full image names with version tags
 pub fn proxy_image() -> String {
     format!("{}:{}", PROXY_IMAGE_BASE, RUST_CONTAINER_VERSION)
@@ -39,6 +42,25 @@ pub fn watchdog_image() -> String {
     format!("{}:{}", WATCHDOG_IMAGE_BASE, RUST_CONTAINER_VERSION)
 }
 
+pub fn watchdog_image_ghcr() -> String {
+    format!("{}/{}:{}", CONTAINER_REGISTRY, WATCHDOG_IMAGE_BASE, RUST_CONTAINER_VERSION)
+}
+
+pub fn wrapper_image_ghcr() -> String {
+    format!("{}/{}:{}", CONTAINER_REGISTRY, WRAPPER_IMAGE_BASE, RUST_CONTAINER_VERSION)
+}
+
+pub fn language_image_ghcr(language: &SupportedLanguages) -> String {
+    let base_name = ContainerOrchestrator::image_name_for_language(language);
+    // image_name_for_language returns "nuanced-lsp-<lang>:version", we need "ghcr.io/nuanced-dev/nuanced-lsp-<lang>:version"
+    let parts: Vec<&str> = base_name.split(':').collect();
+    if parts.len() == 2 {
+        format!("{}/{}:{}", CONTAINER_REGISTRY, parts[0], parts[1])
+    } else {
+        base_name
+    }
+}
+
 pub use http_client::ContainerHttpClient;
 
 #[derive(Debug, Clone)]
@@ -49,6 +71,7 @@ pub struct ContainerInfo {
     pub endpoint: String,
 }
 
+#[derive(Clone)]
 pub struct ContainerOrchestrator {
     docker: Arc<Docker>,
     containers: Arc<Mutex<HashMap<SupportedLanguages, ContainerInfo>>>,
@@ -296,14 +319,41 @@ impl ContainerOrchestrator {
 
         log::info!("Languages to spawn: {:?}", languages_to_spawn);
 
-        // Spawn containers for filtered languages
+        // Filter out languages that already have containers
+        let mut languages_needing_spawn = Vec::new();
         for language in languages_to_spawn {
-            if self.get_container(&language).await.is_some() {
-                continue; // Container already exists
+            if self.get_container(&language).await.is_none() {
+                languages_needing_spawn.push(language);
             }
+        }
 
-            log::info!("Spawning container for {:?}", language);
-            match self.spawn_container(language.clone()).await {
+        if languages_needing_spawn.is_empty() {
+            log::info!("All language containers already exist");
+            return Ok(());
+        }
+
+        log::info!("Spawning {} containers in parallel", languages_needing_spawn.len());
+
+        // Spawn all containers in parallel
+        let spawn_futures: Vec<_> = languages_needing_spawn
+            .into_iter()
+            .map(|language| {
+                let orchestrator = self.clone();
+                async move {
+                    log::info!("Spawning container for {:?}", language);
+                    let result = orchestrator.spawn_container(language.clone()).await;
+                    (language, result)
+                }
+            })
+            .collect();
+
+        // Wait for all spawns to complete
+        let results = futures::future::join_all(spawn_futures).await;
+
+        // Check results and log outcomes
+        let mut any_errors = false;
+        for (language, result) in results {
+            match result {
                 Ok(info) => {
                     log::info!(
                         "Successfully spawned container for {:?} at {}",
@@ -313,9 +363,15 @@ impl ContainerOrchestrator {
                 }
                 Err(e) => {
                     log::error!("Failed to spawn container for {:?}: {}", language, e);
-                    return Err(e);
+                    any_errors = true;
                 }
             }
+        }
+
+        if any_errors {
+            return Err(OrchestratorError::Configuration(
+                "One or more language containers failed to spawn".to_string()
+            ));
         }
 
         Ok(())
@@ -390,7 +446,50 @@ impl ContainerOrchestrator {
             ..Default::default()
         };
 
-        let container = self.docker.create_container(Some(options), config).await?;
+        // Try creating container with local image first
+        let container_result = self.docker.create_container(Some(options.clone()), config.clone()).await;
+
+        let container = match container_result {
+            Ok(c) => c,
+            Err(e) => {
+                // If image not found locally, try pulling from GHCR
+                let err_msg = e.to_string();
+                if err_msg.contains("404") || err_msg.contains("No such image") {
+                    log::info!("Wrapper image not found locally, pulling from GHCR: {}", wrapper_image_ghcr());
+
+                    use bollard::image::CreateImageOptions;
+                    use futures_util::stream::StreamExt;
+
+                    let create_options = CreateImageOptions {
+                        from_image: wrapper_image_ghcr(),
+                        ..Default::default()
+                    };
+
+                    let mut stream = self.docker.create_image(Some(create_options), None, None);
+                    while let Some(info) = stream.next().await {
+                        match info {
+                            Ok(_) => {},
+                            Err(e) => {
+                                log::error!("Failed to pull wrapper image from GHCR: {}", e);
+                                return Err(e.into());
+                            }
+                        }
+                    }
+
+                    log::info!("Successfully pulled wrapper image from GHCR");
+
+                    // Update config to use GHCR image
+                    let mut config_ghcr = config.clone();
+                    config_ghcr.image = Some(wrapper_image_ghcr());
+
+                    // Retry container creation with GHCR image
+                    self.docker.create_container(Some(options), config_ghcr).await?
+                } else {
+                    return Err(e.into());
+                }
+            }
+        };
+
         let container_id = container.id;
 
         // Start the wrapper container (runs sleep infinity to stay alive)
@@ -527,7 +626,50 @@ impl ContainerOrchestrator {
             ..Default::default()
         };
 
-        let container = self.docker.create_container(Some(options), config).await?;
+        // Try creating container with local image first
+        let container_result = self.docker.create_container(Some(options.clone()), config.clone()).await;
+
+        let container = match container_result {
+            Ok(c) => c,
+            Err(e) => {
+                // If image not found locally, try pulling from GHCR
+                let err_msg = e.to_string();
+                if err_msg.contains("404") || err_msg.contains("No such image") {
+                    log::info!("Watchdog image not found locally, pulling from GHCR: {}", watchdog_image_ghcr());
+
+                    use bollard::image::CreateImageOptions;
+                    use futures_util::stream::StreamExt;
+
+                    let create_options = CreateImageOptions {
+                        from_image: watchdog_image_ghcr(),
+                        ..Default::default()
+                    };
+
+                    let mut stream = self.docker.create_image(Some(create_options), None, None);
+                    while let Some(info) = stream.next().await {
+                        match info {
+                            Ok(_) => {},
+                            Err(e) => {
+                                log::error!("Failed to pull watchdog image from GHCR: {}", e);
+                                return Err(e.into());
+                            }
+                        }
+                    }
+
+                    log::info!("Successfully pulled watchdog image from GHCR");
+
+                    // Update config to use GHCR image
+                    let mut config_ghcr = config.clone();
+                    config_ghcr.image = Some(watchdog_image_ghcr());
+
+                    // Retry container creation with GHCR image
+                    self.docker.create_container(Some(options), config_ghcr).await?
+                } else {
+                    return Err(e.into());
+                }
+            }
+        };
+
         self.docker
             .start_container::<String>(&container.id, None)
             .await?;

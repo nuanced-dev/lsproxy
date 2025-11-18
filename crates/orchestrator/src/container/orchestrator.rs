@@ -159,7 +159,51 @@ impl ContainerOrchestrator {
 
         // Create the container
         log::info!("Creating container {} for {:?}", container_name, language);
-        let container = self.docker.create_container(Some(options), config).await?;
+        let container_result = self.docker.create_container(Some(options.clone()), config.clone()).await;
+
+        let container = match container_result {
+            Ok(c) => c,
+            Err(e) => {
+                // If image not found locally, try pulling from GHCR
+                let err_msg = e.to_string();
+                if err_msg.contains("404") || err_msg.contains("No such image") {
+                    use super::language_image_ghcr;
+                    let ghcr_image = language_image_ghcr(&language);
+                    log::info!("Language image not found locally, pulling from GHCR: {}", ghcr_image);
+
+                    use bollard::image::CreateImageOptions;
+                    use futures_util::stream::StreamExt;
+
+                    let create_options = CreateImageOptions {
+                        from_image: ghcr_image.clone(),
+                        ..Default::default()
+                    };
+
+                    let mut stream = self.docker.create_image(Some(create_options), None, None);
+                    while let Some(info) = stream.next().await {
+                        match info {
+                            Ok(_) => {},
+                            Err(e) => {
+                                log::error!("Failed to pull language image from GHCR: {}", e);
+                                return Err(e.into());
+                            }
+                        }
+                    }
+
+                    log::info!("Successfully pulled language image from GHCR");
+
+                    // Update config to use GHCR image
+                    let mut config_ghcr = config.clone();
+                    config_ghcr.image = Some(ghcr_image);
+
+                    // Retry container creation with GHCR image
+                    self.docker.create_container(Some(options), config_ghcr).await?
+                } else {
+                    return Err(e.into());
+                }
+            }
+        };
+
         let container_id = container.id;
 
         // Start the container
@@ -335,7 +379,7 @@ impl ContainerOrchestrator {
     /// - Ruby: nuanced-lsp-ruby-{version}:{LANGUAGE_CONTAINER_VERSION}
     /// - Ruby Sorbet: nuanced-lsp-ruby-sorbet-{version}:{LANGUAGE_CONTAINER_VERSION}
     #[rustfmt::skip]
-    fn image_name_for_language(language: &SupportedLanguages) -> String {
+    pub fn image_name_for_language(language: &SupportedLanguages) -> String {
         use super::LANGUAGE_CONTAINER_VERSION;
 
         match language {
