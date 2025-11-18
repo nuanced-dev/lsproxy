@@ -81,9 +81,9 @@ docker run -d \
     -e USE_AUTH=false \
     nuanced-lsp-proxy:latest > /dev/null
 
-# Wait for initialization
-echo "Waiting for service to initialize (30s)..."
-sleep 30
+# Wait for initialization (with health checks for all language containers)
+echo "Waiting for service to initialize (60s)..."
+sleep 60
 
 # Get service container ID
 SERVICE_ID=$(docker ps --filter "name=test-watchdog-svc" --format "{{.ID}}")
@@ -146,8 +146,8 @@ docker run -d \
     -e USE_AUTH=false \
     nuanced-lsp-proxy:latest > /dev/null
 
-echo "Waiting for service to initialize (30s)..."
-sleep 30
+echo "Waiting for service to initialize (60s)..."
+sleep 60
 
 KILL_SERVICE_ID=$(docker ps --filter "name=test-watchdog-kill" --format "{{.ID}}")
 KILL_SHORT_ID="${KILL_SERVICE_ID:0:12}"
@@ -203,8 +203,8 @@ docker run -d \
     -e USE_AUTH=false \
     nuanced-lsp-proxy:latest > /dev/null
 
-echo "Waiting for both services to initialize (60s)..."
-sleep 60
+echo "Waiting for both services to initialize (180s)..."
+sleep 180
 
 MULTI1_ID=$(docker ps --filter "name=test-watchdog-multi1" --format "{{.ID}}")
 MULTI1_SHORT="${MULTI1_ID:0:12}"

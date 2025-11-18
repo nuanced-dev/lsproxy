@@ -251,7 +251,7 @@ impl ContainerOrchestrator {
         info: &ContainerInfo,
     ) -> Result<(), OrchestratorError> {
         let health_url = format!("{}/health", info.endpoint);
-        let timeout = Duration::from_secs(30);
+        let timeout = Duration::from_secs(90);
         let start = std::time::Instant::now();
         let client = reqwest::Client::new();
 

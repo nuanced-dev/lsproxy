@@ -93,9 +93,9 @@ docker run -d \
 
 CONTAINERS_STARTED=true
 
-# Wait for service to be ready
-echo "Waiting for service to initialize (30s)..."
-sleep 30
+# Wait for service to be ready (with health checks for all language containers)
+echo "Waiting for service to initialize (60s)..."
+sleep 60
 
 # Test 3: Service container is running
 test_step "Service container running" \
