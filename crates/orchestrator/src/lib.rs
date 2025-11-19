@@ -12,6 +12,7 @@ use std::fs;
 use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
@@ -95,12 +96,18 @@ pub struct ApiDoc;
 pub struct AppState {
     orchestrator: Arc<container::ContainerOrchestrator>,
     workspace_path: String,
+    initialization_complete: Arc<AtomicBool>,
 }
 
 impl AppState {
     /// Get a reference to the orchestrator for shutdown handling
     pub fn orchestrator(&self) -> Arc<container::ContainerOrchestrator> {
         Arc::clone(&self.orchestrator)
+    }
+
+    /// Check if initialization is complete
+    pub fn is_initialized(&self) -> bool {
+        self.initialization_complete.load(Ordering::SeqCst)
     }
 }
 
@@ -137,15 +144,32 @@ pub async fn initialize_app_state_with_mount_dir(
         warn!("Failed to spawn watchdog (will continue without it): {}", e);
     }
 
-    // Initialize workspace: detect languages and spawn containers upfront
-    // This matches the original Manager::start_langservers() behavior
-    info!("Initializing workspace and spawning language containers...");
-    orchestrator.initialize_workspace(&workspace_path).await?;
-    info!("Workspace initialization complete");
+    let initialization_complete = Arc::new(AtomicBool::new(false));
+
+    // Clone for background task
+    let orchestrator_clone = Arc::clone(&orchestrator);
+    let workspace_path_clone = workspace_path.clone();
+    let initialization_complete_clone = Arc::clone(&initialization_complete);
+
+    // Spawn initialization in background so HTTP server can start immediately
+    tokio::spawn(async move {
+        info!("Initializing workspace and spawning language containers...");
+        match orchestrator_clone.initialize_workspace(&workspace_path_clone).await {
+            Ok(_) => {
+                info!("Workspace initialization complete");
+                initialization_complete_clone.store(true, Ordering::SeqCst);
+            }
+            Err(e) => {
+                error!("Workspace initialization failed: {}", e);
+                // Keep initialization_complete as false so health check shows unhealthy
+            }
+        }
+    });
 
     Ok(Data::new(AppState {
         orchestrator,
         workspace_path,
+        initialization_complete,
     }))
 }
 

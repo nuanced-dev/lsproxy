@@ -197,7 +197,7 @@ async fn main() -> std::io::Result<()> {
     // Java-specific: Wait for ServiceReady notification
     if language.as_str() == "java" {
         use lsp::ExpectedMessageKey;
-        info!("Java: waiting for ServiceReady notification. This may take up to 3 minutes...");
+        info!("Java: waiting for ServiceReady notification (no timeout - caller controls overall timeout)...");
 
         let mut notification_rx = client
             .get_pending_requests()
@@ -214,15 +214,10 @@ async fn main() -> std::io::Result<()> {
                 std::io::Error::new(std::io::ErrorKind::Other, e)
             })?;
 
-        tokio::time::timeout(std::time::Duration::from_secs(180), notification_rx.recv())
+        // Wait indefinitely for ServiceReady notification
+        // The orchestrator health check and CLI timeout control overall timing
+        notification_rx.recv()
             .await
-            .map_err(|_| {
-                error!("Timeout waiting for Java ServiceReady notification");
-                std::io::Error::new(
-                    std::io::ErrorKind::TimedOut,
-                    "Timeout waiting for Java ServiceReady notification after 180 seconds",
-                )
-            })?
             .map_err(|e| {
                 error!("Error receiving ServiceReady notification: {}", e);
                 std::io::Error::new(std::io::ErrorKind::Other, e)

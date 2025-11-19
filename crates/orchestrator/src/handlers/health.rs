@@ -9,16 +9,27 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 /// Get health status of the LSP proxy service
 ///
 /// Returns the service status, version and language server availability
+/// Returns 503 Service Unavailable while initialization is in progress
 #[utoipa::path(
     get,
     path = "/system/health",
     tag = "system",
     responses(
-        (status = 200, description = "Health check successful", body = HealthResponse),
+        (status = 200, description = "Service is healthy and initialized", body = HealthResponse),
+        (status = 503, description = "Service is initializing", body = HealthResponse),
         (status = 500, description = "Internal server error")
     )
 )]
 pub async fn health_check(data: Data<AppState>) -> HttpResponse {
+    // Check if initialization is complete
+    if !data.is_initialized() {
+        return HttpResponse::ServiceUnavailable().json(HealthResponse {
+            status: "initializing".to_string(),
+            version: VERSION.to_string(),
+            languages: HashMap::new(),
+        });
+    }
+
     // Get all currently running containers from the orchestrator
     let running_containers = data.orchestrator.all_containers().await;
 

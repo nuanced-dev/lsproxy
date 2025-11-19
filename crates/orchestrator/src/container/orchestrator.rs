@@ -1,7 +1,6 @@
 use super::{ContainerInfo, ContainerOrchestrator, OrchestratorError};
-use bollard::container::{Config, CreateContainerOptions, LogsOptions};
+use bollard::container::{Config, CreateContainerOptions};
 use bollard::models::{HostConfig, PortBinding};
-use futures_util::stream::StreamExt;
 use lsproxy_common::api_types::SupportedLanguages;
 use std::collections::HashMap;
 use std::net::TcpListener;
@@ -169,7 +168,7 @@ impl ContainerOrchestrator {
                 if err_msg.contains("404") || err_msg.contains("No such image") {
                     use super::language_image_ghcr;
                     let ghcr_image = language_image_ghcr(&language);
-                    log::info!("Language image not found locally, pulling from GHCR: {}", ghcr_image);
+                    log::info!("{:?} image not found locally, pulling from GHCR: {}", language, ghcr_image);
 
                     use bollard::image::CreateImageOptions;
                     use futures_util::stream::StreamExt;
@@ -190,7 +189,7 @@ impl ContainerOrchestrator {
                         }
                     }
 
-                    log::info!("Successfully pulled language image from GHCR");
+                    log::info!("{:?} image successfully pulled from GHCR", language);
 
                     // Update config to use GHCR image
                     let mut config_ghcr = config.clone();
@@ -284,19 +283,19 @@ impl ContainerOrchestrator {
     /// This requires the HTTP wrapper (Phase 4) to be implemented in the container.
     /// The health check simply verifies the wrapper is responding (simple mode).
     ///
+    /// Polls indefinitely until the container is healthy. The caller should control
+    /// overall timeout by polling the service health endpoint.
+    ///
     /// # Arguments
     /// * `info` - Container information including endpoint
     ///
     /// # Returns
     /// * `Ok(())` if container responds with healthy status
-    /// * `Err(OrchestratorError::HealthCheck)` if health check fails or times out
     pub async fn check_container_health(
         &self,
         info: &ContainerInfo,
     ) -> Result<(), OrchestratorError> {
         let health_url = format!("{}/health", info.endpoint);
-        let timeout = Duration::from_secs(90);
-        let start = std::time::Instant::now();
         let client = reqwest::Client::new();
 
         log::info!(
@@ -305,7 +304,9 @@ impl ContainerOrchestrator {
             health_url
         );
 
-        while start.elapsed() < timeout {
+        // Poll health endpoint until container is ready
+        // No timeout - let the caller control overall timeout by polling the service health endpoint
+        loop {
             match client
                 .get(&health_url)
                 .timeout(Duration::from_secs(2))
@@ -329,47 +330,6 @@ impl ContainerOrchestrator {
             }
 
             tokio::time::sleep(Duration::from_millis(500)).await;
-        }
-
-        // Health check failed - get container logs for debugging
-        let logs = self.get_container_logs(&info.container_id, 50).await;
-        let error_msg = format!(
-            "Container {} health check timeout after {:?}. Recent logs:\n{}",
-            info.container_id,
-            timeout,
-            logs.unwrap_or_else(|| "Could not retrieve logs".to_string())
-        );
-
-        Err(OrchestratorError::HealthCheck(error_msg))
-    }
-
-    /// Get recent logs from a container for debugging
-    ///
-    /// # Arguments
-    /// * `container_id` - The container ID
-    /// * `tail` - Number of lines to retrieve
-    ///
-    /// # Returns
-    /// * `Some(String)` containing the logs, or `None` if logs couldn't be retrieved
-    async fn get_container_logs(&self, container_id: &str, tail: usize) -> Option<String> {
-        let options = LogsOptions::<String> {
-            stdout: true,
-            stderr: true,
-            tail: tail.to_string(),
-            ..Default::default()
-        };
-
-        let mut stream = self.docker.logs(container_id, Some(options));
-        let mut logs = String::new();
-
-        while let Some(Ok(log)) = stream.next().await {
-            logs.push_str(&log.to_string());
-        }
-
-        if logs.is_empty() {
-            None
-        } else {
-            Some(logs)
         }
     }
 

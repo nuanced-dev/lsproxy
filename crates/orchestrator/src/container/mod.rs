@@ -386,26 +386,26 @@ impl ContainerOrchestrator {
     /// The wrapper container holds the lsp-wrapper binary and ast-grep configs
     /// that will be mounted into language containers via --volumes-from
     pub async fn ensure_wrapper_container(&self) -> Result<String, OrchestratorError> {
-        // Check if we already have a wrapper container ID
-        {
-            let wrapper_id = self.wrapper_container_id.lock().await;
-            if let Some(id) = wrapper_id.as_ref() {
-                // Verify container still exists and is running
-                if let Ok(info) = self.docker.inspect_container(id, None).await {
-                    if let Some(state) = info.state {
-                        if state.running == Some(true) {
-                            log::debug!("Using existing wrapper container: {}", id);
-                            return Ok(id.clone());
-                        }
-                    }
-                }
-                // Container no longer valid, will create new one
-                log::warn!("Wrapper container {} is not running, creating new one", id);
-            }
-        }
-
         use bollard::container::{Config, CreateContainerOptions};
         use bollard::models::HostConfig;
+
+        // Hold lock for entire function to prevent concurrent wrapper creation
+        let mut wrapper_id = self.wrapper_container_id.lock().await;
+
+        // Check if we already have a wrapper container ID
+        if let Some(id) = wrapper_id.as_ref() {
+            // Verify container still exists and is running
+            if let Ok(info) = self.docker.inspect_container(id, None).await {
+                if let Some(state) = info.state {
+                    if state.running == Some(true) {
+                        log::debug!("Using existing wrapper container: {}", id);
+                        return Ok(id.clone());
+                    }
+                }
+            }
+            // Container no longer valid, will create new one
+            log::warn!("Wrapper container {} is not running, creating new one", id);
+        }
 
         let wrapper_name = "nuanced-lsp-wrapper";
 
@@ -415,7 +415,7 @@ impl ContainerOrchestrator {
                 if state.running == Some(true) {
                     if let Some(id) = info.id {
                         log::info!("Found existing wrapper container: {}", id);
-                        *self.wrapper_container_id.lock().await = Some(id.clone());
+                        *wrapper_id = Some(id.clone());
                         return Ok(id);
                     }
                 }
@@ -424,7 +424,7 @@ impl ContainerOrchestrator {
             if let Some(id) = info.id {
                 log::info!("Starting existing wrapper container: {}", id);
                 self.docker.start_container::<String>(&id, None).await?;
-                *self.wrapper_container_id.lock().await = Some(id.clone());
+                *wrapper_id = Some(id.clone());
                 return Ok(id);
             }
         }
@@ -498,8 +498,8 @@ impl ContainerOrchestrator {
             .start_container::<String>(&container_id, None)
             .await?;
 
-        // Store container ID
-        *self.wrapper_container_id.lock().await = Some(container_id.clone());
+        // Store container ID (lock already held)
+        *wrapper_id = Some(container_id.clone());
 
         log::info!("Wrapper container started: {}", container_id);
         Ok(container_id)
