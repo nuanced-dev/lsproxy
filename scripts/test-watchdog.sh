@@ -15,6 +15,9 @@ NC='\033[0m' # No Color
 WORKSPACE_PATH="${1:-sample_project/all}"
 WORKSPACE_PATH="$(cd "$WORKSPACE_PATH" && pwd)"
 
+# Use RUST_CONTAINER_VERSION from environment, default to "latest"
+RUST_VERSION="${RUST_CONTAINER_VERSION:-latest}"
+
 echo -e "${BLUE}=========================================${NC}"
 echo -e "${BLUE}  Watchdog Functionality Tests${NC}"
 echo -e "${BLUE}  Workspace: $WORKSPACE_PATH${NC}"
@@ -79,7 +82,7 @@ docker run -d \
     -v "$WORKSPACE_PATH:/mnt/workspace" \
     -e RUST_LOG=info \
     -e USE_AUTH=false \
-    nuanced-lsp-proxy:latest > /dev/null
+    nuanced-lsp-proxy:${RUST_VERSION} > /dev/null
 
 # Wait for initialization (with health checks for all language containers)
 echo "Waiting for service to initialize (60s)..."
@@ -144,7 +147,7 @@ docker run -d \
     -v "$WORKSPACE_PATH:/mnt/workspace" \
     -e RUST_LOG=info \
     -e USE_AUTH=false \
-    nuanced-lsp-proxy:latest > /dev/null
+    nuanced-lsp-proxy:${RUST_VERSION} > /dev/null
 
 echo "Waiting for service to initialize (60s)..."
 sleep 60
@@ -192,7 +195,7 @@ docker run -d \
     -v "$WORKSPACE_PATH:/mnt/workspace" \
     -e RUST_LOG=warn \
     -e USE_AUTH=false \
-    nuanced-lsp-proxy:latest > /dev/null
+    nuanced-lsp-proxy:${RUST_VERSION} > /dev/null
 
 docker run -d \
     --name test-watchdog-multi2 \
@@ -201,7 +204,7 @@ docker run -d \
     -v "$WORKSPACE_PATH:/mnt/workspace" \
     -e RUST_LOG=warn \
     -e USE_AUTH=false \
-    nuanced-lsp-proxy:latest > /dev/null
+    nuanced-lsp-proxy:${RUST_VERSION} > /dev/null
 
 echo "Waiting for both services to initialize (180s)..."
 sleep 180

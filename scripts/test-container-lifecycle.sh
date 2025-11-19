@@ -75,9 +75,12 @@ cleanup() {
 # Register cleanup on exit (success, failure, or Ctrl+C)
 trap cleanup EXIT INT TERM
 
+# Use RUST_CONTAINER_VERSION from environment, default to "latest"
+RUST_VERSION="${RUST_CONTAINER_VERSION:-latest}"
+
 # Test 1: Service image exists
 test_step "Service image exists" \
-    "docker images nuanced-lsp-proxy:latest --format '{{.Repository}}' | grep -q nuanced-lsp-proxy"
+    "docker images nuanced-lsp-proxy:${RUST_VERSION} --format '{{.Repository}}' | grep -q nuanced-lsp-proxy"
 
 # Test 2: Start service container
 echo
@@ -89,7 +92,7 @@ docker run -d \
     -v "$WORKSPACE_PATH:/mnt/workspace" \
     -e RUST_LOG=info \
     -e USE_AUTH=false \
-    nuanced-lsp-proxy:latest
+    nuanced-lsp-proxy:${RUST_VERSION}
 
 CONTAINERS_STARTED=true
 

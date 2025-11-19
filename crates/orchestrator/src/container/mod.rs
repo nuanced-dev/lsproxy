@@ -13,13 +13,13 @@ pub mod orchestrator;
 // These correspond to the Docker images built by scripts/build-rust-containers.sh
 // and scripts/build-language-containers.sh
 
-/// Version tag for Rust containers (wrapper, proxy, watchdog)
-/// This should match the release version from Cargo.toml
-pub const RUST_CONTAINER_VERSION: &str = "0.4.8";
+/// Default version tag for Rust containers (wrapper, proxy, watchdog)
+/// Can be overridden with RUST_CONTAINER_VERSION environment variable
+pub const DEFAULT_RUST_CONTAINER_VERSION: &str = "0.4.8";
 
-/// Version tag for language containers (python, ruby, typescript, etc.)
-/// Language containers use independent semver versioning for API compatibility
-pub const LANGUAGE_CONTAINER_VERSION: &str = "1.0.0";
+/// Default version tag for language containers (python, ruby, typescript, etc.)
+/// Can be overridden with LANGUAGE_CONTAINER_VERSION environment variable
+pub const DEFAULT_LANGUAGE_CONTAINER_VERSION: &str = "1.0.0";
 
 /// Base image names (without version tags)
 pub const PROXY_IMAGE_BASE: &str = "nuanced-lsp-proxy";
@@ -29,25 +29,37 @@ pub const WATCHDOG_IMAGE_BASE: &str = "nuanced-lsp-watchdog";
 /// Container registry for published images
 pub const CONTAINER_REGISTRY: &str = "ghcr.io/nuanced-dev";
 
+/// Get Rust container version from environment or use default
+pub fn rust_container_version() -> String {
+    std::env::var("RUST_CONTAINER_VERSION")
+        .unwrap_or_else(|_| DEFAULT_RUST_CONTAINER_VERSION.to_string())
+}
+
+/// Get language container version from environment or use default
+pub fn language_container_version() -> String {
+    std::env::var("LANGUAGE_CONTAINER_VERSION")
+        .unwrap_or_else(|_| DEFAULT_LANGUAGE_CONTAINER_VERSION.to_string())
+}
+
 /// Helper functions to get full image names with version tags
 pub fn proxy_image() -> String {
-    format!("{}:{}", PROXY_IMAGE_BASE, RUST_CONTAINER_VERSION)
+    format!("{}:{}", PROXY_IMAGE_BASE, rust_container_version())
 }
 
 pub fn wrapper_image() -> String {
-    format!("{}:{}", WRAPPER_IMAGE_BASE, RUST_CONTAINER_VERSION)
+    format!("{}:{}", WRAPPER_IMAGE_BASE, rust_container_version())
 }
 
 pub fn watchdog_image() -> String {
-    format!("{}:{}", WATCHDOG_IMAGE_BASE, RUST_CONTAINER_VERSION)
+    format!("{}:{}", WATCHDOG_IMAGE_BASE, rust_container_version())
 }
 
 pub fn watchdog_image_ghcr() -> String {
-    format!("{}/{}:{}", CONTAINER_REGISTRY, WATCHDOG_IMAGE_BASE, RUST_CONTAINER_VERSION)
+    format!("{}/{}:{}", CONTAINER_REGISTRY, WATCHDOG_IMAGE_BASE, rust_container_version())
 }
 
 pub fn wrapper_image_ghcr() -> String {
-    format!("{}/{}:{}", CONTAINER_REGISTRY, WRAPPER_IMAGE_BASE, RUST_CONTAINER_VERSION)
+    format!("{}/{}:{}", CONTAINER_REGISTRY, WRAPPER_IMAGE_BASE, rust_container_version())
 }
 
 pub fn language_image_ghcr(language: &SupportedLanguages) -> String {

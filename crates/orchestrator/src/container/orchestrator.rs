@@ -335,46 +335,48 @@ impl ContainerOrchestrator {
 
     /// Get the Docker image name for a language
     /// Language container images follow the naming convention:
-    /// - Non-Ruby: nuanced-lsp-{language}:{LANGUAGE_CONTAINER_VERSION}
-    /// - Ruby: nuanced-lsp-ruby-{version}:{LANGUAGE_CONTAINER_VERSION}
-    /// - Ruby Sorbet: nuanced-lsp-ruby-sorbet-{version}:{LANGUAGE_CONTAINER_VERSION}
+    /// - Non-Ruby: nuanced-lsp-{language}:{version}
+    /// - Ruby: nuanced-lsp-ruby-{version}:{version}
+    /// - Ruby Sorbet: nuanced-lsp-ruby-sorbet-{version}:{version}
+    /// Version can be overridden via LANGUAGE_CONTAINER_VERSION environment variable
     #[rustfmt::skip]
     pub fn image_name_for_language(language: &SupportedLanguages) -> String {
-        use super::LANGUAGE_CONTAINER_VERSION;
+        use super::language_container_version;
+        let version = language_container_version();
 
         match language {
-            SupportedLanguages::Golang => format!("nuanced-lsp-golang:{}", LANGUAGE_CONTAINER_VERSION),
-            SupportedLanguages::Python => format!("nuanced-lsp-python:{}", LANGUAGE_CONTAINER_VERSION),
-            SupportedLanguages::TypeScriptJavaScript => format!("nuanced-lsp-typescript:{}", LANGUAGE_CONTAINER_VERSION),
-            SupportedLanguages::Ruby3_4_7 => format!("nuanced-lsp-ruby-3.4.7:{}", LANGUAGE_CONTAINER_VERSION),
-            SupportedLanguages::Ruby3_4_6 => format!("nuanced-lsp-ruby-3.4.6:{}", LANGUAGE_CONTAINER_VERSION),
-            SupportedLanguages::Ruby3_4_5 => format!("nuanced-lsp-ruby-3.4.5:{}", LANGUAGE_CONTAINER_VERSION),
-            SupportedLanguages::Ruby3_4_4 => format!("nuanced-lsp-ruby-3.4.4:{}", LANGUAGE_CONTAINER_VERSION),
-            SupportedLanguages::Ruby3_4_3 => format!("nuanced-lsp-ruby-3.4.3:{}", LANGUAGE_CONTAINER_VERSION),
-            SupportedLanguages::Ruby3_4_2 => format!("nuanced-lsp-ruby-3.4.2:{}", LANGUAGE_CONTAINER_VERSION),
-            SupportedLanguages::Ruby3_4_1 => format!("nuanced-lsp-ruby-3.4.1:{}", LANGUAGE_CONTAINER_VERSION),
-            SupportedLanguages::Ruby3_4_0 => format!("nuanced-lsp-ruby-3.4.0:{}", LANGUAGE_CONTAINER_VERSION),
-            SupportedLanguages::Ruby3_3_6 => format!("nuanced-lsp-ruby-3.3.6:{}", LANGUAGE_CONTAINER_VERSION),
-            SupportedLanguages::Ruby3_3_5 => format!("nuanced-lsp-ruby-3.3.5:{}", LANGUAGE_CONTAINER_VERSION),
-            SupportedLanguages::Ruby3_2_6 => format!("nuanced-lsp-ruby-3.2.6:{}", LANGUAGE_CONTAINER_VERSION),
-            SupportedLanguages::Ruby3_2_2 => format!("nuanced-lsp-ruby-3.2.2:{}", LANGUAGE_CONTAINER_VERSION),
-            SupportedLanguages::RubySorbet3_4_7 => format!("nuanced-lsp-ruby-sorbet-3.4.7:{}", LANGUAGE_CONTAINER_VERSION),
-            SupportedLanguages::RubySorbet3_4_6 => format!("nuanced-lsp-ruby-sorbet-3.4.6:{}", LANGUAGE_CONTAINER_VERSION),
-            SupportedLanguages::RubySorbet3_4_5 => format!("nuanced-lsp-ruby-sorbet-3.4.5:{}", LANGUAGE_CONTAINER_VERSION),
-            SupportedLanguages::RubySorbet3_4_4 => format!("nuanced-lsp-ruby-sorbet-3.4.4:{}", LANGUAGE_CONTAINER_VERSION),
-            SupportedLanguages::RubySorbet3_4_3 => format!("nuanced-lsp-ruby-sorbet-3.4.3:{}", LANGUAGE_CONTAINER_VERSION),
-            SupportedLanguages::RubySorbet3_4_2 => format!("nuanced-lsp-ruby-sorbet-3.4.2:{}", LANGUAGE_CONTAINER_VERSION),
-            SupportedLanguages::RubySorbet3_4_1 => format!("nuanced-lsp-ruby-sorbet-3.4.1:{}", LANGUAGE_CONTAINER_VERSION),
-            SupportedLanguages::RubySorbet3_4_0 => format!("nuanced-lsp-ruby-sorbet-3.4.0:{}", LANGUAGE_CONTAINER_VERSION),
-            SupportedLanguages::RubySorbet3_3_6 => format!("nuanced-lsp-ruby-sorbet-3.3.6:{}", LANGUAGE_CONTAINER_VERSION),
-            SupportedLanguages::RubySorbet3_3_5 => format!("nuanced-lsp-ruby-sorbet-3.3.5:{}", LANGUAGE_CONTAINER_VERSION),
-            SupportedLanguages::RubySorbet3_2_6 => format!("nuanced-lsp-ruby-sorbet-3.2.6:{}", LANGUAGE_CONTAINER_VERSION),
-            SupportedLanguages::RubySorbet3_2_2 => format!("nuanced-lsp-ruby-sorbet-3.2.2:{}", LANGUAGE_CONTAINER_VERSION),
-            SupportedLanguages::Rust => format!("nuanced-lsp-rust:{}", LANGUAGE_CONTAINER_VERSION),
-            SupportedLanguages::CPP => format!("nuanced-lsp-clangd:{}", LANGUAGE_CONTAINER_VERSION),
-            SupportedLanguages::Java => format!("nuanced-lsp-java:{}", LANGUAGE_CONTAINER_VERSION),
-            SupportedLanguages::PHP => format!("nuanced-lsp-php:{}", LANGUAGE_CONTAINER_VERSION),
-            SupportedLanguages::CSharp => format!("nuanced-lsp-csharp:{}", LANGUAGE_CONTAINER_VERSION),
+            SupportedLanguages::Golang => format!("nuanced-lsp-golang:{}", version),
+            SupportedLanguages::Python => format!("nuanced-lsp-python:{}", version),
+            SupportedLanguages::TypeScriptJavaScript => format!("nuanced-lsp-typescript:{}", version),
+            SupportedLanguages::Ruby3_4_7 => format!("nuanced-lsp-ruby-3.4.7:{}", version),
+            SupportedLanguages::Ruby3_4_6 => format!("nuanced-lsp-ruby-3.4.6:{}", version),
+            SupportedLanguages::Ruby3_4_5 => format!("nuanced-lsp-ruby-3.4.5:{}", version),
+            SupportedLanguages::Ruby3_4_4 => format!("nuanced-lsp-ruby-3.4.4:{}", version),
+            SupportedLanguages::Ruby3_4_3 => format!("nuanced-lsp-ruby-3.4.3:{}", version),
+            SupportedLanguages::Ruby3_4_2 => format!("nuanced-lsp-ruby-3.4.2:{}", version),
+            SupportedLanguages::Ruby3_4_1 => format!("nuanced-lsp-ruby-3.4.1:{}", version),
+            SupportedLanguages::Ruby3_4_0 => format!("nuanced-lsp-ruby-3.4.0:{}", version),
+            SupportedLanguages::Ruby3_3_6 => format!("nuanced-lsp-ruby-3.3.6:{}", version),
+            SupportedLanguages::Ruby3_3_5 => format!("nuanced-lsp-ruby-3.3.5:{}", version),
+            SupportedLanguages::Ruby3_2_6 => format!("nuanced-lsp-ruby-3.2.6:{}", version),
+            SupportedLanguages::Ruby3_2_2 => format!("nuanced-lsp-ruby-3.2.2:{}", version),
+            SupportedLanguages::RubySorbet3_4_7 => format!("nuanced-lsp-ruby-sorbet-3.4.7:{}", version),
+            SupportedLanguages::RubySorbet3_4_6 => format!("nuanced-lsp-ruby-sorbet-3.4.6:{}", version),
+            SupportedLanguages::RubySorbet3_4_5 => format!("nuanced-lsp-ruby-sorbet-3.4.5:{}", version),
+            SupportedLanguages::RubySorbet3_4_4 => format!("nuanced-lsp-ruby-sorbet-3.4.4:{}", version),
+            SupportedLanguages::RubySorbet3_4_3 => format!("nuanced-lsp-ruby-sorbet-3.4.3:{}", version),
+            SupportedLanguages::RubySorbet3_4_2 => format!("nuanced-lsp-ruby-sorbet-3.4.2:{}", version),
+            SupportedLanguages::RubySorbet3_4_1 => format!("nuanced-lsp-ruby-sorbet-3.4.1:{}", version),
+            SupportedLanguages::RubySorbet3_4_0 => format!("nuanced-lsp-ruby-sorbet-3.4.0:{}", version),
+            SupportedLanguages::RubySorbet3_3_6 => format!("nuanced-lsp-ruby-sorbet-3.3.6:{}", version),
+            SupportedLanguages::RubySorbet3_3_5 => format!("nuanced-lsp-ruby-sorbet-3.3.5:{}", version),
+            SupportedLanguages::RubySorbet3_2_6 => format!("nuanced-lsp-ruby-sorbet-3.2.6:{}", version),
+            SupportedLanguages::RubySorbet3_2_2 => format!("nuanced-lsp-ruby-sorbet-3.2.2:{}", version),
+            SupportedLanguages::Rust => format!("nuanced-lsp-rust:{}", version),
+            SupportedLanguages::CPP => format!("nuanced-lsp-clangd:{}", version),
+            SupportedLanguages::Java => format!("nuanced-lsp-java:{}", version),
+            SupportedLanguages::PHP => format!("nuanced-lsp-php:{}", version),
+            SupportedLanguages::CSharp => format!("nuanced-lsp-csharp:{}", version),
         }
     }
 
@@ -427,53 +429,54 @@ mod tests {
 
     #[test]
     fn test_image_name_for_language() {
-        use super::super::LANGUAGE_CONTAINER_VERSION;
+        use super::super::language_container_version;
+        let version = language_container_version();
 
         assert_eq!(
             ContainerOrchestrator::image_name_for_language(&SupportedLanguages::Golang),
-            format!("nuanced-lsp-golang:{}", LANGUAGE_CONTAINER_VERSION)
+            format!("nuanced-lsp-golang:{}", version)
         );
         assert_eq!(
             ContainerOrchestrator::image_name_for_language(&SupportedLanguages::Python),
-            format!("nuanced-lsp-python:{}", LANGUAGE_CONTAINER_VERSION)
+            format!("nuanced-lsp-python:{}", version)
         );
         assert_eq!(
             ContainerOrchestrator::image_name_for_language(
                 &SupportedLanguages::TypeScriptJavaScript
             ),
-            format!("nuanced-lsp-typescript:{}", LANGUAGE_CONTAINER_VERSION)
+            format!("nuanced-lsp-typescript:{}", version)
         );
         assert_eq!(
             ContainerOrchestrator::image_name_for_language(&SupportedLanguages::Ruby3_4_4),
-            format!("nuanced-lsp-ruby-3.4.4:{}", LANGUAGE_CONTAINER_VERSION)
+            format!("nuanced-lsp-ruby-3.4.4:{}", version)
         );
         assert_eq!(
             ContainerOrchestrator::image_name_for_language(&SupportedLanguages::Ruby3_3_6),
-            format!("nuanced-lsp-ruby-3.3.6:{}", LANGUAGE_CONTAINER_VERSION)
+            format!("nuanced-lsp-ruby-3.3.6:{}", version)
         );
         assert_eq!(
             ContainerOrchestrator::image_name_for_language(&SupportedLanguages::RubySorbet3_4_4),
-            format!("nuanced-lsp-ruby-sorbet-3.4.4:{}", LANGUAGE_CONTAINER_VERSION)
+            format!("nuanced-lsp-ruby-sorbet-3.4.4:{}", version)
         );
         assert_eq!(
             ContainerOrchestrator::image_name_for_language(&SupportedLanguages::Rust),
-            format!("nuanced-lsp-rust:{}", LANGUAGE_CONTAINER_VERSION)
+            format!("nuanced-lsp-rust:{}", version)
         );
         assert_eq!(
             ContainerOrchestrator::image_name_for_language(&SupportedLanguages::CPP),
-            format!("nuanced-lsp-clangd:{}", LANGUAGE_CONTAINER_VERSION)
+            format!("nuanced-lsp-clangd:{}", version)
         );
         assert_eq!(
             ContainerOrchestrator::image_name_for_language(&SupportedLanguages::Java),
-            format!("nuanced-lsp-java:{}", LANGUAGE_CONTAINER_VERSION)
+            format!("nuanced-lsp-java:{}", version)
         );
         assert_eq!(
             ContainerOrchestrator::image_name_for_language(&SupportedLanguages::PHP),
-            format!("nuanced-lsp-php:{}", LANGUAGE_CONTAINER_VERSION)
+            format!("nuanced-lsp-php:{}", version)
         );
         assert_eq!(
             ContainerOrchestrator::image_name_for_language(&SupportedLanguages::CSharp),
-            format!("nuanced-lsp-csharp:{}", LANGUAGE_CONTAINER_VERSION)
+            format!("nuanced-lsp-csharp:{}", version)
         );
     }
 

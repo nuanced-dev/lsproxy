@@ -19,6 +19,9 @@ PORT=4444
 DETACHED=true
 TAIL_LOGS=false
 
+# Use RUST_CONTAINER_VERSION from environment, default to "latest"
+RUST_VERSION="${RUST_CONTAINER_VERSION:-latest}"
+
 # Parse options
 shift || true
 while [[ $# -gt 0 ]]; do
@@ -124,7 +127,7 @@ if [ -n "$ENABLED_LANGUAGES" ]; then
     DOCKER_RUN_CMD="$DOCKER_RUN_CMD -e ENABLED_LANGUAGES=\"${ENABLED_LANGUAGES}\""
 fi
 
-DOCKER_RUN_CMD="$DOCKER_RUN_CMD nuanced-lsp-proxy:latest"
+DOCKER_RUN_CMD="$DOCKER_RUN_CMD nuanced-lsp-proxy:${RUST_VERSION}"
 
 # Start the service
 echo -e "${BLUE}Starting service container...${NC}"

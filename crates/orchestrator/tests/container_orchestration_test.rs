@@ -22,12 +22,12 @@ use tokio::sync::Mutex;
 use tokio::time::sleep;
 
 use lsproxy_orchestrator::container::{
-    proxy_image, LANGUAGE_CONTAINER_VERSION, WRAPPER_IMAGE_BASE,
+    proxy_image, language_container_version, WRAPPER_IMAGE_BASE,
 };
 
 // Helper function for Python test image
 fn python_image() -> String {
-    format!("nuanced-lsp-python:{}", LANGUAGE_CONTAINER_VERSION)
+    format!("nuanced-lsp-python:{}", language_container_version())
 }
 const SERVICE_PORT: u16 = 14444; // Use non-standard port to avoid conflicts
 const CONTAINER_PORT: u16 = 4444; // Port the service listens on inside container

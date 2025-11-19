@@ -464,6 +464,18 @@ docker rm -f lsproxy-service
 - Large codebases (e.g., Kubernetes) may require higher memory limits for operations like find-references
 - Set lower for resource-constrained environments
 
+**`RUST_CONTAINER_VERSION`** (optional)
+- Docker image tag for Rust containers (proxy, wrapper, watchdog)
+- Default: `0.4.8`
+- Use `latest` for development or specify a version for production
+- Primarily used by test scripts and CI/CD pipelines
+
+**`LANGUAGE_CONTAINER_VERSION`** (optional)
+- Docker image tag for language server containers (Python, TypeScript, etc.)
+- Default: `1.0.0`
+- Use `latest` for development or specify a version for production
+- Primarily used by test scripts and CI/CD pipelines
+
 **Examples:**
 ```bash
 # Only spawn Python and TypeScript containers
@@ -483,6 +495,12 @@ ENABLED_LANGUAGES="go" LSPROXY_MAX_MEMORY=16384 ./scripts/start-service.sh
 
 # Without ENABLED_LANGUAGES, all detected languages spawn (default)
 ./scripts/start-service.sh
+
+# Use specific Docker image versions (for testing or CI/CD)
+RUST_CONTAINER_VERSION=latest LANGUAGE_CONTAINER_VERSION=latest ./scripts/test.sh
+
+# Test with production versions
+RUST_CONTAINER_VERSION=0.4.8 LANGUAGE_CONTAINER_VERSION=1.0.0 ./scripts/test.sh
 ```
 
 ### Available Scripts
