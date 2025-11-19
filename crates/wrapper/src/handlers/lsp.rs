@@ -7,6 +7,16 @@ use lsproxy_common::api_types::{JsonRpcRequest, JsonRpcResponse};
 ///
 /// This endpoint provides direct access to the LSP server by forwarding
 /// JSON-RPC requests and returning responses with minimal processing.
+#[utoipa::path(
+    post,
+    path = "/lsp",
+    request_body = JsonRpcRequest,
+    responses(
+        (status = 200, description = "Identifier retrieved successfully", body = JsonRpcResponse),
+        (status = 400, description = "Bad request"),
+        (status = 500, description = "Internal server error")
+    )
+)]
 pub async fn lsp(
     app_state: web::Data<AppState>,
     request: web::Json<JsonRpcRequest>,
