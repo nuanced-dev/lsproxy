@@ -216,12 +216,10 @@ async fn main() -> std::io::Result<()> {
 
         // Wait indefinitely for ServiceReady notification
         // The orchestrator health check and CLI timeout control overall timing
-        notification_rx.recv()
-            .await
-            .map_err(|e| {
-                error!("Error receiving ServiceReady notification: {}", e);
-                std::io::Error::new(std::io::ErrorKind::Other, e)
-            })?;
+        notification_rx.recv().await.map_err(|e| {
+            error!("Error receiving ServiceReady notification: {}", e);
+            std::io::Error::new(std::io::ErrorKind::Other, e)
+        })?;
 
         info!("Java: ServiceReady notification received!");
     }

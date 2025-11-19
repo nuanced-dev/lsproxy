@@ -158,7 +158,10 @@ impl ContainerOrchestrator {
 
         // Create the container
         log::info!("Creating container {} for {:?}", container_name, language);
-        let container_result = self.docker.create_container(Some(options.clone()), config.clone()).await;
+        let container_result = self
+            .docker
+            .create_container(Some(options.clone()), config.clone())
+            .await;
 
         let container = match container_result {
             Ok(c) => c,
@@ -168,7 +171,11 @@ impl ContainerOrchestrator {
                 if err_msg.contains("404") || err_msg.contains("No such image") {
                     use super::language_image_ghcr;
                     let ghcr_image = language_image_ghcr(&language);
-                    log::info!("{:?} image not found locally, pulling from GHCR: {}", language, ghcr_image);
+                    log::info!(
+                        "{:?} image not found locally, pulling from GHCR: {}",
+                        language,
+                        ghcr_image
+                    );
 
                     use bollard::image::CreateImageOptions;
                     use futures_util::stream::StreamExt;
@@ -181,7 +188,7 @@ impl ContainerOrchestrator {
                     let mut stream = self.docker.create_image(Some(create_options), None, None);
                     while let Some(info) = stream.next().await {
                         match info {
-                            Ok(_) => {},
+                            Ok(_) => {}
                             Err(e) => {
                                 log::error!("Failed to pull language image from GHCR: {}", e);
                                 return Err(e.into());
@@ -196,7 +203,9 @@ impl ContainerOrchestrator {
                     config_ghcr.image = Some(ghcr_image);
 
                     // Retry container creation with GHCR image
-                    self.docker.create_container(Some(options), config_ghcr).await?
+                    self.docker
+                        .create_container(Some(options), config_ghcr)
+                        .await?
                 } else {
                     return Err(e.into());
                 }

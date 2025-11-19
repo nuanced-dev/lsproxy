@@ -22,7 +22,7 @@ use tokio::sync::Mutex;
 use tokio::time::sleep;
 
 use lsproxy_orchestrator::container::{
-    proxy_image, language_container_version, WRAPPER_IMAGE_BASE,
+    language_container_version, proxy_image, WRAPPER_IMAGE_BASE,
 };
 
 // Helper function for Python test image

@@ -154,7 +154,10 @@ pub async fn initialize_app_state_with_mount_dir(
     // Spawn initialization in background so HTTP server can start immediately
     tokio::spawn(async move {
         info!("Initializing workspace and spawning language containers...");
-        match orchestrator_clone.initialize_workspace(&workspace_path_clone).await {
+        match orchestrator_clone
+            .initialize_workspace(&workspace_path_clone)
+            .await
+        {
             Ok(_) => {
                 info!("Workspace initialization complete");
                 initialization_complete_clone.store(true, Ordering::SeqCst);

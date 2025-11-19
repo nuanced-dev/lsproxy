@@ -55,11 +55,21 @@ pub fn watchdog_image() -> String {
 }
 
 pub fn watchdog_image_ghcr() -> String {
-    format!("{}/{}:{}", CONTAINER_REGISTRY, WATCHDOG_IMAGE_BASE, rust_container_version())
+    format!(
+        "{}/{}:{}",
+        CONTAINER_REGISTRY,
+        WATCHDOG_IMAGE_BASE,
+        rust_container_version()
+    )
 }
 
 pub fn wrapper_image_ghcr() -> String {
-    format!("{}/{}:{}", CONTAINER_REGISTRY, WRAPPER_IMAGE_BASE, rust_container_version())
+    format!(
+        "{}/{}:{}",
+        CONTAINER_REGISTRY,
+        WRAPPER_IMAGE_BASE,
+        rust_container_version()
+    )
 }
 
 pub fn language_image_ghcr(language: &SupportedLanguages) -> String {
@@ -344,7 +354,10 @@ impl ContainerOrchestrator {
             return Ok(());
         }
 
-        log::info!("Spawning {} containers in parallel", languages_needing_spawn.len());
+        log::info!(
+            "Spawning {} containers in parallel",
+            languages_needing_spawn.len()
+        );
 
         // Spawn all containers in parallel
         let spawn_futures: Vec<_> = languages_needing_spawn
@@ -382,7 +395,7 @@ impl ContainerOrchestrator {
 
         if any_errors {
             return Err(OrchestratorError::Configuration(
-                "One or more language containers failed to spawn".to_string()
+                "One or more language containers failed to spawn".to_string(),
             ));
         }
 
@@ -459,7 +472,10 @@ impl ContainerOrchestrator {
         };
 
         // Try creating container with local image first
-        let container_result = self.docker.create_container(Some(options.clone()), config.clone()).await;
+        let container_result = self
+            .docker
+            .create_container(Some(options.clone()), config.clone())
+            .await;
 
         let container = match container_result {
             Ok(c) => c,
@@ -467,7 +483,10 @@ impl ContainerOrchestrator {
                 // If image not found locally, try pulling from GHCR
                 let err_msg = e.to_string();
                 if err_msg.contains("404") || err_msg.contains("No such image") {
-                    log::info!("Wrapper image not found locally, pulling from GHCR: {}", wrapper_image_ghcr());
+                    log::info!(
+                        "Wrapper image not found locally, pulling from GHCR: {}",
+                        wrapper_image_ghcr()
+                    );
 
                     use bollard::image::CreateImageOptions;
                     use futures_util::stream::StreamExt;
@@ -480,7 +499,7 @@ impl ContainerOrchestrator {
                     let mut stream = self.docker.create_image(Some(create_options), None, None);
                     while let Some(info) = stream.next().await {
                         match info {
-                            Ok(_) => {},
+                            Ok(_) => {}
                             Err(e) => {
                                 log::error!("Failed to pull wrapper image from GHCR: {}", e);
                                 return Err(e.into());
@@ -495,7 +514,9 @@ impl ContainerOrchestrator {
                     config_ghcr.image = Some(wrapper_image_ghcr());
 
                     // Retry container creation with GHCR image
-                    self.docker.create_container(Some(options), config_ghcr).await?
+                    self.docker
+                        .create_container(Some(options), config_ghcr)
+                        .await?
                 } else {
                     return Err(e.into());
                 }
@@ -639,7 +660,10 @@ impl ContainerOrchestrator {
         };
 
         // Try creating container with local image first
-        let container_result = self.docker.create_container(Some(options.clone()), config.clone()).await;
+        let container_result = self
+            .docker
+            .create_container(Some(options.clone()), config.clone())
+            .await;
 
         let container = match container_result {
             Ok(c) => c,
@@ -647,7 +671,10 @@ impl ContainerOrchestrator {
                 // If image not found locally, try pulling from GHCR
                 let err_msg = e.to_string();
                 if err_msg.contains("404") || err_msg.contains("No such image") {
-                    log::info!("Watchdog image not found locally, pulling from GHCR: {}", watchdog_image_ghcr());
+                    log::info!(
+                        "Watchdog image not found locally, pulling from GHCR: {}",
+                        watchdog_image_ghcr()
+                    );
 
                     use bollard::image::CreateImageOptions;
                     use futures_util::stream::StreamExt;
@@ -660,7 +687,7 @@ impl ContainerOrchestrator {
                     let mut stream = self.docker.create_image(Some(create_options), None, None);
                     while let Some(info) = stream.next().await {
                         match info {
-                            Ok(_) => {},
+                            Ok(_) => {}
                             Err(e) => {
                                 log::error!("Failed to pull watchdog image from GHCR: {}", e);
                                 return Err(e.into());
@@ -675,7 +702,9 @@ impl ContainerOrchestrator {
                     config_ghcr.image = Some(watchdog_image_ghcr());
 
                     // Retry container creation with GHCR image
-                    self.docker.create_container(Some(options), config_ghcr).await?
+                    self.docker
+                        .create_container(Some(options), config_ghcr)
+                        .await?
                 } else {
                     return Err(e.into());
                 }
