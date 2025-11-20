@@ -47,14 +47,17 @@ else
     echo "Watchdog: No language server containers to clean up (already cleaned by parent)"
 fi
 
-# Clean up wrapper container
-WRAPPER_CONTAINER=$(docker ps -aq --filter "name=nuanced-lsp-wrapper")
-if [ -n "$WRAPPER_CONTAINER" ]; then
-    echo "Watchdog: Cleaning up nuanced-lsp-wrapper container..."
-    docker rm -f "$WRAPPER_CONTAINER" 2>/dev/null || true
-    echo "Watchdog: nuanced-lsp-wrapper container removed"
+# Clean up wrapper container(s) for this parent/instance
+WRAPPER_CONTAINERS=$(docker ps -aq --filter "label=nuanced.role=wrapper" --filter "label=nuanced.parent=$PARENT_ID")
+if [ -n "$WRAPPER_CONTAINERS" ]; then
+    for container in $WRAPPER_CONTAINERS; do
+        CONTAINER_NAME=$(docker inspect --format='{{.Name}}' "$container" 2>/dev/null | sed 's/^\///' || echo "$container")
+        echo "Watchdog: Cleaning up wrapper container $CONTAINER_NAME..."
+        docker rm -f "$container" 2>/dev/null || true
+    done
+    echo "Watchdog: Wrapper container cleanup complete"
 else
-    echo "Watchdog: No nuanced-lsp-wrapper container found"
+    echo "Watchdog: No wrapper containers found for parent $PARENT_ID"
 fi
 
 echo "Watchdog: Exiting"

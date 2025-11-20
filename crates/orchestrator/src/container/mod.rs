@@ -489,6 +489,12 @@ impl ContainerOrchestrator {
 
         let config = Config {
             image: Some(wrapper_image()),
+            labels: Some({
+                let mut l = HashMap::new();
+                l.insert("nuanced.role".to_string(), "wrapper".to_string());
+                l.insert("nuanced.parent".to_string(), self.instance_id.clone());
+                l
+            }),
             host_config: Some(HostConfig {
                 auto_remove: Some(false), // Keep container around for volume sharing
                 ..Default::default()
@@ -665,8 +671,7 @@ impl ContainerOrchestrator {
         use bollard::container::{Config, CreateContainerOptions};
         use bollard::models::HostConfig;
 
-        let parent_id =
-            Self::get_own_container_id().unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+        let parent_id = self.instance_id.clone();
 
         log::info!(
             "Spawning watchdog to monitor parent container: {}",

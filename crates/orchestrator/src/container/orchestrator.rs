@@ -134,9 +134,8 @@ impl ContainerOrchestrator {
         // Label containers with parent ID for watchdog cleanup
         let mut labels = HashMap::new();
         labels.insert("nuanced.role".to_string(), "language-server".to_string());
-        if let Some(parent_id) = ContainerOrchestrator::get_own_container_id() {
-            labels.insert("nuanced.parent".to_string(), parent_id);
-        }
+        // Always tag the parent as this orchestrator instance (container ID if available, else UUID)
+        labels.insert("nuanced.parent".to_string(), self.instance_id.clone());
 
         let config = Config {
             image: Some(image_name.clone()),
