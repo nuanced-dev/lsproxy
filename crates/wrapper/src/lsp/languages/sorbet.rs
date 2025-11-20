@@ -7,6 +7,9 @@ use async_trait::async_trait;
 use log::{info, warn};
 use lsp_types::{InitializeParams, Url, WorkspaceFolder};
 use std::error::Error;
+use tokio::process::Command;
+
+const DEFAULT_RBENV_ROOT: &str = "/opt/rbenv";
 
 pub struct SorbetClient {
     process: ProcessHandler,
@@ -169,5 +172,187 @@ impl SorbetClient {
             workspace_documents,
             pending_requests,
         }
+    }
+}
+
+/// Parse Sorbet version from Gemfile.lock (preferred) or Gemfile
+fn parse_sorbet_version(workspace_path: &str) -> Option<String> {
+    // Prefer Gemfile.lock
+    let lock_path = PathBuf::from(workspace_path).join("Gemfile.lock");
+    if let Ok(contents) = fs::read_to_string(&lock_path) {
+        if let Some(ver) = parse_sorbet_version_from_lock(&contents) {
+            return Some(ver);
+        }
+    }
+
+    // Fallback to Gemfile
+    let gemfile_path = PathBuf::from(workspace_path).join("Gemfile");
+    if let Ok(contents) = fs::read_to_string(&gemfile_path) {
+        if let Some(ver) = parse_sorbet_version_from_gemfile(&contents) {
+            return Some(ver);
+        }
+    }
+
+    None
+}
+
+fn parse_sorbet_version_from_lock(lock_contents: &str) -> Option<String> {
+    // Look for lines like "    sorbet (0.5.12414)"
+    for line in lock_contents.lines() {
+        let trimmed = line.trim();
+        if let Some(rest) = trimmed.strip_prefix("sorbet (") {
+            if let Some(end) = rest.find(')') {
+                let ver = &rest[..end];
+                if !ver.is_empty() {
+                    return Some(ver.to_string());
+                }
+            }
+        }
+    }
+    None
+}
+
+fn parse_sorbet_version_from_gemfile(gemfile_contents: &str) -> Option<String> {
+    // Look for lines like: gem "sorbet", "0.5.12414"
+    for line in gemfile_contents.lines() {
+        let trimmed = line.trim();
+        if trimmed.starts_with("gem") && trimmed.contains("sorbet") {
+            // Support double or single quotes
+            let quote = if trimmed.contains('"') { '"' } else { '\'' };
+            let parts: Vec<&str> = trimmed.split(quote).collect();
+            // parts at odd indices are quoted values
+            if parts.len() >= 4 && parts[1].contains("sorbet") {
+                let ver = parts[3].trim();
+                if !ver.is_empty() {
+                    return Some(ver.to_string());
+                }
+            }
+        }
+    }
+    None
+}
+
+fn rbenv_root() -> String {
+    std::env::var("RBENV_ROOT").unwrap_or_else(|_| DEFAULT_RBENV_ROOT.to_string())
+}
+
+fn command_with_rbenv_env(cmd: &str) -> Command {
+    let root = rbenv_root();
+    let mut c = Command::new(cmd);
+    let mut path = std::env::var("PATH").unwrap_or_default();
+    path = format!("{}/bin:{}/shims:{}", root, root, path);
+    c.env("RBENV_ROOT", &root);
+    c.env("PATH", path);
+    c
+}
+
+async fn sorbet_version_installed(version: &str) -> bool {
+    let rbenv_bin = format!("{}/bin/rbenv", rbenv_root());
+    match command_with_rbenv_env(&rbenv_bin)
+        .arg("exec")
+        .arg("gem")
+        .arg("list")
+        .arg("sorbet")
+        .arg("-a")
+        .output()
+        .await
+    {
+        Ok(output) if output.status.success() => {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            stdout.contains(&format!("sorbet ({version}"))
+                || stdout.contains(&format!(", {version}"))
+        }
+        _ => false,
+    }
+}
+
+async fn install_sorbet(version: &str) -> Result<(), String> {
+    info!("Installing Sorbet version {}", version);
+
+    let rbenv_bin = format!("{}/bin/rbenv", rbenv_root());
+    for gem_name in ["sorbet", "sorbet-runtime", "sorbet-static"] {
+        let status = command_with_rbenv_env(&rbenv_bin)
+            .args([
+                "exec",
+                "gem",
+                "install",
+                gem_name,
+                "-v",
+                version,
+                "--no-document",
+            ])
+            .status()
+            .await
+            .map_err(|e| format!("Failed to spawn gem install for {}: {e}", gem_name))?;
+
+        if !status.success() {
+            return Err(format!(
+                "gem install {} -v {} failed with status {}",
+                gem_name, version, status
+            ));
+        }
+    }
+
+    // Refresh shims
+    let rehash_status = command_with_rbenv_env(&rbenv_bin)
+        .arg("rehash")
+        .status()
+        .await
+        .map_err(|e| format!("Failed to spawn rbenv rehash: {e}"))?;
+
+    if !rehash_status.success() {
+        return Err(format!("rbenv rehash failed with status {}", rehash_status));
+    }
+
+    Ok(())
+}
+
+/// Ensure the Sorbet gem version requested by the project is available and return it.
+/// Returns Ok(Some(version)) when detected, Ok(None) when unspecified.
+pub async fn ensure_sorbet_version(workspace_path: &str) -> Result<Option<String>, String> {
+    let Some(desired_version) = parse_sorbet_version(workspace_path) else {
+        info!("No Sorbet version specified in Gemfile.lock or Gemfile; using preinstalled version");
+        return Ok(None);
+    };
+
+    if sorbet_version_installed(&desired_version).await {
+        info!("Sorbet version {} already installed", desired_version);
+        return Ok(Some(desired_version));
+    }
+
+    install_sorbet(&desired_version).await?;
+    Ok(Some(desired_version))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_sorbet_from_lock() {
+        let lock = r#"
+GEM
+  specs:
+    sorbet (0.5.12414)
+    sorbet-runtime (0.5.12414)
+    sorbet-static (0.5.12414)
+"#;
+        assert_eq!(
+            parse_sorbet_version_from_lock(lock),
+            Some("0.5.12414".to_string())
+        );
+    }
+
+    #[test]
+    fn parses_sorbet_from_gemfile() {
+        let gemfile = r#"
+source "https://rubygems.org"
+gem "sorbet", "0.5.99999"
+gem "rails"
+"#;
+        assert_eq!(
+            parse_sorbet_version_from_gemfile(gemfile),
+            Some("0.5.99999".to_string())
+        );
     }
 }

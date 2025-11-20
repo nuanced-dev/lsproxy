@@ -1,7 +1,9 @@
 use actix_web::{web, App, HttpResponse, HttpServer, Responder};
 use clap::Parser;
-use log::{error, info};
+use log::{error, info, warn};
 use std::sync::Arc;
+
+const DEFAULT_RBENV_ROOT: &str = "/opt/rbenv";
 
 mod handlers;
 mod lsp;
@@ -62,35 +64,6 @@ async fn main() -> std::io::Result<()> {
     info!("Workspace path: {}", args.workspace_path);
     info!("Listening on port: {}", args.port);
 
-    // Convert Vec<String> to Vec<&str> for process spawning
-    let lsp_args_refs: Vec<&str> = args.lsp_args.iter().map(|s| s.as_str()).collect();
-
-    // Start the LSP server process and create client
-    // Create a debug log file for LSP stderr output
-    let log_file_path = format!("/tmp/{}.log", args.lsp_command);
-    let stderr_file = std::fs::File::create(&log_file_path).map_err(|e| {
-        error!("Failed to create debug log file {}: {}", log_file_path, e);
-        e
-    })?;
-    info!("LSP stderr will be logged to: {}", log_file_path);
-
-    let child = tokio::process::Command::new(&args.lsp_command)
-        .args(&lsp_args_refs)
-        .current_dir(&args.workspace_path)
-        .stdin(std::process::Stdio::piped())
-        .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::from(stderr_file))
-        .spawn()
-        .map_err(|e| {
-            error!("Failed to spawn LSP server process: {}", e);
-            std::io::Error::new(std::io::ErrorKind::Other, e)
-        })?;
-
-    let process_handler = ProcessHandler::new(child).await.map_err(|e| {
-        error!("Failed to create process handler: {}", e);
-        std::io::Error::new(std::io::ErrorKind::Other, e)
-    })?;
-
     // Get language from LSP_LANGUAGE environment variable (required)
     let language = std::env::var("LSP_LANGUAGE").map_err(|_| {
         error!("LSP_LANGUAGE environment variable is not set");
@@ -101,6 +74,90 @@ async fn main() -> std::io::Result<()> {
     })?;
 
     info!("Language detected: {}", language);
+
+    // Ensure Sorbet version matches project expectations before spawning LSP
+    let mut lsp_args = args.lsp_args.clone();
+
+    // Optional RBENV_VERSION override to handle .ruby-version that isn't installed
+    let mut rbenv_version_override: Option<String> = None;
+    if language == "ruby" || language == "ruby-sorbet" {
+        let rbenv_root =
+            std::env::var("RBENV_ROOT").unwrap_or_else(|_| DEFAULT_RBENV_ROOT.to_string());
+        let desired_version_path = std::path::Path::new(&args.workspace_path).join(".ruby-version");
+        if let Ok(contents) = std::fs::read_to_string(&desired_version_path) {
+            let desired = contents.trim();
+            if !desired.is_empty() {
+                let installed = std::path::Path::new(&rbenv_root)
+                    .join("versions")
+                    .join(desired);
+                if installed.exists() {
+                    info!("Using Ruby version from .ruby-version: {}", desired);
+                    rbenv_version_override = Some(desired.to_string());
+                } else {
+                    warn!(
+                        "Ruby version {} from .ruby-version is not installed; falling back to global",
+                        desired
+                    );
+                }
+            }
+        }
+
+        if rbenv_version_override.is_none() {
+            let global_path = std::path::Path::new(&rbenv_root).join("version");
+            if let Ok(contents) = std::fs::read_to_string(&global_path) {
+                let global = contents.trim();
+                if !global.is_empty() {
+                    info!("Using global Ruby version: {}", global);
+                    rbenv_version_override = Some(global.to_string());
+                }
+            }
+        }
+    }
+
+    if language == "ruby-sorbet" {
+        match crate::lsp::languages::sorbet::ensure_sorbet_version(&args.workspace_path).await {
+            Ok(Some(ver)) => {
+                // Force Sorbet to run with the detected version when multiple are installed
+                lsp_args.insert(0, format!("_{}_", ver));
+            }
+            Ok(None) => {
+                // No version specified; use whatever is baked/preinstalled
+            }
+            Err(e) => {
+                warn!("Unable to ensure Sorbet version: {}", e);
+            }
+        }
+    }
+
+    // Start the LSP server process and create client
+    // Create a debug log file for LSP stderr output
+    let log_file_path = format!("/tmp/{}.log", args.lsp_command);
+    let stderr_file = std::fs::File::create(&log_file_path).map_err(|e| {
+        error!("Failed to create debug log file {}: {}", log_file_path, e);
+        e
+    })?;
+    info!("LSP stderr will be logged to: {}", log_file_path);
+
+    let mut cmd = tokio::process::Command::new(&args.lsp_command);
+    cmd.args(&lsp_args.iter().map(|s| s.as_str()).collect::<Vec<_>>())
+        .current_dir(&args.workspace_path)
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::from(stderr_file));
+
+    if let Some(ver) = rbenv_version_override {
+        cmd.env("RBENV_VERSION", ver);
+    }
+
+    let child = cmd.spawn().map_err(|e| {
+        error!("Failed to spawn LSP server process: {}", e);
+        std::io::Error::new(std::io::ErrorKind::Other, e)
+    })?;
+
+    let process_handler = ProcessHandler::new(child).await.map_err(|e| {
+        error!("Failed to create process handler: {}", e);
+        std::io::Error::new(std::io::ErrorKind::Other, e)
+    })?;
 
     // Configure based on language
     let (file_patterns, did_open_config) = match language.as_str() {
