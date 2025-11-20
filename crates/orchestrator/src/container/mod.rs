@@ -101,6 +101,7 @@ pub struct ContainerOrchestrator {
     docker: Arc<Docker>,
     containers: Arc<Mutex<HashMap<SupportedLanguages, ContainerInfo>>>,
     wrapper_container_id: Arc<Mutex<Option<String>>>,
+    instance_id: String,
     // Per-language locks to prevent duplicate spawns while allowing concurrent spawns of different languages
     spawning_locks: Arc<Mutex<HashMap<SupportedLanguages, Arc<Mutex<()>>>>>,
     // Global lock for port allocation to prevent port conflicts across all languages
@@ -129,6 +130,11 @@ pub enum OrchestratorError {
 }
 
 impl ContainerOrchestrator {
+    /// Instance identifier (parent container ID if available, otherwise UUID)
+    pub fn instance_id(&self) -> &str {
+        &self.instance_id
+    }
+
     /// Create a new ContainerOrchestrator and connect to Docker daemon
     pub async fn new() -> Result<Self, OrchestratorError> {
         // Connect to Docker daemon via Unix socket (macOS/Linux) or named pipe (Windows)
@@ -137,10 +143,15 @@ impl ContainerOrchestrator {
         // Verify Docker is accessible by pinging it
         docker.ping().await?;
 
+        // Use parent container ID if available; otherwise fallback to random UUID
+        let instance_id =
+            Self::get_own_container_id().unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+
         Ok(Self {
             docker: Arc::new(docker),
             containers: Arc::new(Mutex::new(HashMap::new())),
             wrapper_container_id: Arc::new(Mutex::new(None)),
+            instance_id,
             spawning_locks: Arc::new(Mutex::new(HashMap::new())),
             port_allocation_lock: Arc::new(Mutex::new(())),
         })
@@ -288,6 +299,7 @@ impl ContainerOrchestrator {
         let all_patterns: Vec<String> = managers.iter().flat_map(|m| m.file_patterns()).collect();
 
         log::info!("Scanning for {} file patterns", all_patterns.len());
+        log::debug!("File patterns: {:?}", all_patterns);
 
         // Single workspace scan
         let exclude_patterns: Vec<String> = DEFAULT_EXCLUDE_PATTERNS
@@ -299,10 +311,11 @@ impl ContainerOrchestrator {
             Path::new(workspace_path),
             all_patterns,
             exclude_patterns,
-            true,
+            false, // Don't respect gitignore - we need to detect all manifest files including dotfiles
         )?;
 
         log::info!("Found {} files in workspace", files.len());
+        log::debug!("Files found: {:?}", files);
 
         // Each manager processes each file
         for file_path in &files {
@@ -378,16 +391,30 @@ impl ContainerOrchestrator {
         // Wait for all spawns to complete
         let results = futures::future::join_all(spawn_futures).await;
 
-        // Check results and log outcomes
+        // Check results and spawn background health checks
         let mut any_errors = false;
         for (language, result) in results {
             match result {
                 Ok(info) => {
                     log::info!(
-                        "Successfully spawned container for {:?} at {}",
+                        "Container for {:?} created at {}, starting health checks in background",
                         language,
                         info.endpoint
                     );
+
+                    // Spawn health check in background
+                    let orchestrator = self.clone();
+                    let info_clone = info.clone();
+                    tokio::spawn(async move {
+                        match orchestrator.check_container_health(&info_clone).await {
+                            Ok(_) => {
+                                log::info!("{} is now healthy and ready", info_clone.image_name);
+                            }
+                            Err(e) => {
+                                log::error!("{} health check failed: {}", info_clone.image_name, e);
+                            }
+                        }
+                    });
                 }
                 Err(e) => {
                     log::error!("Failed to spawn container for {:?}: {}", language, e);
@@ -435,10 +462,10 @@ impl ContainerOrchestrator {
             log::warn!("Wrapper container {} is not running, creating new one", id);
         }
 
-        let wrapper_name = "nuanced-lsp-wrapper";
+        let wrapper_name = format!("nuanced-lsp-wrapper-{}", &self.instance_id[..12]);
 
         // Check if wrapper container already exists (by name)
-        if let Ok(info) = self.docker.inspect_container(wrapper_name, None).await {
+        if let Ok(info) = self.docker.inspect_container(&wrapper_name, None).await {
             if let Some(state) = info.state {
                 if state.running == Some(true) {
                     if let Some(id) = info.id {
@@ -638,16 +665,15 @@ impl ContainerOrchestrator {
         use bollard::container::{Config, CreateContainerOptions};
         use bollard::models::HostConfig;
 
-        let parent_id = Self::get_own_container_id().ok_or_else(|| {
-            OrchestratorError::Network("Cannot determine own container ID for watchdog".to_string())
-        })?;
+        let parent_id =
+            Self::get_own_container_id().unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
 
         log::info!(
             "Spawning watchdog to monitor parent container: {}",
             parent_id
         );
 
-        let watchdog_name = format!("nuanced-lsp-watchdog-{}", &parent_id[..12]);
+        let watchdog_name = format!("nuanced-lsp-watchdog-{}", &self.instance_id[..12]);
 
         // Check if watchdog already exists
         if let Ok(_) = self.docker.inspect_container(&watchdog_name, None).await {
@@ -749,23 +775,22 @@ impl ContainerOrchestrator {
     pub async fn stop_watchdog(&self) -> Result<(), OrchestratorError> {
         use bollard::container::RemoveContainerOptions;
 
-        if let Some(parent_id) = Self::get_own_container_id() {
-            let watchdog_name = format!("nuanced-lsp-watchdog-{}", &parent_id[..12]);
+        // Use instance_id (parent container ID preferred) for unique watchdog name
+        let watchdog_name = format!("nuanced-lsp-watchdog-{}", &self.instance_id[..12]);
 
-            // Try to remove the watchdog (force=true handles running containers)
-            let remove_options = RemoveContainerOptions {
-                force: true,
-                ..Default::default()
-            };
+        // Try to remove the watchdog (force=true handles running containers)
+        let remove_options = RemoveContainerOptions {
+            force: true,
+            ..Default::default()
+        };
 
-            match self
-                .docker
-                .remove_container(&watchdog_name, Some(remove_options))
-                .await
-            {
-                Ok(_) => log::info!("Stopped watchdog: {}", watchdog_name),
-                Err(e) => log::debug!("Watchdog removal failed (may not exist): {}", e),
-            }
+        match self
+            .docker
+            .remove_container(&watchdog_name, Some(remove_options))
+            .await
+        {
+            Ok(_) => log::info!("Stopped watchdog: {}", watchdog_name),
+            Err(e) => log::debug!("Watchdog removal failed (may not exist): {}", e),
         }
 
         Ok(())
