@@ -3,7 +3,7 @@
 set -e
 
 # Build Rust-based containers (wrapper, service, watchdog)
-# Usage: ./scripts/build-rust-containers.sh [--use-cache] [--multiarch] [--load] [--tag=TAG] [--registry=REGISTRY]
+# Usage: ./scripts/build-rust-containers.sh [--use-cache] [--multiarch] [--load] [--tag=TAG] [--registry=REGISTRY] [--sequential]
 #
 # By default:
 #   - Builds WITHOUT cache (use --use-cache to enable caching)
@@ -11,6 +11,7 @@ set -e
 #   - Builds Rust binaries first before Docker images (only for single-arch builds)
 #   - Tags images as :latest (use --tag=0.4.8 for custom tag)
 #   - Does NOT push (use --registry to push to ghcr/dockerhub/local)
+#   - Builds in PARALLEL (use --sequential to disable)
 #
 # Options:
 #   --multiarch       Build for both linux/amd64 and linux/arm64
@@ -18,6 +19,7 @@ set -e
 #   --use-cache       Enable Docker build cache
 #   --tag=TAG         Tag images with specified tag (default: latest)
 #   --registry=REG    Push to registry: ghcr, dockerhub, or local (requires authentication)
+#   --sequential      Build images sequentially (default: parallel)
 #   --help, -h        Show help message
 #
 # Examples:
@@ -38,6 +40,7 @@ MULTIARCH=false
 LOAD_LOCAL=false
 TAG="latest"
 REGISTRY=""  # Options: ghcr, dockerhub, local, or empty for no push
+PARALLEL=true
 
 # Parse arguments
 for arg in "$@"; do
@@ -61,8 +64,11 @@ for arg in "$@"; do
                 exit 1
             fi
             ;;
+        --sequential)
+            PARALLEL=false
+            ;;
         --help|-h)
-            echo "Usage: $0 [--use-cache] [--multiarch] [--load] [--tag=TAG] [--registry=REGISTRY]"
+            echo "Usage: $0 [--use-cache] [--multiarch] [--load] [--tag=TAG] [--registry=REGISTRY] [--sequential]"
             echo ""
             echo "Options:"
             echo "  --use-cache       Enable Docker build cache (default: disabled)"
@@ -70,6 +76,7 @@ for arg in "$@"; do
             echo "  --load            Load local platform into Docker (use with --multiarch)"
             echo "  --tag=TAG         Tag images with specified tag (default: latest)"
             echo "  --registry=REG    Push to registry: ghcr, dockerhub, or local"
+            echo "  --sequential      Build images sequentially (default: parallel)"
             echo "  --help, -h        Show this help message"
             echo ""
             echo "Examples:"
@@ -79,7 +86,7 @@ for arg in "$@"; do
             ;;
         *)
             echo -e "${YELLOW}Unknown argument: $arg${NC}"
-            echo "Usage: $0 [--use-cache] [--multiarch] [--load] [--tag=TAG] [--registry=REGISTRY]"
+            echo "Usage: $0 [--use-cache] [--multiarch] [--load] [--tag=TAG] [--registry=REGISTRY] [--sequential]"
             exit 1
             ;;
     esac
@@ -175,7 +182,7 @@ if [ "$MULTIARCH" = true ]; then
     echo -e "${BLUE}=========================================${NC}"
     echo -e "${BLUE}  Building Multi-Arch Rust Containers${NC}"
     echo -e "${BLUE}  Platforms: linux/amd64, linux/arm64${NC}"
-    echo -e "${BLUE}  Cache: $USE_CACHE${NC}"
+    echo -e "${BLUE}  Cache: $USE_CACHE | Parallel: $PARALLEL${NC}"
     echo -e "${BLUE}=========================================${NC}"
     echo
     echo -e "${YELLOW}Note: Multi-arch builds are prepared for publishing but not loaded into local Docker${NC}"
@@ -188,7 +195,7 @@ else
     LOAD_FLAG=""  # Docker build loads by default
     echo -e "${BLUE}=========================================${NC}"
     echo -e "${BLUE}  Building Rust Containers (Local Platform)${NC}"
-    echo -e "${BLUE}  Cache: $USE_CACHE${NC}"
+    echo -e "${BLUE}  Cache: $USE_CACHE | Parallel: $PARALLEL${NC}"
     echo -e "${BLUE}=========================================${NC}"
     echo
 
@@ -205,76 +212,70 @@ else
     echo
 fi
 
-# Build wrapper image (contains lsp-wrapper binary and ast-grep configs)
-# This is mounted into language containers at runtime via --volumes-from
-echo -e "${YELLOW}Step 1: Building wrapper image${NC}"
+build_image() {
+    local image_tag="$1"
+    local dockerfile="$2"
+    local log_file="$3"
+    local human_name="$4"
 
-# Determine full image tag (with or without registry prefix)
+    echo -e "${BLUE}Building ${image_tag}...${NC}"
+    if $BUILD_CMD $PLATFORM_FLAG $CACHE_FLAG $PUSH_FLAG -f "${dockerfile}" -t "${image_tag}" . > "${log_file}" 2>&1; then
+        if [ -n "$PUSH_FLAG" ]; then
+            echo -e "${GREEN}✓ ${image_tag} built and pushed successfully${NC}"
+        elif [ "$MULTIARCH" = true ]; then
+            echo -e "${GREEN}✓ ${image_tag} built successfully (multi-arch)${NC}"
+        else
+            local size
+            size=$(docker images "${image_tag}" --format "{{.Size}}")
+            echo -e "${GREEN}✓ ${image_tag} built successfully ($size)${NC}"
+        fi
+        return 0
+    else
+        echo -e "${RED}✗ ${human_name} failed to build${NC}"
+        echo -e "${YELLOW}See ${log_file} for details${NC}"
+        tail -20 "${log_file}" || true
+        return 1
+    fi
+}
+
+# Build images (wrapper, service, watchdog)
+echo -e "${YELLOW}Step 1: Building images${NC}"
+
 WRAPPER_IMAGE_TAG="${REGISTRY_PREFIX}nuanced-lsp-wrapper:${TAG}"
-echo -e "${BLUE}Building ${WRAPPER_IMAGE_TAG}...${NC}"
-
-if $BUILD_CMD $PLATFORM_FLAG $CACHE_FLAG $PUSH_FLAG -f dockerfiles/wrapper.Dockerfile -t "${WRAPPER_IMAGE_TAG}" . > /tmp/build-wrapper.log 2>&1; then
-    if [ -n "$PUSH_FLAG" ]; then
-        echo -e "${GREEN}✓ ${WRAPPER_IMAGE_TAG} built and pushed successfully${NC}"
-    elif [ "$MULTIARCH" = true ]; then
-        echo -e "${GREEN}✓ ${WRAPPER_IMAGE_TAG} built successfully (multi-arch)${NC}"
-    else
-        SIZE=$(docker images nuanced-lsp-wrapper:${TAG} --format "{{.Size}}")
-        echo -e "${GREEN}✓ ${WRAPPER_IMAGE_TAG} built successfully ($SIZE)${NC}"
-    fi
-else
-    echo -e "${RED}✗ nuanced-lsp-wrapper failed to build${NC}"
-    echo -e "${YELLOW}See /tmp/build-wrapper.log for details${NC}"
-    tail -20 /tmp/build-wrapper.log
-    exit 1
-fi
-echo
-
-# Build service image (orchestrator)
-echo -e "${YELLOW}Step 2: Building service image${NC}"
-
-# Determine full image tag (with or without registry prefix)
 PROXY_IMAGE_TAG="${REGISTRY_PREFIX}nuanced-lsp-proxy:${TAG}"
-echo -e "${BLUE}Building ${PROXY_IMAGE_TAG}...${NC}"
-
-if $BUILD_CMD $PLATFORM_FLAG $CACHE_FLAG $PUSH_FLAG -f dockerfiles/service.Dockerfile -t "${PROXY_IMAGE_TAG}" . > /tmp/build-service.log 2>&1; then
-    if [ -n "$PUSH_FLAG" ]; then
-        echo -e "${GREEN}✓ ${PROXY_IMAGE_TAG} built and pushed successfully${NC}"
-    elif [ "$MULTIARCH" = true ]; then
-        echo -e "${GREEN}✓ ${PROXY_IMAGE_TAG} built successfully (multi-arch)${NC}"
-    else
-        SIZE=$(docker images nuanced-lsp-proxy:${TAG} --format "{{.Size}}")
-        echo -e "${GREEN}✓ ${PROXY_IMAGE_TAG} built successfully ($SIZE)${NC}"
-    fi
-else
-    echo -e "${RED}✗ nuanced-lsp-proxy failed to build${NC}"
-    echo -e "${YELLOW}See /tmp/build-service.log for details${NC}"
-    tail -20 /tmp/build-service.log
-    exit 1
-fi
-echo
-
-# Build watchdog image (monitors service container)
-echo -e "${YELLOW}Step 3: Building watchdog image${NC}"
-
-# Determine full image tag (with or without registry prefix)
 WATCHDOG_IMAGE_TAG="${REGISTRY_PREFIX}nuanced-lsp-watchdog:${TAG}"
-echo -e "${BLUE}Building ${WATCHDOG_IMAGE_TAG}...${NC}"
 
-if $BUILD_CMD $PLATFORM_FLAG $CACHE_FLAG $PUSH_FLAG -f dockerfiles/watchdog.Dockerfile -t "${WATCHDOG_IMAGE_TAG}" . > /tmp/build-watchdog.log 2>&1; then
-    if [ -n "$PUSH_FLAG" ]; then
-        echo -e "${GREEN}✓ ${WATCHDOG_IMAGE_TAG} built and pushed successfully${NC}"
-    elif [ "$MULTIARCH" = true ]; then
-        echo -e "${GREEN}✓ ${WATCHDOG_IMAGE_TAG} built successfully (multi-arch)${NC}"
-    else
-        SIZE=$(docker images nuanced-lsp-watchdog:${TAG} --format "{{.Size}}")
-        echo -e "${GREEN}✓ ${WATCHDOG_IMAGE_TAG} built successfully ($SIZE)${NC}"
+if [ "$PARALLEL" = true ]; then
+    echo -e "${BLUE}Building in parallel (logs: /tmp/build-*.log)...${NC}"
+    declare -a pids names
+
+    (build_image "${WRAPPER_IMAGE_TAG}" dockerfiles/wrapper.Dockerfile /tmp/build-wrapper.log "nuanced-lsp-wrapper") &
+    pids+=($!)
+    names+=("wrapper")
+
+    (build_image "${PROXY_IMAGE_TAG}" dockerfiles/service.Dockerfile /tmp/build-service.log "nuanced-lsp-proxy") &
+    pids+=($!)
+    names+=("service")
+
+    (build_image "${WATCHDOG_IMAGE_TAG}" dockerfiles/watchdog.Dockerfile /tmp/build-watchdog.log "nuanced-lsp-watchdog") &
+    pids+=($!)
+    names+=("watchdog")
+
+    failed=0
+    for i in "${!pids[@]}"; do
+        if ! wait "${pids[$i]}"; then
+            failed=1
+        fi
+    done
+
+    if [ $failed -ne 0 ]; then
+        echo -e "${RED}One or more images failed to build${NC}"
+        exit 1
     fi
 else
-    echo -e "${RED}✗ nuanced-lsp-watchdog failed to build${NC}"
-    echo -e "${YELLOW}See /tmp/build-watchdog.log for details${NC}"
-    tail -20 /tmp/build-watchdog.log
-    exit 1
+    build_image "${WRAPPER_IMAGE_TAG}" dockerfiles/wrapper.Dockerfile /tmp/build-wrapper.log "nuanced-lsp-wrapper" || exit 1
+    build_image "${PROXY_IMAGE_TAG}" dockerfiles/service.Dockerfile /tmp/build-service.log "nuanced-lsp-proxy" || exit 1
+    build_image "${WATCHDOG_IMAGE_TAG}" dockerfiles/watchdog.Dockerfile /tmp/build-watchdog.log "nuanced-lsp-watchdog" || exit 1
 fi
 echo
 
