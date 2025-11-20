@@ -31,7 +31,8 @@ pub trait LanguageManager: Send + Sync {
 
 /// Ruby language manager with version detection and Sorbet variant support
 pub struct RubyManager {
-    version: Option<String>,
+    ruby_version_file: Option<String>, // Version from .ruby-version (highest priority)
+    gemfile_version: Option<String>,   // Version from Gemfile (fallback)
     regular_files: Vec<PathBuf>,
     sorbet_files: Vec<PathBuf>,
     manifest_patterns: HashSet<String>,
@@ -40,16 +41,18 @@ pub struct RubyManager {
 
 impl RubyManager {
     pub fn new() -> Self {
-        let manifest_patterns: HashSet<String> = ["**/.ruby-version", "**/Gemfile"]
-            .iter()
-            .map(|s| s.to_string())
-            .collect();
+        let manifest_patterns: HashSet<String> =
+            [".ruby-version", "**/.ruby-version", "Gemfile", "**/Gemfile"]
+                .iter()
+                .map(|s| s.to_string())
+                .collect();
 
         let source_patterns: HashSet<String> =
             RUBY_FILE_PATTERNS.iter().map(|s| s.to_string()).collect();
 
         Self {
-            version: None,
+            ruby_version_file: None,
+            gemfile_version: None,
             regular_files: Vec::new(),
             sorbet_files: Vec::new(),
             manifest_patterns,
@@ -86,15 +89,31 @@ impl LanguageManager for RubyManager {
     fn process_file(&mut self, file_path: &Path) {
         // Check if this is a version-indicating manifest file
         if self.is_manifest(file_path) {
+            let file_name = file_path.file_name().and_then(|n| n.to_str());
+            log::debug!("Processing Ruby manifest file: {}", file_path.display());
+
             if let Some(version) = extract_ruby_version_from_file(file_path) {
-                if self.version.is_none() {
+                // Store version in appropriate field based on file type
+                if file_name == Some(".ruby-version") {
                     log::info!(
                         "Detected Ruby version {} from {}",
                         version,
                         file_path.display()
                     );
-                    self.version = Some(version);
+                    self.ruby_version_file = Some(version);
+                } else if file_name == Some("Gemfile") {
+                    log::info!(
+                        "Detected Ruby version {} from {}",
+                        version,
+                        file_path.display()
+                    );
+                    self.gemfile_version = Some(version);
                 }
+            } else {
+                log::debug!(
+                    "Failed to extract Ruby version from {}",
+                    file_path.display()
+                );
             }
         }
         // Check if this is a Ruby source file
@@ -111,7 +130,29 @@ impl LanguageManager for RubyManager {
     }
 
     fn finalize(&self) -> Vec<SupportedLanguages> {
-        let version = self.version.as_deref().unwrap_or("3.4.4");
+        // Prioritize .ruby-version over Gemfile, default to 3.4.4 if neither exists
+        log::debug!(
+            "Ruby version detection - .ruby-version: {:?}, Gemfile: {:?}",
+            self.ruby_version_file,
+            self.gemfile_version
+        );
+
+        let version = self
+            .ruby_version_file
+            .as_deref()
+            .or(self.gemfile_version.as_deref())
+            .unwrap_or("3.4.4");
+
+        let source = if self.ruby_version_file.is_some() {
+            ".ruby-version"
+        } else if self.gemfile_version.is_some() {
+            "Gemfile"
+        } else {
+            "default"
+        };
+
+        log::info!("Selected Ruby version {} from {}", version, source);
+
         let mut langs = Vec::new();
 
         if !self.regular_files.is_empty() {
@@ -444,5 +485,143 @@ impl LanguageManager for PHPManager {
 
     fn name(&self) -> &'static str {
         "PHP"
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use std::io::Write as _;
+    use tempfile::TempDir;
+
+    /// Helper to create a temp file with content
+    fn create_temp_file(dir: &TempDir, name: &str, content: &str) -> PathBuf {
+        let file_path = dir.path().join(name);
+        let mut file = fs::File::create(&file_path).unwrap();
+        file.write_all(content.as_bytes()).unwrap();
+        file_path
+    }
+
+    #[test]
+    fn test_ruby_manager_detects_ruby_version_file() {
+        let temp_dir = TempDir::new().unwrap();
+        let ruby_version = create_temp_file(&temp_dir, ".ruby-version", "3.4.2\n");
+
+        let mut manager = RubyManager::new();
+        manager.process_file(&ruby_version);
+
+        assert_eq!(manager.ruby_version_file, Some("3.4.2".to_string()));
+        assert_eq!(manager.gemfile_version, None);
+    }
+
+    #[test]
+    fn test_ruby_manager_detects_gemfile_version() {
+        let temp_dir = TempDir::new().unwrap();
+        let gemfile = create_temp_file(&temp_dir, "Gemfile", "ruby '3.3.5'\n");
+
+        let mut manager = RubyManager::new();
+        manager.process_file(&gemfile);
+
+        assert_eq!(manager.gemfile_version, Some("3.3.5".to_string()));
+        assert_eq!(manager.ruby_version_file, None);
+    }
+
+    #[test]
+    fn test_ruby_manager_prioritizes_ruby_version_over_gemfile() {
+        let temp_dir = TempDir::new().unwrap();
+        let ruby_version = create_temp_file(&temp_dir, ".ruby-version", "3.4.2\n");
+        let gemfile = create_temp_file(&temp_dir, "Gemfile", "ruby '3.3.5'\n");
+
+        let mut manager = RubyManager::new();
+        // Process in any order - .ruby-version should win
+        manager.process_file(&gemfile);
+        manager.process_file(&ruby_version);
+
+        let langs = manager.finalize();
+        // Should use 3.4.2 from .ruby-version, not 3.3.5 from Gemfile
+        assert_eq!(langs.len(), 0); // No Ruby files, so no languages spawned
+    }
+
+    #[test]
+    fn test_ruby_manager_spawns_regular_ruby() {
+        let temp_dir = TempDir::new().unwrap();
+        let ruby_version = create_temp_file(&temp_dir, ".ruby-version", "3.4.2\n");
+        let ruby_file = create_temp_file(&temp_dir, "test.rb", "puts 'hello'\n");
+
+        let mut manager = RubyManager::new();
+        manager.process_file(&ruby_version);
+        manager.process_file(&ruby_file);
+
+        let langs = manager.finalize();
+        assert_eq!(langs.len(), 1);
+        assert_eq!(langs[0], SupportedLanguages::Ruby3_4_2);
+    }
+
+    #[test]
+    fn test_ruby_manager_falls_back_to_gemfile() {
+        let temp_dir = TempDir::new().unwrap();
+        // Only Gemfile, no .ruby-version
+        let gemfile = create_temp_file(&temp_dir, "Gemfile", "ruby '3.3.5'\n");
+        let ruby_file = create_temp_file(&temp_dir, "test.rb", "puts 'hello'\n");
+
+        let mut manager = RubyManager::new();
+        manager.process_file(&gemfile);
+        manager.process_file(&ruby_file);
+
+        let langs = manager.finalize();
+        assert_eq!(langs.len(), 1);
+        assert_eq!(langs[0], SupportedLanguages::Ruby3_3_5);
+    }
+
+    #[test]
+    fn test_ruby_manager_defaults_to_3_4_4() {
+        let temp_dir = TempDir::new().unwrap();
+        // No version files, just a Ruby file
+        let ruby_file = create_temp_file(&temp_dir, "test.rb", "puts 'hello'\n");
+
+        let mut manager = RubyManager::new();
+        manager.process_file(&ruby_file);
+
+        let langs = manager.finalize();
+        assert_eq!(langs.len(), 1);
+        assert_eq!(langs[0], SupportedLanguages::Ruby3_4_4);
+    }
+
+    #[test]
+    fn test_ruby_manager_handles_gemfile_constraints() {
+        let temp_dir = TempDir::new().unwrap();
+        // Test various constraint formats
+        let test_cases = vec![
+            ("ruby '>= 3.1'", "3.1"),
+            ("ruby '~> 3.2'", "3.2"),
+            ("ruby '> 3.3'", "3.3"),
+            ("ruby '<= 3.4'", "3.4"),
+        ];
+
+        for (gemfile_content, expected_version) in test_cases {
+            let gemfile = create_temp_file(&temp_dir, "Gemfile", gemfile_content);
+            let mut manager = RubyManager::new();
+            manager.process_file(&gemfile);
+
+            assert_eq!(
+                manager.gemfile_version,
+                Some(expected_version.to_string()),
+                "Failed to parse: {}",
+                gemfile_content
+            );
+        }
+    }
+
+    #[test]
+    fn test_ruby_manager_file_patterns_include_dotfiles() {
+        let manager = RubyManager::new();
+        let patterns = manager.file_patterns();
+
+        // Should include both root-level and nested .ruby-version patterns
+        assert!(patterns.contains(&".ruby-version".to_string()));
+        assert!(patterns.contains(&"**/.ruby-version".to_string()));
+        assert!(patterns.contains(&"Gemfile".to_string()));
+        assert!(patterns.contains(&"**/Gemfile".to_string()));
     }
 }

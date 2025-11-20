@@ -139,11 +139,15 @@ pub fn extract_ruby_version_from_file(file_path: &Path) -> Option<String> {
                                 let quote_char = trimmed.chars().nth(start)?;
                                 if let Some(end) = trimmed[start + 1..].find(quote_char) {
                                     let version_str = &trimmed[start + 1..start + 1 + end];
-                                    let version = if version_str.starts_with("~>") {
-                                        version_str.trim_start_matches("~>").trim()
-                                    } else {
-                                        version_str.trim()
-                                    };
+                                    // Strip version constraint operators: ~>, >=, >, <=, <, =
+                                    let version = version_str
+                                        .trim_start_matches("~>")
+                                        .trim_start_matches(">=")
+                                        .trim_start_matches("<=")
+                                        .trim_start_matches('>')
+                                        .trim_start_matches('<')
+                                        .trim_start_matches('=')
+                                        .trim();
 
                                     if !version.is_empty() {
                                         return Some(version.to_string());
@@ -157,5 +161,91 @@ pub fn extract_ruby_version_from_file(file_path: &Path) -> Option<String> {
             None
         }
         _ => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::TempDir;
+
+    #[test]
+    fn test_extract_ruby_version_from_ruby_version_file() {
+        let temp_dir = TempDir::new().unwrap();
+        let file_path = temp_dir.path().join(".ruby-version");
+        std::fs::write(&file_path, "3.4.2\n").unwrap();
+
+        let version = extract_ruby_version_from_file(&file_path);
+        assert_eq!(version, Some("3.4.2".to_string()));
+    }
+
+    #[test]
+    fn test_extract_ruby_version_from_ruby_version_file_with_whitespace() {
+        let temp_dir = TempDir::new().unwrap();
+        let file_path = temp_dir.path().join(".ruby-version");
+        std::fs::write(&file_path, "  3.3.5  \n").unwrap();
+
+        let version = extract_ruby_version_from_file(&file_path);
+        assert_eq!(version, Some("3.3.5".to_string()));
+    }
+
+    #[test]
+    fn test_extract_ruby_version_from_gemfile_exact() {
+        let temp_dir = TempDir::new().unwrap();
+        let file_path = temp_dir.path().join("Gemfile");
+        std::fs::write(&file_path, "ruby '3.2.6'\n").unwrap();
+
+        let version = extract_ruby_version_from_file(&file_path);
+        assert_eq!(version, Some("3.2.6".to_string()));
+    }
+
+    #[test]
+    fn test_extract_ruby_version_from_gemfile_with_greater_than_constraint() {
+        let temp_dir = TempDir::new().unwrap();
+        let file_path = temp_dir.path().join("Gemfile");
+        std::fs::write(&file_path, "ruby '>= 3.1'\n").unwrap();
+
+        let version = extract_ruby_version_from_file(&file_path);
+        assert_eq!(version, Some("3.1".to_string()));
+    }
+
+    #[test]
+    fn test_extract_ruby_version_from_gemfile_with_tilde_constraint() {
+        let temp_dir = TempDir::new().unwrap();
+        let file_path = temp_dir.path().join("Gemfile");
+        std::fs::write(&file_path, "ruby '~> 3.2'\n").unwrap();
+
+        let version = extract_ruby_version_from_file(&file_path);
+        assert_eq!(version, Some("3.2".to_string()));
+    }
+
+    #[test]
+    fn test_extract_ruby_version_from_gemfile_with_less_than_constraint() {
+        let temp_dir = TempDir::new().unwrap();
+        let file_path = temp_dir.path().join("Gemfile");
+        std::fs::write(&file_path, "ruby '<= 3.4'\n").unwrap();
+
+        let version = extract_ruby_version_from_file(&file_path);
+        assert_eq!(version, Some("3.4".to_string()));
+    }
+
+    #[test]
+    fn test_extract_ruby_version_returns_none_for_other_files() {
+        let temp_dir = TempDir::new().unwrap();
+        let file_path = temp_dir.path().join("test.rb");
+        std::fs::write(&file_path, "puts 'hello'\n").unwrap();
+
+        let version = extract_ruby_version_from_file(&file_path);
+        assert_eq!(version, None);
+    }
+
+    #[test]
+    fn test_extract_ruby_version_returns_none_for_empty_file() {
+        let temp_dir = TempDir::new().unwrap();
+        let file_path = temp_dir.path().join(".ruby-version");
+        std::fs::write(&file_path, "").unwrap();
+
+        let version = extract_ruby_version_from_file(&file_path);
+        assert_eq!(version, None);
     }
 }
