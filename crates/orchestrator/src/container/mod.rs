@@ -100,6 +100,7 @@ pub struct ContainerInfo {
 pub struct ContainerOrchestrator {
     docker: Arc<Docker>,
     containers: Arc<Mutex<HashMap<SupportedLanguages, ContainerInfo>>>,
+    container_health: Arc<Mutex<HashMap<SupportedLanguages, ContainerHealthStatus>>>,
     wrapper_container_id: Arc<Mutex<Option<String>>>,
     instance_id: String,
     // Per-language locks to prevent duplicate spawns while allowing concurrent spawns of different languages
@@ -129,10 +130,40 @@ pub enum OrchestratorError {
     Io(#[from] std::io::Error),
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ContainerHealthStatus {
+    Pending,
+    Healthy,
+    Unhealthy,
+}
+
 impl ContainerOrchestrator {
     /// Instance identifier (parent container ID if available, otherwise UUID)
     pub fn instance_id(&self) -> &str {
         &self.instance_id
+    }
+
+    /// Mark health status for a container
+    pub async fn set_container_health(
+        &self,
+        language: SupportedLanguages,
+        status: ContainerHealthStatus,
+    ) {
+        let mut guard = self.container_health.lock().await;
+        guard.insert(language, status);
+    }
+
+    /// Get health status for a container if known
+    pub async fn get_container_health(
+        &self,
+        language: &SupportedLanguages,
+    ) -> Option<ContainerHealthStatus> {
+        self.container_health.lock().await.get(language).copied()
+    }
+
+    /// Remove health tracking for a container
+    pub async fn remove_container_health(&self, language: &SupportedLanguages) {
+        self.container_health.lock().await.remove(language);
     }
 
     /// Create a new ContainerOrchestrator and connect to Docker daemon
@@ -150,6 +181,7 @@ impl ContainerOrchestrator {
         Ok(Self {
             docker: Arc::new(docker),
             containers: Arc::new(Mutex::new(HashMap::new())),
+            container_health: Arc::new(Mutex::new(HashMap::new())),
             wrapper_container_id: Arc::new(Mutex::new(None)),
             instance_id,
             spawning_locks: Arc::new(Mutex::new(HashMap::new())),
@@ -409,9 +441,21 @@ impl ContainerOrchestrator {
                         match orchestrator.check_container_health(&info_clone).await {
                             Ok(_) => {
                                 log::info!("{} is now healthy and ready", info_clone.image_name);
+                                orchestrator
+                                    .set_container_health(
+                                        language.clone(),
+                                        ContainerHealthStatus::Healthy,
+                                    )
+                                    .await;
                             }
                             Err(e) => {
                                 log::error!("{} health check failed: {}", info_clone.image_name, e);
+                                orchestrator
+                                    .set_container_health(
+                                        language.clone(),
+                                        ContainerHealthStatus::Unhealthy,
+                                    )
+                                    .await;
                             }
                         }
                     });
@@ -808,12 +852,18 @@ impl ContainerOrchestrator {
 
     /// Store container information
     pub async fn store_container(&self, language: SupportedLanguages, info: ContainerInfo) {
-        self.containers.lock().await.insert(language, info);
+        self.containers.lock().await.insert(language.clone(), info);
+        self.container_health
+            .lock()
+            .await
+            .insert(language, ContainerHealthStatus::Pending);
     }
 
     /// Remove container information
     pub async fn remove_container(&self, language: &SupportedLanguages) -> Option<ContainerInfo> {
-        self.containers.lock().await.remove(language)
+        let removed = self.containers.lock().await.remove(language);
+        self.container_health.lock().await.remove(language);
+        removed
     }
 
     /// Get all tracked containers

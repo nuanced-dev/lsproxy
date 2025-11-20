@@ -1,4 +1,4 @@
-use super::{ContainerInfo, ContainerOrchestrator, OrchestratorError};
+use super::{ContainerHealthStatus, ContainerInfo, ContainerOrchestrator, OrchestratorError};
 use bollard::container::{Config, CreateContainerOptions};
 use bollard::models::{HostConfig, PortBinding};
 use lsproxy_common::api_types::SupportedLanguages;
@@ -278,6 +278,9 @@ impl ContainerOrchestrator {
             let mut containers_guard = self.containers.lock().await;
             containers_guard.insert(language.clone(), info.clone());
         }
+        // Track health as pending until background checks complete
+        self.set_container_health(language.clone(), ContainerHealthStatus::Pending)
+            .await;
 
         log::info!(
             "Container {} for {:?} started at {}, health checks will run in background",

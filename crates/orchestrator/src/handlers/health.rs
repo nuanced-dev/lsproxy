@@ -4,6 +4,8 @@ use actix_web::HttpResponse;
 use lsproxy_common::api_types::HealthResponse;
 use std::collections::HashMap;
 
+use crate::container::ContainerHealthStatus;
+
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 /// Get health status of the LSP proxy service
@@ -35,7 +37,12 @@ pub async fn health_check(data: Data<AppState>) -> HttpResponse {
 
     let mut languages = HashMap::new();
     for (lang, _info) in running_containers {
-        languages.insert(lang, true);
+        let healthy = match data.orchestrator.get_container_health(&lang).await {
+            Some(ContainerHealthStatus::Healthy) => true,
+            // Treat pending/unhealthy/unknown as not ready yet
+            _ => false,
+        };
+        languages.insert(lang, healthy);
     }
 
     HttpResponse::Ok().json(HealthResponse {
