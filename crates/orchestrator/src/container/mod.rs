@@ -483,40 +483,49 @@ impl ContainerOrchestrator {
         let container = match container_result {
             Ok(c) => c,
             Err(e) => {
-                // If image not found locally, try pulling from GHCR
+                // If image not found locally, check if GHCR image exists or pull it
                 let err_msg = e.to_string();
                 if err_msg.contains("404") || err_msg.contains("No such image") {
-                    log::info!(
-                        "Wrapper image not found locally, pulling from GHCR: {}",
-                        wrapper_image_ghcr()
-                    );
+                    let ghcr_image = wrapper_image_ghcr();
 
-                    use bollard::image::CreateImageOptions;
-                    use futures_util::stream::StreamExt;
+                    // Check if GHCR image already exists locally
+                    let image_exists = self.docker.inspect_image(&ghcr_image).await.is_ok();
 
-                    let create_options = CreateImageOptions {
-                        from_image: wrapper_image_ghcr(),
-                        ..Default::default()
-                    };
+                    if !image_exists {
+                        log::info!(
+                            "{} not found locally, pulling from GHCR: {}",
+                            wrapper_image(),
+                            ghcr_image
+                        );
 
-                    let mut stream = self.docker.create_image(Some(create_options), None, None);
-                    while let Some(info) = stream.next().await {
-                        match info {
-                            Ok(_) => {}
-                            Err(e) => {
-                                log::error!("Failed to pull wrapper image from GHCR: {}", e);
-                                return Err(e.into());
+                        use bollard::image::CreateImageOptions;
+                        use futures_util::stream::StreamExt;
+
+                        let create_options = CreateImageOptions {
+                            from_image: ghcr_image.clone(),
+                            ..Default::default()
+                        };
+
+                        let mut stream = self.docker.create_image(Some(create_options), None, None);
+                        while let Some(info) = stream.next().await {
+                            match info {
+                                Ok(_) => {}
+                                Err(e) => {
+                                    log::error!("Failed to pull wrapper image from GHCR: {}", e);
+                                    return Err(e.into());
+                                }
                             }
                         }
+
+                        log::info!("Successfully pulled wrapper image from GHCR");
+                    } else {
+                        log::info!("Using existing wrapper GHCR image: {}", ghcr_image);
                     }
 
-                    log::info!("Successfully pulled wrapper image from GHCR");
-
-                    // Update config to use GHCR image
+                    // Create container using GHCR image name
                     let mut config_ghcr = config.clone();
-                    config_ghcr.image = Some(wrapper_image_ghcr());
+                    config_ghcr.image = Some(ghcr_image);
 
-                    // Retry container creation with GHCR image
                     self.docker
                         .create_container(Some(options), config_ghcr)
                         .await?
@@ -671,40 +680,49 @@ impl ContainerOrchestrator {
         let container = match container_result {
             Ok(c) => c,
             Err(e) => {
-                // If image not found locally, try pulling from GHCR
+                // If image not found locally, check if GHCR image exists or pull it
                 let err_msg = e.to_string();
                 if err_msg.contains("404") || err_msg.contains("No such image") {
-                    log::info!(
-                        "Watchdog image not found locally, pulling from GHCR: {}",
-                        watchdog_image_ghcr()
-                    );
+                    let ghcr_image = watchdog_image_ghcr();
 
-                    use bollard::image::CreateImageOptions;
-                    use futures_util::stream::StreamExt;
+                    // Check if GHCR image already exists locally
+                    let image_exists = self.docker.inspect_image(&ghcr_image).await.is_ok();
 
-                    let create_options = CreateImageOptions {
-                        from_image: watchdog_image_ghcr(),
-                        ..Default::default()
-                    };
+                    if !image_exists {
+                        log::info!(
+                            "{} not found locally, pulling from GHCR: {}",
+                            watchdog_image(),
+                            ghcr_image
+                        );
 
-                    let mut stream = self.docker.create_image(Some(create_options), None, None);
-                    while let Some(info) = stream.next().await {
-                        match info {
-                            Ok(_) => {}
-                            Err(e) => {
-                                log::error!("Failed to pull watchdog image from GHCR: {}", e);
-                                return Err(e.into());
+                        use bollard::image::CreateImageOptions;
+                        use futures_util::stream::StreamExt;
+
+                        let create_options = CreateImageOptions {
+                            from_image: ghcr_image.clone(),
+                            ..Default::default()
+                        };
+
+                        let mut stream = self.docker.create_image(Some(create_options), None, None);
+                        while let Some(info) = stream.next().await {
+                            match info {
+                                Ok(_) => {}
+                                Err(e) => {
+                                    log::error!("Failed to pull watchdog image from GHCR: {}", e);
+                                    return Err(e.into());
+                                }
                             }
                         }
+
+                        log::info!("Successfully pulled watchdog image from GHCR");
+                    } else {
+                        log::info!("Using existing watchdog GHCR image: {}", ghcr_image);
                     }
 
-                    log::info!("Successfully pulled watchdog image from GHCR");
-
-                    // Update config to use GHCR image
+                    // Create container using GHCR image name
                     let mut config_ghcr = config.clone();
-                    config_ghcr.image = Some(watchdog_image_ghcr());
+                    config_ghcr.image = Some(ghcr_image);
 
-                    // Retry container creation with GHCR image
                     self.docker
                         .create_container(Some(options), config_ghcr)
                         .await?
