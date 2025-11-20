@@ -280,12 +280,8 @@ impl ContainerOrchestrator {
             containers_guard.insert(language.clone(), info.clone());
         }
 
-        // Wait for container to be healthy before returning
-        log::info!("Waiting for container {} to be healthy...", container_id);
-        self.check_container_health(&info).await?;
-
         log::info!(
-            "Successfully spawned container {} for {:?} at {}",
+            "Container {} for {:?} started at {}, health checks will run in background",
             container_id,
             language,
             endpoint
@@ -314,14 +310,14 @@ impl ContainerOrchestrator {
         let health_url = format!("{}/health", info.endpoint);
         let client = reqwest::Client::new();
 
-        log::info!(
-            "Checking health of container {} at {}",
-            info.container_id,
-            health_url
-        );
+        log::info!("Checking health of {} at {}", info.image_name, health_url);
 
         // Poll health endpoint until container is ready
         // No timeout - let the caller control overall timeout by polling the service health endpoint
+        // Use exponential backoff: start at 1s, double each time, max 15s
+        let mut backoff_secs = 1;
+        const MAX_BACKOFF_SECS: u64 = 15;
+
         loop {
             match client
                 .get(&health_url)
@@ -330,22 +326,25 @@ impl ContainerOrchestrator {
                 .await
             {
                 Ok(response) if response.status().is_success() => {
-                    log::info!("Container {} is healthy", info.container_id);
+                    log::info!("{} container is healthy", info.image_name);
                     return Ok(());
                 }
                 Ok(response) => {
                     log::debug!(
-                        "Container {} health check returned status: {}",
-                        info.container_id,
+                        "{} health check returned status: {}",
+                        info.image_name,
                         response.status()
                     );
                 }
                 Err(e) => {
-                    log::debug!("Health check attempt failed: {}", e);
+                    log::debug!("Health check attempt failed for {}: {}", info.image_name, e);
                 }
             }
 
-            tokio::time::sleep(Duration::from_millis(500)).await;
+            tokio::time::sleep(Duration::from_secs(backoff_secs)).await;
+
+            // Exponential backoff with cap
+            backoff_secs = std::cmp::min(backoff_secs * 2, MAX_BACKOFF_SECS);
         }
     }
 
