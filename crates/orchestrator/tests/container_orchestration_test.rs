@@ -384,6 +384,9 @@ async fn test_container_spawn_on_request() -> Result<(), Box<dyn std::error::Err
     // Make a request - should use the existing container
     let client = Client::builder().timeout(Duration::from_secs(30)).build()?;
 
+    // Wait for Python to report healthy in /system/health
+    wait_for_language_health("python").await?;
+
     let response = client
         .post(&format!("{}/v1/symbol/find-definition", BASE_URL))
         .json(&json!({
