@@ -340,10 +340,34 @@ else
     echo -e "${GREEN}✓ Service started successfully${NC}"
     STARTED_SERVICE=true
 
-    # Give containers time to fully initialize
-    # Ruby LSP in particular can take 30+ seconds to start
-    echo -e "${YELLOW}  Waiting for language containers to initialize (35s)...${NC}"
-    sleep 35
+    # Poll /system/health for service + language readiness (timeout 60s)
+    echo -e "${YELLOW}  Waiting for service and language health (up to 60s)...${NC}"
+    ready=false
+    for i in $(seq 1 60); do
+        HEALTH=$(curl -sf "${BASE_URL}/system/health" || true)
+        STATUS=$(echo "$HEALTH" | jq -r '.status' 2>/dev/null || echo "")
+        LANG_PENDING=$(echo "$HEALTH" | jq -r '.languages | to_entries[]? | select(.value != true) | .key' 2>/dev/null || true)
+
+        if [ "$STATUS" = "ok" ] && [ -z "$LANG_PENDING" ]; then
+            echo -e "${GREEN}✓ Service and languages healthy after ${i}s${NC}"
+            ready=true
+            break
+        fi
+
+        if (( i % 5 == 0 )); then
+            waiting_list=$(IFS=', '; echo "${LANG_PENDING}")
+            [ -z "$waiting_list" ] && waiting_list="waiting for health endpoint..."
+            echo -e "${YELLOW}  [${i}s] Waiting: ${waiting_list}${NC}"
+        else
+            printf "${YELLOW}.${NC}"
+        fi
+        sleep 1
+    done
+    echo
+    if [ "$ready" = false ]; then
+        echo -e "${RED}✗ Service did not become healthy within timeout${NC}"
+        exit 1
+    fi
 fi
 echo
 

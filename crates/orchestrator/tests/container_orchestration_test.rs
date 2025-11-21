@@ -299,6 +299,32 @@ impl ContainerFixture {
         Err("Service did not become healthy within timeout".into())
     }
 
+    async fn wait_for_language_health(lang_key: &str) -> Result<(), Box<dyn std::error::Error>> {
+        let client = Client::builder().timeout(Duration::from_secs(30)).build()?;
+        for attempt in 1..=30 {
+            let resp = client
+                .get(&format!("{}/v1/system/health", BASE_URL))
+                .send()
+                .await?;
+            if resp.status().is_success() {
+                let body: serde_json::Value = resp.json().await?;
+                if body
+                    .get("languages")
+                    .and_then(|l| l.get(lang_key))
+                    .and_then(|v| v.as_bool())
+                    == Some(true)
+                {
+                    return Ok(());
+                }
+            }
+            tokio::time::sleep(Duration::from_secs(1)).await;
+            if attempt == 30 {
+                return Err(format!("Language {} not healthy after 30s", lang_key).into());
+            }
+        }
+        Err("unreachable".into())
+    }
+
     /// Clean up all test containers (for final teardown)
     async fn cleanup(&self) -> Result<(), Box<dyn std::error::Error>> {
         Self::cleanup_all_test_containers(&self.docker).await
@@ -318,6 +344,32 @@ async fn get_fixture() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     Ok(())
+}
+
+async fn wait_for_language_health(lang_key: &str) -> Result<(), Box<dyn std::error::Error>> {
+    let client = Client::builder().timeout(Duration::from_secs(30)).build()?;
+    for attempt in 1..=30 {
+        let resp = client
+            .get(&format!("{}/v1/system/health", BASE_URL))
+            .send()
+            .await?;
+        if resp.status().is_success() {
+            let body: serde_json::Value = resp.json().await?;
+            if body
+                .get("languages")
+                .and_then(|l| l.get(lang_key))
+                .and_then(|v| v.as_bool())
+                == Some(true)
+            {
+                return Ok(());
+            }
+        }
+        tokio::time::sleep(Duration::from_secs(1)).await;
+        if attempt == 30 {
+            return Err(format!("Language {} not healthy after 30s", lang_key).into());
+        }
+    }
+    Err("unreachable".into())
 }
 
 /// Cleanup the shared test fixture (called at end of test suite)
@@ -461,6 +513,8 @@ async fn test_multiple_requests_same_container() -> Result<(), Box<dyn std::erro
     let docker = Docker::connect_with_socket_defaults()?;
     let client = Client::builder().timeout(Duration::from_secs(30)).build()?;
 
+    wait_for_language_health("python").await?;
+
     // First request - container already spawned during service startup
     let response1 = client
         .post(&format!("{}/v1/symbol/find-definition", BASE_URL))
@@ -556,6 +610,8 @@ async fn test_find_references() -> Result<(), Box<dyn std::error::Error>> {
 
     let client = Client::builder().timeout(Duration::from_secs(30)).build()?;
 
+    wait_for_language_health("python").await?;
+
     let response = client
         .post(&format!("{}/v1/symbol/find-references", BASE_URL))
         .json(&json!({
@@ -583,6 +639,8 @@ async fn test_find_references_with_context_lines() -> Result<(), Box<dyn std::er
     get_fixture().await?;
 
     let client = Client::builder().timeout(Duration::from_secs(30)).build()?;
+
+    wait_for_language_health("python").await?;
 
     // Test with include_code_context_lines = 3
     // Looking for references to "hello" function in test.py
