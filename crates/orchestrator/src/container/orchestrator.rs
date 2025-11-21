@@ -131,11 +131,14 @@ impl ContainerOrchestrator {
             .map(|(key, value)| format!("{}={}", key, value))
             .collect();
 
-        // Label containers with parent ID for watchdog cleanup
+        // Label containers with parent ID for watchdog cleanup (use short form consistently)
         let mut labels = HashMap::new();
         labels.insert("nuanced.role".to_string(), "language-server".to_string());
-        // Always tag the parent as this orchestrator instance (container ID if available, else UUID)
-        labels.insert("nuanced.parent".to_string(), self.instance_id.clone());
+        // Always tag the parent as this orchestrator instance (short ID)
+        labels.insert(
+            "nuanced.parent".to_string(),
+            self.instance_id_short().clone(),
+        );
 
         let config = Config {
             image: Some(image_name.clone()),

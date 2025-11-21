@@ -166,6 +166,11 @@ impl ContainerOrchestrator {
         self.container_health.lock().await.remove(language);
     }
 
+    /// Get the short-form identifier used for labels/names (12 chars)
+    fn instance_id_short(&self) -> String {
+        self.instance_id.chars().take(12).collect()
+    }
+
     /// Create a new ContainerOrchestrator and connect to Docker daemon
     pub async fn new() -> Result<Self, OrchestratorError> {
         // Connect to Docker daemon via Unix socket (macOS/Linux) or named pipe (Windows)
@@ -481,7 +486,7 @@ impl ContainerOrchestrator {
         &self.docker
     }
 
-    /// Spawn or get existing wrapper container
+    /// Spawn the wrapper container
     /// The wrapper container holds the lsp-wrapper binary and ast-grep configs
     /// that will be mounted into language containers via --volumes-from
     pub async fn ensure_wrapper_container(&self) -> Result<String, OrchestratorError> {
@@ -506,7 +511,8 @@ impl ContainerOrchestrator {
             log::warn!("Wrapper container {} is not running, creating new one", id);
         }
 
-        let wrapper_name = format!("nuanced-lsp-wrapper-{}", &self.instance_id[..12]);
+        let id_short = self.instance_id_short();
+        let wrapper_name = format!("nuanced-lsp-wrapper-{}", id_short);
 
         // Check if wrapper container already exists (by name)
         if let Ok(info) = self.docker.inspect_container(&wrapper_name, None).await {
@@ -536,7 +542,7 @@ impl ContainerOrchestrator {
             labels: Some({
                 let mut l = HashMap::new();
                 l.insert("nuanced.role".to_string(), "wrapper".to_string());
-                l.insert("nuanced.parent".to_string(), self.instance_id.clone());
+                l.insert("nuanced.parent".to_string(), id_short.clone());
                 l
             }),
             host_config: Some(HostConfig {
@@ -715,14 +721,14 @@ impl ContainerOrchestrator {
         use bollard::container::{Config, CreateContainerOptions};
         use bollard::models::HostConfig;
 
-        let parent_id = self.instance_id.clone();
+        let parent_id = self.instance_id_short();
 
         log::info!(
             "Spawning watchdog to monitor parent container: {}",
             parent_id
         );
 
-        let watchdog_name = format!("nuanced-lsp-watchdog-{}", &self.instance_id[..12]);
+        let watchdog_name = format!("nuanced-lsp-watchdog-{}", self.instance_id_short());
 
         // Check if watchdog already exists
         if let Ok(_) = self.docker.inspect_container(&watchdog_name, None).await {
@@ -825,7 +831,7 @@ impl ContainerOrchestrator {
         use bollard::container::RemoveContainerOptions;
 
         // Use instance_id (parent container ID preferred) for unique watchdog name
-        let watchdog_name = format!("nuanced-lsp-watchdog-{}", &self.instance_id[..12]);
+        let watchdog_name = format!("nuanced-lsp-watchdog-{}", self.instance_id_short());
 
         // Try to remove the watchdog (force=true handles running containers)
         let remove_options = RemoveContainerOptions {
