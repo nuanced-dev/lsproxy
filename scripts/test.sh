@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Comprehensive test script for lsproxy
-# Runs all test suites: Rust unit/integration tests and shell-based endpoint tests
+# Comprehensive test suite for Nuanced LSP.
+# Runs all test suites: Rust unit/integration tests and shell-based endpoint tests.
 
 set -e  # Exit immediately if a command exits with a non-zero status
 
 echo "========================================"
-echo "  LSProxy Test Suite"
+echo "  Nuanced LSP Test Suite                "
 echo "========================================"
 echo
 

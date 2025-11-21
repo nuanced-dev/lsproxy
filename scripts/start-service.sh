@@ -2,7 +2,7 @@
 
 set -e
 
-# Start LSProxy service with container orchestration
+# Start Nuanced LSP service with container orchestration
 # Usage: ./scripts/start-service.sh [workspace_path] [options]
 
 # Colors
@@ -76,7 +76,7 @@ fi
 WORKSPACE_PATH="$(cd "$WORKSPACE_PATH" && pwd)"
 
 echo -e "${BLUE}=========================================${NC}"
-echo -e "${BLUE}  Starting LSProxy Service${NC}"
+echo -e "${BLUE}  Starting Nuanced LSP Service${NC}           "
 echo -e "${BLUE}=========================================${NC}"
 echo -e "Workspace: ${WORKSPACE_PATH}"
 echo -e "Port:      ${PORT}"
@@ -116,6 +116,8 @@ DOCKER_RUN_CMD="$DOCKER_RUN_CMD \
     -v /var/run/docker.sock:/var/run/docker.sock \
     -v \"${WORKSPACE_PATH}:/mnt/workspace\" \
     -e RUST_LOG=info \
+    -e WRAPPER_IMAGE=nuanced-lsp-wrapper:${RUST_VERSION} \
+    -e WATCHDOG_IMAGE=nuanced-lsp-watchdog:${RUST_VERSION} \
     -e LSPROXY_CONTAINER_MEMORY_MB=8192"
 
 if [ "$USE_AUTH" = false ]; then

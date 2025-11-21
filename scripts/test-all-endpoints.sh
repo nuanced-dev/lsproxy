@@ -2,9 +2,9 @@
 
 set -e
 
-# Comprehensive LSProxy test script that validates all endpoints for all languages
+# Comprehensive Nuanced LSP test script that validates all endpoints for all languages
 #
-# This script automatically starts the LSProxy service if it's not already running.
+# This script automatically starts Nuanced LSP if it's not already running.
 # If the service is already running, it uses the existing containers.
 #
 # Usage: ./scripts/test-all-endpoints.sh [workspace_path] [--no-cleanup]
@@ -68,7 +68,7 @@ cleanup() {
             echo -e "${GREEN}✓ Orphaned containers cleaned${NC}"
         fi
     elif [ "$CLEANUP_ON_EXIT" = false ]; then
-        echo
+u       echo
         echo -e "${YELLOW}Skipping cleanup (--no-cleanup specified)${NC}"
         echo -e "${YELLOW}To clean up manually, run: ./scripts/stop-service.sh --force${NC}"
     elif [ "$STARTED_SERVICE" = false ]; then
@@ -312,7 +312,7 @@ test_find_referenced_symbols_enhanced() {
 
 # Check if service is already running, start it if not
 echo -e "${BLUE}=========================================${NC}"
-echo -e "${BLUE}  LSProxy Service Check${NC}"
+echo -e "${BLUE}  Nuanced LSP Service Check${NC}"
 echo -e "${BLUE}=========================================${NC}"
 
 if docker ps --filter "name=nuanced-lsp-proxy" --format '{{.Names}}' | grep -q "nuanced-lsp-proxy"; then
@@ -372,11 +372,11 @@ fi
 echo
 
 # Main test execution
-echo -e "${BLUE}=========================================${NC}"
-echo -e "${BLUE}  LSProxy Comprehensive Endpoint Tests${NC}"
-echo -e "${BLUE}  Base URL: $BASE_URL${NC}"
-echo -e "${BLUE}  Workspace: $WORKSPACE_PATH${NC}"
-echo -e "${BLUE}=========================================${NC}"
+echo -e "${BLUE}============================================${NC}"
+echo -e "${BLUE}  Nuanced LSP Comprehensive Endpoint Tests  ${NC}"
+echo -e "${BLUE}  Base URL: $BASE_URL${NC}                       "
+echo -e "${BLUE}  Workspace: $WORKSPACE_PATH${NC}                "
+echo -e "${BLUE}============================================${NC}"
 echo
 
 # Test 1: System Health
@@ -479,8 +479,8 @@ while IFS='|' read -r lang test_file symbol_name symbol_line symbol_char health_
     echo
 done <<< "$LANGUAGE_CONFIGS"
 
-# Test 4: Deep validation for find-referenced-symbols (ast-grep)
-echo -e "${YELLOW}4. Deep Validation - find-referenced-symbols (ast-grep)${NC}"
+# Test 4: Validation of find-referenced-symbols (ast-grep)
+echo -e "${YELLOW}4. Validation of find-referenced-symbols (ast-grep)${NC}"
 echo
 
 while IFS='|' read -r lang file line char min_ws expected; do
