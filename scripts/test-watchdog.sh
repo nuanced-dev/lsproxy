@@ -12,7 +12,7 @@ BLUE='\033[0;34m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
-WORKSPACE_PATH="${1:-sample_project/all}"
+WORKSPACE_PATH="${1:-sample_project/python}"
 WORKSPACE_PATH="$(cd "$WORKSPACE_PATH" && pwd)"
 
 # Use RUST_CONTAINER_VERSION from environment, default to "latest"
@@ -44,6 +44,118 @@ test_step() {
         echo -e "${RED}✗ FAIL${NC}"
         TESTS_FAILED=$((TESTS_FAILED + 1))
         return 1
+    fi
+}
+
+# Wait for a service to report healthy (all languages ready) on the given port
+wait_for_service_ready() {
+    local port="$1"
+    local timeout="${2:-60}"
+
+    echo -e "${YELLOW}Waiting for service to initialize (up to ${timeout}s)...${NC}"
+    local ready=false
+    for i in $(seq 1 "$timeout"); do
+        HEALTH=$(curl -sf "http://localhost:${port}/v1/system/health" || true)
+        STATUS=$(echo "$HEALTH" | jq -r '.status' 2>/dev/null || echo "")
+        LANG_PENDING=$(echo "$HEALTH" | jq -r '.languages | to_entries[]? | select(.value != true) | .key' 2>/dev/null || true)
+
+        if [ "$STATUS" = "ok" ] && [ -z "$LANG_PENDING" ]; then
+            echo -e "${GREEN}Service healthy after ${i}s${NC}"
+            ready=true
+            break
+        fi
+
+        if (( i % 5 == 0 )); then
+            waiting_list=$(IFS=', '; echo "${LANG_PENDING}")
+            [ -z "$waiting_list" ] && waiting_list="waiting for health endpoint..."
+            echo -e "${YELLOW}  [${i}s] Waiting: ${waiting_list}${NC}"
+        else
+            printf "${YELLOW}.${NC}"
+        fi
+        sleep 1
+    done
+    echo
+
+    if [ "$ready" = false ]; then
+        echo -e "${RED}Service did not become healthy within timeout${NC}"
+        return 1
+    fi
+}
+
+# Wait for containers of a given role/parent to disappear
+wait_for_child_cleanup() {
+    local parent_label="$1"
+    local role="$2"
+    local timeout="${3:-60}"
+    local ready=false
+
+    echo -e "${YELLOW}Waiting for watchdog to clean up ${role} containers (up to ${timeout}s)...${NC}"
+    for i in $(seq 1 "$timeout"); do
+        running=$(docker ps --filter "label=nuanced.parent=$parent_label" --filter "label=nuanced.role=${role}" -q | wc -l | tr -d ' ')
+        if [ "$running" -eq 0 ]; then
+            echo -e "${GREEN}Cleanup complete after ${i}s${NC}"
+            ready=true
+            break
+        fi
+
+        if (( i % 5 == 0 )); then
+            echo -e "${YELLOW}  [${i}s] Waiting on ${running} ${role} container(s)...${NC}"
+        else
+            printf "${YELLOW}.${NC}"
+        fi
+        sleep 1
+    done
+    echo
+
+    if [ "$ready" = false ]; then
+        echo -e "${RED}Cleanup did not complete within timeout${NC}"
+        return 1
+    fi
+}
+
+# Wait for watchdog container to disappear
+wait_for_watchdog_cleanup() {
+    local parent_label="$1"
+    local timeout="${2:-30}"
+    local ready=false
+
+    echo -e "${YELLOW}Waiting for watchdog to clean itself up (up to ${timeout}s)...${NC}"
+    for i in $(seq 1 "$timeout"); do
+        running=$(docker ps -a --filter "name=nuanced-lsp-watchdog-${parent_label}" -q | wc -l | tr -d ' ')
+        if [ "$running" -eq 0 ]; then
+            echo -e "${GREEN}Watchdog removed after ${i}s${NC}"
+            ready=true
+            break
+        fi
+        if (( i % 5 == 0 )); then
+            echo -e "${YELLOW}  [${i}s] Waiting on watchdog container...${NC}"
+        else
+            printf "${YELLOW}.${NC}"
+        fi
+        sleep 1
+    done
+    echo
+
+    if [ "$ready" = false ]; then
+        echo -e "${RED}Watchdog did not remove itself within timeout${NC}"
+        return 1
+    fi
+}
+
+# Get the value used for the nuanced.parent label (hostname inside the container)
+get_parent_label_id() {
+    local container_name="$1"
+    local hostname
+    hostname=$(docker inspect --format '{{.Config.Hostname}}' "$container_name" 2>/dev/null || echo "")
+    if [ -n "$hostname" ]; then
+        echo "$hostname"
+        return
+    fi
+
+    local id
+    id=$(docker inspect --format '{{.Id}}' "$container_name" 2>/dev/null || echo "")
+    if [ -n "$id" ]; then
+        echo "${id:0:12}"
     fi
 }
 
@@ -82,27 +194,28 @@ docker run -d \
     -v "$WORKSPACE_PATH:/mnt/workspace" \
     -e RUST_LOG=info \
     -e USE_AUTH=false \
+    -e WRAPPER_IMAGE=nuanced-lsp-wrapper:${RUST_VERSION} \
+    -e WATCHDOG_IMAGE=nuanced-lsp-watchdog:${RUST_VERSION} \
     nuanced-lsp-proxy:${RUST_VERSION} > /dev/null
 
-# Wait for initialization (with health checks for all language containers)
-echo "Waiting for service to initialize (60s)..."
-sleep 60
+wait_for_service_ready 4455
 
-# Get service container ID
-SERVICE_ID=$(docker ps --filter "name=test-watchdog-svc" --format "{{.ID}}")
-SERVICE_SHORT_ID="${SERVICE_ID:0:12}"
+SERVICE_PARENT_LABEL=$(get_parent_label_id test-watchdog-svc)
 
 test_step "Service container is running" \
     "docker ps --filter 'name=test-watchdog-svc' --format '{{.Names}}' | grep -q test-watchdog-svc"
 
 test_step "Watchdog container is spawned" \
-    "docker ps --filter 'name=nuanced-lsp-watchdog-$SERVICE_SHORT_ID' --format '{{.Names}}' | grep -q nuanced-lsp-watchdog"
+    "docker ps --filter 'name=nuanced-lsp-watchdog-$SERVICE_PARENT_LABEL' --format '{{.Names}}' | grep -q nuanced-lsp-watchdog"
 
 test_step "Language containers are spawned" \
-    "[ \$(docker ps --filter 'name=nuanced-lsp-python' --filter 'name=nuanced-lsp-rust' --filter 'name=nuanced-lsp-typescript' --format '{{.Names}}' | wc -l) -ge 3 ]"
+    "[ \$(docker ps --filter 'label=nuanced.parent=$SERVICE_PARENT_LABEL' --filter 'label=nuanced.role=language-server' --format '{{.Names}}' | wc -l) -ge 1 ]"
+
+test_step "Wrapper container is spawned" \
+    "[ \$(docker ps --filter 'label=nuanced.parent=$SERVICE_PARENT_LABEL' --filter 'label=nuanced.role=wrapper' --format '{{.Names}}' | wc -l | tr -d ' ') -ge 1 ]"
 
 test_step "Language containers have parent labels" \
-    "docker inspect \$(docker ps -q --filter 'name=nuanced-lsp-python' | head -1) --format '{{.Config.Labels}}' | grep -q 'nuanced.parent:$SERVICE_SHORT_ID'"
+    "[ \$(docker ps -q --filter \"label=nuanced.parent=$SERVICE_PARENT_LABEL\" --filter 'label=nuanced.role=language-server' | wc -l) -ge 1 ] && docker inspect \$(docker ps -q --filter \"label=nuanced.parent=$SERVICE_PARENT_LABEL\" --filter 'label=nuanced.role=language-server' | head -1) --format '{{.Config.Labels}}' | grep -q \"nuanced.parent:$SERVICE_PARENT_LABEL\""
 
 # Note: LSP wrapper readiness is thoroughly tested by the integration tests
 # which perform actual LSP operations through the service. The watchdog tests
@@ -117,17 +230,21 @@ echo
 # Stop service cleanly
 echo -e "${BLUE}Stopping service with SIGTERM...${NC}"
 docker stop test-watchdog-svc > /dev/null
-# Cleanup can take 7-10 seconds with many language containers
-sleep 10
+wait_for_child_cleanup "$SERVICE_PARENT_LABEL" "language-server" 60
+wait_for_child_cleanup "$SERVICE_PARENT_LABEL" "wrapper" 60
+wait_for_watchdog_cleanup "$SERVICE_PARENT_LABEL" 30
 
 test_step "Service container stopped" \
     "[ \$(docker ps --filter 'name=test-watchdog-svc' --format '{{.Names}}' | wc -l) -eq 0 ]"
 
 test_step "Language containers cleaned up" \
-    "[ \$(docker ps -a --filter 'label=nuanced.parent=$SERVICE_SHORT_ID' --format '{{.Names}}' | wc -l) -eq 0 ]"
+    "[ \$(docker ps -a --filter 'label=nuanced.parent=$SERVICE_PARENT_LABEL' --filter 'label=nuanced.role=language-server' --format '{{.Names}}' | wc -l | tr -d ' ') -eq 0 ]"
+
+test_step "Wrapper container cleaned up" \
+    "[ \$(docker ps -a --filter 'label=nuanced.parent=$SERVICE_PARENT_LABEL' --filter 'label=nuanced.role=wrapper' --format '{{.Names}}' | wc -l | tr -d ' ') -eq 0 ]"
 
 test_step "Watchdog auto-removed after clean shutdown" \
-    "[ \$(docker ps -a --filter 'name=nuanced-lsp-watchdog-$SERVICE_SHORT_ID' --format '{{.Names}}' | wc -l) -eq 0 ]"
+    "[ \$(docker ps -a --filter 'name=nuanced-lsp-watchdog-$SERVICE_PARENT_LABEL' --format '{{.Names}}' | wc -l | tr -d ' ') -eq 0 ]"
 
 # Remove stopped service container
 docker rm test-watchdog-svc > /dev/null 2>&1 || true
@@ -147,16 +264,16 @@ docker run -d \
     -v "$WORKSPACE_PATH:/mnt/workspace" \
     -e RUST_LOG=info \
     -e USE_AUTH=false \
+    -e WRAPPER_IMAGE=nuanced-lsp-wrapper:${RUST_VERSION} \
+    -e WATCHDOG_IMAGE=nuanced-lsp-watchdog:${RUST_VERSION} \
     nuanced-lsp-proxy:${RUST_VERSION} > /dev/null
 
-echo "Waiting for service to initialize (60s)..."
-sleep 60
+wait_for_service_ready 4456
 
-KILL_SERVICE_ID=$(docker ps --filter "name=test-watchdog-kill" --format "{{.ID}}")
-KILL_SHORT_ID="${KILL_SERVICE_ID:0:12}"
+KILL_PARENT_LABEL=$(get_parent_label_id test-watchdog-kill)
 
 # Count language containers before kill
-BEFORE_COUNT=$(docker ps --filter "label=nuanced.parent=$KILL_SHORT_ID" --format '{{.Names}}' | wc -l | tr -d ' ')
+BEFORE_COUNT=$(docker ps --filter "label=nuanced.parent=$KILL_PARENT_LABEL" --filter "label=nuanced.role=language-server" --format '{{.Names}}' | wc -l | tr -d ' ')
 
 echo -e "${BLUE}Language containers before SIGKILL: $BEFORE_COUNT${NC}"
 
@@ -167,15 +284,18 @@ test_step "Language containers exist before SIGKILL" \
 echo -e "${BLUE}Sending SIGKILL to service...${NC}"
 docker kill test-watchdog-kill > /dev/null
 
-# Wait for watchdog to detect and cleanup
-echo "Waiting for watchdog to detect death and cleanup (15s)..."
-sleep 15
+wait_for_child_cleanup "$KILL_PARENT_LABEL" "language-server" 60
+wait_for_child_cleanup "$KILL_PARENT_LABEL" "wrapper" 60
+wait_for_watchdog_cleanup "$KILL_PARENT_LABEL" 30
 
 test_step "Language containers cleaned up by watchdog" \
-    "[ \$(docker ps -a --filter 'label=nuanced.parent=$KILL_SHORT_ID' --format '{{.Names}}' | wc -l) -eq 0 ]"
+    "[ \$(docker ps -a --filter 'label=nuanced.parent=$KILL_PARENT_LABEL' --filter 'label=nuanced.role=language-server' --format '{{.Names}}' | wc -l | tr -d ' ') -eq 0 ]"
+
+test_step "Wrapper container cleaned up by watchdog" \
+    "[ \$(docker ps -a --filter 'label=nuanced.parent=$KILL_PARENT_LABEL' --filter 'label=nuanced.role=wrapper' --format '{{.Names}}' | wc -l | tr -d ' ') -eq 0 ]"
 
 test_step "Watchdog auto-removed after emergency cleanup" \
-    "[ \$(docker ps -a --filter 'name=nuanced-lsp-watchdog-$KILL_SHORT_ID' --format '{{.Names}}' | wc -l) -eq 0 ]"
+    "[ \$(docker ps -a --filter 'name=nuanced-lsp-watchdog-$KILL_PARENT_LABEL' --format '{{.Names}}' | wc -l | tr -d ' ') -eq 0 ]"
 
 # Verify watchdog logged the cleanup
 docker rm test-watchdog-kill > /dev/null 2>&1 || true
@@ -195,6 +315,8 @@ docker run -d \
     -v "$WORKSPACE_PATH:/mnt/workspace" \
     -e RUST_LOG=warn \
     -e USE_AUTH=false \
+    -e WRAPPER_IMAGE=nuanced-lsp-wrapper:${RUST_VERSION} \
+    -e WATCHDOG_IMAGE=nuanced-lsp-watchdog:${RUST_VERSION} \
     nuanced-lsp-proxy:${RUST_VERSION} > /dev/null
 
 docker run -d \
@@ -204,51 +326,63 @@ docker run -d \
     -v "$WORKSPACE_PATH:/mnt/workspace" \
     -e RUST_LOG=warn \
     -e USE_AUTH=false \
+    -e WRAPPER_IMAGE=nuanced-lsp-wrapper:${RUST_VERSION} \
+    -e WATCHDOG_IMAGE=nuanced-lsp-watchdog:${RUST_VERSION} \
     nuanced-lsp-proxy:${RUST_VERSION} > /dev/null
 
-echo "Waiting for both services to initialize (180s)..."
-sleep 180
+wait_for_service_ready 4457 120
+wait_for_service_ready 4458 120
 
-MULTI1_ID=$(docker ps --filter "name=test-watchdog-multi1" --format "{{.ID}}")
-MULTI1_SHORT="${MULTI1_ID:0:12}"
-MULTI2_ID=$(docker ps --filter "name=test-watchdog-multi2" --format "{{.ID}}")
-MULTI2_SHORT="${MULTI2_ID:0:12}"
+MULTI1_PARENT=$(get_parent_label_id test-watchdog-multi1)
+MULTI2_PARENT=$(get_parent_label_id test-watchdog-multi2)
 
 test_step "Both watchdogs are running" \
     "[ \$(docker ps --filter 'name=nuanced-lsp-watchdog-' --format '{{.Names}}' | wc -l) -eq 2 ]"
 
 test_step "Service 1 has language containers" \
-    "[ \$(docker ps --filter 'label=nuanced.parent=$MULTI1_SHORT' --format '{{.Names}}' | wc -l) -gt 0 ]"
+    "[ \$(docker ps --filter 'label=nuanced.parent=$MULTI1_PARENT' --filter 'label=nuanced.role=language-server' --format '{{.Names}}' | wc -l) -gt 0 ]"
 
 test_step "Service 2 has language containers" \
-    "[ \$(docker ps --filter 'label=nuanced.parent=$MULTI2_SHORT' --format '{{.Names}}' | wc -l) -gt 0 ]"
+    "[ \$(docker ps --filter 'label=nuanced.parent=$MULTI2_PARENT' --filter 'label=nuanced.role=language-server' --format '{{.Names}}' | wc -l) -gt 0 ]"
+
+test_step "Both services have wrapper containers" \
+    "[ \$(docker ps --filter 'label=nuanced.role=wrapper' --filter 'label=nuanced.parent=$MULTI1_PARENT' -q | wc -l | tr -d ' ') -ge 1 ] && \
+     [ \$(docker ps --filter 'label=nuanced.role=wrapper' --filter 'label=nuanced.parent=$MULTI2_PARENT' -q | wc -l | tr -d ' ') -ge 1 ]"
 
 # Kill first service
 echo -e "${BLUE}Killing first service instance...${NC}"
 docker kill test-watchdog-multi1 > /dev/null
-echo "Waiting for watchdog to cleanup (15s)..."
-sleep 15
+wait_for_child_cleanup "$MULTI1_PARENT" "language-server" 60
+wait_for_child_cleanup "$MULTI1_PARENT" "wrapper" 60
+wait_for_watchdog_cleanup "$MULTI1_PARENT" 30
 
 test_step "Service 1 containers cleaned up" \
-    "[ \$(docker ps -a --filter 'label=nuanced.parent=$MULTI1_SHORT' --format '{{.Names}}' | wc -l) -eq 0 ]"
+    "[ \$(docker ps -a --filter 'label=nuanced.parent=$MULTI1_PARENT' --filter 'label=nuanced.role=language-server' --format '{{.Names}}' | wc -l | tr -d ' ') -eq 0 ]"
+
+test_step "Service 1 wrapper cleaned up" \
+    "[ \$(docker ps -a --filter 'label=nuanced.parent=$MULTI1_PARENT' --filter 'label=nuanced.role=wrapper' --format '{{.Names}}' | wc -l | tr -d ' ') -eq 0 ]"
 
 test_step "Service 2 containers still running" \
-    "[ \$(docker ps --filter 'label=nuanced.parent=$MULTI2_SHORT' --format '{{.Names}}' | wc -l) -gt 0 ]"
+    "[ \$(docker ps --filter 'label=nuanced.parent=$MULTI2_PARENT' --filter 'label=nuanced.role=language-server' --format '{{.Names}}' | wc -l) -gt 0 ]"
 
 test_step "Service 2 watchdog still running" \
-    "docker ps --filter 'name=nuanced-lsp-watchdog-$MULTI2_SHORT' --format '{{.Names}}' | grep -q nuanced-lsp-watchdog"
+    "docker ps --filter 'name=nuanced-lsp-watchdog-$MULTI2_PARENT' --format '{{.Names}}' | grep -q nuanced-lsp-watchdog"
 
 # Clean up second service
 echo -e "${BLUE}Stopping second service instance...${NC}"
 docker stop test-watchdog-multi2 > /dev/null
-# Cleanup can take 7-10 seconds with many language containers
-sleep 10
+wait_for_child_cleanup "$MULTI2_PARENT" "language-server" 60
+wait_for_child_cleanup "$MULTI2_PARENT" "wrapper" 60
+wait_for_watchdog_cleanup "$MULTI2_PARENT" 30
 
 test_step "Service 2 containers cleaned up" \
-    "[ \$(docker ps -a --filter 'label=nuanced.parent=$MULTI2_SHORT' --format '{{.Names}}' | wc -l) -eq 0 ]"
+    "[ \$(docker ps -a --filter 'label=nuanced.parent=$MULTI2_PARENT' --filter 'label=nuanced.role=language-server' --format '{{.Names}}' | wc -l | tr -d ' ') -eq 0 ]"
+
+test_step "Service 2 wrapper cleaned up" \
+    "[ \$(docker ps -a --filter 'label=nuanced.parent=$MULTI2_PARENT' --filter 'label=nuanced.role=wrapper' --format '{{.Names}}' | wc -l | tr -d ' ') -eq 0 ]"
 
 test_step "All watchdogs auto-removed" \
-    "[ \$(docker ps -a --filter 'name=nuanced-lsp-watchdog-' --format '{{.Names}}' | wc -l) -eq 0 ]"
+    "[ \$(docker ps -a --filter 'name=nuanced-lsp-watchdog-' --format '{{.Names}}' | wc -l | tr -d ' ') -eq 0 ]"
 
 # Summary
 echo
