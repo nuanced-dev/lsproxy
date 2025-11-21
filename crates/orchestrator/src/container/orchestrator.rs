@@ -281,7 +281,6 @@ impl ContainerOrchestrator {
         // Track health as pending until background checks complete
         self.set_container_health(language.clone(), ContainerHealthStatus::Pending)
             .await;
-
         log::info!(
             "Container {} for {:?} started at {}, health checks will run in background",
             container_id,

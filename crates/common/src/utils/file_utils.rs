@@ -43,20 +43,19 @@ pub fn search_paths(
             let exclude_patterns = exclude_patterns.clone();
             let base_path = Arc::clone(&base_path);
             // Treat any path component starting with '.' as hidden
-            let is_hidden = |p: &Path| p.components().any(|c| {
-                if let std::path::Component::Normal(os) = c {
-                    os.to_string_lossy().starts_with('.')
-                } else {
-                    false
-                }
-            });
+            let is_hidden = |p: &Path| {
+                p.components().any(|c| {
+                    if let std::path::Component::Normal(os) = c {
+                        os.to_string_lossy().starts_with('.')
+                    } else {
+                        false
+                    }
+                })
+            };
             move |entry| {
                 let path = entry.path();
                 let rel_path = path.strip_prefix(base_path.as_ref()).unwrap_or(path);
-                let is_dir = entry
-                    .file_type()
-                    .map(|ft| ft.is_dir())
-                    .unwrap_or(false);
+                let is_dir = entry.file_type().map(|ft| ft.is_dir()).unwrap_or(false);
 
                 let matches_include = include_patterns.iter().any(|pattern| {
                     glob::Pattern::new(pattern)
