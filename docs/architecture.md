@@ -287,13 +287,13 @@ The system uses **binary injection** via Docker volumes to share the wrapper bin
 ## Container Lifecycle
 
 ### Startup Sequence
-1. User starts service: `./scripts/start-service.sh`
+1. User starts service: `./scripts/start-proxy.sh`
 2. Orchestrator container starts: `lsproxy-service`
 3. Wrapper volume container starts: `lsproxy-wrapper` (provides volumes)
 4. Language containers created on-demand when first request arrives
 
 ### Shutdown Sequence
-1. User stops service: `./scripts/stop-service.sh`
+1. User stops service: `./scripts/stop-proxy.sh`
 2. All language containers removed
 3. Wrapper container removed
 4. Orchestrator container removed

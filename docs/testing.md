@@ -32,8 +32,8 @@ This builds:
 ### 2. Start the Service
 
 ```bash
-# Using the start-service.sh script (recommended)
-./scripts/start-service.sh sample_project/all
+# Using the start-proxy.sh script (recommended)
+./scripts/start-proxy.sh sample_project/all
 
 # Or manually with docker run
 docker run -d \
@@ -377,7 +377,7 @@ To benchmark container startup time and API latency:
 
 ```bash
 # Measure service startup
-time ./scripts/start-service.sh sample_project/all
+time ./scripts/start-proxy.sh sample_project/all
 
 # Measure endpoint latency
 time curl http://localhost:4444/v1/workspace/list-files

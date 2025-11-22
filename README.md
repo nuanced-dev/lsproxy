@@ -1,6 +1,6 @@
 <div align="center">
 
-# Nuanced LSProxy - Precise code navigation via an API
+# Nuanced LSP - Precise code navigation via an API
 
 Originally forked from [agentic-labs/lsproxy](https://github.com/agentic-labs/lsproxy).
 
@@ -8,9 +8,9 @@ Originally forked from [agentic-labs/lsproxy](https://github.com/agentic-labs/ls
 
 </div>
 
-## <a name="what-is-lsproxy">What is lsproxy?</a>
+## <a name="what-is-lsproxy">What is Nuanced LSP?</a>
 
-Nuanced LSProxy is a Dockerized Rust service that proxies LSP requests to LSP server containers, and offers enhanced LSP capabilities by leveraging `ast-grep`.
+Nuanced LSP is a Dockerized Rust service that proxies LSP requests to LSP server containers, and offers enhanced LSP capabilities by leveraging `ast-grep`.
 
 It supports [multiple languages](#supported-languages) and helps retrieve code context and symbol resolution and symbol relationships for a mounted workspace.
 
@@ -30,10 +30,10 @@ The system consists of several containerized components that work together to pr
 
 | Component | Code Reference | Container Name(s) | Purpose | Relationships |
 |-----------|---------------|-------------------|---------|---------------|
-| **Service** | `crates/orchestrator` | `lsproxy-service` | Main orchestrator that receives HTTP requests from clients, detects file languages, and routes requests to appropriate language containers | Spawns wrapper, language containers, and watchdog; forwards requests between client and language containers |
-| **Wrapper** | `crates/lsp-wrapper` | `lsproxy-wrapper-<service-id>` | Shared volume container providing the `lsp-wrapper` binary and ast-grep configs | Mounted by all language containers via `--volumes-from` to share binaries without duplication |
-| **Language Containers** | `dockerfiles/*.Dockerfile` | `lsproxy-python-<service-id>`<br/>`lsproxy-typescript-<service-id>`<br/>`lsproxy-rust-<service-id>`<br/>`lsproxy-golang-<service-id>`<br/>etc. | Run language-specific LSP servers (jedi, typescript-language-server, rust-analyzer, gopls, etc.) and translate HTTP requests to LSP JSON-RPC over stdio | Mount wrapper binary via `--volumes-from`; receive HTTP requests from service; execute LSP operations; labeled with parent service ID |
-| **Watchdog** | `crates/watchdog` | `lsproxy-watchdog-<service-id>` | Independent monitor that polls the service container health and automatically cleans up all language containers if the service crashes or stops | Monitors service via `docker inspect`; uses Docker labels to identify and cleanup language containers belonging to crashed service |
+| **Service** | `crates/proxy` | `nuanced-lsp-proxy` | Main orchestrator that receives HTTP requests from clients, detects file languages, and routes requests to appropriate language containers | Spawns wrapper, language containers, and watchdog; forwards requests between client and language containers |
+| **Wrapper** | `crates/wrapper` | `nuanced-lsp-wrapper-<id>` | Shared volume container providing the `lsp-wrapper` binary and ast-grep configs | Mounted by all language containers via `--volumes-from` to share binaries without duplication |
+| **Language Containers** | `dockerfiles/*.Dockerfile` | `lsproxy-python-<id>`<br/>`lsproxy-typescript-<id>`<br/>`lsproxy-rust-<id>`<br/>`lsproxy-golang-<id>`<br/>etc. | Run language-specific LSP servers (jedi, typescript-language-server, rust-analyzer, gopls, etc.) and translate HTTP requests to LSP JSON-RPC over stdio | Mount wrapper binary via `--volumes-from`; receive HTTP requests from service; execute LSP operations; labeled with parent service ID |
+| **Watchdog** | `crates/watchdog` | `nuanced-lsp-watchdog-<id>` | Independent monitor that polls the service container health and automatically cleans up all language containers if the service crashes or stops | Monitors service via `docker inspect`; uses Docker labels to identify and cleanup language containers belonging to crashed service |
 
 ### Key Benefits
 
@@ -48,24 +48,27 @@ The system consists of several containerized components that work together to pr
 
 ```mermaid
 graph TD
-    Client[Client Application] -->|HTTP Requests| Service[lsproxy-service<br/>Orchestrator]
-    Service -->|Spawns & Routes| Python[lsproxy-python<br/>jedi-language-server]
-    Service -->|Spawns & Routes| TypeScript[lsproxy-typescript<br/>typescript-language-server]
-    Service -->|Spawns & Routes| Rust[lsproxy-rust<br/>rust-analyzer]
-    Service -->|Spawns & Routes| Golang[lsproxy-golang<br/>gopls]
-    Service -->|Creates| Wrapper[lsproxy-wrapper<br/>lsp-wrapper binary<br/>ast-grep configs]
+    Client[Client Application] -->|HTTP Requests| Proxy[nuanced-lsp-proxy]
+    Service -->|Spawns & Routes| Python[nuanced-lsp-python<br/>jedi-language-server]
+    Service -->|Spawns & Routes| TypeScript[nuanced-lsp-typescript<br/>typescript-language-server]
+    Service -->|Spawns & Routes| Rust[nuanced-lsp-rust<br/>rust-analyzer]
+    Service -->|Spawns & Routes| Golang[nuanced-lsp-golang<br/>gopls]
+    Service -->|Creates| Wrapper[nuanced-lsp-wrapper<br/>nuanced-lsp-wrapper binary<br/>ast-grep configs]
 
     Python -.->|--volumes-from| Wrapper
     TypeScript -.->|--volumes-from| Wrapper
     Rust -.->|--volumes-from| Wrapper
     Golang -.->|--volumes-from| Wrapper
 
-    Service -->|Creates| Watchdog[lsproxy-watchdog<br/>Monitor]
-    Watchdog -.->|Monitors via<br/>docker inspect| Service
+    Service -->|Creates| Watchdog[nuanced-lsp-watchdog<br/>Monitor]
+    Watchdog -.->|Monitors via<br/>docker inspect| Proxy
     Watchdog -.->|Cleans up on<br/>service crash| Python
     Watchdog -.->|Cleans up on<br/>service crash| TypeScript
+    Watchdog -.->|Cleans up on<br/>service crash| Rust
+    Watchdog -.->|Cleans up on<br/>service crash| Golang
+    Watchdog -.->|Cleans up on<br/>service crash| Wrapper
 
-    style Service fill:#4A90E2
+    style Proxy fill:#4A90E2
     style Wrapper fill:#F5A623
     style Watchdog fill:#7ED321
     style Python fill:#B8E986
@@ -76,9 +79,9 @@ graph TD
 
 ## <a name="getting-started">Getting Started</a>
 
-### Using the Nuanced LSP SDK (Recommended)
+### Using the Nuanced LSP SDK
 
-The easiest way to use this fork is through the **Nuanced LSP TypeScript SDK**, which provides both a CLI and a programmatic API.
+The **Nuanced LSP TypeScript SDK** provides a CLI and a programmatic API.
 
 #### Install the SDK
 
@@ -105,6 +108,9 @@ nuanced-lsp find-definition src/index.ts --position 10:5
 
 # Find all references to a symbol
 nuanced-lsp find-references src/index.ts --position 10:5
+
+# Check service health
+nuanced-lsp health
 
 # Check container status
 nuanced-lsp status
@@ -168,9 +174,9 @@ await client.down();
 - `find-references` - Find all references to a symbol
 
 **System:**
-- `health` - Check server health and language readiness
+- `health` - Check service and language LSP server health
 
-For full API documentation, see [Nuanced LSP API Reference](https://docs.nuanced.dev/lsp/api-reference/container-lifecycle).
+For full API documentation, see [Nuanced LSP API Reference](https://docs.nuanced.dev/lsp/api-reference).
 
 ---
 
@@ -187,8 +193,8 @@ For full API documentation, see [Nuanced LSP API Reference](https://docs.nuanced
 #    This builds: orchestrator, lsp-wrapper, and watchdog
 ./scripts/build-rust-containers.sh
 
-# 2. Start the service (language containers are pulled dynamically as needed)
-./scripts/start-service.sh sample_project/all
+# 2. Start the proxy service (language containers are pulled dynamically as needed)
+./scripts/start-proxy.sh sample_project/all
 
 # 3. Run tests
 ./scripts/test.sh
@@ -196,12 +202,12 @@ For full API documentation, see [Nuanced LSP API Reference](https://docs.nuanced
 
 **Notes:**
 - Language container images are pulled from GitHub Container Registry (ghcr.io) automatically when first needed
-- Use `./scripts/stop-service.sh` to stop the service
+- Use `./scripts/stop-proxy.sh` to stop the proxy service
 - See [docs/quickstart.md](docs/quickstart.md) for detailed instructions
 
-#### Building Multi-Architecture Images
+#### Building Docker images
 
-LSProxy supports multi-architecture Docker images for both `linux/amd64` and `linux/arm64` platforms. This section describes how to build and publish these images.
+Nuanced LSP supports multi-architecture Docker images for both `linux/amd64` and `linux/arm64` platforms. This section describes how to build and publish these images.
 
 **Building for Local Development (Single Architecture)**
 
@@ -211,18 +217,14 @@ For local development, you can build images for your native platform:
 # Build Rust containers (wrapper, service, watchdog) without cache
 ./scripts/build-rust-containers.sh
 
-# Build Rust containers with cache (faster rebuilds)
-./scripts/build-rust-containers.sh --use-cache
-
 # Build main language containers (8 languages + 7 common Ruby versions)
 ./scripts/build-language-containers.sh
 
 # Build all Ruby versions (110+ versions, takes hours)
 ./scripts/build-language-containers.sh --all-ruby-versions
-
-# Build language containers sequentially (useful for debugging)
-./scripts/build-language-containers.sh --sequential
 ```
+
+There are many options you can specify with the image build scripts that help with tagging, caching, running builds sequentially vs. parallel, etc. Please view the scripts to see the full options available.
 
 **Building Multi-Architecture Images for Release**
 
@@ -230,13 +232,13 @@ For building images that support both amd64 and arm64:
 
 ```bash
 # Build multi-arch Rust containers
-./scripts/build-rust-containers.sh --multiarch --use-cache
+./scripts/build-rust-containers.sh --multiarch
 
 # Build multi-arch language containers (main Ruby versions)
-./scripts/build-language-containers.sh --multiarch --use-cache
+./scripts/build-language-containers.sh --multiarch
 
 # Build multi-arch language containers (all Ruby versions)
-./scripts/build-language-containers.sh --multiarch --use-cache --all-ruby-versions
+./scripts/build-language-containers.sh --multiarch --all-ruby-versions
 ```
 
 **Note:** Multi-arch builds use Docker Buildx and may require QEMU for cross-compilation. The build process will be slower than single-architecture builds (2-3x).
@@ -246,58 +248,44 @@ For building images that support both amd64 and arm64:
 Images can be published to GitHub Container Registry (ghcr.io) and/or Docker Hub for redundancy:
 
 ```bash
-# Publish to both GHCR and Docker Hub (default)
-./scripts/publish-images.sh 0.4.0 --all-ruby-versions
+# Publish to GHCR
+./scripts/build-rust-containers.sh --multiarch --registry=ghcr --tag X.Y.Z
 
-# Publish only to GHCR
-./scripts/publish-images.sh 0.4.0 --registry=ghcr
-
-# Publish only to Docker Hub
-./scripts/publish-images.sh 0.4.0 --registry=dockerhub
-
-# Dry run to see what would be published
-./scripts/publish-images.sh 0.4.0 --dry-run
+./scripts/build-language-containers.sh --multiarch --registry=ghcr -- tag X.Y.Z
 ```
 
 **Environment Variables for Publishing:**
 - `GITHUB_TOKEN` - Required for publishing to ghcr.io
-- `DOCKER_HUB_TOKEN` - Required for publishing to Docker Hub
 
 **Published Image Naming:**
 - **GHCR**: `ghcr.io/nuanced-dev/{image-name}:{version}`
-- **Docker Hub**: `nuanced/{image-name}:{version}`
 
 Example published images:
 ```
 ghcr.io/nuanced-dev/nuanced-lsp-proxy:0.4.0
 ghcr.io/nuanced-dev/nuanced-lsp-wrapper:0.4.0
 ghcr.io/nuanced-dev/nuanced-lsp-watchdog:0.4.0
-ghcr.io/nuanced-dev/lsproxy-python:0.4.0
-ghcr.io/nuanced-dev/lsproxy-ruby-3.4.4:0.4.0
-ghcr.io/nuanced-dev/lsproxy-ruby-sorbet-3.4.4:0.4.0
-
-nuanced/nuanced-lsp-proxy:0.4.0
-nuanced/nuanced-lsp-wrapper:0.4.0
-nuanced/nuanced-lsp-watchdog:0.4.0
-nuanced/lsproxy-python:0.4.0
-nuanced/lsproxy-ruby-3.4.4:0.4.0
-nuanced/lsproxy-ruby-sorbet-3.4.4:0.4.0
+ghcr.io/nuanced-dev/nuanced-lsp-python:0.4.0
+ghcr.io/nuanced-dev/nuanced-lsp-ruby-3.4.4:0.4.0
+ghcr.io/nuanced-dev/nuanced-lsp-ruby-sorbet-3.4.4:0.4.0
 ```
 
 ### Architecture
 
-LSProxy uses a **service container** that dynamically spawns **language-specific containers**. This provides massive space savings compared to the original monolithic implementation.
+The entry point to Nuanced LSP is a **proxy service container**. On initialization, the mounted workspace is scaned, and programming languages are detected based on file path heuristics. The proxy service spawns a **LSP server container** for each supported language detected. After initialization completes, the proxy service proxies HTTP requests from a client to the appropriate LSP server container.
 
-#### Binary Injection Architecture
+Because LSP servers typically use JSON RPC over stdio, a thin Rust wrapper is injected into each LSP server container on initialization. This wrapper translates HTTP requests received from the proxy service into JSON RPC and forwards to the LSP server. Then the wrapper translates the LSP server's JSON RPC response into a HTTP response for the proxy service.
 
-LSProxy uses a **binary injection** architecture to share the `lsp-wrapper` binary and `ast-grep` configs across all language containers without duplication:
+#### Shared wrapper across all LSP server containers
+
+Nuanced LSP uses **binary injection** to share the `nuanced-lsp-wrapper` binary and `ast-grep` configuration across all LSP server containers. The primary advantage of this technique is language Dockerfiles remain 100% independent from the Nuanced LSP Rust code. This saves on requiring rebuilding the language images every time a Rust code change is made. It also prevents embedding the `nuanced-lsp-wrapper` binary into every language image, saving ~400MB on image size per language image.
 
 ```mermaid
 graph TB
-    Wrapper[lsproxy-wrapper<br/>165MB<br/>━━━━━━━━━━━━━━━━<br/>lsp-wrapper binary<br/>ast-grep configs<br/>━━━━━━━━━━━━━━━━<br/>VOLUME /opt/lsp-wrapper<br/>Language-agnostic HTTP server<br/>LSP process manager]
+    Wrapper[nuanced-lsp-wrapper<br/>360MB<br/>━━━━━━━━━━━━━━━━<br/>nuanced-lsp-wrapper binary<br/>ast-grep configs<br/>━━━━━━━━━━━━━━━━<br/>VOLUME /opt/nuanced-lsp-wrapper<br/>Language-agnostic HTTP server<br/>LSP process manager]
 
-    Python[lsproxy-python<br/>jedi-ls only<br/>Mounts wrapper]
-    TypeScript[lsproxy-typescript<br/>typescript-ls only<br/>Mounts wrapper]
+    Python[nuanced-lsp-python<br/>jedi-ls only<br/>Mounts wrapper]
+    TypeScript[nuanced-lsp-typescript<br/>typescript-ls only<br/>Mounts wrapper]
 
     Python -.->|--volumes-from| Wrapper
     TypeScript -.->|--volumes-from| Wrapper
@@ -307,8 +295,6 @@ graph TB
     style TypeScript fill:#B8E986
 ```
 
-This approach eliminates the need for a base image and prevents cascading rebuilds when wrapper code changes.
-
 #### Container Architecture Example
 
 When you load a workspace with Python and TypeScript files, here's what happens:
@@ -317,30 +303,31 @@ When you load a workspace with Python and TypeScript files, here's what happens:
 graph TB
     Client[Client Application<br/>API calls to localhost:4444]
 
-    Service[lsproxy-service<br/>Orchestrator<br/>187MB<br/>━━━━━━━━━━━━━━━━<br/>Routes requests<br/>Manages lifecycle<br/>Creates wrapper]
+    Proxy[nuanced-lsp-proxy<br/>187MB<br/>━━━━━━━━━━━━━━━━<br/>Spawns LSP server containers<br />Proxies requests]
 
-    Python[lsproxy-python<br/>145MB<br/>jedi-ls<br/>wrapper via --volumes-from]
+    Python[nuanced-lsp-python<br/>688MB<br/>jedi-ls]
 
-    TypeScript[lsproxy-typescript<br/>432MB<br/>typescript-ls<br/>wrapper via --volumes-from]
+    TypeScript[nuanced-lsp-typescript<br/>899MB]
 
-    Wrapper[lsproxy-wrapper<br/>165MB<br/>━━━━━━━━━━━━━━━━<br/>lsp-wrapper binary<br/>ast-grep configs]
+    Wrapper[nuanced-lsp-wrapper<br/>360MB<br/>━━━━━━━━━━━━━━━━<br/>nuanced-lsp-wrapper binary<br/>ast-grep configs]
 
-    Watchdog[lsproxy-watchdog<br/>Independent Monitor<br/>47.3MB<br/>━━━━━━━━━━━━━━━━<br/>Monitors via docker inspect<br/>Cleans up on crash<br/>Uses Docker labels]
+    Watchdog[nuanced-lsp-watchdog<br/>Independent Monitor<br/>47.3MB<br/>━━━━━━━━━━━━━━━━<br/>Monitors nuanced-lsp-proxy container<br/>Cleans up LSP server and wrapper containers on crash]
 
-    Client -->|HTTP| Service
-    Service -->|Spawns & Routes| Python
-    Service -->|Spawns & Routes| TypeScript
-    Service -->|Creates| Wrapper
-    Service -->|Creates| Watchdog
+    Client -->|HTTP| Proxy
+    Proxy -->|Creates| Wrapper
+    Proxy -->|Creates| Watchdog
+    Proxy -->|Spawns & Routes| Python
+    Proxy -->|Spawns & Routes| TypeScript
 
     Python -.->|--volumes-from| Wrapper
     TypeScript -.->|--volumes-from| Wrapper
 
-    Watchdog -.->|Monitors| Service
+    Watchdog -.->|Monitors| Proxy
     Watchdog -.->|Cleanup| Python
     Watchdog -.->|Cleanup| TypeScript
+    Watchdog -.->|Cleanup| Wrapper
 
-    style Service fill:#4A90E2
+    style Proxy fill:#4A90E2
     style Wrapper fill:#F5A623
     style Watchdog fill:#7ED321
     style Python fill:#B8E986
@@ -348,97 +335,82 @@ graph TB
     style Client fill:#E8E8E8
 ```
 
-**Total image size on disk: 976MB** (service + python + typescript + wrapper + watchdog)
+**Total image size on disk: 2.2GB** (proxy (187MB) + python (688MB) + typescript (899MB) + wrapper (360MB) + watchdog (47.3MB) = 2.1813MB)
 
-#### Request Flow
+#### Client request example
 
-This sequence diagram shows how a client request flows through the system:
+This sequence diagram shows how a client request is handled:
 
 ```mermaid
 sequenceDiagram
     participant Client
-    participant Service as lsproxy-service<br/>(Orchestrator)
-    participant Python as lsproxy-python<br/>(LSP Wrapper)
-    participant LSP as Python LSP Server<br/>(jedi-language-server)
+    participant Proxy as nuanced-lsp-proxy
+    participant Wrapper as nuanced-lsp-wrapper
+    participant Python LSP as nuanced-lsp-python<br />Jedi language server
 
-    Client->>+Service: POST /v1/symbol/find-definition<br/>{file: "main.py", position: {line: 10, character: 5}}
-    Note over Service: Detect language from file extension
-    Note over Service: Route to Python container
-    Service->>+Python: HTTP POST localhost:8080/find-definition<br/>{file: "main.py", position: {line: 10, character: 5}}
-    Note over Python: lsp-wrapper receives HTTP request
-    Python->>+LSP: LSP Request (JSON-RPC over stdio)<br/>textDocument/definition
-    Note over LSP: jedi analyzes code<br/>finds definition
-    LSP-->>-Python: LSP Response (JSON-RPC)<br/>{uri, range, ...}
-    Note over Python: lsp-wrapper translates<br/>LSP response to HTTP
-    Python-->>-Service: HTTP 200 OK<br/>{definitions: [{path, range, ...}]}
-    Note over Service: Forward response
-    Service-->>-Client: HTTP 200 OK<br/>{definitions: [{path, range, ...}]}
+    Client->>+Proxy: POST /v1/symbol/find-definition<br/>{file: "main.py", position: {line: 10, character: 5}}
+    Note over Proxy: Route to Python LSP server container based on file
+    Proxy->>+Wrapper: HTTP POST localhost:8080/find-definition<br/>{file: "main.py", position: {line: 10, character: 5}}
+    Wrapper->>+Python LSP: LSP Request (JSON-RPC over stdio)<br/>textDocument/definition
+    Note over LSP: Jedi analyzes code<br/>finds definition
+    Python LSP-->>-Wrapper: LSP Response (JSON-RPC)<br/>{uri, range, ...}
+    Note over Wrapper: Translates<br/>LSP response to HTTP
+    Wrapper-->>-Proxy: HTTP 200 OK<br/>{definitions: [{path, range, ...}]}
+    Proxy-->>-Client: HTTP 200 OK<br/>{definitions: [{path, range, ...}]}
 ```
 
-**Key Points:**
-- **Two-tier architecture**: Client communicates with service (HTTP), service communicates with language containers (HTTP)
-- **Language detection**: Service determines which container to route to based on file extension
-- **LSP translation**: Language containers translate HTTP requests to LSP JSON-RPC over stdio
-- **Container isolation**: Each language server runs in its own isolated container
+#### Container roles
 
-#### Container Components
+**1. Proxy container (nuanced-lsp-service)** - 187MB
+- Built from: `dockerfiles/proxy.Dockerfile` → `crates/proxy`
+- Spawns LSP server containers on workspace initialization
+- Spawns wrapper and watchdog containers
+- Provides HTTP API handlers to proxy client requests to appropriate LSP server container
 
-**1. Service Container (lsproxy-service)** - 187MB
-- Built from: `dockerfiles/service.Dockerfile` → `crates/orchestrator`
-- Thin HTTP handlers that proxy requests to language containers
-- Detects languages in workspace and spawns only needed containers
-- Manages container lifecycle and routing
-- Creates and maintains the shared wrapper container
-
-**2. Wrapper Container (lsproxy-wrapper)** - 165MB
+**2. Wrapper container (lsproxy-wrapper)** - 360MB
 - Built from: `dockerfiles/wrapper.Dockerfile` → `crates/wrapper`
-- Contains: `lsp-wrapper` binary + `ast-grep` configs
-- Shared across all language containers via `--volumes-from`
-- Single instance, no duplication
-- Language-agnostic: Generic HTTP server + LSP process manager
-- Configuration passed via environment variables and CMD args from language containers
+- Contains: `nuanced-lsp-wrapper` binary + `ast-grep` configs
+- Binary is injected into LSP server containers via Docker volume mounting
+- Single container per Nuanced LSP workspace
+- Provides HTTP API handlers for Proxy requests
+- Translation between proxy HTTP requests and LSP server JSON RPC
 
-**3. Language Containers** - Variable sizes (see table below)
+**3. Language containers** - Variable sizes (see table below)
 - Built from: Language-specific Dockerfiles (pure Debian base)
 - Each contains: Language-specific LSP server only (e.g., gopls, rust-analyzer)
-- Wrapper binary mounted at runtime via `--volumes-from lsproxy-wrapper`
-- Full LSP communication handlers with stdio→HTTP translation
-- Only spawned when language files are detected in workspace
+- Wrapper binary mounted at runtime via `--volumes-from nuanced-lsp-wrapper`
 
-**4. Watchdog Container (lsproxy-watchdog)** - 47.3MB
+**4. Watchdog container (nuanced-lsp-watchdog)** - 47.3MB
 - Built from: `dockerfiles/watchdog.Dockerfile`
-- Monitors service container health
-- Automatically cleans up language containers on service crash
-- Minimal footprint for reliability
-
-**5. Common Library (lsproxy-common)**
-- Not a container - compiled into orchestrator and wrapper
-- Shared types, utilities, AST-grep integration
-- Zero runtime overhead, zero duplication
+- Monitors proxy container health
+- Automatically cleans up wrapper and language containers when proxy container stops
 
 ### Development Workflow
 
 ```bash
-# Start service with your workspace
-./scripts/start-service.sh /path/to/your/project --logs
+# Run comprehensive tests
+./scripts/test.sh
 
-# Restrict which language containers are spawned (optional)
-ENABLED_LANGUAGES="python,typescript" ./scripts/start-service.sh /path/to/your/project
+# Start proxy and mount a workspace
+./scripts/start-proxy.sh /path/to/your/project --logs
 
-# In another terminal, make changes and test
+# Optionally restrict the set of enabled languages
+ENABLED_LANGUAGES="python,typescript" ./scripts/start-proxy.sh /path/to/your/project
+
+# After proxy and LSP server containers are initialized, you can issue curl requests
 curl http://localhost:4444/v1/system/health | jq
 
-# Run comprehensive tests
-./scripts/test-all-endpoints.sh
-
-# Check what's running
-docker ps --filter "name=lsproxy-"
+# Verify containers
+docker ps --filter "name=nuanced-lsp-"
 
 # View logs
-docker logs -f lsproxy-service
+docker logs -f nuanced-lsp-proxy
 
-# Stop when done
-docker rm -f lsproxy-service
+# Stop when done by removing the proxy container
+docker rm -f nuanced-lsp-proxy
+
+# Or by shutting down with a script
+./scripts/stop-proxy.sh
 ```
 
 #### Environment Variables
@@ -479,22 +451,22 @@ docker rm -f lsproxy-service
 **Examples:**
 ```bash
 # Only spawn Python and TypeScript containers
-ENABLED_LANGUAGES="python,typescript" ./scripts/start-service.sh
+ENABLED_LANGUAGES="python,typescript" ./scripts/start-proxy.sh
 
 # Using language aliases
-ENABLED_LANGUAGES="go,cpp" ./scripts/start-service.sh
+ENABLED_LANGUAGES="go,cpp" ./scripts/start-proxy.sh
 
 # Case-insensitive with spaces
-ENABLED_LANGUAGES="Python, TypeScript, Rust" ./scripts/start-service.sh
+ENABLED_LANGUAGES="Python, TypeScript, Rust" ./scripts/start-proxy.sh
 
 # Set memory limit to 8GB per container
-LSPROXY_MAX_MEMORY=8192 ./scripts/start-service.sh
+LSPROXY_MAX_MEMORY=8192 ./scripts/start-proxy.sh
 
 # Combine environment variables
-ENABLED_LANGUAGES="go" LSPROXY_MAX_MEMORY=16384 ./scripts/start-service.sh
+ENABLED_LANGUAGES="go" LSPROXY_MAX_MEMORY=16384 ./scripts/start-proxy.sh
 
 # Without ENABLED_LANGUAGES, all detected languages spawn (default)
-./scripts/start-service.sh
+./scripts/start-proxy.sh
 
 # Use specific Docker image versions (for testing or CI/CD)
 RUST_CONTAINER_VERSION=latest LANGUAGE_CONTAINER_VERSION=latest ./scripts/test.sh
@@ -503,81 +475,43 @@ RUST_CONTAINER_VERSION=latest LANGUAGE_CONTAINER_VERSION=latest ./scripts/test.s
 RUST_CONTAINER_VERSION=0.4.8 LANGUAGE_CONTAINER_VERSION=1.0.0 ./scripts/test.sh
 ```
 
-### Available Scripts
+### Supported languages and LSP image sizes
 
-| Script | Purpose |
-|--------|---------|
-| `scripts/start-service.sh` | Start LSProxy service with workspace |
-| `scripts/build-all-containers.sh` | Build all language containers |
-| `scripts/test-all-endpoints.sh` | Test all endpoints for all languages |
-| `scripts/test-container-lifecycle.sh` | Test container orchestration |
-
-### Language Container Sizes
-
-Each language container is built from pure Debian base and contains only the language-specific LSP server. The `lsp-wrapper` binary and `ast-grep` configs are shared at runtime via the wrapper container:
+Each supported language and its LSP server image is built from pure Debian base and contains only the language-specific LSP server and associated system dependencies:
 
 | Language | Container | Dockerfile | Image Size | Language Server |
 |----------|-----------|------------|------------|----------------|
-| Python | `lsproxy-python` | `dockerfiles/python.Dockerfile` | 145MB | jedi-language-server |
-| TypeScript/JavaScript | `lsproxy-typescript` | `dockerfiles/typescript.Dockerfile` | 432MB | typescript-language-server |
-| Golang | `lsproxy-golang` | `dockerfiles/golang.Dockerfile` | 610MB | gopls |
-| Rust | `lsproxy-rust` | `dockerfiles/rust.Dockerfile` | 1.02GB | rust-analyzer |
-| C/C++ | `lsproxy-clangd` | `dockerfiles/clangd.Dockerfile` | 566MB | clangd |
-| PHP | `lsproxy-php` | `dockerfiles/php.Dockerfile` | 398MB | phpactor |
-| Java | `lsproxy-java` | `dockerfiles/java.Dockerfile` | 1.03GB | eclipse-jdtls |
-| C# | `lsproxy-csharp` | `dockerfiles/csharp.Dockerfile` | 2.12GB | omnisharp |
-| Ruby | `lsproxy-ruby-3.4.4` | `dockerfiles/ruby-3.4.4.Dockerfile` | 598MB | solargraph |
-| Ruby (Sorbet) | `lsproxy-ruby-sorbet-3.4.4` | `dockerfiles/ruby-sorbet-3.4.4.Dockerfile` | 631MB | sorbet |
+| Python | `nuanced-lsp-python` | `dockerfiles/python.Dockerfile` | 688MB | jedi-language-server |
+| TypeScript/JavaScript | `nuanced-lsp-typescript` | `dockerfiles/typescript.Dockerfile` | 899MB | typescript-language-server |
+| Golang | `nuanced-lsp-golang` | `dockerfiles/golang.Dockerfile` | 702MB | gopls |
+| Rust | `nuanced-lsp-rust` | `dockerfiles/rust.Dockerfile` | 1.06GB | rust-analyzer |
+| C/C++ | `nuanced-lsp-clangd` | `dockerfiles/clangd.Dockerfile` | 953MB | clangd |
+| PHP | `nuanced-lsp-php` | `dockerfiles/php.Dockerfile` | 790MB | phpactor |
+| Java | `nuanced-lsp-java` | `dockerfiles/java.Dockerfile` | 1.16GB | eclipse-jdtls |
+| C# | `nuanced-lsp-csharp` | `dockerfiles/csharp.Dockerfile` | 2.2GB | omnisharp |
+| Ruby | `nuanced-lsp-ruby-3.4.4` | `dockerfiles/ruby-3.4.4.Dockerfile` | 985MB | ruby-lsp |
+| Ruby (Sorbet) | `nuanced-lsp-ruby-sorbet-3.4.4` | `dockerfiles/ruby-sorbet-3.4.4.Dockerfile` | 1.02MB | sorbet |
 
-**Wrapper Container**: `lsproxy-wrapper` (165MB) - Contains lsp-wrapper binary and ast-grep configs, shared via `--volumes-from` across all language containers
+**Wrapper Container**: `nuanced-lsp-wrapper` (360MB) - Contains the `nuanced-lsp-wrapper` binary and `ast-grep` configs, shared via `--volumes-from` across all language containers
 
-### Why This Architecture Saves Space
+### Why Nuanced LSP improves over agentic-labs/lsproxy
 
-**Monolithic Approach (Original)**: 13.3GB single image
-- Contains ALL language servers and dependencies
-- Must download and store 13.3GB even for a single-language project
-- Updates require rebuilding entire 13.3GB image
+**Base implementation [agentic-labs/lsproxy](https://github.com/agentic-labs/lsproxy) uses a single process / image model:**
+- Single image containing all LSP servers, languages, and system dependencies results in 13.5GB image.
+- Distribution requires rebuilding the 13.5GB image.
+- Slow image build time for multiple architectures.
+- LSP servers and their dependencies are comingled in the same image as the Rust service code. Change one or the other can lead to expensive rebuilds.
+- Clients only using one or two LSP servers must still download the full image containing unused LSP servers and dependencies.
 
-**Container Orchestration with Binary Injection**: ~500MB-1.5GB typical usage
-- Service container (187MB) + wrapper container (165MB) + only needed language containers
-- **Example 1**: Python-only project = 187MB + 165MB + 145MB + 47MB = **544MB** (96% savings)
-- **Example 2**: Python + TypeScript project = 187MB + 165MB + 145MB + 432MB + 47MB = **976MB** (93% savings)
-- **Example 3**: All 10 languages = 187MB + 165MB + 7.1GB + 47MB = **7.5GB** (44% savings)
-- Wrapper changes: Rebuild 1 wrapper image (165MB), no language container rebuilds
-- Language changes: Rebuild only affected language container(s)
-
-**Binary Injection Benefits**:
-- **No cascading rebuilds**: Wrapper code changes don't trigger language container rebuilds
-- **Smaller language containers**: No duplicated wrapper binary (saves ~165MB per container)
-- **Single source of truth**: One wrapper container shared across all language containers
-- **Faster iteration**: Edit wrapper code → rebuild 165MB image → restart service (no language rebuilds)
-
-**Additional Benefits**:
-- Parallel container builds (faster CI/CD)
-- Language containers can be cached independently
-- Easier to add new language support without affecting others
-- Better resource isolation and crash recovery via watchdog
-- Docker volume sharing enables efficient binary distribution
+**Container implementation (Nuanced LSP)**:
+- **Clients only download what they need:* core required images are the proxy (187MB), watchdog (47.7MB), and wrapper (360MB) images, in addition to LSP server images based on workspace composiiton
+- **Flexible runtime:** LSP server containers can be run on remote hosts with higher system resource allocation
+- **Isolated code changes:** The proxy, watchdog, and wrapper crates are independent from each other, and can be built in parallel. No cascading builds when the Rust code changes.
+- **Faster dev loop:** Build only the image needed based on local changes.
+- **Docker development loop:** Running Nuanced LSP locally for development is the same runtime and configuration Nuanced LSP uses in production or on end-user hosts. Docker daemon makes it easy to track individual LSP server system resource metrics and indexing latency.
+- **LSP server debug loop:** LSP server images are built in isolation, making it easy to test and experiment with LSP servers.
+- **Language version control:** Very detailed language-version support is now possible and included for Ruby / Sorbet.
 
 ### Documentation
 
-- [docs/architecture.md](docs/architecture.md) - Complete system architecture and request flow diagrams
-- [docs/quickstart.md](docs/quickstart.md) - Get running in 3 minutes
-- [docs/testing.md](docs/testing.md) - Comprehensive testing guide
-
-## <a name="supported-languages">Supported languages</a>
-
-We're looking to add new language support or better language servers so let us know what you need!
-|Language|Server|URL|
-|:-|:-|:-|
-|C/C++|`clangd`|https://clangd.llvm.org/|
-|C#|`omnisharp`|https://github.com/OmniSharp/csharp-language-server-protocol|
-|Golang|`gopls`|https://github.com/golang/tools/tree/master/gopls|
-|Java|`jdtls`|https://github.com/eclipse-jdtls/eclipse.jdt.ls|
-|Javascript|`typescript-language-server`|https://github.com/typescript-language-server/typescript-language-server|
-|PHP|`phpactor`|https://github.com/phpactor/phpactor|
-|Python|`jedi-language-server`|https://github.com/pappasam/jedi-language-server|
-|Ruby|`sorbet`|https://sorbet.org/docs/lsp|
-|Rust|`rust-analyzer`|https://github.com/rust-lang/rust-analyzer|
-|Typescript|`typescript-language-server`|https://github.com/typescript-language-server/typescript-language-server|
-|Your Favorite Language | Awesome Language Server | https://github.com/nuanced-dev/lsproxy/issues/new |
+See the `docs/` for more detailed documentation.
