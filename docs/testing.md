@@ -5,8 +5,8 @@ This document describes how to test the LSProxy container orchestration system.
 ## Overview
 
 LSProxy uses a containerized architecture where:
-- **Service Container** (`lsproxy-service`) orchestrates language-specific containers
-- **Watchdog Container** (`lsproxy-watchdog`) monitors the service and ensures cleanup on crashes
+- **Service Container** (`nuanced-lsp-proxy`) orchestrates language-specific containers
+- **Watchdog Container** (`nuanced-lsp-watchdog`) monitors the service and ensures cleanup on crashes
 - **Language Containers** (`lsproxy-python`, `lsproxy-golang`, etc.) run LSP servers
 - The service spawns language containers dynamically based on workspace content
 - The watchdog provides defense-in-depth cleanup for catastrophic failures (SIGKILL, crashes)
@@ -24,8 +24,8 @@ LSProxy uses a containerized architecture where:
 ```
 
 This builds:
-- Service image (lsproxy-service)
-- Watchdog image (lsproxy-watchdog) - monitors service and cleans up on crashes
+- Service image (nuanced-lsp-proxy)
+- Watchdog image (nuanced-lsp-watchdog) - monitors service and cleans up on crashes
 - Base images (lsproxy-base, lsproxy-base-runtime, lsproxy-base-build)
 - 10 language images (python, typescript, rust, golang, java, clangd, csharp, php, ruby-3.4.4, ruby-sorbet-3.4.4)
 
@@ -37,12 +37,12 @@ This builds:
 
 # Or manually with docker run
 docker run -d \
-    --name lsproxy-service \
+    --name nuanced-lsp-proxy \
     -p 4444:4444 \
     -v /var/run/docker.sock:/var/run/docker.sock \
     -v $(pwd)/sample_project/all:/mnt/workspace \
     -e USE_AUTH=false \
-    lsproxy-service:latest
+    nuanced-lsp-proxy:latest
 ```
 
 ### 3. Run Tests
@@ -148,11 +148,11 @@ Tests the watchdog container functionality and automatic cleanup:
 
 ### 4. Rust Integration & Unit Tests
 
-**Location:** `crates/orchestrator/tests/*.rs` and inline in `crates/orchestrator/src/` and `crates/wrapper/src/`
+**Location:** `crates/proxy/tests/*.rs` and inline in `crates/proxy/src/` and `crates/wrapper/src/`
 
 Tests the Rust codebase at multiple levels:
 
-**Integration tests** (`crates/orchestrator/tests/`):
+**Integration tests** (`crates/proxy/tests/`):
 - `container_orchestration_test.rs` - Full Docker container lifecycle testing
   - Service health checks
   - Dynamic container spawning
@@ -183,7 +183,7 @@ cargo test -- --nocapture
 cargo test -- --list
 
 # Run tests for specific crate
-cargo test -p lsproxy-orchestrator
+cargo test -p proxy
 cargo test -p lsproxy-wrapper
 ```
 
@@ -243,7 +243,7 @@ Each language has its own sample project:
 
 ### View Service Logs
 ```bash
-docker logs lsproxy-service
+docker logs nuanced-lsp-proxy
 ```
 
 ### View Language Container Logs
@@ -256,7 +256,7 @@ docker logs lsproxy-python
 docker logs lsproxy-golang
 
 # View watchdog logs (get container ID first)
-WATCHDOG=$(docker ps --filter "name=lsproxy-watchdog" --format "{{.Names}}")
+WATCHDOG=$(docker ps --filter "name=nuanced-lsp-watchdog" --format "{{.Names}}")
 docker logs $WATCHDOG
 ```
 
@@ -271,7 +271,7 @@ docker network inspect bridge --format '{{range .Containers}}{{.Name}} {{end}}'
 
 ### Interactive Service Container
 ```bash
-docker exec -it lsproxy-service /bin/bash
+docker exec -it nuanced-lsp-proxy /bin/bash
 ```
 
 ### Manual API Testing
@@ -306,12 +306,12 @@ curl -X POST http://localhost:4444/v1/symbol/find-definition \
 │         Host Machine                            │
 │                                                 │
 │  ┌──────────────────────────────────────────┐  │
-│  │   lsproxy-service                        │  │
+│  │   nuanced-lsp-proxy                        │  │
 │  │   (Rust service + orchestrator)          │  │
 │  │                                          │  │
 │  │   Spawns:                                │  │
 │  │   ┌────────────────────────────────────┐│  │
-│  │   │ lsproxy-watchdog (monitoring)      ││  │
+│  │   │ nuanced-lsp-watchdog (monitoring)      ││  │
 │  │   └────────────────────────────────────┘│  │
 │  │   ┌────────────────────────────────────┐│  │
 │  │   │ lsproxy-python                     ││  │
@@ -383,7 +383,7 @@ time ./scripts/start-proxy.sh sample_project/all
 time curl http://localhost:4444/v1/workspace/list-files
 
 # Measure container spawn time
-docker logs lsproxy-service | grep "Container spawned"
+docker logs nuanced-lsp-proxy | grep "Container spawned"
 ```
 
 Expected performance:
@@ -397,17 +397,17 @@ Expected performance:
 1. Check Docker is running: `docker ps`
 2. Check for port conflicts: `lsof -i :4444`
 3. Check disk space: `df -h`
-4. View logs: `docker logs lsproxy-service`
+4. View logs: `docker logs nuanced-lsp-proxy`
 
 ### Tests failing
 1. Ensure service is fully initialized (wait 30s after start)
 2. Check container status: `docker ps --filter "name=lsproxy-"`
-3. Verify workspace mount: `docker exec lsproxy-service ls -la /mnt/workspace`
+3. Verify workspace mount: `docker exec nuanced-lsp-proxy ls -la /mnt/workspace`
 4. Check network: `docker network inspect bridge`
-5. Verify watchdog is running: `docker ps --filter "name=lsproxy-watchdog"`
+5. Verify watchdog is running: `docker ps --filter "name=nuanced-lsp-watchdog"`
 
 ### Language container not spawning
-1. Check language detection: `docker logs lsproxy-service | grep "Detected languages"`
+1. Check language detection: `docker logs nuanced-lsp-proxy | grep "Detected languages"`
 2. Verify language image exists: `docker images | grep lsproxy-<language>`
 3. Check workspace contains files for that language
 

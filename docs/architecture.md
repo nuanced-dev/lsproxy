@@ -9,7 +9,7 @@ LSProxy is a containerized Language Server Protocol (LSP) proxy service that pro
 ```mermaid
 sequenceDiagram
     participant Client
-    participant Service as lsproxy-service<br/>(Orchestrator)
+    participant Service as nuanced-lsp-proxy<br/>(Orchestrator)
     participant Docker as Docker Engine
     participant LangContainer as Language Container<br/>(e.g., lsproxy-typescript-xxx)
     participant Wrapper as lsp-wrapper<br/>(Binary)
@@ -73,10 +73,10 @@ sequenceDiagram
 
 ## Component Details
 
-### 1. lsproxy-service (Orchestrator)
+### 1. nuanced-lsp-proxy (Orchestrator)
 - **Technology**: Rust (Actix-web framework)
-- **Location**: `crates/orchestrator/`
-- **Container**: `lsproxy-service`
+- **Location**: `crates/proxy/`
+- **Container**: `nuanced-lsp-proxy`
 - **Port**: 4444 (exposed to host)
 - **Responsibilities**:
   - HTTP API gateway (exposes `/v1/{language}/{endpoint}`)
@@ -141,7 +141,7 @@ sequenceDiagram
 
 ### 6. Watchdog (Container Cleanup)
 - **Technology**: Rust async task (part of orchestrator)
-- **Location**: `crates/orchestrator/src/container/mod.rs`
+- **Location**: `crates/proxy/src/container/mod.rs`
 - **Responsibilities**:
   - Ensures all containers are cleaned up when service stops
   - Handles both graceful shutdown and crash scenarios
@@ -154,7 +154,7 @@ sequenceDiagram
      - Stop wrapper container last (via `stop_wrapper_container()`)
      - Wrapper must be stopped last since language containers depend on its volumes
 - **Signal File**: Writes `/tmp/cleanup_complete` on successful cleanup
-- **Code Location**: `crates/orchestrator/src/container/mod.rs:336-350` (`cleanup_all()`)
+- **Code Location**: `crates/proxy/src/container/mod.rs:336-350` (`cleanup_all()`)
 
 **Why Watchdog Matters:**
 - Prevents orphaned containers consuming resources
@@ -212,7 +212,7 @@ The system uses **binary injection** via Docker volumes to share the wrapper bin
 │ Host Machine                                           │
 │                                                        │
 │  ┌──────────────────────────────────────────────────┐  │
-│  │ lsproxy-service                                  │  │
+│  │ nuanced-lsp-proxy                                  │  │
 │  │ Port: 4444 (exposed)                             │  │
 │  │ Network: bridge                                  │  │
 │  └──────────────┬───────────────────────────────────┘  │
@@ -288,7 +288,7 @@ The system uses **binary injection** via Docker volumes to share the wrapper bin
 
 ### Startup Sequence
 1. User starts service: `./scripts/start-proxy.sh`
-2. Orchestrator container starts: `lsproxy-service`
+2. Orchestrator container starts: `nuanced-lsp-proxy`
 3. Wrapper volume container starts: `lsproxy-wrapper` (provides volumes)
 4. Language containers created on-demand when first request arrives
 
@@ -299,7 +299,7 @@ The system uses **binary injection** via Docker volumes to share the wrapper bin
 4. Orchestrator container removed
 
 ### Container Naming
-- Service: `lsproxy-service`
+- Service: `nuanced-lsp-proxy`
 - Wrapper: `lsproxy-wrapper`
 - Languages: `lsproxy-{language}-{workspace-id}`
   - Example: `lsproxy-typescript-a1b2c3d4-e5f6-7890-abcd-ef1234567890`
@@ -399,7 +399,7 @@ The current system requires:
 
 3. **Simplified container structure**:
    ```
-   lsproxy-service (orchestrator)
+   nuanced-lsp-proxy (orchestrator)
        ├─ docker run -i lsproxy-python (LSP server process)
        ├─ docker run -i lsproxy-typescript (LSP server process)
        ├─ docker run -i lsproxy-rust (LSP server process)
