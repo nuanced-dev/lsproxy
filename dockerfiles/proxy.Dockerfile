@@ -1,4 +1,4 @@
-# Base LSProxy service - lightweight HTTP proxy that orchestrates language containers
+# Base Nuanced LSP proxy service - lightweight HTTP proxy that orchestrates language containers
 # Multi-stage build to minimize image size
 # Supports linux/amd64 and linux/arm64
 
@@ -71,11 +71,11 @@ RUN mkdir -p /usr/src/bin && \
             OPENSSL_DIR=/usr \
             OPENSSL_LIB_DIR=/usr/lib/x86_64-linux-gnu \
             OPENSSL_INCLUDE_DIR=/usr/include \
-            cargo build --release --bin lsproxy --target x86_64-unknown-linux-gnu && \
-            cp target/x86_64-unknown-linux-gnu/release/lsproxy /usr/src/bin/lsproxy; \
+            cargo build --release --bin nuanced-lsp-proxy --target x86_64-unknown-linux-gnu && \
+            cp target/x86_64-unknown-linux-gnu/release/nuanced-lsp-proxy /usr/src/bin/nuanced-lsp-proxy; \
         elif [ "$BUILDARCH" = "amd64" ]; then \
-            cargo build --release --bin lsproxy && \
-            cp target/release/lsproxy /usr/src/bin/lsproxy; \
+            cargo build --release --bin nuanced-lsp-proxy && \
+            cp target/release/nuanced-lsp-proxy /usr/src/bin/nuanced-lsp-proxy; \
         fi \
         ;; \
     "linux/arm64") \
@@ -86,11 +86,11 @@ RUN mkdir -p /usr/src/bin && \
             OPENSSL_DIR=/usr \
             OPENSSL_LIB_DIR=/usr/lib/aarch64-linux-gnu \
             OPENSSL_INCLUDE_DIR=/usr/include \
-            cargo build --release --bin lsproxy --target aarch64-unknown-linux-gnu && \
-            cp target/aarch64-unknown-linux-gnu/release/lsproxy /usr/src/bin/lsproxy; \
+            cargo build --release --bin nuanced-lsp-proxy --target aarch64-unknown-linux-gnu && \
+            cp target/aarch64-unknown-linux-gnu/release/nuanced-lsp-proxy /usr/src/bin/nuanced-lsp-proxy; \
         elif [ "$BUILDARCH" = "arm64" ]; then \
-            cargo build --release --bin lsproxy && \
-            cp target/release/lsproxy /usr/src/bin/lsproxy; \
+            cargo build --release --bin nuanced-lsp-proxy && \
+            cp target/release/nuanced-lsp-proxy /usr/src/bin/nuanced-lsp-proxy; \
         fi \
         ;; \
     esac
@@ -109,7 +109,7 @@ RUN apt-get update && apt-get install \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy binary from builder (cross-compiled or native)
-COPY --from=builder /usr/src/bin/lsproxy /usr/local/bin/lsproxy
+COPY --from=builder /usr/src/bin/nuanced-lsp-proxy /usr/local/bin/nuanced-lsp-proxy
 
 # Create workspace directory
 RUN mkdir -p /mnt/workspace && \
@@ -122,4 +122,4 @@ WORKDIR /mnt/workspace
 EXPOSE 4444
 
 # Run the service
-CMD ["/usr/local/bin/lsproxy"]
+CMD ["/usr/local/bin/nuanced-lsp-proxy"]

@@ -2,8 +2,8 @@
 
 set -e
 
-# Stop LSProxy service and clean up all containers
-# Usage: ./scripts/stop-service.sh [--force]
+# Stop Nuanced LSP proxy and clean up all containers
+# Usage: ./scripts/stop-proxy.sh [--force]
 
 # Colors
 GREEN='\033[0;32m'
@@ -18,8 +18,8 @@ while [[ $# -gt 0 ]]; do
         --help|-h)
             echo "Usage: $0"
             echo ""
-            echo "This script stops and removes all LSProxy containers:"
-            echo "  - Service container"
+            echo "This script stops and removes all Nuanced LSP containers:"
+            echo "  - Proxy container"
             echo "  - Watchdog container"
             echo "  - All language containers"
             exit 0
@@ -32,20 +32,20 @@ while [[ $# -gt 0 ]]; do
 done
 
 echo -e "${BLUE}=========================================${NC}"
-echo -e "${BLUE}  Stopping LSProxy Service${NC}"
+echo -e "${BLUE}  Stopping Nuanced LSP Proxy${NC}"
 echo -e "${BLUE}=========================================${NC}"
 echo
 
 # Check if any containers are running
-CONTAINERS=$(docker ps -aq --filter "name=lsproxy-")
+CONTAINERS=$(docker ps -aq --filter "name=nuanced-lsp-")
 if [ -z "$CONTAINERS" ]; then
-    echo -e "${YELLOW}No LSProxy containers found${NC}"
+    echo -e "${YELLOW}No Nuanced LSP containers found${NC}"
     exit 0
 fi
 
 # Show what will be stopped
 echo -e "${BLUE}Containers to stop:${NC}"
-docker ps --filter "name=lsproxy-" --format "  {{.Names}}\t({{.Status}})"
+docker ps --filter "name=nuanced-lsp-" --format "  {{.Names}}\t({{.Status}})"
 echo
 
 # Stop and remove containers
@@ -61,11 +61,11 @@ for container in $CONTAINERS; do
 done
 
 # Verify cleanup
-REMAINING=$(docker ps -aq --filter "name=lsproxy-" | wc -l | tr -d ' ')
+REMAINING=$(docker ps -aq --filter "name=nuanced-lsp-" | wc -l | tr -d ' ')
 if [ "$REMAINING" -eq 0 ]; then
     echo
     echo -e "${GREEN}=========================================${NC}"
-    echo -e "${GREEN}  ✓ All LSProxy containers stopped${NC}"
+    echo -e "${GREEN}  ✓ All Nuanced LSP containers stopped${NC}"
     echo -e "${GREEN}=========================================${NC}"
     exit 0
 else
@@ -74,7 +74,7 @@ else
     echo -e "${YELLOW}  ⚠ Warning: $REMAINING containers remaining${NC}"
     echo -e "${YELLOW}=========================================${NC}"
     echo -e "${YELLOW}Remaining containers:${NC}"
-    docker ps -a --filter "name=lsproxy-" --format "  {{.Names}}\t({{.Status}})"
+    docker ps -a --filter "name=nuanced-lsp-" --format "  {{.Names}}\t({{.Status}})"
     echo
     echo -e "${YELLOW}Some containers could not be stopped${NC}"
     exit 1

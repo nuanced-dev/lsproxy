@@ -3,11 +3,11 @@ use actix_web::web::{Data, Json};
 use actix_web::HttpResponse;
 use log::{error, info};
 use lsp_types::{GotoDefinitionResponse, Position as LspPosition};
-use lsproxy_common::api_types::{
+use common::api_types::{
     get_mount_dir, ErrorResponse, FilePosition, GetReferencedSymbolsRequest, Identifier, Position,
     ReferenceWithSymbolDefinitions, ReferencedSymbolsResponse,
 };
-use lsproxy_common::utils::file_utils::uri_to_relative_path_string;
+use common::utils::file_utils::uri_to_relative_path_string;
 
 /// Find all symbols that are referenced from a given symbol's definition
 ///

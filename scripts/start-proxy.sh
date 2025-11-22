@@ -2,8 +2,8 @@
 
 set -e
 
-# Start Nuanced LSP service with container orchestration
-# Usage: ./scripts/start-service.sh [workspace_path] [options]
+# Start Nuanced LSP proxy with container orchestration
+# Usage: ./scripts/start-proxy.sh [workspace_path] [options]
 
 # Colors
 GREEN='\033[0;32m'
@@ -94,7 +94,7 @@ if docker ps --filter "name=nuanced-lsp-proxy" --format "{{.Names}}" | grep -q "
         echo -e "${BLUE}Stopping existing service...${NC}"
         docker rm -f nuanced-lsp-proxy
         # Also stop any orphaned language containers
-        docker rm -f $(docker ps -aq --filter "name=lsproxy-") 2>/dev/null || true
+        docker rm -f $(docker ps -aq --filter "name=nuanced-lsp-") 2>/dev/null || true
     else
         echo -e "${YELLOW}Exiting without changes${NC}"
         exit 0
@@ -187,7 +187,7 @@ if [ "$DETACHED" = true ]; then
 
     # Show running containers
     echo -e "${BLUE}Running containers:${NC}"
-    docker ps --filter "name=lsproxy-" --format "  {{.Names}}\t({{.Status}})"
+    docker ps --filter "name=nuanced-lsp-" --format "  {{.Names}}\t({{.Status}})"
     echo
 
     echo -e "${BLUE}Useful commands:${NC}"

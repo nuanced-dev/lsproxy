@@ -3,12 +3,12 @@ use crate::manager::{LspManagerError, Manager};
 use actix_web::web::{Data, Json};
 use actix_web::HttpResponse;
 use log::{error, info, warn};
-use lsproxy_common::api_types::{CodeContext, FileRange, Position, Range};
-use lsproxy_common::utils::file_utils::uri_to_relative_path_string;
+use common::api_types::{CodeContext, FileRange, Position, Range};
+use common::utils::file_utils::uri_to_relative_path_string;
 
 use crate::AppState;
 use lsp_types::{GotoDefinitionResponse, Location, Position as LspPosition, Range as LspRange};
-use lsproxy_common::api_types::{DefinitionResponse, GetDefinitionRequest};
+use common::api_types::{DefinitionResponse, GetDefinitionRequest};
 /// Get the definition of a symbol at a specific position in a file
 ///
 /// Returns the location of the definition for the symbol at the given position.
@@ -79,12 +79,12 @@ pub async fn find_definition(
     };
 
     // Create a placeholder identifier from the request position
-    let placeholder_identifier = lsproxy_common::api_types::Identifier {
+    let placeholder_identifier = common::api_types::Identifier {
         name: String::from("(identifier)"),
         kind: None,
-        file_range: lsproxy_common::api_types::FileRange {
+        file_range: common::api_types::FileRange {
             path: info.position.path.clone(),
-            range: lsproxy_common::api_types::Range {
+            range: common::api_types::Range {
                 start: info.position.position.clone(),
                 end: info.position.position.clone(),
             },

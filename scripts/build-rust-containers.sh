@@ -2,7 +2,7 @@
 
 set -e
 
-# Build Rust-based containers (wrapper, service, watchdog)
+# Build Rust-based containers (wrapper, proxy, watchdog)
 # Usage: ./scripts/build-rust-containers.sh [--use-cache] [--multiarch] [--load] [--tag=TAG] [--registry=REGISTRY] [--sequential]
 #
 # By default:
@@ -238,7 +238,7 @@ build_image() {
     fi
 }
 
-# Build images (wrapper, service, watchdog)
+# Build images (wrapper, proxy, watchdog)
 echo -e "${YELLOW}Step 1: Building images${NC}"
 
 WRAPPER_IMAGE_TAG="${REGISTRY_PREFIX}nuanced-lsp-wrapper:${TAG}"
@@ -253,9 +253,9 @@ if [ "$PARALLEL" = true ]; then
     pids+=($!)
     names+=("wrapper")
 
-    (build_image "${PROXY_IMAGE_TAG}" dockerfiles/service.Dockerfile /tmp/build-service.log "nuanced-lsp-proxy") &
+    (build_image "${PROXY_IMAGE_TAG}" dockerfiles/proxy.Dockerfile /tmp/build-proxy.log "nuanced-lsp-proxy") &
     pids+=($!)
-    names+=("service")
+    names+=("proxy")
 
     (build_image "${WATCHDOG_IMAGE_TAG}" dockerfiles/watchdog.Dockerfile /tmp/build-watchdog.log "nuanced-lsp-watchdog") &
     pids+=($!)
@@ -274,7 +274,7 @@ if [ "$PARALLEL" = true ]; then
     fi
 else
     build_image "${WRAPPER_IMAGE_TAG}" dockerfiles/wrapper.Dockerfile /tmp/build-wrapper.log "nuanced-lsp-wrapper" || exit 1
-    build_image "${PROXY_IMAGE_TAG}" dockerfiles/service.Dockerfile /tmp/build-service.log "nuanced-lsp-proxy" || exit 1
+    build_image "${PROXY_IMAGE_TAG}" dockerfiles/proxy.Dockerfile /tmp/build-proxy.log "nuanced-lsp-proxy" || exit 1
     build_image "${WATCHDOG_IMAGE_TAG}" dockerfiles/watchdog.Dockerfile /tmp/build-watchdog.log "nuanced-lsp-watchdog" || exit 1
 fi
 echo
@@ -292,9 +292,9 @@ if [ "$MULTIARCH" = true ]; then
         echo -e "${BLUE}Loading nuanced-lsp-wrapper:${TAG} (local platform)...${NC}"
         docker buildx build --load $CACHE_FLAG -f dockerfiles/wrapper.Dockerfile -t nuanced-lsp-wrapper:${TAG} . > /tmp/build-wrapper-local.log 2>&1
 
-        # Build service for local platform with --load
+        # Build proxy for local platform with --load
         echo -e "${BLUE}Loading nuanced-lsp-proxy:${TAG} (local platform)...${NC}"
-        docker buildx build --load $CACHE_FLAG -f dockerfiles/service.Dockerfile -t nuanced-lsp-proxy:${TAG} . > /tmp/build-service-local.log 2>&1
+        docker buildx build --load $CACHE_FLAG -f dockerfiles/proxy.Dockerfile -t nuanced-lsp-proxy:${TAG} . > /tmp/build-proxy-local.log 2>&1
 
         # Build watchdog for local platform with --load
         echo -e "${BLUE}Loading nuanced-lsp-watchdog:${TAG} (local platform)...${NC}"

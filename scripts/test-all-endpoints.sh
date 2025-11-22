@@ -70,7 +70,7 @@ cleanup() {
     elif [ "$CLEANUP_ON_EXIT" = false ]; then
 u       echo
         echo -e "${YELLOW}Skipping cleanup (--no-cleanup specified)${NC}"
-        echo -e "${YELLOW}To clean up manually, run: ./scripts/stop-service.sh --force${NC}"
+        echo -e "${YELLOW}To clean up manually, run: ./scripts/stop-proxy.sh --force${NC}"
     elif [ "$STARTED_SERVICE" = false ]; then
         echo
         echo -e "${YELLOW}Leaving existing containers running (tests used pre-existing service)${NC}"
@@ -330,10 +330,10 @@ else
         exit 1
     fi
 
-    # Start the service using start-service.sh
-    if ! ./scripts/start-service.sh "$WORKSPACE_PATH" > /tmp/test-service-startup.log 2>&1; then
+    # Start the service using start-proxy.sh
+    if ! ./scripts/start-proxy.sh "$WORKSPACE_PATH" > /tmp/test-proxy-startup.log 2>&1; then
         echo -e "${RED}✗ ERROR: Failed to start service${NC}"
-        echo -e "${YELLOW}  Check logs: tail -50 /tmp/test-service-startup.log${NC}"
+        echo -e "${YELLOW}  Check logs: tail -50 /tmp/test-proxy-startup.log${NC}"
         exit 1
     fi
 

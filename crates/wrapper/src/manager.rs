@@ -5,11 +5,11 @@ use lsp_types::{GotoDefinitionResponse, Location, Position, Range};
 ///
 /// Unlike the main LSProxy Manager that orchestrates multiple language servers,
 /// this Manager wraps a single LSP client for the configured language.
-use lsproxy_common::api_types::{get_mount_dir, Identifier, Symbol};
-use lsproxy_common::ast_grep::client::AstGrepClient;
-use lsproxy_common::ast_grep::types::AstGrepMatch;
-use lsproxy_common::utils::file_utils::uri_to_relative_path_string;
-use lsproxy_common::utils::workspace_documents::WorkspaceDocuments;
+use common::api_types::{get_mount_dir, Identifier, Symbol};
+use common::ast_grep::client::AstGrepClient;
+use common::ast_grep::types::AstGrepMatch;
+use common::utils::file_utils::uri_to_relative_path_string;
+use common::utils::workspace_documents::WorkspaceDocuments;
 use std::sync::Arc;
 use thiserror::Error;
 use tokio::sync::Mutex;
@@ -26,7 +26,7 @@ pub enum LspManagerError {
     NoLspClientAvailable,
 
     #[error("LSP client not found for {0}")]
-    LspClientNotFound(lsproxy_common::api_types::SupportedLanguages),
+    LspClientNotFound(common::api_types::SupportedLanguages),
 
     #[error("Unsupported file type: {0}")]
     UnsupportedFileType(String),
@@ -278,15 +278,15 @@ impl Manager {
     }
 
     /// For health check - in lsp-wrapper, we always have a client
-    pub fn get_client(&self, _lang: lsproxy_common::api_types::SupportedLanguages) -> Option<()> {
+    pub fn get_client(&self, _lang: common::api_types::SupportedLanguages) -> Option<()> {
         Some(())
     }
 }
 
 // Convert from common LspError to wrapper-specific LspManagerError
-impl From<lsproxy_common::error::LspError> for LspManagerError {
-    fn from(err: lsproxy_common::error::LspError) -> Self {
-        use lsproxy_common::error::LspError as CommonError;
+impl From<common::error::LspError> for LspManagerError {
+    fn from(err: common::error::LspError) -> Self {
+        use common::error::LspError as CommonError;
         match &err {
             CommonError::FileNotFound(s) => LspManagerError::FileNotFound(s.clone()),
             CommonError::UnsupportedFileType(s) => LspManagerError::UnsupportedFileType(s.clone()),
