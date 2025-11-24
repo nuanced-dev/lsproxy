@@ -50,15 +50,14 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# Copy workspace structure for orchestrator build
-# Need to copy all workspace members even though we're only building orchestrator
+# Copy workspace structure for proxy build
+# Need to copy all workspace members even though we're only building proxy
 WORKDIR /usr/src
 COPY Cargo.toml Cargo.lock ./
 COPY crates/common crates/common/
-COPY crates/orchestrator crates/orchestrator/
-# Copy wrapper stub to satisfy workspace
-COPY crates/wrapper/Cargo.toml crates/wrapper/Cargo.toml
-COPY crates/wrapper/src crates/wrapper/src/
+COPY crates/proxy crates/proxy/
+# Copy wrapper crate to satisfy workspace
+COPY crates/wrapper crates/wrapper/
 
 # Build lsproxy binary from workspace with cross-compilation support
 RUN mkdir -p /usr/src/bin && \

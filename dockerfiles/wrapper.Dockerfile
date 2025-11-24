@@ -45,29 +45,29 @@ WORKDIR /usr/src
 COPY Cargo.toml Cargo.lock ./
 COPY crates/common crates/common/
 COPY crates/wrapper crates/wrapper/
-# Copy orchestrator stub to satisfy workspace (we need ast_grep configs anyway)
-COPY crates/orchestrator/Cargo.toml crates/orchestrator/Cargo.toml
-COPY crates/orchestrator/src crates/orchestrator/src/
+# Copy proxy stub to satisfy workspace (we need ast_grep configs anyway)
+COPY crates/proxy/Cargo.toml crates/proxy/Cargo.toml
+COPY crates/proxy/src crates/proxy/src/
 
-# Build lsp-wrapper binary from workspace
+# Build nuanced-lsp-wrapper binary from workspace
 RUN mkdir -p /usr/src/bin && \
     case "$TARGETPLATFORM" in \
     "linux/amd64") \
     if [ "$BUILDARCH" = "arm64" ]; then \
-    cargo build --release --bin lsp-wrapper --target x86_64-unknown-linux-gnu && \
-    cp target/x86_64-unknown-linux-gnu/release/lsp-wrapper /usr/src/bin/lsp-wrapper; \
+    cargo build --release --bin nuanced-lsp-wrapper --target x86_64-unknown-linux-gnu && \
+    cp target/x86_64-unknown-linux-gnu/release/nuanced-lsp-wrapper /usr/src/bin/nuanced-lsp-wrapper; \
     elif [ "$BUILDARCH" = "amd64" ]; then \
-    cargo build --release --bin lsp-wrapper && \
-    cp target/release/lsp-wrapper /usr/src/bin/lsp-wrapper; \
+    cargo build --release --bin nuanced-lsp-wrapper && \
+    cp target/release/nuanced-lsp-wrapper /usr/src/bin/nuanced-lsp-wrapper; \
     fi \
     ;; \
     "linux/arm64") \
     if [ "$BUILDARCH" = "amd64" ]; then \
-    cargo build --release --bin lsp-wrapper --target aarch64-unknown-linux-gnu && \
-    cp target/aarch64-unknown-linux-gnu/release/lsp-wrapper /usr/src/bin/lsp-wrapper; \
+    cargo build --release --bin nuanced-lsp-wrapper --target aarch64-unknown-linux-gnu && \
+    cp target/aarch64-unknown-linux-gnu/release/nuanced-lsp-wrapper /usr/src/bin/nuanced-lsp-wrapper; \
     elif [ "$BUILDARCH" = "arm64" ]; then \
-    cargo build --release --bin lsp-wrapper && \
-    cp target/release/lsp-wrapper /usr/src/bin/lsp-wrapper; \
+    cargo build --release --bin nuanced-lsp-wrapper && \
+    cp target/release/nuanced-lsp-wrapper /usr/src/bin/nuanced-lsp-wrapper; \
     fi \
     ;; \
     esac
@@ -97,7 +97,7 @@ RUN pip3 install --no-cache-dir ast-grep-cli --break-system-packages && \
     chmod +x /opt/lsp-wrapper/bin/ast-grep
 
 # Copy ONLY the wrapper binary and ast-grep configs
-COPY --from=builder /usr/src/bin/lsp-wrapper /opt/lsp-wrapper/bin/lsp-wrapper
+COPY --from=builder /usr/src/bin/nuanced-lsp-wrapper /opt/lsp-wrapper/bin/lsp-wrapper
 RUN chmod +x /opt/lsp-wrapper/bin/lsp-wrapper
 
 # Copy ast-grep configs from builder
