@@ -93,6 +93,7 @@ pub trait LspClient: Send {
         params: Option<serde_json::Value>,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let notification = self.get_json_rpc().create_notification(method, params);
+        debug!("Sending notification: {}", method);
         self.get_process().send(&notification).await?;
         Ok(())
     }
@@ -106,6 +107,7 @@ pub trait LspClient: Send {
 
         let mut response_receiver = self.get_pending_requests().add_request(id).await?;
 
+        debug!("Sending request {}: {}", id, method);
         self.get_process().send(&request).await?;
 
         let response = response_receiver
