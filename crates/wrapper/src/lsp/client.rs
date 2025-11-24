@@ -87,6 +87,23 @@ pub trait LspClient: Send {
         Ok(params)
     }
 
+    async fn send_notification(
+        &mut self,
+        method: &str,
+        params: Option<serde_json::Value>,
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
+        let notification = self.get_json_rpc().create_notification(method, params);
+
+        let message = format!(
+            "Content-Length: {}\r\n\r\n{}",
+            notification.len(),
+            notification
+        );
+        debug!("Message: {:?}", message);
+        self.get_process().send(&message).await?;
+        Ok(())
+    }
+
     async fn send_request(
         &mut self,
         method: &str,
@@ -168,15 +185,8 @@ pub trait LspClient: Send {
 
     async fn send_initialized(&mut self) -> Result<(), Box<dyn Error + Send + Sync>> {
         debug!("Sending 'initialized' notification");
-        let notification = self
-            .get_json_rpc()
-            .create_notification("initialized", serde_json::json!({}));
-        let message = format!(
-            "Content-Length: {}\r\n\r\n{}",
-            notification.len(),
-            notification
-        );
-        self.get_process().send(&message).await
+        self.send_notification("initialized", Some(serde_json::json!({})))
+            .await
     }
 
     async fn text_document_did_open(
@@ -186,15 +196,8 @@ pub trait LspClient: Send {
         let params = DidOpenTextDocumentParams {
             text_document: item,
         };
-        let notification = self
-            .get_json_rpc()
-            .create_notification("textDocument/didOpen", serde_json::to_value(params)?);
-        let message = format!(
-            "Content-Length: {}\r\n\r\n{}",
-            notification.len(),
-            notification
-        );
-        self.get_process().send(&message).await
+        self.send_notification("textDocument/didOpen", Some(serde_json::to_value(params)?))
+            .await
     }
 
     async fn text_document_definition(

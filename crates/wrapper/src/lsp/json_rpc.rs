@@ -11,7 +11,7 @@ use tokio::sync::Mutex;
 pub trait JsonRpc: Send + Sync {
     fn create_success_response(&self, id: u64) -> String;
     fn create_request(&self, method: &str, params: Option<Value>) -> (u64, String);
-    fn create_notification(&self, method: &str, params: Value) -> String;
+    fn create_notification(&self, method: &str, params: Option<Value>) -> String;
     fn parse_message(&self, data: &str) -> Result<JsonRpcMessage, JsonRpcError>;
 }
 
@@ -75,11 +75,11 @@ impl JsonRpc for JsonRpcHandler {
         (id, request)
     }
 
-    fn create_notification(&self, method: &str, params: Value) -> String {
+    fn create_notification(&self, method: &str, params: Option<Value>) -> String {
         serde_json::json!({
             "jsonrpc": "2.0",
             "method": method,
-            "params": params
+            "params": params.unwrap_or(serde_json::Value::Null)
         })
         .to_string()
     }
