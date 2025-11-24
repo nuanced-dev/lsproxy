@@ -93,14 +93,7 @@ pub trait LspClient: Send {
         params: Option<serde_json::Value>,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let notification = self.get_json_rpc().create_notification(method, params);
-
-        let message = format!(
-            "Content-Length: {}\r\n\r\n{}",
-            notification.len(),
-            notification
-        );
-        debug!("Message: {:?}", message);
-        self.get_process().send(&message).await?;
+        self.get_process().send(&notification).await?;
         Ok(())
     }
 
@@ -113,9 +106,7 @@ pub trait LspClient: Send {
 
         let mut response_receiver = self.get_pending_requests().add_request(id).await?;
 
-        let message = format!("Content-Length: {}\r\n\r\n{}", request.len(), request);
-        debug!("Message: {:?}", message);
-        self.get_process().send(&message).await?;
+        self.get_process().send(&request).await?;
 
         let response = response_receiver
             .recv()
@@ -156,13 +147,7 @@ pub trait LspClient: Send {
                                     id, message
                                 );
                                 let response = json_rpc.create_success_response(id);
-
-                                let message = format!(
-                                    "Content-Length: {}\r\n\r\n{}",
-                                    response.len(),
-                                    response
-                                );
-                                let _ = process.send(&message).await;
+                                let _ = process.send(&response).await;
                             }
                         } else if let Some(params) = message.params.clone() {
                             let message_key = ExpectedMessageKey {
