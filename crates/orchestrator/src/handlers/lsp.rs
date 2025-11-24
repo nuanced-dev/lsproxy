@@ -7,7 +7,7 @@ use log::{debug, error, info, warn};
 use lsp_types::{
     DeclarationCapability, FoldingRangeProviderCapability, HoverProviderCapability,
     ImplementationProviderCapability, InitializeResult, OneOf, PositionEncodingKind,
-    ServerCapabilities, ServerInfo,
+    ServerCapabilities, ServerInfo, TextDocumentSyncKind, TextDocumentSyncOptions,
 };
 use lsproxy_common::api_types::{JsonRpcRequest, JsonRpcResponse};
 use serde_json::Value;
@@ -163,6 +163,14 @@ fn handle_lifecycle_request(request: &JsonRpcRequest) -> Option<HttpResponse> {
             capabilities.inline_value_provider = Some(OneOf::Left(true));
             capabilities.position_encoding = Some(PositionEncodingKind::UTF16);
             capabilities.references_provider = Some(OneOf::Left(true));
+            capabilities.text_document_sync = Some(
+                TextDocumentSyncOptions {
+                    open_close: Some(true),
+                    change: Some(TextDocumentSyncKind::FULL),
+                    ..Default::default()
+                }
+                .into(),
+            );
             capabilities.type_definition_provider = Some(true.into());
             let response = JsonRpcResponse::new_result(
                 req_id,
