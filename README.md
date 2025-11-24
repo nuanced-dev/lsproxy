@@ -49,18 +49,18 @@ The system consists of several containerized components that work together to pr
 ```mermaid
 graph TD
     Client[Client Application] -->|HTTP Requests| Proxy[nuanced-lsp-proxy]
-    Service -->|Spawns & Routes| Python[nuanced-lsp-python<br/>jedi-language-server]
-    Service -->|Spawns & Routes| TypeScript[nuanced-lsp-typescript<br/>typescript-language-server]
-    Service -->|Spawns & Routes| Rust[nuanced-lsp-rust<br/>rust-analyzer]
-    Service -->|Spawns & Routes| Golang[nuanced-lsp-golang<br/>gopls]
-    Service -->|Creates| Wrapper[nuanced-lsp-wrapper<br/>nuanced-lsp-wrapper binary<br/>ast-grep configs]
+    Proxy -->|Spawns & Routes| Python[nuanced-lsp-python<br/>jedi-language-server]
+    Proxy -->|Spawns & Routes| TypeScript[nuanced-lsp-typescript<br/>typescript-language-server]
+    Proxy -->|Spawns & Routes| Rust[nuanced-lsp-rust<br/>rust-analyzer]
+    Proxy -->|Spawns & Routes| Golang[nuanced-lsp-golang<br/>gopls]
+    Proxy -->|Creates| Wrapper[nuanced-lsp-wrapper<br/>nuanced-lsp-wrapper binary<br/>ast-grep configs]
 
     Python -.->|--volumes-from| Wrapper
     TypeScript -.->|--volumes-from| Wrapper
     Rust -.->|--volumes-from| Wrapper
     Golang -.->|--volumes-from| Wrapper
 
-    Service -->|Creates| Watchdog[nuanced-lsp-watchdog<br/>Monitor]
+    Proxy -->|Creates| Watchdog[nuanced-lsp-watchdog<br/>Monitor]
     Watchdog -.->|Monitors via<br/>docker inspect| Proxy
     Watchdog -.->|Cleans up on<br/>service crash| Python
     Watchdog -.->|Cleans up on<br/>service crash| TypeScript
