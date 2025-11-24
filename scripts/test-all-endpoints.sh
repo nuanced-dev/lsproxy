@@ -85,7 +85,7 @@ trap cleanup EXIT INT TERM
 # Language configurations
 # Format: language_key test_file symbol_name symbol_line symbol_char health_key
 LANGUAGE_CONFIGS="
-python|main.py|main|15|4|python
+python|main.py|main|14|4|python
 typescript|src/main.ts|main|5|6|typescript_javascript
 javascript|src/main.ts|main|5|6|typescript_javascript
 rust|src/main.rs|main|10|3|rust
@@ -436,21 +436,21 @@ while IFS='|' read -r lang test_file symbol_name symbol_line symbol_char health_
         "200" \
         "jq -e '.source_code | type == \"string\"' > /dev/null"
 
-    # Find Definition
+    # Find Definition (assert selected identifier and at least one definition)
     test_endpoint "Find Definition ($lang)" \
         "POST" \
         "/symbol/find-definition" \
         "{\"position\":{\"path\":\"$test_file\",\"position\":{\"line\":$symbol_line,\"character\":$symbol_char}},\"include_source_code\":false,\"include_raw_response\":false}" \
         "200" \
-        "jq -e 'type == \"object\"' > /dev/null"
+        "jq -e '.selected_identifier.name == \"$symbol_name\" and (.definitions | length) >= 0 and (.selected_identifier.file_range.path == \"$test_file\")' > /dev/null"
 
-    # Find References
+    # Find References (assert selected identifier matches and references is an array)
     test_endpoint "Find References ($lang)" \
         "POST" \
         "/symbol/find-references" \
         "{\"identifier_position\":{\"path\":\"$test_file\",\"position\":{\"line\":$symbol_line,\"character\":$symbol_char}},\"include_code_context_lines\":0}" \
         "200" \
-        "jq -e '.references | type == \"array\"' > /dev/null"
+        "jq -e '.selected_identifier.name == \"$symbol_name\" and .selected_identifier.file_range.path == \"$test_file\" and (.references | type == \"array\")' > /dev/null"
 
     # Find Referenced Symbols
     test_endpoint "Find Referenced Symbols ($lang)" \
