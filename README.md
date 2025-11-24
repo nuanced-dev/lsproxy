@@ -8,7 +8,7 @@ Originally forked from [agentic-labs/lsproxy](https://github.com/agentic-labs/ls
 
 </div>
 
-## <a name="what-is-lsproxy">What is Nuanced LSP?</a>
+## <a name="what-is-lsp">What is Nuanced LSP?</a>
 
 Nuanced LSP is a Dockerized Rust service that proxies LSP requests to LSP server containers, and offers enhanced LSP capabilities by leveraging `ast-grep`.
 
@@ -32,7 +32,7 @@ The system consists of several containerized components that work together to pr
 |-----------|---------------|-------------------|---------|---------------|
 | **Service** | `crates/proxy` | `nuanced-lsp-proxy` | Main orchestrator that receives HTTP requests from clients, detects file languages, and routes requests to appropriate language containers | Spawns wrapper, language containers, and watchdog; forwards requests between client and language containers |
 | **Wrapper** | `crates/wrapper` | `nuanced-lsp-wrapper-<id>` | Shared volume container providing the `lsp-wrapper` binary and ast-grep configs | Mounted by all language containers via `--volumes-from` to share binaries without duplication |
-| **Language Containers** | `dockerfiles/*.Dockerfile` | `lsproxy-python-<id>`<br/>`lsproxy-typescript-<id>`<br/>`lsproxy-rust-<id>`<br/>`lsproxy-golang-<id>`<br/>etc. | Run language-specific LSP servers (jedi, typescript-language-server, rust-analyzer, gopls, etc.) and translate HTTP requests to LSP JSON-RPC over stdio | Mount wrapper binary via `--volumes-from`; receive HTTP requests from service; execute LSP operations; labeled with parent service ID |
+| **Language Containers** | `dockerfiles/*.Dockerfile` | `nuanced-lsp-python-<id>`<br/>`nuanced-lsp-typescript-<id>`<br/>`nuanced-lsp-rust-<id>`<br/>`nuanced-lsp-golang-<id>`<br/>etc. | Run language-specific LSP servers (jedi, typescript-language-server, rust-analyzer, gopls, etc.) and translate HTTP requests to LSP JSON-RPC over stdio | Mount wrapper binary via `--volumes-from`; receive HTTP requests from service; execute LSP operations; labeled with parent service ID |
 | **Watchdog** | `crates/watchdog` | `nuanced-lsp-watchdog-<id>` | Independent monitor that polls the service container health and automatically cleans up all language containers if the service crashes or stops | Monitors service via `docker inspect`; uses Docker labels to identify and cleanup language containers belonging to crashed service |
 
 ### Key Benefits
@@ -40,7 +40,7 @@ The system consists of several containerized components that work together to pr
 - **Process isolation** - Separates proxy service process from LSP server processes, preventing crashes in one language server from affecting others
 - **Role-based image organization** - Docker images are cleanly separated into their corresponding roles: service, wrapper, watchdog, and individual language LSP images
 - **Lightweight service image** - Service image is relatively small at 187MB, enabling fast deployment and updates
-- **Binary injection architecture** - Language LSP server images are completely independent from lsproxy Rust code via binary injection, preventing expensive image rebuilds when Rust code changes
+- **Binary injection architecture** - Language LSP server images are independent from the Nuanced LSP Rust code via binary injection, preventing expensive image rebuilds when Rust code changes
 - **Dynamic language support** - Language container images are pulled dynamically on-demand based on detected languages in your workspace
 - **Automatic cleanup** - Watchdog ensures no orphaned containers remain running if the service crashes or is killed
 - **Multi-instance support** - Multiple service instances can run simultaneously, each with isolated language containers identified by unique service IDs
@@ -367,7 +367,7 @@ sequenceDiagram
 - Spawns wrapper and watchdog containers
 - Provides HTTP API handlers to proxy client requests to appropriate LSP server container
 
-**2. Wrapper container (lsproxy-wrapper)** - 360MB
+**2. Wrapper container (nuanced-lsp-wrapper)** - 360MB
 - Built from: `dockerfiles/wrapper.Dockerfile` → `crates/wrapper`
 - Contains: `nuanced-lsp-wrapper` binary + `ast-grep` configs
 - Binary is injected into LSP server containers via Docker volume mounting
@@ -417,7 +417,7 @@ docker rm -f nuanced-lsp-proxy
 
 **`ENABLED_LANGUAGES`** (optional)
 - Comma-separated list of languages to enable
-- By default, LSProxy spawns containers for all detected languages in the workspace
+- For each detected language in a workspace, Nuanced LSP spawns the associated LSP server as an isolated container
 - Use this to restrict which language containers are spawned
 - Language names are case-insensitive and support aliases:
   - `python`
@@ -494,7 +494,15 @@ Each supported language and its LSP server image is built from pure Debian base 
 
 **Wrapper Container**: `nuanced-lsp-wrapper` (360MB) - Contains the `nuanced-lsp-wrapper` binary and `ast-grep` configs, shared via `--volumes-from` across all language containers
 
-### Why Nuanced LSP improves over agentic-labs/lsproxy
+### Acknowledgements
+
+Nuanced LSP started as a fork of `agentic-labs/lsproxy`. We celebrate and call out the capabilities and contribution from Agentic Labs, and thank them for graciously providing `lsproxy` as an open-source project. We applaud the originality and creativity of using `ast-grep` in combination with LSP capabilities like `find-definition` and `find-references` within a single binary that makes it easy to "proxy" to LSP servers. The Agentic Labs vision of `lsproxy` is still a shining example of what building code intelligence tooling for AI workflows can be, and we are grateful for the opportunity to build on `lsproxy`.
+
+### Where Nuanced LSP improves over agentic-labs/lsproxy
+
+There are some areas in which we found `lsproxy` could be improved to support more flexible operation (i.e. local or cloud), make it easier to tune system resources, make it easier to maintain the project and its associated Dockerfiles, and provide a more efficient runtime.
+
+The following is a summary of the base `lsproxy` implementation and where Nuanced LSP improves on that base.
 
 **Base implementation [agentic-labs/lsproxy](https://github.com/agentic-labs/lsproxy) uses a single process / image model:**
 - Single image containing all LSP servers, languages, and system dependencies results in 13.5GB image.
@@ -503,14 +511,14 @@ Each supported language and its LSP server image is built from pure Debian base 
 - LSP servers and their dependencies are comingled in the same image as the Rust service code. Change one or the other can lead to expensive rebuilds.
 - Clients only using one or two LSP servers must still download the full image containing unused LSP servers and dependencies.
 
-**Container implementation (Nuanced LSP)**:
-- **Clients only download what they need:* core required images are the proxy (187MB), watchdog (47.7MB), and wrapper (360MB) images, in addition to LSP server images based on workspace composiiton
-- **Flexible runtime:** LSP server containers can be run on remote hosts with higher system resource allocation
+**Nuanced LSP and dynamic container orchestration**:
+- **Clients only download what they need:** core required images are the proxy (187MB), watchdog (47.7MB), and wrapper (360MB) images, in addition to LSP server images based on workspace composiiton
+- **Flexible runtime:** LSP server containers now run as isolated containers, and can run locally or on remote hosts with higher system resource allocation
 - **Isolated code changes:** The proxy, watchdog, and wrapper crates are independent from each other, and can be built in parallel. No cascading builds when the Rust code changes.
 - **Faster dev loop:** Build only the image needed based on local changes.
 - **Docker development loop:** Running Nuanced LSP locally for development is the same runtime and configuration Nuanced LSP uses in production or on end-user hosts. Docker daemon makes it easy to track individual LSP server system resource metrics and indexing latency.
-- **LSP server debug loop:** LSP server images are built in isolation, making it easy to test and experiment with LSP servers.
-- **Language version control:** Very detailed language-version support is now possible and included for Ruby / Sorbet.
+- **LSP server debug loop:** LSP server images are built in isolation, making it easy to test and experiment with LSP servers without cascading image builds.
+- **Language version control:** Very detailed language-version support is now possible and included for Ruby / Sorbet. LSP server containers can now be versioned by language versions. This is especially helpful for languages like Ruby.
 
 ### Documentation
 
