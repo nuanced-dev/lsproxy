@@ -33,7 +33,7 @@ struct Args {
     #[arg(long = "lsp-arg")]
     lsp_args: Vec<String>,
 
-    /// The workspace path (mounted in container, consistent with main LSProxy)
+    /// The workspace path (mounted in container, consistent with main Nuanced LSP proxy)
     #[arg(long, default_value = "/mnt/workspace")]
     workspace_path: String,
 

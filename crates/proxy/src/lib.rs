@@ -41,7 +41,7 @@ pub fn check_mount_dir() -> std::io::Result<()> {
 #[derive(OpenApi)]
 #[openapi(
     info(
-        title = "lsproxy",
+        title = "nuanced-lsp",
         version = "0.2.1",
         license(
             name = "Apache-2.0",
@@ -85,7 +85,7 @@ pub fn check_mount_dir() -> std::io::Result<()> {
         crate::handlers::find_identifier,
     ),
     tags(
-        (name = "lsproxy-api", description = "LSP Proxy API")
+        (name = "nuanced-lsp-api", description = "Nuanced LSP API")
     ),
     servers(
         (url = "http://localhost:4444/v1", description = "API server v1")

@@ -1,13 +1,13 @@
-# LSProxy Testing Guide
+# Nuanced LSP Testing Guide
 
-This document describes how to test the LSProxy container orchestration system.
+This document describes how to test the Nuanced LSP container orchestration system.
 
 ## Overview
 
-LSProxy uses a containerized architecture where:
+Nuanced LSP uses a containerized architecture where:
 - **Service Container** (`nuanced-lsp-proxy`) orchestrates language-specific containers
 - **Watchdog Container** (`nuanced-lsp-watchdog`) monitors the service and ensures cleanup on crashes
-- **Language Containers** (`lsproxy-python`, `lsproxy-golang`, etc.) run LSP servers
+- **Language Containers** (`nuanced-lsp-python`, `nuanced-lsp-golang`, etc.) run LSP servers
 - The service spawns language containers dynamically based on workspace content
 - The watchdog provides defense-in-depth cleanup for catastrophic failures (SIGKILL, crashes)
 
@@ -26,7 +26,7 @@ LSProxy uses a containerized architecture where:
 This builds:
 - Service image (nuanced-lsp-proxy)
 - Watchdog image (nuanced-lsp-watchdog) - monitors service and cleans up on crashes
-- Base images (lsproxy-base, lsproxy-base-runtime, lsproxy-base-build)
+- Language images (nuanced-lsp-python, nuanced-lsp-typescript, etc.)
 - 10 language images (python, typescript, rust, golang, java, clangd, csharp, php, ruby-3.4.4, ruby-sorbet-3.4.4)
 
 ### 2. Start the Service
@@ -183,7 +183,7 @@ cargo test -- --list
 
 # Run tests for specific crate
 cargo test -p proxy
-cargo test -p lsproxy-wrapper
+cargo test -p wrapper
 ```
 
 **Note:** Rust integration tests require Docker images to be built first.
@@ -192,16 +192,16 @@ cargo test -p lsproxy-wrapper
 
 | Language | LSP Server | Container Image | Status |
 |----------|-----------|----------------|--------|
-| Python | jedi-language-server | lsproxy-python | ✅ |
-| TypeScript/JavaScript | typescript-language-server | lsproxy-typescript | ✅ |
-| Rust | rust-analyzer | lsproxy-rust | ✅ |
-| Golang | gopls | lsproxy-golang | ✅ |
-| Java | jdtls | lsproxy-java | ✅ |
-| C/C++ | clangd | lsproxy-clangd | ✅ |
-| C# | csharp-ls | lsproxy-csharp | ✅ |
-| PHP | phpactor | lsproxy-php | ✅ |
-| Ruby | ruby-lsp | lsproxy-ruby-3.4.4 | ✅ |
-| Ruby Sorbet | sorbet | lsproxy-ruby-sorbet-3.4.4 | ✅ |
+| Python | jedi-language-server | nuanced-lsp-python | ✅ |
+| TypeScript/JavaScript | typescript-language-server | nuanced-lsp-typescript | ✅ |
+| Rust | rust-analyzer | nuanced-lsp-rust | ✅ |
+| Golang | gopls | nuanced-lsp-golang | ✅ |
+| Java | jdtls | nuanced-lsp-java | ✅ |
+| C/C++ | clangd | nuanced-lsp-clangd | ✅ |
+| C# | csharp-ls | nuanced-lsp-csharp | ✅ |
+| PHP | phpactor | nuanced-lsp-php | ✅ |
+| Ruby | ruby-lsp | nuanced-lsp-ruby-3.4.4 | ✅ |
+| Ruby Sorbet | sorbet | nuanced-lsp-ruby-sorbet-3.4.4 | ✅ |
 
 ## Test Workspaces
 
@@ -248,11 +248,11 @@ docker logs nuanced-lsp-proxy
 ### View Language Container Logs
 ```bash
 # List all containers (including watchdog)
-docker ps --filter "name=lsproxy-"
+docker ps --filter "name=nuanced-lsp-"
 
 # View specific container logs
-docker logs lsproxy-python
-docker logs lsproxy-golang
+docker logs nuanced-lsp-python
+docker logs nuanced-lsp-golang
 
 # View watchdog logs (get container ID first)
 WATCHDOG=$(docker ps --filter "name=nuanced-lsp-watchdog" --format "{{.Names}}")
@@ -313,10 +313,10 @@ curl -X POST http://localhost:4444/v1/symbol/find-definition \
 │  │   │ nuanced-lsp-watchdog (monitoring)      ││  │
 │  │   └────────────────────────────────────┘│  │
 │  │   ┌────────────────────────────────────┐│  │
-│  │   │ lsproxy-python                     ││  │
-│  │   │ lsproxy-golang                     ││  │
-│  │   │ lsproxy-rust                       ││  │
-│  │   │ lsproxy-typescript                 ││  │
+│  │   │ nuanced-lsp-python                     ││  │
+│  │   │ nuanced-lsp-golang                     ││  │
+│  │   │ nuanced-lsp-rust                       ││  │
+│  │   │ nuanced-lsp-typescript                 ││  │
 │  │   │ ...                                ││  │
 │  │   │ (labeled with parent service ID)   ││  │
 │  │   └────────────────────────────────────┘│  │
@@ -337,7 +337,7 @@ curl -X POST http://localhost:4444/v1/symbol/find-definition \
 ### GitHub Actions Example
 
 ```yaml
-name: Test LSProxy
+name: Test Nuanced LSP
 
 on: [push, pull_request]
 
@@ -366,7 +366,7 @@ jobs:
     - name: Cleanup
       if: always()
       run: |
-        docker rm -f $(docker ps -aq --filter "name=lsproxy-") || true
+        docker rm -f $(docker ps -aq --filter "name=nuanced-lsp-") || true
 ```
 
 ## Performance Benchmarks
@@ -399,14 +399,14 @@ Expected performance:
 
 ### Tests failing
 1. Ensure service is fully initialized (wait 30s after start)
-2. Check container status: `docker ps --filter "name=lsproxy-"`
+2. Check container status: `docker ps --filter "name=nuanced-lsp-"`
 3. Verify workspace mount: `docker exec nuanced-lsp-proxy ls -la /mnt/workspace`
 4. Check network: `docker network inspect bridge`
 5. Verify watchdog is running: `docker ps --filter "name=nuanced-lsp-watchdog"`
 
 ### Language container not spawning
 1. Check language detection: `docker logs nuanced-lsp-proxy | grep "Detected languages"`
-2. Verify language image exists: `docker images | grep lsproxy-<language>`
+2. Verify language image exists: `docker images | grep nuanced-lsp-<language>`
 3. Check workspace contains files for that language
 
 ## Contributing
@@ -421,6 +421,5 @@ When adding a new language:
 
 ## Resources
 
-- [API Documentation](https://docs.lsproxy.dev/api-reference)
-- [GitHub Issues](https://github.com/agentic-labs/lsproxy/issues)
-- [Discord Community](https://discord.gg/EUFGjSawyk)
+- [API Documentation](https://docs.nuanced.dev/lsp/api-reference)
+- [GitHub Issues](https://github.com/nuanced-dev/lsp/issues)

@@ -3,7 +3,7 @@ use log::{error, warn};
 use lsp_types::{GotoDefinitionResponse, Location, Position, Range};
 /// Simplified Manager for lsp-wrapper
 ///
-/// Unlike the main LSProxy Manager that orchestrates multiple language servers,
+/// Unlike the main Nuanced LSP Manager that orchestrates multiple language servers,
 /// this Manager wraps a single LSP client for the configured language.
 use common::api_types::{get_mount_dir, Identifier, Symbol};
 use common::ast_grep::client::AstGrepClient;

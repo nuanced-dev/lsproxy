@@ -118,7 +118,7 @@ DOCKER_RUN_CMD="$DOCKER_RUN_CMD \
     -e RUST_LOG=info \
     -e WRAPPER_IMAGE=nuanced-lsp-wrapper:${RUST_VERSION} \
     -e WATCHDOG_IMAGE=nuanced-lsp-watchdog:${RUST_VERSION} \
-    -e LSPROXY_CONTAINER_MEMORY_MB=8192"
+    -e NUANCED_LSP_MAX_MEMORY=8192"
 
 if [ "$USE_AUTH" = false ]; then
     DOCKER_RUN_CMD="$DOCKER_RUN_CMD -e USE_AUTH=false"

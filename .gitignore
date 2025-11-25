@@ -27,7 +27,7 @@ target/
 **/__pycache__/
 
 tags
-.lsproxy_tags
+.nuanced_lsp_tags
 .vscode
 compile_commands.json
 **/*.idx

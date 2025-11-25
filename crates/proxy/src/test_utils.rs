@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-/// Get the workspace root directory (lsproxy project root)
+/// Get the workspace root directory (Nuanced LSP project root)
 pub fn workspace_root() -> PathBuf {
     // Get the current directory and walk up to find Cargo.toml
     let mut current_dir = std::env::current_dir().expect("Failed to get current directory");

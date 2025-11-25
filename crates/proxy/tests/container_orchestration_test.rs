@@ -1,7 +1,7 @@
-/// Integration tests for containerized LSProxy architecture
+/// Integration tests for containerized Nuanced LSP architecture
 ///
 /// Tests the full flow:
-/// 1. Base LSProxy service running in container
+/// 1. Base Nuanced LSP service running in container
 /// 2. Dynamic spawning of language-specific containers (Python)
 /// 3. Request forwarding and response handling
 /// 4. Container lifecycle management
@@ -214,7 +214,7 @@ impl ContainerFixture {
         Ok(())
     }
 
-    /// Start the base LSProxy service container (internal helper)
+    /// Start the base Nuanced LSP service container (internal helper)
     async fn start_service_internal(
         docker: &Docker,
         workspace_dir: &TempDir,

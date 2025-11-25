@@ -6,7 +6,7 @@ use proxy::{
 };
 use std::path::PathBuf;
 
-/// Command line interface for LSProxy server
+/// Command line interface for Nuanced LSP server
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Cli {

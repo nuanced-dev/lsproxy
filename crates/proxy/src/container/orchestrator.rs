@@ -73,8 +73,8 @@ impl ContainerOrchestrator {
 
         // Get configuration from environment
         let host =
-            std::env::var("LSPROXY_CONTAINER_HOST").unwrap_or_else(|_| "0.0.0.0".to_string());
-        let memory_limit_mb: i64 = std::env::var("LSPROXY_MAX_MEMORY")
+            std::env::var("NUANCED_LSP_CONTAINER_HOST").unwrap_or_else(|_| "0.0.0.0".to_string());
+        let memory_limit_mb: i64 = std::env::var("NUANCED_LSP_MAX_MEMORY")
             .ok()
             .and_then(|s| s.parse().ok())
             .unwrap_or(20480); // Default 20GB (in MB)
@@ -563,7 +563,7 @@ mod tests {
         // Store a container
         let info = ContainerInfo {
             container_id: "test-123".to_string(),
-            image_name: "lsproxy-python:latest".to_string(),
+            image_name: "nuanced-lsp-python:latest".to_string(),
             port: 8080,
             endpoint: "http://0.0.0.0:8080".to_string(),
         };
@@ -588,7 +588,7 @@ mod tests {
 
         let info = ContainerInfo {
             container_id: "test-456".to_string(),
-            image_name: "lsproxy-golang:latest".to_string(),
+            image_name: "nuanced-lsp-golang:latest".to_string(),
             port: 8081,
             endpoint: "http://0.0.0.0:8081".to_string(),
         };
@@ -627,13 +627,13 @@ mod tests {
         // Add two containers
         let info1 = ContainerInfo {
             container_id: "test-1".to_string(),
-            image_name: "lsproxy-python:latest".to_string(),
+            image_name: "nuanced-lsp-python:latest".to_string(),
             port: 8080,
             endpoint: "http://0.0.0.0:8080".to_string(),
         };
         let info2 = ContainerInfo {
             container_id: "test-2".to_string(),
-            image_name: "lsproxy-golang:latest".to_string(),
+            image_name: "nuanced-lsp-golang:latest".to_string(),
             port: 8081,
             endpoint: "http://0.0.0.0:8081".to_string(),
         };
@@ -659,7 +659,7 @@ mod tests {
         // Pre-populate with a "container"
         let existing_info = ContainerInfo {
             container_id: "existing-123".to_string(),
-            image_name: "lsproxy-python:latest".to_string(),
+            image_name: "nuanced-lsp-python:latest".to_string(),
             port: 9000,
             endpoint: "http://0.0.0.0:9000".to_string(),
         };
@@ -679,7 +679,7 @@ mod tests {
     }
 
     // Note: Full spawn_container test would require:
-    // 1. Docker images to be built (lsproxy-golang:latest, etc.)
+    // 1. Docker images to be built (nuanced-lsp-golang:latest, etc.)
     // 2. Valid workspace path
     // 3. Cleanup of created containers
     //

@@ -78,7 +78,7 @@ RUN mkdir -p crates/wrapper/src && \
     echo '// The proxy binary does not depend on wrapper - see proxy.Dockerfile for details.' >> crates/wrapper/src/lib.rs && \
     echo 'fn main() {}' > crates/wrapper/src/main.rs
 
-# Build lsproxy binary from workspace with cross-compilation support
+# Build nuanced-lsp-proxy binary from workspace with cross-compilation support
 RUN mkdir -p /usr/src/bin && \
     case "$TARGETPLATFORM" in \
     "linux/amd64") \

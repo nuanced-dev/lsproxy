@@ -430,7 +430,7 @@ docker rm -f nuanced-lsp-proxy
   - `cpp`, `c++`, `c`
   - `csharp`, `c#`
 
-**`LSPROXY_MAX_MEMORY`** (optional)
+**`NUANCED_LSP_MAX_MEMORY`** (optional)
 - Maximum memory limit per language container in megabytes (MB)
 - Default: `20480` (20GB)
 - Large codebases (e.g., Kubernetes) may require higher memory limits for operations like find-references
@@ -460,10 +460,10 @@ ENABLED_LANGUAGES="go,cpp" ./scripts/start-proxy.sh
 ENABLED_LANGUAGES="Python, TypeScript, Rust" ./scripts/start-proxy.sh
 
 # Set memory limit to 8GB per container
-LSPROXY_MAX_MEMORY=8192 ./scripts/start-proxy.sh
+NUANCED_LSP_MAX_MEMORY=8192 ./scripts/start-proxy.sh
 
 # Combine environment variables
-ENABLED_LANGUAGES="go" LSPROXY_MAX_MEMORY=16384 ./scripts/start-proxy.sh
+ENABLED_LANGUAGES="go" NUANCED_LSP_MAX_MEMORY=16384 ./scripts/start-proxy.sh
 
 # Without ENABLED_LANGUAGES, all detected languages spawn (default)
 ./scripts/start-proxy.sh
