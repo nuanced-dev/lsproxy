@@ -1,17 +1,17 @@
-# LSProxy Architecture
+# Nuanced LSP Architecture
 
 ## System Overview
 
-LSProxy is a containerized Language Server Protocol (LSP) proxy service that provides unified access to multiple language servers through a single HTTP API. The system uses a binary injection architecture to minimize image rebuild cascades and optimize resource usage.
+Nuanced LSP is a containerized Language Server Protocol (LSP) proxy service that provides unified access to multiple language servers through a single HTTP API. The system uses a binary injection architecture to minimize image rebuild cascades and optimize resource usage.
 
 ## Request Flow Sequence Diagram
 
 ```mermaid
 sequenceDiagram
     participant Client
-    participant Service as lsproxy-service<br/>(Orchestrator)
+    participant Service as nuanced-lsp-proxy<br/>(Orchestrator)
     participant Docker as Docker Engine
-    participant LangContainer as Language Container<br/>(e.g., lsproxy-typescript-xxx)
+    participant LangContainer as Language Container<br/>(e.g., nuanced-lsp-typescript-xxx)
     participant Wrapper as lsp-wrapper<br/>(Binary)
     participant LSP as LSP Server<br/>(e.g., typescript-language-server)
     participant AstGrep as ast-grep<br/>(CLI Tool)
@@ -25,7 +25,7 @@ sequenceDiagram
     Service->>Docker: Check if language container exists<br/>GET /containers/{id}/json
 
     alt Container doesn't exist
-        Service->>Docker: Create language container<br/>docker run --volumes-from lsproxy-wrapper
+        Service->>Docker: Create language container<br/>docker run --volumes-from nuanced-lsp-wrapper
         Docker->>LangContainer: Start container
         Note over LangContainer: Mounts /opt/lsp-wrapper/<br/>from wrapper container
     end
@@ -73,10 +73,10 @@ sequenceDiagram
 
 ## Component Details
 
-### 1. lsproxy-service (Orchestrator)
+### 1. nuanced-lsp-proxy (Orchestrator)
 - **Technology**: Rust (Actix-web framework)
-- **Location**: `crates/orchestrator/`
-- **Container**: `lsproxy-service`
+- **Location**: `crates/proxy/`
+- **Container**: `nuanced-lsp-proxy`
 - **Port**: 4444 (exposed to host)
 - **Responsibilities**:
   - HTTP API gateway (exposes `/v1/{language}/{endpoint}`)
@@ -87,10 +87,10 @@ sequenceDiagram
   - CORS handling
   - Swagger UI documentation
 
-### 2. lsproxy-wrapper (Binary)
+### 2. nuanced-lsp-wrapper (Binary)
 - **Technology**: Rust (Actix-web framework)
 - **Location**: `crates/wrapper/`
-- **Container**: `lsproxy-wrapper` (volume provider only)
+- **Container**: `nuanced-lsp-wrapper` (volume provider only)
 - **Binary Path**: `/opt/lsp-wrapper/bin/lsp-wrapper`
 - **Port**: 8080 (internal within language containers)
 - **Responsibilities**:
@@ -102,14 +102,14 @@ sequenceDiagram
   - Response formatting and transformation
 
 ### 3. Language Containers
-- **Examples**: `lsproxy-typescript-xxx`, `lsproxy-python-xxx`, `lsproxy-ruby-xxx`
+- **Examples**: `nuanced-lsp-typescript-xxx`, `nuanced-lsp-python-xxx`, `nuanced-lsp-ruby-xxx`
 - **Dockerfiles**: `dockerfiles/{language}.Dockerfile`
 - **Base Images**: Debian Bookworm Slim
 - **Key Features**:
   - Language runtime and dependencies (e.g., Node.js, Python, Ruby)
   - LSP server installation (e.g., typescript-language-server, pyright)
   - Volume mounts:
-    - `--volumes-from lsproxy-wrapper` (shares `/opt/lsp-wrapper/`)
+    - `--volumes-from nuanced-lsp-wrapper` (shares `/opt/lsp-wrapper/`)
     - Workspace mount at `/mnt/workspace`
   - Entrypoint: `/opt/lsp-wrapper/bin/lsp-wrapper` (shared binary)
   - Isolated execution environment per workspace
@@ -141,7 +141,7 @@ sequenceDiagram
 
 ### 6. Watchdog (Container Cleanup)
 - **Technology**: Rust async task (part of orchestrator)
-- **Location**: `crates/orchestrator/src/container/mod.rs`
+- **Location**: `crates/proxy/src/container/mod.rs`
 - **Responsibilities**:
   - Ensures all containers are cleaned up when service stops
   - Handles both graceful shutdown and crash scenarios
@@ -154,7 +154,7 @@ sequenceDiagram
      - Stop wrapper container last (via `stop_wrapper_container()`)
      - Wrapper must be stopped last since language containers depend on its volumes
 - **Signal File**: Writes `/tmp/cleanup_complete` on successful cleanup
-- **Code Location**: `crates/orchestrator/src/container/mod.rs:336-350` (`cleanup_all()`)
+- **Code Location**: `crates/proxy/src/container/mod.rs:336-350` (`cleanup_all()`)
 
 **Why Watchdog Matters:**
 - Prevents orphaned containers consuming resources
@@ -168,7 +168,7 @@ The system uses **binary injection** via Docker volumes to share the wrapper bin
 
 ```
 ┌────────────────────────────────────┐
-│ lsproxy-wrapper                    │
+│ nuanced-lsp-wrapper                    │
 │ (Volume Container)                 │
 │                                    │
 │ /opt/lsp-wrapper/                  │
@@ -187,7 +187,7 @@ The system uses **binary injection** via Docker volumes to share the wrapper bin
          │                  │                  │
          ▼                  ▼                  ▼
 ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
-│ lsproxy-        │ │ lsproxy-        │ │ lsproxy-        │
+│ nuanced-lsp-    │ │ nuanced-lsp-    │ │ nuanced-lsp-    │
 │ typescript-xxx  │ │ python-xxx      │ │ rust-xxx        │
 │                 │ │                 │ │                 │
 │ Language: TS    │ │ Language: Python│ │ Language: Rust  │
@@ -212,7 +212,7 @@ The system uses **binary injection** via Docker volumes to share the wrapper bin
 │ Host Machine                                           │
 │                                                        │
 │  ┌──────────────────────────────────────────────────┐  │
-│  │ lsproxy-service                                  │  │
+│  │ nuanced-lsp-proxy                                  │  │
 │  │ Port: 4444 (exposed)                             │  │
 │  │ Network: bridge                                  │  │
 │  └──────────────┬───────────────────────────────────┘  │
@@ -253,8 +253,8 @@ The system uses **binary injection** via Docker volumes to share the wrapper bin
 
 2. **Service Processing**:
    - Validates workspace path exists
-   - Checks if `lsproxy-typescript-{workspace-id}` container exists
-   - Creates container if needed with `--volumes-from lsproxy-wrapper`
+   - Checks if `nuanced-lsp-typescript-{workspace-id}` container exists
+   - Creates container if needed with `--volumes-from nuanced-lsp-wrapper`
    - Forwards request via Docker API to container port 8080
 
 3. **Wrapper Processing**:
@@ -287,22 +287,22 @@ The system uses **binary injection** via Docker volumes to share the wrapper bin
 ## Container Lifecycle
 
 ### Startup Sequence
-1. User starts service: `./scripts/start-service.sh`
-2. Orchestrator container starts: `lsproxy-service`
-3. Wrapper volume container starts: `lsproxy-wrapper` (provides volumes)
+1. User starts service: `./scripts/start-proxy.sh`
+2. Orchestrator container starts: `nuanced-lsp-proxy`
+3. Wrapper volume container starts: `nuanced-lsp-wrapper` (provides volumes)
 4. Language containers created on-demand when first request arrives
 
 ### Shutdown Sequence
-1. User stops service: `./scripts/stop-service.sh`
+1. User stops service: `./scripts/stop-proxy.sh`
 2. All language containers removed
 3. Wrapper container removed
 4. Orchestrator container removed
 
 ### Container Naming
-- Service: `lsproxy-service`
-- Wrapper: `lsproxy-wrapper`
-- Languages: `lsproxy-{language}-{workspace-id}`
-  - Example: `lsproxy-typescript-a1b2c3d4-e5f6-7890-abcd-ef1234567890`
+- Service: `nuanced-lsp-proxy`
+- Wrapper: `nuanced-lsp-wrapper`
+- Languages: `nuanced-lsp-{language}-{workspace-id}`
+  - Example: `nuanced-lsp-typescript-a1b2c3d4-e5f6-7890-abcd-ef1234567890`
 
 ## Configuration
 
@@ -323,17 +323,17 @@ The system uses **binary injection** via Docker volumes to share the wrapper bin
 
 | Language   | LSP Server              | Container Prefix       |
 |------------|-------------------------|------------------------|
-| TypeScript | typescript-language-server | lsproxy-typescript- |
-| JavaScript | typescript-language-server | lsproxy-javascript- |
-| Python     | pyright-langserver     | lsproxy-python-     |
-| Rust       | rust-analyzer          | lsproxy-rust-       |
-| Go         | gopls                  | lsproxy-golang-     |
-| Java       | jdtls                  | lsproxy-java-       |
-| C/C++      | clangd                 | lsproxy-clangd-     |
-| C#         | OmniSharp             | lsproxy-csharp-     |
-| PHP        | intelephense          | lsproxy-php-        |
-| Ruby       | ruby-lsp              | lsproxy-ruby-       |
-| Ruby (Sorbet) | sorbet             | lsproxy-ruby-sorbet-|
+| TypeScript | typescript-language-server | nuanced-lsp-typescript- |
+| JavaScript | typescript-language-server | nuanced-lsp-javascript- |
+| Python     | pyright-langserver     | nuanced-lsp-python-     |
+| Rust       | rust-analyzer          | nuanced-lsp-rust-       |
+| Go         | gopls                  | nuanced-lsp-golang-     |
+| Java       | jdtls                  | nuanced-lsp-java-       |
+| C/C++      | clangd                 | nuanced-lsp-clangd-     |
+| C#         | OmniSharp             | nuanced-lsp-csharp-     |
+| PHP        | intelephense          | nuanced-lsp-php-        |
+| Ruby       | ruby-lsp              | nuanced-lsp-ruby-       |
+| Ruby (Sorbet) | sorbet             | nuanced-lsp-ruby-sorbet-|
 
 ## API Endpoints
 
@@ -375,7 +375,7 @@ The current binary injection architecture using `--volumes-from` and the wrapper
 ### Current Architecture Limitations
 
 The current system requires:
-- A dedicated wrapper container (`lsproxy-wrapper`) running continuously to provide volume access
+- A dedicated wrapper container (`nuanced-lsp-wrapper`) running continuously to provide volume access
 - Binary injection via `--volumes-from` to share the `lsp-wrapper` binary and `ast-grep` configs
 - Three-tier architecture: orchestrator → wrapper → LSP servers
 - Complex volume mount dependencies
@@ -387,22 +387,22 @@ The current system requires:
 **How It Would Work**:
 
 1. **Eliminate the wrapper container**:
-   - No need for `lsproxy-wrapper` volume container
+   - No need for `nuanced-lsp-wrapper` volume container
    - No `--volumes-from` volume mounting
    - Remove binary injection complexity
 
 2. **Direct LSP communication**:
    - Orchestrator spawns language containers with LSP servers
-   - Use `docker run` with stdin/stdout mounting: `docker run -i --mount type=bind,src=/workspace,dst=/mnt/workspace lsproxy-python python -m pyright --stdio`
+   - Use `docker run` with stdin/stdout mounting: `docker run -i --mount type=bind,src=/workspace,dst=/mnt/workspace nuanced-lsp-python python -m pyright --stdio`
    - Orchestrator communicates directly with LSP via container stdin/stdout
    - Send JSON-RPC requests over stdin, receive responses from stdout
 
 3. **Simplified container structure**:
    ```
-   lsproxy-service (orchestrator)
-       ├─ docker run -i lsproxy-python (LSP server process)
-       ├─ docker run -i lsproxy-typescript (LSP server process)
-       ├─ docker run -i lsproxy-rust (LSP server process)
+   nuanced-lsp-proxy (orchestrator)
+       ├─ docker run -i nuanced-lsp-python (LSP server process)
+       ├─ docker run -i nuanced-lsp-typescript (LSP server process)
+       ├─ docker run -i nuanced-lsp-rust (LSP server process)
        └─ ... (other language containers)
    ```
 
@@ -443,7 +443,7 @@ This simplification could be implemented incrementally:
    - Update container images to remove wrapper dependencies
 
 3. **Phase 3**: Remove wrapper container
-   - Eliminate `lsproxy-wrapper` build and deployment
+   - Eliminate `nuanced-lsp-wrapper` build and deployment
    - Remove `--volumes-from` logic from orchestrator
    - Clean up binary injection code
 

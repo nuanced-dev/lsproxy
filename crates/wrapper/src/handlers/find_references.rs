@@ -7,11 +7,11 @@ use crate::handlers::error::IntoHttpResponse;
 use crate::handlers::utils;
 use crate::manager::{LspManagerError, Manager};
 use crate::AppState;
-use lsproxy_common::api_types::{
+use common::api_types::{
     get_mount_dir, CodeContext, ErrorResponse, FilePosition, FileRange, GetReferencesRequest,
     Position, Range, ReferencesResponse,
 };
-use lsproxy_common::utils::file_utils::uri_to_relative_path_string;
+use common::utils::file_utils::uri_to_relative_path_string;
 
 /// Find all references to a symbol
 ///

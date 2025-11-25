@@ -1,4 +1,4 @@
-use lsproxy_common::utils::file_utils::{search_paths, FileType};
+use common::utils::file_utils::{search_paths, FileType};
 use std::fs;
 use std::path::{Path, PathBuf};
 use tempfile::TempDir;

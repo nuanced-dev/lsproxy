@@ -1,7 +1,7 @@
 [workspace]
 members = [
     "crates/common",
-    "crates/orchestrator",
+    "crates/proxy",
     "crates/wrapper",
 ]
 resolver = "2"
@@ -14,6 +14,7 @@ authors = ["Nuanced"]
 [workspace.dependencies]
 # Shared dependencies
 actix-web = "4.0"
+ast-grep = { version = "0.39", default-features = false }
 tokio = { version = "1.0", features = ["full", "process"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
@@ -25,9 +26,14 @@ lsp-types = "0.95" # Upgrade needs resolution or workaround for https://github.c
 async-trait = "0.1"
 glob = "0.3"
 ignore = "0.4.23"  # Pin to avoid edition2024 requirement in 0.4.25+
+url = "2.5"
+utoipa = "5.4"
+strum = "0.26"
+strum_macros = "0.26"
+tempfile = "3.8"
 
 # Common crate (internal)
-lsproxy-common = { path = "crates/common" }
+common = { path = "crates/common" }
 
 [profile.release]
 incremental = true

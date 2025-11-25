@@ -1,24 +1,26 @@
 [package]
-name = "lsproxy-common"
+name = "common"
 version.workspace = true
 edition.workspace = true
 
 [dependencies]
+ast-grep.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 lsp-types.workspace = true
 glob.workspace = true
 ignore.workspace = true
+url.workspace = true
+utoipa.workspace = true
 strum = "0.26"
 strum_macros = "0.26"
-utoipa = "5.3"
-url = "2.5"
-ast-grep = { version = "0.39", default-features = false }
 tokio.workspace = true
 async-trait.workspace = true
 log.workspace = true
 thiserror.workspace = true
+
+# Common crate specific
 notify-debouncer-mini = "0.4"
 
 [dev-dependencies]
-tempfile = "3.8.1"
+tempfile.workspace = true

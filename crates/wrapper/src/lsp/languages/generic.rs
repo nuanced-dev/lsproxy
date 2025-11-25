@@ -4,7 +4,7 @@ use crate::lsp::{JsonRpcHandler, LspClient, PendingRequests, ProcessHandler};
 
 use async_trait::async_trait;
 use lsp_types::InitializeParams;
-use lsproxy_common::utils::workspace_documents::{
+use common::utils::workspace_documents::{
     DidOpenConfiguration, WorkspaceDocumentsHandler, DEFAULT_EXCLUDE_PATTERNS,
 };
 use std::error::Error;

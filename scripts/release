@@ -16,7 +16,7 @@ Automates a release by:
 Examples:
   $(basename "$0") 0.4.4
   $(basename "$0") v0.4.4
-  $(basename "$0") 0.4.4 --repo ghcr.io/nuanced-dev/nuanced-lsproxy
+  $(basename "$0") 0.4.4 --repo ghcr.io/nuanced-dev/lsp
   $(basename "$0") 0.4.4 --no-build  # create release only without building Docker images
 EOF
 }

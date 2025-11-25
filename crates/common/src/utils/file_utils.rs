@@ -33,36 +33,79 @@ pub fn search_paths(
 
     let paths = Arc::new(Mutex::new(Vec::new()));
     let include_patterns = Arc::new(include_patterns);
+    let base_path = Arc::new(path.to_path_buf());
 
     let walker = WalkBuilder::new(path)
         .git_ignore(respect_gitignore)
-        .filter_entry(move |entry| {
-            let path = entry.path();
-            let is_excluded = exclude_patterns.iter().any(|pattern| {
-                glob::Pattern::new(pattern)
-                    .map(|p| p.matches_path(path))
-                    .unwrap_or(false)
-            });
-            !is_excluded
+        .hidden(false) // Include hidden files (e.g., .ruby-version, .python-version)
+        .filter_entry({
+            let include_patterns = Arc::clone(&include_patterns);
+            let exclude_patterns = exclude_patterns.clone();
+            let base_path = Arc::clone(&base_path);
+            // Treat any path component starting with '.' as hidden
+            let is_hidden = |p: &Path| {
+                p.components().any(|c| {
+                    if let std::path::Component::Normal(os) = c {
+                        os.to_string_lossy().starts_with('.')
+                    } else {
+                        false
+                    }
+                })
+            };
+            move |entry| {
+                let path = entry.path();
+                let rel_path = path.strip_prefix(base_path.as_ref()).unwrap_or(path);
+                let is_dir = entry.file_type().map(|ft| ft.is_dir()).unwrap_or(false);
+
+                let matches_include = include_patterns.iter().any(|pattern| {
+                    glob::Pattern::new(pattern)
+                        .map(|p| p.matches_path(rel_path))
+                        .unwrap_or(false)
+                });
+
+                let is_excluded = exclude_patterns.iter().any(|pattern| {
+                    glob::Pattern::new(pattern)
+                        .map(|p| p.matches_path(rel_path))
+                        .unwrap_or(false)
+                });
+
+                if is_dir {
+                    // Always traverse directories unless explicitly excluded
+                    !is_excluded
+                } else {
+                    // Allow entries that match include patterns even if they are normally excluded
+                    if is_excluded {
+                        matches_include && is_hidden(rel_path)
+                    } else {
+                        matches_include
+                    }
+                }
+            }
         })
         .build_parallel();
 
     walker.run(|| {
         let paths = Arc::clone(&paths);
         let include_patterns = Arc::clone(&include_patterns);
+        let base_path = Arc::clone(&base_path);
 
         Box::new(move |result| {
             use ignore::WalkState;
 
             match result {
                 Ok(entry) => {
-                    let path = entry.path();
+                    let abs_path = entry.path();
+                    // Use relative path for pattern matching
+                    let rel_path = abs_path
+                        .strip_prefix(base_path.as_ref())
+                        .unwrap_or(abs_path);
+
                     if include_patterns.iter().any(|pattern| {
                         glob::Pattern::new(pattern)
-                            .map(|p| p.matches_path(path))
+                            .map(|p| p.matches_path(rel_path))
                             .unwrap_or(false)
                     }) {
-                        if let Some(accepted_path) = file_type.accept(path) {
+                        if let Some(accepted_path) = file_type.accept(abs_path) {
                             if let Ok(mut paths) = paths.lock() {
                                 paths.push(accepted_path.to_path_buf());
                             }
@@ -204,5 +247,43 @@ pub fn fix_relative_uris(result: serde_json::Value, workspace_path: &str) -> ser
         serde_json::Value::Array(fixed_locations)
     } else {
         result
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::TempDir;
+
+    #[test]
+    fn search_files_allows_included_hidden_files() {
+        let temp_dir = TempDir::new().unwrap();
+        let ruby_version = temp_dir.path().join(".ruby-version");
+        std::fs::write(&ruby_version, "3.4.2\n").unwrap();
+
+        // Add an excluded hidden directory to make sure we still filter it out
+        let git_dir = temp_dir.path().join(".git");
+        std::fs::create_dir(&git_dir).unwrap();
+        std::fs::write(git_dir.join("HEAD"), "ref: refs/heads/main").unwrap();
+
+        let results = search_files(
+            temp_dir.path(),
+            vec![".ruby-version".to_string(), "**/.ruby-version".to_string()],
+            vec!["**/.*".to_string(), ".git".to_string()],
+            false,
+        )
+        .unwrap();
+
+        assert!(
+            results.contains(&ruby_version),
+            "Expected .ruby-version to be returned even though it matches hidden exclude pattern"
+        );
+
+        assert!(
+            !results
+                .iter()
+                .any(|p| p.to_string_lossy().contains(".git/HEAD")),
+            "Excluded hidden directories like .git should still be filtered out"
+        );
     }
 }

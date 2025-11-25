@@ -76,5 +76,5 @@ WORKDIR /mnt/workspace
 ENTRYPOINT ["/opt/lsp-wrapper/bin/lsp-wrapper"]
 
 # CMD provides the language-specific command to lsp-wrapper ENTRYPOINT
-# gopls args match existing LSProxy configuration
+# gopls args match existing Nuanced LSP configuration
 CMD ["--lsp-command", "gopls", "--lsp-arg=-mode=stdio", "--lsp-arg=-vv", "--lsp-arg=-logfile=/tmp/gopls.log", "--lsp-arg=-rpc.trace"]

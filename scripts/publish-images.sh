@@ -17,7 +17,7 @@ set -e
 # Requirements:
 #   - GITHUB_TOKEN environment variable must be set with ghcr.io push permissions (if publishing to ghcr)
 #   - DOCKER_HUB_TOKEN environment variable must be set (if publishing to dockerhub)
-#   - Images must already be built (use scripts/build-rust-containers.sh and scripts/build-language-containers.sh)
+#   - Images must already be built (use scripts/build-rust-images.sh and scripts/build-language-images.sh)
 #   - Images must be multi-arch builds (built with --multiarch flag)
 
 # Colors

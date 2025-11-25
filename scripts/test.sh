@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Comprehensive test script for lsproxy
-# Runs all test suites: Rust unit/integration tests and shell-based endpoint tests
+# Comprehensive test suite for Nuanced LSP.
+# Runs all test suites: Rust unit/integration tests and shell-based endpoint tests.
 
 set -e  # Exit immediately if a command exits with a non-zero status
 
 echo "========================================"
-echo "  LSProxy Test Suite"
+echo "  Nuanced LSP Test Suite                "
 echo "========================================"
 echo
 
@@ -19,9 +19,10 @@ fi
 echo "1. Running Rust unit and integration tests..."
 echo "----------------------------------------"
 # Set Docker image versions for tests
-# Use "latest" for development, or override with specific versions for production testing
+# RUST_CONTAINER_VERSION: "latest" for locally-built images via build-rust-images.sh
+# LANGUAGE_CONTAINER_VERSION: "1.0.0" to match published images on GHCR
 export RUST_CONTAINER_VERSION="${RUST_CONTAINER_VERSION:-latest}"
-export LANGUAGE_CONTAINER_VERSION="${LANGUAGE_CONTAINER_VERSION:-latest}"
+export LANGUAGE_CONTAINER_VERSION="${LANGUAGE_CONTAINER_VERSION:-1.0.0}"
 echo "Using image versions: Rust=${RUST_CONTAINER_VERSION}, Language=${LANGUAGE_CONTAINER_VERSION}"
 # Run with --test-threads=1 to ensure serial execution of integration tests
 # The container orchestration tests use #[serial] and a shared fixture
@@ -33,10 +34,10 @@ echo
 echo "2. Checking Docker images..."
 echo "----------------------------------------"
 if ! docker images | grep -q "nuanced-lsp-proxy.*latest"; then
-    echo "Service image not found. Building Rust containers..."
-    ./scripts/build-rust-containers.sh
-    echo "Building language containers..."
-    ./scripts/build-language-containers.sh
+    echo "Service image not found. Building Rust images..."
+    ./scripts/build-rust-images.sh
+    echo "Building language images..."
+    ./scripts/build-language-images.sh
 else
     echo "✓ Docker images found"
 fi

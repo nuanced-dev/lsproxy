@@ -10,7 +10,7 @@ use std::error::Error;
 pub struct GoplsClient {
     process: ProcessHandler,
     json_rpc: JsonRpcHandler,
-    workspace_documents: lsproxy_common::utils::workspace_documents::WorkspaceDocumentsHandler,
+    workspace_documents: common::utils::workspace_documents::WorkspaceDocumentsHandler,
     pending_requests: PendingRequests,
 }
 
@@ -30,7 +30,7 @@ impl LspClient for GoplsClient {
 
     fn get_workspace_documents(
         &mut self,
-    ) -> &mut lsproxy_common::utils::workspace_documents::WorkspaceDocumentsHandler {
+    ) -> &mut common::utils::workspace_documents::WorkspaceDocumentsHandler {
         &mut self.workspace_documents
     }
 
@@ -120,7 +120,7 @@ impl GoplsClient {
     pub fn new(
         process: ProcessHandler,
         json_rpc: JsonRpcHandler,
-        workspace_documents: lsproxy_common::utils::workspace_documents::WorkspaceDocumentsHandler,
+        workspace_documents: common::utils::workspace_documents::WorkspaceDocumentsHandler,
         pending_requests: PendingRequests,
     ) -> Self {
         Self {

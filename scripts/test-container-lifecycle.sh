@@ -12,8 +12,9 @@ BLUE='\033[0;34m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
-WORKSPACE_PATH="${1:-sample_project/all}"
+WORKSPACE_PATH="${1:-sample_project/python}"
 WORKSPACE_PATH="$(cd "$WORKSPACE_PATH" && pwd)"
+SERVICE_NAME="nuanced-lsp-proxy-$(uuidgen | tr 'A-Z' 'a-z' | cut -c1-12)"
 
 # Flag to track if we started containers
 CONTAINERS_STARTED=false
@@ -54,18 +55,17 @@ cleanup() {
     if [ "$CONTAINERS_STARTED" = true ]; then
         echo
         echo -e "${YELLOW}Cleaning up...${NC}"
-        docker rm -f nuanced-lsp-proxy 2>/dev/null || true
+        docker rm -f "${SERVICE_NAME}" 2>/dev/null || true
 
         # Give it a moment for language containers to stop
         sleep 2
 
         # Clean up any remaining language containers
-        ORPHANS=$(docker ps -aq --filter "name=nuanced-lsp-" 2>/dev/null || true)
+        ORPHANS=$(docker ps -aq --filter "label=nuanced.parent=${PARENT_LABEL_ID}" 2>/dev/null || true)
         if [ -n "$ORPHANS" ]; then
             echo "$ORPHANS" | xargs docker rm -f > /dev/null 2>&1 || true
         fi
 
-        docker network rm nuanced-lsp-network 2>/dev/null || true
         echo -e "${GREEN}Cleanup complete${NC}"
     fi
 
@@ -84,25 +84,58 @@ test_step "Service image exists" \
 
 # Test 2: Start service container
 echo
-echo -e "${BLUE}Starting service container...${NC}"
+echo -e "${BLUE}Starting service container (${SERVICE_NAME})...${NC}"
 docker run -d \
-    --name nuanced-lsp-proxy \
+    --name "${SERVICE_NAME}" \
     -p 4444:4444 \
     -v /var/run/docker.sock:/var/run/docker.sock \
     -v "$WORKSPACE_PATH:/mnt/workspace" \
     -e RUST_LOG=info \
     -e USE_AUTH=false \
+    -e WRAPPER_IMAGE=nuanced-lsp-wrapper:${RUST_VERSION} \
+    -e WATCHDOG_IMAGE=nuanced-lsp-watchdog:${RUST_VERSION} \
     nuanced-lsp-proxy:${RUST_VERSION}
+
+SERVICE_ID=$(docker inspect --format '{{.Id}}' "${SERVICE_NAME}" 2>/dev/null || echo "")
+# Language containers label their parent with the orchestrator instance ID, which is the
+# container hostname (12-char short ID) when running inside Docker.
+SERVICE_INSTANCE_ID=$(docker inspect --format '{{.Config.Hostname}}' "${SERVICE_NAME}" 2>/dev/null || echo "")
+PARENT_LABEL_ID="${SERVICE_INSTANCE_ID:-$(echo "$SERVICE_ID" | cut -c1-12)}"
 
 CONTAINERS_STARTED=true
 
-# Wait for service to be ready (with health checks for all language containers)
-echo "Waiting for service to initialize (60s)..."
-sleep 60
+# Wait for service to be ready (poll /system/health up to 60s)
+echo -e "${YELLOW}Waiting for service to initialize (up to 60s)...${NC}"
+ready=false
+for i in $(seq 1 60); do
+    HEALTH=$(curl -sf http://localhost:4444/v1/system/health || true)
+    STATUS=$(echo "$HEALTH" | jq -r '.status' 2>/dev/null || echo "")
+    LANG_PENDING=$(echo "$HEALTH" | jq -r '.languages | to_entries[]? | select(.value != true) | .key' 2>/dev/null || true)
+
+    if [ "$STATUS" = "ok" ] && [ -z "$LANG_PENDING" ]; then
+        echo -e "${GREEN}Service healthy after ${i}s${NC}"
+        ready=true
+        break
+    fi
+
+    if (( i % 5 == 0 )); then
+        waiting_list=$(IFS=', '; echo "${LANG_PENDING}")
+        [ -z "$waiting_list" ] && waiting_list="waiting for health endpoint..."
+        echo -e "${YELLOW}  [${i}s] Waiting: ${waiting_list}${NC}"
+    else
+        printf "${YELLOW}.${NC}"
+    fi
+    sleep 1
+done
+echo
+if [ "$ready" = false ]; then
+    echo "Service did not become healthy within timeout"
+    exit 1
+fi
 
 # Test 3: Service container is running
 test_step "Service container running" \
-    "docker ps --filter name=nuanced-lsp-proxy --format '{{.Names}}' | grep -q nuanced-lsp-proxy"
+    "docker ps --filter name=${SERVICE_NAME} --format '{{.Names}}' | grep -q ${SERVICE_NAME}"
 
 # Test 4: Service health check
 test_step "Service health check responds" \
@@ -111,13 +144,13 @@ test_step "Service health check responds" \
 # Test 5: Verify language containers were spawned
 echo
 echo -e "${BLUE}Checking language containers...${NC}"
-CONTAINER_COUNT=$(docker ps --filter "name=nuanced-lsp-" --format '{{.Names}}' | wc -l | tr -d ' ')
+CONTAINER_COUNT=$(docker ps --filter "label=nuanced.parent=${PARENT_LABEL_ID}" --filter "label=nuanced.role=language-server" --format '{{.Names}}' | wc -l | tr -d ' ')
 echo "Language containers running: $CONTAINER_COUNT"
 
-if [ $CONTAINER_COUNT -gt 1 ]; then
+if [ $CONTAINER_COUNT -ge 1 ]; then
     echo -e "${GREEN}✓ Language containers spawned${NC}"
     TESTS_PASSED=$((TESTS_PASSED + 1))
-    docker ps --filter "name=nuanced-lsp-" --format "  - {{.Names}} ({{.Status}})"
+    docker ps --filter "label=nuanced.parent=${PARENT_LABEL_ID}" --filter "label=nuanced.role=language-server" --format "  - {{.Names}} ({{.Status}})"
 else
     echo -e "${RED}✗ No language containers found${NC}"
     TESTS_FAILED=$((TESTS_FAILED + 1))
@@ -134,19 +167,34 @@ test_step "Python language works" \
         -H 'Content-Type: application/json' \
         -d '{\"path\":\"main.py\"}' | jq -e '.source_code | length > 0' > /dev/null"
 
-# Test 8: Check Docker network
-test_step "LSProxy Docker network exists" \
-    "docker network ls --format '{{.Name}}' | grep -q lsproxy"
-
-# Test 9: Stop service and verify cleanup
+# Test 8: Stop service and verify cleanup
 echo
 echo -e "${BLUE}Testing cleanup...${NC}"
-docker stop nuanced-lsp-proxy
-echo "Waiting for watchdog to clean up language containers (15s)..."
-sleep 15
+docker stop "${SERVICE_NAME}"
+echo -e "${YELLOW}Waiting for watchdog to clean up language containers (up to 60s)...${NC}"
+cleanup_ready=false
+for i in $(seq 1 60); do
+    running=$(docker ps --filter "label=nuanced.parent=$PARENT_LABEL_ID" --filter "label=nuanced.role=language-server" -q | wc -l | tr -d ' ')
+    if [ "$running" -eq 0 ]; then
+        echo -e "${GREEN}Cleanup complete after ${i}s${NC}"
+        cleanup_ready=true
+        break
+    fi
+    if (( i % 5 == 0 )); then
+        echo -e "${YELLOW}  [${i}s] Waiting on ${running} language container(s)...${NC}"
+    else
+        printf "${YELLOW}.${NC}"
+    fi
+    sleep 1
+done
+echo
+if [ "$cleanup_ready" = false ]; then
+    echo -e "${RED}✗ Watchdog did not clean up language containers within timeout${NC}"
+    exit 1
+fi
 
 test_step "Language containers stopped" \
-    "[ \$(docker ps --filter 'name=nuanced-lsp-' --format '{{.Names}}' | wc -l) -eq 0 ]"
+    "[ \$(docker ps --filter \"label=nuanced.parent=$PARENT_LABEL_ID\" --filter \"label=nuanced.role=language-server\" -q | wc -l) -eq 0 ]"
 
 # Summary
 echo

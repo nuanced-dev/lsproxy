@@ -1,6 +1,6 @@
 use crate::manager::LspManagerError;
 use actix_web::HttpResponse;
-use lsproxy_common::api_types::ErrorResponse;
+use common::api_types::ErrorResponse;
 
 pub trait IntoHttpResponse {
     fn into_http_response(self) -> HttpResponse;
