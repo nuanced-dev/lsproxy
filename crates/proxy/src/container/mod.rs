@@ -44,17 +44,17 @@ pub fn language_container_version() -> String {
 /// Helper functions to get full image names with version tags
 pub fn proxy_image() -> String {
     std::env::var("PROXY_IMAGE")
-        .unwrap_or_else(|_| format!("{}:{}", PROXY_IMAGE_BASE, rust_container_version()))
+        .unwrap_or_else(|_| format!("{}/{}:{}", CONTAINER_REGISTRY, PROXY_IMAGE_BASE, rust_container_version()))
 }
 
 pub fn wrapper_image() -> String {
     std::env::var("WRAPPER_IMAGE")
-        .unwrap_or_else(|_| format!("{}:{}", WRAPPER_IMAGE_BASE, rust_container_version()))
+        .unwrap_or_else(|_| format!("{}/{}:{}", CONTAINER_REGISTRY, WRAPPER_IMAGE_BASE, rust_container_version()))
 }
 
 pub fn watchdog_image() -> String {
     std::env::var("WATCHDOG_IMAGE")
-        .unwrap_or_else(|_| format!("{}:{}", WATCHDOG_IMAGE_BASE, rust_container_version()))
+        .unwrap_or_else(|_| format!("{}/{}:{}", CONTAINER_REGISTRY, WATCHDOG_IMAGE_BASE, rust_container_version()))
 }
 
 pub fn watchdog_image_ghcr() -> String {
