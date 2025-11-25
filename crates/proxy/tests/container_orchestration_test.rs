@@ -21,13 +21,12 @@ use tempfile::TempDir;
 use tokio::sync::Mutex;
 use tokio::time::sleep;
 
-use proxy::container::{
-    language_container_version, proxy_image, WRAPPER_IMAGE_BASE,
-};
+use proxy::container::{language_image_ghcr, proxy_image, WRAPPER_IMAGE_BASE};
+use common::api_types::SupportedLanguages;
 
-// Helper function for Python test image
+// Helper function for Python test image (GHCR name)
 fn python_image() -> String {
-    format!("nuanced-lsp-python:{}", language_container_version())
+    language_image_ghcr(&SupportedLanguages::Python)
 }
 const SERVICE_PORT: u16 = 14444; // Use non-standard port to avoid conflicts
 const CONTAINER_PORT: u16 = 4444; // Port the service listens on inside container
@@ -162,6 +161,7 @@ impl ContainerFixture {
 
     /// Verify required Docker images are available
     async fn verify_images(docker: &Docker) -> Result<(), Box<dyn std::error::Error>> {
+        // Check for proxy image
         let proxy_img = proxy_image();
         let mut filters = HashMap::new();
         filters.insert("reference".to_string(), vec![proxy_img.clone()]);
@@ -180,19 +180,19 @@ impl ContainerFixture {
             .into());
         }
 
+        // Check for Python image (GHCR name)
         let python_img = python_image();
         let mut filters = HashMap::new();
         filters.insert("reference".to_string(), vec![python_img.clone()]);
-
         let options = ListImagesOptions {
             filters,
             ..Default::default()
         };
-
         let images = docker.list_images(Some(options)).await?;
+
         if images.is_empty() {
             return Err(format!(
-                "Required image {} not found. Run: ./scripts/build-language-images.sh",
+                "Required image {} not found. Pull from GHCR or run: ./scripts/build-language-images.sh",
                 python_img
             )
             .into());
