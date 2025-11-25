@@ -29,7 +29,8 @@ RUN git clone --depth 1 https://github.com/rbenv/rbenv.git "$RBENV_ROOT" && \
 # Install latest Ruby 3.2.x and ruby-lsp gem
 # ruby-build will install the latest available 3.2.x version
 RUN eval "$("$RBENV_ROOT"/bin/rbenv init -)" && \
-    LATEST_32=$(rbenv install --list 2>/dev/null | grep -E "^3\.2\.[0-9]+$" | tail -1) && \
+    LATEST_32=$(rbenv install --list 2>/dev/null | sed 's/^[[:space:]]*//' | grep -E "^3\.2\.[0-9]+$" | tail -1) && \
+    echo "Installing Ruby ${LATEST_32}" && \
     rbenv install ${LATEST_32} && \
     rbenv global ${LATEST_32} && \
     rbenv exec gem install ruby-lsp && \
