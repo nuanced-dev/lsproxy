@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-/// Get the workspace root directory (lsproxy project root)
+/// Get the workspace root directory (Nuanced LSP project root)
 fn workspace_root() -> PathBuf {
     // Get the current directory and walk up to find Cargo.toml
     let mut current_dir = std::env::current_dir().expect("Failed to get current directory");
@@ -58,7 +58,7 @@ pub fn csharp_sample_path() -> String {
         .to_string()
 }
 
-use lsproxy_common::api_types::set_thread_local_mount_dir;
+use common::api_types::set_thread_local_mount_dir;
 
 pub struct TestContext;
 

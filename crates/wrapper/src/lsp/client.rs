@@ -11,12 +11,12 @@ use lsp_types::{
     TextDocumentClientCapabilities, TextDocumentIdentifier, TextDocumentItem,
     TextDocumentPositionParams, Url, WorkDoneProgressParams, WorkspaceFolder,
 };
-use lsproxy_common::utils::file_utils::{fix_relative_uris, search_paths, FileType};
-use lsproxy_common::utils::language_utils::detect_language_string;
+use common::utils::file_utils::{fix_relative_uris, search_paths, FileType};
+use common::utils::language_utils::detect_language_string;
 use std::error::Error;
 use std::path::{Path, PathBuf};
 
-use lsproxy_common::utils::workspace_documents::{
+use common::utils::workspace_documents::{
     DidOpenConfiguration, WorkspaceDocuments, WorkspaceDocumentsHandler, DEFAULT_EXCLUDE_PATTERNS,
 };
 

@@ -3,12 +3,14 @@ use crate::manager::{LspManagerError, Manager};
 use actix_web::web::{Data, Json};
 use actix_web::HttpResponse;
 use log::{error, info, warn};
-use lsproxy_common::api_types::{CodeContext, FileRange, Position, Range};
-use lsproxy_common::utils::file_utils::uri_to_relative_path_string;
+use common::api_types::{CodeContext, FileRange, Position, Range};
+use common::utils::file_utils::uri_to_relative_path_string;
 
 use crate::AppState;
 use lsp_types::{GotoDefinitionResponse, Location, Position as LspPosition, Range as LspRange};
-use lsproxy_common::api_types::{DefinitionResponse, GetDefinitionRequest};
+use common::api_types::{DefinitionResponse, GetDefinitionRequest};
+use crate::handlers::utils;
+use common::api_types::{ErrorResponse, FilePosition};
 /// Get the definition of a symbol at a specific position in a file
 ///
 /// Returns the location of the definition for the symbol at the given position.
@@ -48,6 +50,31 @@ pub async fn find_definition(
         info.position.path, info.position.position.line, info.position.position.character
     );
 
+    // Identify the symbol under cursor so we can return a meaningful name
+    let file_position = FilePosition {
+        path: info.position.path.clone(),
+        position: info.position.position.clone(),
+    };
+
+    let file_identifiers = match data.manager.get_file_identifiers(&file_position.path).await {
+        Ok(identifiers) => identifiers,
+        Err(e) => {
+            error!("Failed to get file identifiers: {:?}", e);
+            return HttpResponse::InternalServerError().json(ErrorResponse {
+                error: format!("Failed to get file identifiers: {}", e),
+            });
+        }
+    };
+
+    let selected_identifier =
+        match utils::find_identifier_at_position(file_identifiers, &file_position).await {
+            Ok(identifier) => Some(identifier),
+            Err(e) => {
+                warn!("Could not resolve identifier at position: {:?}", e);
+                None
+            }
+        };
+
     // Call LSP directly (no ast-grep for identifier detection)
     let definitions = match data
         .manager
@@ -78,19 +105,6 @@ pub async fn find_definition(
         None
     };
 
-    // Create a placeholder identifier from the request position
-    let placeholder_identifier = lsproxy_common::api_types::Identifier {
-        name: String::from("(identifier)"),
-        kind: None,
-        file_range: lsproxy_common::api_types::FileRange {
-            path: info.position.path.clone(),
-            range: lsproxy_common::api_types::Range {
-                start: info.position.position.clone(),
-                end: info.position.position.clone(),
-            },
-        },
-    };
-
     HttpResponse::Ok().json(DefinitionResponse {
         raw_response: if info.include_raw_response {
             Some(serde_json::to_value(&definitions).unwrap())
@@ -105,7 +119,17 @@ pub async fn find_definition(
             GotoDefinitionResponse::Link(links) => links.iter().map(|l| l.clone().into()).collect(),
         },
         source_code_context,
-        selected_identifier: placeholder_identifier,
+        selected_identifier: selected_identifier.unwrap_or_else(|| common::api_types::Identifier {
+            name: String::from("(identifier)"),
+            kind: None,
+            file_range: common::api_types::FileRange {
+                path: info.position.path.clone(),
+                range: common::api_types::Range {
+                    start: info.position.position.clone(),
+                    end: info.position.position.clone(),
+                },
+            },
+        }),
     })
 }
 

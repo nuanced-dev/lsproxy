@@ -1,7 +1,7 @@
 use crate::AppState;
 use actix_web::{web, HttpResponse};
 use log::{debug, error, info};
-use lsproxy_common::api_types::{JsonRpcRequest, JsonRpcResponse};
+use common::api_types::{JsonRpcRequest, JsonRpcResponse};
 
 /// Forward raw LSP JSON-RPC requests to the LSP server
 ///

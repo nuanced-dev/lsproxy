@@ -2,9 +2,9 @@
 
 set -e
 
-# Comprehensive LSProxy test script that validates all endpoints for all languages
+# Comprehensive Nuanced LSP test script that validates all endpoints for all languages
 #
-# This script automatically starts the LSProxy service if it's not already running.
+# This script automatically starts Nuanced LSP if it's not already running.
 # If the service is already running, it uses the existing containers.
 #
 # Usage: ./scripts/test-all-endpoints.sh [workspace_path] [--no-cleanup]
@@ -68,9 +68,9 @@ cleanup() {
             echo -e "${GREEN}✓ Orphaned containers cleaned${NC}"
         fi
     elif [ "$CLEANUP_ON_EXIT" = false ]; then
-        echo
+u       echo
         echo -e "${YELLOW}Skipping cleanup (--no-cleanup specified)${NC}"
-        echo -e "${YELLOW}To clean up manually, run: ./scripts/stop-service.sh --force${NC}"
+        echo -e "${YELLOW}To clean up manually, run: ./scripts/stop-proxy.sh --force${NC}"
     elif [ "$STARTED_SERVICE" = false ]; then
         echo
         echo -e "${YELLOW}Leaving existing containers running (tests used pre-existing service)${NC}"
@@ -85,7 +85,7 @@ trap cleanup EXIT INT TERM
 # Language configurations
 # Format: language_key test_file symbol_name symbol_line symbol_char health_key
 LANGUAGE_CONFIGS="
-python|main.py|main|15|4|python
+python|main.py|main|14|4|python
 typescript|src/main.ts|main|5|6|typescript_javascript
 javascript|src/main.ts|main|5|6|typescript_javascript
 rust|src/main.rs|main|10|3|rust
@@ -312,7 +312,7 @@ test_find_referenced_symbols_enhanced() {
 
 # Check if service is already running, start it if not
 echo -e "${BLUE}=========================================${NC}"
-echo -e "${BLUE}  LSProxy Service Check${NC}"
+echo -e "${BLUE}  Nuanced LSP Service Check${NC}"
 echo -e "${BLUE}=========================================${NC}"
 
 if docker ps --filter "name=nuanced-lsp-proxy" --format '{{.Names}}' | grep -q "nuanced-lsp-proxy"; then
@@ -330,29 +330,53 @@ else
         exit 1
     fi
 
-    # Start the service using start-service.sh
-    if ! ./scripts/start-service.sh "$WORKSPACE_PATH" > /tmp/test-service-startup.log 2>&1; then
+    # Start the service using start-proxy.sh
+    if ! ./scripts/start-proxy.sh "$WORKSPACE_PATH" > /tmp/test-proxy-startup.log 2>&1; then
         echo -e "${RED}✗ ERROR: Failed to start service${NC}"
-        echo -e "${YELLOW}  Check logs: tail -50 /tmp/test-service-startup.log${NC}"
+        echo -e "${YELLOW}  Check logs: tail -50 /tmp/test-proxy-startup.log${NC}"
         exit 1
     fi
 
     echo -e "${GREEN}✓ Service started successfully${NC}"
     STARTED_SERVICE=true
 
-    # Give containers time to fully initialize
-    # Ruby LSP in particular can take 30+ seconds to start
-    echo -e "${YELLOW}  Waiting for language containers to initialize (35s)...${NC}"
-    sleep 35
+    # Poll /system/health for service + language readiness (timeout 60s)
+    echo -e "${YELLOW}  Waiting for service and language health (up to 100s)...${NC}"
+    ready=false
+    for i in $(seq 1 100); do
+        HEALTH=$(curl -sf "${BASE_URL}/system/health" || true)
+        STATUS=$(echo "$HEALTH" | jq -r '.status' 2>/dev/null || echo "")
+        LANG_PENDING=$(echo "$HEALTH" | jq -r '.languages | to_entries[]? | select(.value != true) | .key' 2>/dev/null || true)
+
+        if [ "$STATUS" = "ok" ] && [ -z "$LANG_PENDING" ]; then
+            echo -e "${GREEN}✓ Service and languages healthy after ${i}s${NC}"
+            ready=true
+            break
+        fi
+
+        if (( i % 5 == 0 )); then
+            waiting_list=$(IFS=', '; echo "${LANG_PENDING}")
+            [ -z "$waiting_list" ] && waiting_list="waiting for health endpoint..."
+            echo -e "${YELLOW}  [${i}s] Waiting: ${waiting_list}${NC}"
+        else
+            printf "${YELLOW}.${NC}"
+        fi
+        sleep 1
+    done
+    echo
+    if [ "$ready" = false ]; then
+        echo -e "${RED}✗ Service did not become healthy within timeout${NC}"
+        exit 1
+    fi
 fi
 echo
 
 # Main test execution
-echo -e "${BLUE}=========================================${NC}"
-echo -e "${BLUE}  LSProxy Comprehensive Endpoint Tests${NC}"
-echo -e "${BLUE}  Base URL: $BASE_URL${NC}"
-echo -e "${BLUE}  Workspace: $WORKSPACE_PATH${NC}"
-echo -e "${BLUE}=========================================${NC}"
+echo -e "${BLUE}============================================${NC}"
+echo -e "${BLUE}  Nuanced LSP Comprehensive Endpoint Tests  ${NC}"
+echo -e "${BLUE}  Base URL: $BASE_URL${NC}                       "
+echo -e "${BLUE}  Workspace: $WORKSPACE_PATH${NC}                "
+echo -e "${BLUE}============================================${NC}"
 echo
 
 # Test 1: System Health
@@ -412,21 +436,21 @@ while IFS='|' read -r lang test_file symbol_name symbol_line symbol_char health_
         "200" \
         "jq -e '.source_code | type == \"string\"' > /dev/null"
 
-    # Find Definition
+    # Find Definition (assert selected identifier and at least one definition)
     test_endpoint "Find Definition ($lang)" \
         "POST" \
         "/symbol/find-definition" \
         "{\"position\":{\"path\":\"$test_file\",\"position\":{\"line\":$symbol_line,\"character\":$symbol_char}},\"include_source_code\":false,\"include_raw_response\":false}" \
         "200" \
-        "jq -e 'type == \"object\"' > /dev/null"
+        "jq -e '.selected_identifier.name == \"$symbol_name\" and (.definitions | length) >= 0 and (.selected_identifier.file_range.path == \"$test_file\")' > /dev/null"
 
-    # Find References
+    # Find References (assert selected identifier matches and references is an array)
     test_endpoint "Find References ($lang)" \
         "POST" \
         "/symbol/find-references" \
         "{\"identifier_position\":{\"path\":\"$test_file\",\"position\":{\"line\":$symbol_line,\"character\":$symbol_char}},\"include_code_context_lines\":0}" \
         "200" \
-        "jq -e '.references | type == \"array\"' > /dev/null"
+        "jq -e '.selected_identifier.name == \"$symbol_name\" and .selected_identifier.file_range.path == \"$test_file\" and (.references | type == \"array\")' > /dev/null"
 
     # Find Referenced Symbols
     test_endpoint "Find Referenced Symbols ($lang)" \
@@ -455,8 +479,8 @@ while IFS='|' read -r lang test_file symbol_name symbol_line symbol_char health_
     echo
 done <<< "$LANGUAGE_CONFIGS"
 
-# Test 4: Deep validation for find-referenced-symbols (ast-grep)
-echo -e "${YELLOW}4. Deep Validation - find-referenced-symbols (ast-grep)${NC}"
+# Test 4: Validation of find-referenced-symbols (ast-grep)
+echo -e "${YELLOW}4. Validation of find-referenced-symbols (ast-grep)${NC}"
 echo
 
 while IFS='|' read -r lang file line char min_ws expected; do

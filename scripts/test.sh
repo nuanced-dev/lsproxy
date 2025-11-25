@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Comprehensive test script for lsproxy
-# Runs all test suites: Rust unit/integration tests and shell-based endpoint tests
+# Comprehensive test suite for Nuanced LSP.
+# Runs all test suites: Rust unit/integration tests and shell-based endpoint tests.
 
 set -e  # Exit immediately if a command exits with a non-zero status
 
 echo "========================================"
-echo "  LSProxy Test Suite"
+echo "  Nuanced LSP Test Suite                "
 echo "========================================"
 echo
 
@@ -33,10 +33,10 @@ echo
 echo "2. Checking Docker images..."
 echo "----------------------------------------"
 if ! docker images | grep -q "nuanced-lsp-proxy.*latest"; then
-    echo "Service image not found. Building Rust containers..."
-    ./scripts/build-rust-containers.sh
-    echo "Building language containers..."
-    ./scripts/build-language-containers.sh
+    echo "Service image not found. Building Rust images..."
+    ./scripts/build-rust-images.sh
+    echo "Building language images..."
+    ./scripts/build-language-images.sh
 else
     echo "✓ Docker images found"
 fi

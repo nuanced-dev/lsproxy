@@ -9,7 +9,7 @@ use crate::{
 };
 
 use log::{error, info};
-use lsproxy_common::api_types::{
+use common::api_types::{
     ErrorResponse, FilePosition, FindIdentifierRequest, Identifier, IdentifierResponse,
 };
 

@@ -1,18 +1,19 @@
 [package]
-name = "lsproxy-wrapper"
+name = "wrapper"
 version.workspace = true
 edition.workspace = true
 
 [lib]
-name = "lsproxy_wrapper"
+name = "wrapper"
 path = "src/lib.rs"
 
 [[bin]]
-name = "lsp-wrapper"
+name = "nuanced-lsp-wrapper"
 path = "src/main.rs"
 
 [dependencies]
-lsproxy-common.workspace = true
+ast-grep.workspace = true
+common.workspace = true
 actix-web.workspace = true
 tokio.workspace = true
 serde.workspace = true
@@ -25,13 +26,12 @@ lsp-types.workspace = true
 async-trait.workspace = true
 glob.workspace = true
 ignore.workspace = true
+strum.workspace = true
+strum_macros.workspace = true
+url.workspace = true
+utoipa.workspace = true
 
 # Wrapper-specific
-ast-grep = { version = "0.39", default-features = false }
-url = "2.5"
-strum = "0.26"
-strum_macros = "0.26"
-utoipa = "5.3"
 notify-debouncer-mini = "0.4"
 
 [dev-dependencies]

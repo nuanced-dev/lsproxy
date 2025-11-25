@@ -2,7 +2,7 @@
 
 set -e
 
-# Emergency cleanup script - removes ALL LSProxy related containers and networks
+# Emergency cleanup script - removes ALL Nuanced LSP related containers
 # Usage: ./scripts/cleanup-all.sh
 
 # Colors
@@ -13,13 +13,13 @@ YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
 echo -e "${BLUE}=========================================${NC}"
-echo -e "${BLUE}  LSProxy Emergency Cleanup${NC}"
+echo -e "${BLUE}  Nuanced LSP Emergency Cleanup${NC}"
 echo -e "${BLUE}=========================================${NC}"
 echo
 
 echo -e "${YELLOW}This will forcefully remove:${NC}"
-echo "  - All running LSProxy containers (service, watchdog, language containers)"
-echo "  - All stopped LSProxy containers"
+echo "  - All running Nuanced LSP containers (service, watchdog, language containers)"
+echo "  - All stopped Nuanced LSP containers"
 echo
 
 read -p "Continue? (y/N): " -n 1 -r
@@ -30,8 +30,8 @@ if [[ ! $REPLY =~ ^[Yy]$ ]]; then
 fi
 
 # Count what we're cleaning up
-RUNNING=$(docker ps -q --filter "name=lsproxy-" | wc -l | tr -d ' ')
-STOPPED=$(docker ps -aq --filter "name=lsproxy-" | wc -l | tr -d ' ')
+RUNNING=$(docker ps -q --filter "name=nuanced-lsp-" | wc -l | tr -d ' ')
+STOPPED=$(docker ps -aq --filter "name=nuanced-lsp-" | wc -l | tr -d ' ')
 
 echo -e "${BLUE}Found:${NC}"
 echo "  Running containers: $RUNNING"
@@ -40,7 +40,7 @@ echo
 
 # Stop and remove all containers (running and stopped)
 echo -e "${BLUE}Removing containers...${NC}"
-CONTAINERS=$(docker ps -aq --filter "name=lsproxy-")
+CONTAINERS=$(docker ps -aq --filter "name=nuanced-lsp-")
 if [ -n "$CONTAINERS" ]; then
     echo "$CONTAINERS" | while read container; do
         NAME=$(docker ps -a --filter "id=$container" --format "{{.Names}}" 2>/dev/null || echo "unknown")
@@ -58,7 +58,7 @@ fi
 # Final verification
 echo
 echo -e "${BLUE}Verification:${NC}"
-REMAINING=$(docker ps -aq --filter "name=lsproxy-" | wc -l | tr -d ' ')
+REMAINING=$(docker ps -aq --filter "name=nuanced-lsp-" | wc -l | tr -d ' ')
 echo "  Remaining containers: $REMAINING"
 
 echo
@@ -73,10 +73,10 @@ else
     echo -e "${YELLOW}=========================================${NC}"
 
     echo -e "${YELLOW}Remaining containers:${NC}"
-    docker ps -a --filter "name=lsproxy-" --format "  {{.Names}}\t({{.Status}})"
+    docker ps -a --filter "name=nuanced-lsp-" --format "  {{.Names}}\t({{.Status}})"
 
     echo
     echo -e "${YELLOW}Manual cleanup command:${NC}"
-    echo "  docker rm -f \$(docker ps -aq --filter \"name=lsproxy-\")"
+    echo "  docker rm -f \$(docker ps -aq --filter \"name=nuanced-lsp-\")"
     exit 1
 fi
