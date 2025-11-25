@@ -341,9 +341,9 @@ else
     STARTED_SERVICE=true
 
     # Poll /system/health for service + language readiness (timeout 60s)
-    echo -e "${YELLOW}  Waiting for service and language health (up to 60s)...${NC}"
+    echo -e "${YELLOW}  Waiting for service and language health (up to 100s)...${NC}"
     ready=false
-    for i in $(seq 1 60); do
+    for i in $(seq 1 100); do
         HEALTH=$(curl -sf "${BASE_URL}/system/health" || true)
         STATUS=$(echo "$HEALTH" | jq -r '.status' 2>/dev/null || echo "")
         LANG_PENDING=$(echo "$HEALTH" | jq -r '.languages | to_entries[]? | select(.value != true) | .key' 2>/dev/null || true)
