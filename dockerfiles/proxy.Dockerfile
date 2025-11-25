@@ -81,7 +81,9 @@ RUN mkdir -p crates/wrapper/src && \
 # Build nuanced-lsp-proxy binary from workspace with cross-compilation support
 # Uses BuildKit cache mounts to cache Cargo registry and build artifacts across builds.
 # These caches persist even with --no-cache flag, significantly speeding up rebuilds.
-RUN --mount=type=cache,target=/usr/local/cargo/registry,id=cargo-registry \
+# Note: Each image uses a distinct cache ID (cargo-registry-proxy, cargo-registry-wrapper)
+# to prevent race conditions when building images in parallel.
+RUN --mount=type=cache,target=/usr/local/cargo/registry,id=cargo-registry-proxy \
     --mount=type=cache,target=/usr/src/target,id=cargo-target-proxy \
     mkdir -p /usr/src/bin && \
     case "$TARGETPLATFORM" in \
