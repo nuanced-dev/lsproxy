@@ -19,9 +19,10 @@ fi
 echo "1. Running Rust unit and integration tests..."
 echo "----------------------------------------"
 # Set Docker image versions for tests
-# Use "latest" for development, or override with specific versions for production testing
+# RUST_CONTAINER_VERSION: "latest" for locally-built images via build-rust-images.sh
+# LANGUAGE_CONTAINER_VERSION: "1.0.0" to match published images on GHCR
 export RUST_CONTAINER_VERSION="${RUST_CONTAINER_VERSION:-latest}"
-export LANGUAGE_CONTAINER_VERSION="${LANGUAGE_CONTAINER_VERSION:-latest}"
+export LANGUAGE_CONTAINER_VERSION="${LANGUAGE_CONTAINER_VERSION:-1.0.0}"
 echo "Using image versions: Rust=${RUST_CONTAINER_VERSION}, Language=${LANGUAGE_CONTAINER_VERSION}"
 # Run with --test-threads=1 to ensure serial execution of integration tests
 # The container orchestration tests use #[serial] and a shared fixture
