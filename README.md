@@ -191,7 +191,7 @@ For full API documentation, see [Nuanced LSP API Reference](https://docs.nuanced
 ```bash
 # 1. Build the service container (one-time setup)
 #    This builds: orchestrator, lsp-wrapper, and watchdog
-./scripts/build-rust-containers.sh
+./scripts/build-rust-images.sh
 
 # 2. Start the proxy service (language containers are pulled dynamically as needed)
 ./scripts/start-proxy.sh sample_project/all
@@ -215,13 +215,13 @@ For local development, you can build images for your native platform:
 
 ```bash
 # Build Rust containers (wrapper, service, watchdog) without cache
-./scripts/build-rust-containers.sh
+./scripts/build-rust-images.sh
 
 # Build main language containers (8 languages + 7 common Ruby versions)
-./scripts/build-language-containers.sh
+./scripts/build-language-images.sh
 
 # Build all Ruby versions (110+ versions, takes hours)
-./scripts/build-language-containers.sh --all-ruby-versions
+./scripts/build-language-images.sh --all-ruby-versions
 ```
 
 There are many options you can specify with the image build scripts that help with tagging, caching, running builds sequentially vs. parallel, etc. Please view the scripts to see the full options available.
@@ -232,13 +232,13 @@ For building images that support both amd64 and arm64:
 
 ```bash
 # Build multi-arch Rust containers
-./scripts/build-rust-containers.sh --multiarch
+./scripts/build-rust-images.sh --multiarch
 
 # Build multi-arch language containers (main Ruby versions)
-./scripts/build-language-containers.sh --multiarch
+./scripts/build-language-images.sh --multiarch
 
 # Build multi-arch language containers (all Ruby versions)
-./scripts/build-language-containers.sh --multiarch --all-ruby-versions
+./scripts/build-language-images.sh --multiarch --all-ruby-versions
 ```
 
 **Note:** Multi-arch builds use Docker Buildx and may require QEMU for cross-compilation. The build process will be slower than single-architecture builds (2-3x).
@@ -249,9 +249,9 @@ Images can be published to GitHub Container Registry (ghcr.io) and/or Docker Hub
 
 ```bash
 # Publish to GHCR
-./scripts/build-rust-containers.sh --multiarch --registry=ghcr --tag X.Y.Z
+./scripts/build-rust-images.sh --multiarch --registry=ghcr --tag X.Y.Z
 
-./scripts/build-language-containers.sh --multiarch --registry=ghcr -- tag X.Y.Z
+./scripts/build-language-images.sh --multiarch --registry=ghcr -- tag X.Y.Z
 ```
 
 **Environment Variables for Publishing:**

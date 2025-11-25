@@ -3,7 +3,7 @@
 set -e
 
 # Build language server containers (Python, TypeScript, Rust, Go, Java, C++, C#, PHP, Ruby variants)
-# Usage: ./scripts/build-language-containers.sh [--use-cache] [--sequential] [--all-ruby-versions] [--multiarch] [--load] [--tag=TAG] [--registry=REGISTRY] [--language=LANG]
+# Usage: ./scripts/build-language-images.sh [--use-cache] [--sequential] [--all-ruby-versions] [--multiarch] [--load] [--tag=TAG] [--registry=REGISTRY] [--language=LANG]
 #
 # By default:
 #   - Builds WITHOUT cache (use --use-cache to enable caching)
@@ -33,11 +33,11 @@ set -e
 #   --help, -h            Show help message
 #
 # Examples:
-#   ./scripts/build-language-containers.sh --tag=1.0.0
-#   ./scripts/build-language-containers.sh --multiarch --tag=1.0.0 --registry=ghcr
-#   ./scripts/build-language-containers.sh --all-ruby-versions --sequential
-#   ./scripts/build-language-containers.sh --language=python --multiarch --tag=1.0.0 --registry=ghcr
-#   ./scripts/build-language-containers.sh --language=ruby,ruby-sorbet --tag=1.0.0
+#   ./scripts/build-language-images.sh --tag=1.0.0
+#   ./scripts/build-language-images.sh --multiarch --tag=1.0.0 --registry=ghcr
+#   ./scripts/build-language-images.sh --all-ruby-versions --sequential
+#   ./scripts/build-language-images.sh --language=python --multiarch --tag=1.0.0 --registry=ghcr
+#   ./scripts/build-language-images.sh --language=ruby,ruby-sorbet --tag=1.0.0
 #
 # Note: Multi-arch Sorbet builds require --registry because Ruby Sorbet images depend on
 # Ruby base images which must be available in a registry for multi-platform builds.

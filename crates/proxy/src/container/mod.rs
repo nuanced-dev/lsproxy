@@ -10,8 +10,8 @@ pub mod language_manager;
 pub mod orchestrator;
 
 // Container image configuration
-// These correspond to the Docker images built by scripts/build-rust-containers.sh
-// and scripts/build-language-containers.sh
+// These correspond to the Docker images built by scripts/build-rust-images.sh
+// and scripts/build-language-images.sh
 
 /// Default version tag for Rust containers (wrapper, proxy, watchdog)
 /// Can be overridden with RUST_CONTAINER_VERSION environment variable

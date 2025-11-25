@@ -3,7 +3,7 @@
 set -e
 
 # Build Rust-based containers (wrapper, proxy, watchdog)
-# Usage: ./scripts/build-rust-containers.sh [--use-cache] [--multiarch] [--load] [--tag=TAG] [--registry=REGISTRY] [--sequential]
+# Usage: ./scripts/build-rust-images.sh [--use-cache] [--multiarch] [--load] [--tag=TAG] [--registry=REGISTRY] [--sequential]
 #
 # By default:
 #   - Builds WITHOUT cache (use --use-cache to enable caching)
@@ -23,9 +23,9 @@ set -e
 #   --help, -h        Show help message
 #
 # Examples:
-#   ./scripts/build-rust-containers.sh --tag=0.4.8
-#   ./scripts/build-rust-containers.sh --multiarch --tag=0.4.8 --registry=ghcr
-#   ./scripts/build-rust-containers.sh --multiarch --load --tag=0.4.8
+#   ./scripts/build-rust-images.sh --tag=0.4.8
+#   ./scripts/build-rust-images.sh --multiarch --tag=0.4.8 --registry=ghcr
+#   ./scripts/build-rust-images.sh --multiarch --load --tag=0.4.8
 
 # Colors
 GREEN='\033[0;32m'

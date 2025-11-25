@@ -174,7 +174,7 @@ impl ContainerFixture {
         let images = docker.list_images(Some(options)).await?;
         if images.is_empty() {
             return Err(format!(
-                "Required image {} not found. Run: ./scripts/build-rust-containers.sh",
+                "Required image {} not found. Run: ./scripts/build-rust-images.sh",
                 proxy_img
             )
             .into());
@@ -192,7 +192,7 @@ impl ContainerFixture {
         let images = docker.list_images(Some(options)).await?;
         if images.is_empty() {
             return Err(format!(
-                "Required image {} not found. Run: ./scripts/build-language-containers.sh",
+                "Required image {} not found. Run: ./scripts/build-language-images.sh",
                 python_img
             )
             .into());
