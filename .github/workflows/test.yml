@@ -136,6 +136,10 @@ jobs:
   test-rust:
     runs-on: ubuntu-latest
     needs: build-images
+    env:
+      # Match the image tags used in build-images job
+      RUST_CONTAINER_VERSION: "latest"
+      LANGUAGE_CONTAINER_VERSION: "1.0.0"
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -146,6 +150,17 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           cache-on-failure: true
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: built-images
+          path: build-artifacts
+
+      - name: Load Rust images
+        run: docker load -i build-artifacts/images.tar
+
+      - name: Pre-pull Python language image from GHCR
+        run: docker pull ghcr.io/nuanced-dev/nuanced-lsp-python:${{ env.LANGUAGE_CONTAINER_VERSION }}
 
       - name: Run Rust tests
         run: cargo test --locked --workspace --all-targets --all-features
