@@ -216,31 +216,34 @@ impl SupportedLanguages {
         }
     }
 
-    /// Resolve a Ruby version string to a supported patch version
+    /// Resolve a Ruby version string to a full patch version
     ///
-    /// For partial versions like "3.4" or unsupported patch versions,
-    /// returns a stable supported version for that minor release.
+    /// Full versions (X.Y.Z format) pass through unchanged.
+    /// Partial versions (X.Y format) are mapped to a stable patch version.
     fn resolve_ruby_version(version: &str) -> String {
-        // Exact supported versions pass through
-        let supported_versions = [
-            "3.4.7", "3.4.6", "3.4.5", "3.4.4", "3.4.3", "3.4.2", "3.4.1", "3.4.0", "3.3.6",
-            "3.3.5", "3.2.6", "3.2.2",
-        ];
+        let parts: Vec<&str> = version.split('.').collect();
 
-        if supported_versions.contains(&version) {
+        // Full version (X.Y.Z) - pass through as-is
+        if parts.len() >= 3 {
             return version.to_string();
         }
 
-        // Map partial/unsupported versions to stable defaults
-        if version.starts_with("3.4") {
-            "3.4.4".to_string()
-        } else if version.starts_with("3.3") {
-            "3.3.6".to_string()
-        } else if version.starts_with("3.2") {
-            "3.2.6".to_string()
-        } else {
-            // Default for completely unsupported versions
-            DEFAULT_RUBY_VERSION.to_string()
+        // Partial version (X.Y) - map to stable patch version
+        match version {
+            v if v.starts_with("3.4") => "3.4.4".to_string(),
+            v if v.starts_with("3.3") => "3.3.6".to_string(),
+            v if v.starts_with("3.2") => "3.2.6".to_string(),
+            v if v.starts_with("3.1") => "3.1.6".to_string(),
+            v if v.starts_with("3.0") => "3.0.7".to_string(),
+            v if v.starts_with("2.7") => "2.7.8".to_string(),
+            v if v.starts_with("2.6") => "2.6.10".to_string(),
+            v if v.starts_with("2.5") => "2.5.9".to_string(),
+            v if v.starts_with("2.4") => "2.4.10".to_string(),
+            v if v.starts_with("2.3") => "2.3.8".to_string(),
+            v if v.starts_with("2.2") => "2.2.10".to_string(),
+            v if v.starts_with("2.1") => "2.1.10".to_string(),
+            v if v.starts_with("2.0") => "2.0.0".to_string(),
+            _ => DEFAULT_RUBY_VERSION.to_string(),
         }
     }
 
