@@ -216,11 +216,15 @@ impl SupportedLanguages {
         }
     }
 
-    /// Supported Ruby versions (last 1 year of releases, Nov 2024 - Nov 2025)
+    /// Supported Ruby versions:
+    /// - Core versions from original support (3.2.2, 3.2.6, 3.3.5)
+    /// - Last 1 year of releases (Nov 2024 - Nov 2025): 3.3.6-3.3.10, 3.4.0-3.4.7
     /// These have dedicated container images with exact version matching.
     const SUPPORTED_RUBY_VERSIONS: &'static [&'static str] = &[
-        // 3.3.x series (Nov 2024 - Oct 2025)
-        "3.3.6", "3.3.7", "3.3.8", "3.3.9", "3.3.10",
+        // Core 3.2.x versions
+        "3.2.2", "3.2.6",
+        // 3.3.x series
+        "3.3.5", "3.3.6", "3.3.7", "3.3.8", "3.3.9", "3.3.10",
         // 3.4.x series (Dec 2024 - Oct 2025)
         "3.4.0", "3.4.1", "3.4.2", "3.4.3", "3.4.4", "3.4.5", "3.4.6", "3.4.7",
     ];
