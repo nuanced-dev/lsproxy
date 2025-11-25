@@ -1,12 +1,11 @@
-# Ruby 3.1 LSP server container
+# Ruby 3.3.9 LSP server container
 # Multi-stage build to minimize image size
 
 # Builder stage: Install Ruby and ruby-lsp
 FROM debian:bookworm-slim AS builder
 
 ENV DEBIAN_FRONTEND=noninteractive
-# Latest stable patch version for Ruby 3.1.x series
-ARG RUBY_VERSION=3.1.7
+ARG RUBY_VERSION=3.3.9
 
 # Install Ruby build dependencies and system libraries for native gems
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -39,7 +38,7 @@ FROM debian:bookworm-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV HOME=/home/user
-ARG RUBY_VERSION=3.1.7
+ARG RUBY_VERSION=3.3.9
 
 # Install runtime dependencies AND build tools (needed for native gem compilation)
 RUN apt-get update && apt-get install -y --no-install-recommends \

@@ -170,7 +170,7 @@ pub enum SupportedLanguages {
 }
 
 /// Default Ruby version when none is detected
-pub const DEFAULT_RUBY_VERSION: &str = "3.4.4";
+pub const DEFAULT_RUBY_VERSION: &str = "3.4.7";
 
 impl SupportedLanguages {
     /// Create a Ruby language with version and variant
@@ -216,16 +216,20 @@ impl SupportedLanguages {
         }
     }
 
-    /// Core Ruby patch versions that have dedicated container images.
-    /// These are commonly used versions that warrant specific patch-level support.
-    const CORE_RUBY_VERSIONS: &'static [&'static str] =
-        &["3.2.2", "3.2.6", "3.3.5", "3.3.6", "3.4.1", "3.4.2", "3.4.4"];
+    /// Supported Ruby versions (last 1 year of releases, Nov 2024 - Nov 2025)
+    /// These have dedicated container images with exact version matching.
+    const SUPPORTED_RUBY_VERSIONS: &'static [&'static str] = &[
+        // 3.3.x series (Nov 2024 - Oct 2025)
+        "3.3.6", "3.3.7", "3.3.8", "3.3.9", "3.3.10",
+        // 3.4.x series (Dec 2024 - Oct 2025)
+        "3.4.0", "3.4.1", "3.4.2", "3.4.3", "3.4.4", "3.4.5", "3.4.6", "3.4.7",
+    ];
 
     /// Resolve a Ruby version string to a supported container version
     ///
     /// Strategy:
-    /// 1. Core patch versions (3.2.2, 3.2.6, 3.3.5, 3.3.6, 3.4.1, 3.4.2, 3.4.4) are used as-is
-    /// 2. Other Ruby 3.x versions are mapped to minor version (e.g., 3.3.1 -> 3.3)
+    /// 1. Supported versions (last 1 year of releases) are used as-is
+    /// 2. Unsupported versions fall back to the default (latest stable)
     /// 3. Ruby 2.x versions are not supported (ruby-lsp gem requires Ruby >= 3.0)
     fn resolve_ruby_version(version: &str) -> String {
         // Check if this is a Ruby 3.x version
@@ -234,23 +238,13 @@ impl SupportedLanguages {
             return DEFAULT_RUBY_VERSION.to_string();
         }
 
-        // Check if this is a core patch version
-        if Self::CORE_RUBY_VERSIONS.contains(&version) {
+        // Check if this is a supported version
+        if Self::SUPPORTED_RUBY_VERSIONS.contains(&version) {
             return version.to_string();
         }
 
-        // Extract minor version (e.g., "3.3" from "3.3.1" or "3.3")
-        let parts: Vec<&str> = version.split('.').collect();
-        if parts.len() >= 2 {
-            let minor_version = format!("{}.{}", parts[0], parts[1]);
-            // Validate it's a supported minor version
-            match minor_version.as_str() {
-                "3.0" | "3.1" | "3.2" | "3.3" | "3.4" => minor_version,
-                _ => DEFAULT_RUBY_VERSION.to_string(),
-            }
-        } else {
-            DEFAULT_RUBY_VERSION.to_string()
-        }
+        // Unsupported version - fall back to default
+        DEFAULT_RUBY_VERSION.to_string()
     }
 
     /// Check if this language matches a language family

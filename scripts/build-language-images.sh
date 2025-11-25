@@ -61,15 +61,15 @@ ALL_RUBY_VERSIONS=false
 MULTIARCH=false
 LOAD_LOCAL=false
 TAG="1.0.0"
-DEFAULT_RUBY_VERSION="3.4.4"
+DEFAULT_RUBY_VERSION="3.4.7"
 REGISTRY=""  # Options: ghcr, dockerhub, local, or empty for no push
 FILTER_LANGUAGES=""  # Empty = build all, otherwise comma-separated list: python,typescript,ruby,ruby-sorbet
 # Default max parallel jobs (4 is safe for most systems, prevents Docker daemon overload)
 MAX_JOBS=4
-# Ruby versions to build (minor versions + core patch versions)
-# Minor versions (3.0, 3.1, etc.) use latest patch from rbenv
-# Core patch versions are commonly used specific releases
-COMMON_RUBY_VERSIONS=("3.0" "3.1" "3.2" "3.2.2" "3.2.6" "3.3" "3.3.5" "3.3.6" "3.4" "3.4.1" "3.4.2" "3.4.4")
+# Ruby versions to build (last 1 year of releases, Nov 2024 - Nov 2025)
+# 3.3.x: 3.3.6 (Nov 2024) through 3.3.10 (Oct 2025)
+# 3.4.x: 3.4.0 (Dec 2024) through 3.4.7 (Oct 2025)
+COMMON_RUBY_VERSIONS=("3.3.6" "3.3.7" "3.3.8" "3.3.9" "3.3.10" "3.4.0" "3.4.1" "3.4.2" "3.4.3" "3.4.4" "3.4.5" "3.4.6" "3.4.7")
 
 # Parse arguments
 for arg in "$@"; do
@@ -98,7 +98,7 @@ for arg in "$@"; do
             echo "Multi-arch Sorbet builds require --registry because Ruby Sorbet images depend on"
             echo "Ruby base images which must be available in a registry for multi-platform builds."
             echo ""
-            echo "Ruby versions built: 3.0, 3.1, 3.2, 3.2.2, 3.2.6, 3.3, 3.3.5, 3.3.6, 3.4, 3.4.1, 3.4.2, 3.4.4"
+            echo "Ruby versions built (last 1 year): 3.3.6-3.3.10, 3.4.0-3.4.7 (13 versions)"
             echo ""
             echo "Available languages: python, typescript, rust, golang, java, clangd, csharp, php, ruby, ruby-sorbet"
             echo ""

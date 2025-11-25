@@ -1,7 +1,7 @@
-# Ruby Sorbet 3.2 LSP server container
-# Builds on top of the Ruby 3.2 image and adds sorbet gem
+# Ruby Sorbet 3.4.5 LSP server container
+# Builds on top of the Ruby 3.4.5 image and adds sorbet gem
 
-ARG RUBY_BASE_IMAGE=nuanced-lsp-ruby-3.2:1.0.0
+ARG RUBY_BASE_IMAGE=nuanced-lsp-ruby-3.4.5:1.0.0
 FROM ${RUBY_BASE_IMAGE}
 
 ENV DEBIAN_FRONTEND=noninteractive
