@@ -41,13 +41,32 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy workspace structure for wrapper build
+# We only need to build the wrapper binary, but Cargo workspaces require ALL workspace
+# members to be present and valid before building any single member. The root Cargo.toml
+# defines a workspace with: common, proxy, and wrapper. Cargo validates that every
+# member's source files exist, even when building just one binary.
+#
+# To avoid copying the full proxy crate source (which wrapper doesn't depend on),
+# we create a minimal stub that satisfies Cargo's workspace validation.
 WORKDIR /usr/src
-COPY Cargo.toml Cargo.lock ./
+COPY Cargo.toml ./
+# Cargo.lock is optional - if present, ensures reproducible builds with exact dependency versions.
+# The wildcard syntax (Cargo.lock*) allows the build to succeed even if Cargo.lock is not committed.
+# For production builds, Cargo.lock should be committed to ensure reproducibility across all builds.
+COPY Cargo.lock* ./
 COPY crates/common crates/common/
 COPY crates/wrapper crates/wrapper/
-# Copy proxy stub to satisfy workspace (we need ast_grep configs anyway)
+
+# Create minimal proxy stub to satisfy Cargo workspace requirements.
+# The wrapper crate does NOT depend on proxy at runtime - they both depend on common.
+# This stub exists only because Cargo requires all workspace members to have valid
+# source files before it will build any member. Without this, `cargo build` fails with:
+#   "error: failed to read `/usr/src/crates/proxy/src/lib.rs`"
 COPY crates/proxy/Cargo.toml crates/proxy/Cargo.toml
-COPY crates/proxy/src crates/proxy/src/
+RUN mkdir -p crates/proxy/src && \
+    echo '// Minimal stub to satisfy Cargo workspace validation.' > crates/proxy/src/lib.rs && \
+    echo '// The wrapper binary does not depend on proxy - see wrapper.Dockerfile for details.' >> crates/proxy/src/lib.rs && \
+    echo 'fn main() {}' > crates/proxy/src/main.rs
 
 # Build nuanced-lsp-wrapper binary from workspace
 RUN mkdir -p /usr/src/bin && \
