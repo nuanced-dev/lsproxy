@@ -3,12 +3,12 @@
 set -e
 
 # Build language server containers (Python, TypeScript, Rust, Go, Java, C++, C#, PHP, Ruby variants)
-# Usage: ./scripts/build-language-images.sh [--use-cache] [--sequential] [--all-ruby-versions] [--multiarch] [--load] [--tag=TAG] [--registry=REGISTRY] [--language=LANG]
+# Usage: ./scripts/build-language-images.sh [--use-cache] [--sequential] [--all-ruby-versions] [--multiarch] [--load] [--tag=TAG] [--registry=REGISTRY] [--language=LANG] [--jobs=N]
 #
 # By default:
 #   - Builds WITHOUT cache (use --use-cache to enable caching)
-#   - Builds in PARALLEL (use --sequential for sequential builds)
-#   - Builds ONLY main Ruby versions (use --all-ruby-versions to build all 114 versions)
+#   - Builds in PARALLEL with max 4 concurrent jobs (use --jobs=N to adjust)
+#   - Builds ONLY main Ruby versions (use --all-ruby-versions to build all 110 versions)
 #   - Builds for local platform only (use --multiarch for amd64+arm64)
 #   - Tags images as :1.0.0 (use --tag=1.1.0 for custom version)
 #   - Does NOT push (use --registry to push to ghcr/dockerhub/local)
@@ -24,7 +24,8 @@ set -e
 #   --use-cache           Enable Docker build cache (default: disabled)
 #   --sequential          Build sequentially instead of parallel
 #   --parallel            Build in parallel (default)
-#   --all-ruby-versions   Build all 114 Ruby versions (default: main versions only)
+#   --jobs=N, -j=N        Max parallel builds (default: 4, prevents Docker daemon overload)
+#   --all-ruby-versions   Build all 110 Ruby versions (default: main versions only)
 #   --multiarch           Build for both amd64 and arm64 (default: local platform only)
 #   --load                Also build and load local platform into Docker (use with --multiarch)
 #   --tag=TAG             Tag images with specified semver tag (default: 1.0.0)
@@ -35,7 +36,7 @@ set -e
 # Examples:
 #   ./scripts/build-language-images.sh --tag=1.0.0
 #   ./scripts/build-language-images.sh --multiarch --tag=1.0.0 --registry=ghcr
-#   ./scripts/build-language-images.sh --all-ruby-versions --sequential
+#   ./scripts/build-language-images.sh --all-ruby-versions --jobs=8
 #   ./scripts/build-language-images.sh --language=python --multiarch --tag=1.0.0 --registry=ghcr
 #   ./scripts/build-language-images.sh --language=ruby,ruby-sorbet --tag=1.0.0
 #
@@ -63,6 +64,8 @@ TAG="1.0.0"
 DEFAULT_RUBY_VERSION="3.4.4"
 REGISTRY=""  # Options: ghcr, dockerhub, local, or empty for no push
 FILTER_LANGUAGES=""  # Empty = build all, otherwise comma-separated list: python,typescript,ruby,ruby-sorbet
+# Default max parallel jobs (4 is safe for most systems, prevents Docker daemon overload)
+MAX_JOBS=4
 # Main Ruby versions that are commonly used (built by default)
 COMMON_RUBY_VERSIONS=("3.2.2" "3.2.6" "3.3.5" "3.3.6" "3.4.1" "3.4.2" "3.4.4")
 
@@ -70,13 +73,14 @@ COMMON_RUBY_VERSIONS=("3.2.2" "3.2.6" "3.3.5" "3.3.6" "3.4.1" "3.4.2" "3.4.4")
 for arg in "$@"; do
     case $arg in
         --help|-h)
-            echo "Usage: $0 [--use-cache] [--sequential] [--all-ruby-versions] [--multiarch] [--load] [--tag=TAG] [--registry=REGISTRY] [--language=LANG]"
+            echo "Usage: $0 [--use-cache] [--sequential] [--all-ruby-versions] [--multiarch] [--load] [--tag=TAG] [--registry=REGISTRY] [--language=LANG] [--jobs=N]"
             echo ""
             echo "Options:"
             echo "  --use-cache           Enable Docker build cache (default: disabled)"
             echo "  --sequential          Build sequentially instead of parallel"
             echo "  --parallel            Build in parallel (default)"
-            echo "  --all-ruby-versions   Build all 114 Ruby versions (default: main versions only)"
+            echo "  --jobs=N, -j=N        Max parallel builds (default: 4, prevents Docker daemon overload)"
+            echo "  --all-ruby-versions   Build all 110 Ruby versions (default: main versions only)"
             echo "  --multiarch           Build for both amd64 and arm64 (default: local platform only)"
             echo "  --load                Also build and load local platform into Docker (use with --multiarch)"
             echo "  --tag=TAG             Tag images with specified semver tag (default: 1.0.0)"
@@ -99,7 +103,7 @@ for arg in "$@"; do
             echo "Examples:"
             echo "  $0 --language=python --multiarch --tag=1.0.0 --registry=ghcr"
             echo "  $0 --language=ruby,ruby-sorbet --tag=1.0.0"
-            echo "  $0 --language=python,typescript,golang"
+            echo "  $0 --all-ruby-versions --jobs=8"
             exit 0
             ;;
         --sequential)
@@ -133,14 +137,22 @@ for arg in "$@"; do
         --language=*|--languages=*)
             FILTER_LANGUAGES="${arg#*=}"
             ;;
+        --jobs=*|-j=*)
+            MAX_JOBS="${arg#*=}"
+            if ! [[ "$MAX_JOBS" =~ ^[0-9]+$ ]] || [ "$MAX_JOBS" -lt 1 ]; then
+                echo -e "${RED}Invalid jobs value: $MAX_JOBS. Must be a positive integer${NC}"
+                exit 1
+            fi
+            ;;
         *)
             echo -e "${YELLOW}Unknown argument: $arg${NC}"
-            echo "Usage: $0 [--use-cache] [--sequential] [--all-ruby-versions] [--multiarch] [--load] [--tag=TAG] [--registry=REGISTRY] [--language=LANG]"
+            echo "Usage: $0 [--use-cache] [--sequential] [--all-ruby-versions] [--multiarch] [--load] [--tag=TAG] [--registry=REGISTRY] [--language=LANG] [--jobs=N]"
             echo ""
             echo "Options:"
             echo "  --use-cache           Enable Docker build cache (default: disabled)"
             echo "  --sequential          Build sequentially instead of parallel"
             echo "  --parallel            Build in parallel (default)"
+            echo "  --jobs=N, -j=N        Max parallel builds (default: 4, prevents Docker daemon overload)"
             echo "  --all-ruby-versions   Build all 114 Ruby versions (default: main versions only)"
             echo "  --multiarch           Build for both amd64 and arm64 (default: local platform only)"
             echo "  --load                Also build and load local platform into Docker (use with --multiarch)"
@@ -371,7 +383,7 @@ if [ "$MULTIARCH" = true ]; then
 else
     echo -e "${BLUE}  Building Language Server Containers (Local Platform)${NC}"
 fi
-echo -e "${BLUE}  Parallel: $PARALLEL${NC}"
+echo -e "${BLUE}  Parallel: $PARALLEL (max $MAX_JOBS jobs)${NC}"
 echo -e "${BLUE}  Cache: $USE_CACHE${NC}"
 echo -e "${BLUE}=========================================${NC}"
 echo
@@ -442,6 +454,59 @@ build_container() {
     fi
 }
 
+# Throttled parallel build function
+# Runs builds in parallel but limits concurrency to MAX_JOBS
+# Arguments:
+#   $1 - subdir (empty string, "ruby", or "ruby-sorbet")
+#   $2 - push flag ("true" or "false")
+#   $3... - items to build
+build_parallel_throttled() {
+    local subdir="$1"
+    local push_flag="$2"
+    shift 2
+    local items=("$@")
+
+    local pids=()
+    local failed=0
+    local running=0
+
+    for item in "${items[@]}"; do
+        # Wait if we've hit the max concurrent jobs
+        while [ $running -ge $MAX_JOBS ]; do
+            # Wait for any job to finish
+            for i in "${!pids[@]}"; do
+                if ! kill -0 "${pids[$i]}" 2>/dev/null; then
+                    # Job finished, check its exit status
+                    if ! wait "${pids[$i]}"; then
+                        failed=$((failed + 1))
+                    fi
+                    unset 'pids[i]'
+                    running=$((running - 1))
+                    break
+                fi
+            done
+            # Small sleep to avoid busy waiting
+            sleep 0.1
+        done
+
+        # Start new build
+        build_container "$item" "$subdir" "$push_flag" &
+        pids+=($!)
+        running=$((running + 1))
+    done
+
+    # Wait for remaining jobs
+    for pid in "${pids[@]}"; do
+        if [ -n "$pid" ]; then
+            if ! wait "$pid"; then
+                failed=$((failed + 1))
+            fi
+        fi
+    done
+
+    return $failed
+}
+
 # Build non-Ruby language images
 echo -e "${YELLOW}Step 1: Building non-Ruby language containers${NC}"
 
@@ -452,22 +517,13 @@ if [ -n "$REGISTRY" ]; then
 fi
 
 if [ "$PARALLEL" = true ]; then
-    echo -e "${BLUE}Building in parallel (see /tmp/build-*.log for progress)${NC}"
+    echo -e "${BLUE}Building in parallel (max $MAX_JOBS concurrent, see /tmp/build-*.log for progress)${NC}"
 
-    # Build in parallel using background jobs
-    pids=()
-    for lang in "${LANGUAGES[@]}"; do
-        build_container "$lang" "" "$push_languages" &
-        pids+=($!)
-    done
-
-    # Wait for all builds
-    failed=0
-    for pid in "${pids[@]}"; do
-        if ! wait $pid; then
-            failed=$((failed + 1))
-        fi
-    done
+    if ! build_parallel_throttled "" "$push_languages" "${LANGUAGES[@]}"; then
+        failed=$?
+    else
+        failed=0
+    fi
 
     if [ $failed -gt 0 ]; then
         echo -e "${RED}$failed language containers failed to build${NC}"
@@ -495,22 +551,13 @@ else
     fi
 
     if [ "$PARALLEL" = true ]; then
-        echo -e "${BLUE}Building in parallel (see /tmp/build-ruby-*.log for progress)${NC}"
+        echo -e "${BLUE}Building in parallel (max $MAX_JOBS concurrent, see /tmp/build-ruby-*.log for progress)${NC}"
 
-        # Build in parallel using background jobs
-        pids=()
-        for version in "${RUBY_VERSIONS[@]}"; do
-            build_container "$version" "ruby" "$push_ruby" &
-            pids+=($!)
-        done
-
-        # Wait for all builds
-        failed=0
-        for pid in "${pids[@]}"; do
-            if ! wait $pid; then
-                failed=$((failed + 1))
-            fi
-        done
+        if ! build_parallel_throttled "ruby" "$push_ruby" "${RUBY_VERSIONS[@]}"; then
+            failed=$?
+        else
+            failed=0
+        fi
 
         if [ $failed -gt 0 ]; then
             echo -e "${RED}$failed Ruby containers failed to build${NC}"
@@ -540,22 +587,13 @@ else
     fi
 
     if [ "$PARALLEL" = true ]; then
-        echo -e "${BLUE}Building in parallel (see /tmp/build-ruby-sorbet-*.log for progress)${NC}"
+        echo -e "${BLUE}Building in parallel (max $MAX_JOBS concurrent, see /tmp/build-ruby-sorbet-*.log for progress)${NC}"
 
-        # Build in parallel using background jobs
-        pids=()
-        for version in "${RUBY_SORBET_VERSIONS[@]}"; do
-            build_container "$version" "ruby-sorbet" "$push_sorbet" &
-            pids+=($!)
-        done
-
-        # Wait for all builds
-        failed=0
-        for pid in "${pids[@]}"; do
-            if ! wait $pid; then
-                failed=$((failed + 1))
-            fi
-        done
+        if ! build_parallel_throttled "ruby-sorbet" "$push_sorbet" "${RUBY_SORBET_VERSIONS[@]}"; then
+            failed=$?
+        else
+            failed=0
+        fi
 
         if [ $failed -gt 0 ]; then
             echo -e "${RED}$failed Ruby Sorbet containers failed to build${NC}"
