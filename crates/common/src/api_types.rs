@@ -218,31 +218,29 @@ impl SupportedLanguages {
 
     /// Resolve a Ruby version string to a full patch version
     ///
-    /// Full versions (X.Y.Z format) pass through unchanged.
+    /// Full versions (X.Y.Z format) pass through unchanged if they are Ruby 3.x.
     /// Partial versions (X.Y format) are mapped to a stable patch version.
+    /// Ruby 2.x versions are not supported (ruby-lsp gem requires Ruby >= 3.0).
     fn resolve_ruby_version(version: &str) -> String {
         let parts: Vec<&str> = version.split('.').collect();
 
-        // Full version (X.Y.Z) - pass through as-is
-        if parts.len() >= 3 {
+        // Check if this is a Ruby 3.x version
+        let is_ruby_3 = version.starts_with("3.");
+
+        // Full version (X.Y.Z) - pass through as-is if Ruby 3.x
+        if parts.len() >= 3 && is_ruby_3 {
             return version.to_string();
         }
 
         // Partial version (X.Y) - map to stable patch version
+        // Only Ruby 3.x is supported (ruby-lsp requires Ruby >= 3.0)
         match version {
             v if v.starts_with("3.4") => "3.4.4".to_string(),
             v if v.starts_with("3.3") => "3.3.6".to_string(),
             v if v.starts_with("3.2") => "3.2.6".to_string(),
             v if v.starts_with("3.1") => "3.1.6".to_string(),
             v if v.starts_with("3.0") => "3.0.7".to_string(),
-            v if v.starts_with("2.7") => "2.7.8".to_string(),
-            v if v.starts_with("2.6") => "2.6.10".to_string(),
-            v if v.starts_with("2.5") => "2.5.9".to_string(),
-            v if v.starts_with("2.4") => "2.4.10".to_string(),
-            v if v.starts_with("2.3") => "2.3.8".to_string(),
-            v if v.starts_with("2.2") => "2.2.10".to_string(),
-            v if v.starts_with("2.1") => "2.1.10".to_string(),
-            v if v.starts_with("2.0") => "2.0.0".to_string(),
+            // Ruby 2.x is not supported - fall back to default
             _ => DEFAULT_RUBY_VERSION.to_string(),
         }
     }
