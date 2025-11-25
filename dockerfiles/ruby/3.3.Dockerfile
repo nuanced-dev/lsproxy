@@ -1,11 +1,11 @@
-# Ruby 3.0.7 LSP server container
+# Ruby 3.3 LSP server container (uses latest 3.3.x patch from Docker Hub)
 # Multi-stage build to minimize image size
 
 # Builder stage: Install Ruby and ruby-lsp
 FROM debian:bookworm-slim AS builder
 
 ENV DEBIAN_FRONTEND=noninteractive
-ARG RUBY_VERSION=3.0.7
+ARG RUBY_VERSION=3.3
 
 # Install Ruby build dependencies and system libraries for native gems
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -26,10 +26,12 @@ ENV PATH="$RBENV_ROOT/bin:$RBENV_ROOT/shims:${PATH}"
 RUN git clone --depth 1 https://github.com/rbenv/rbenv.git "$RBENV_ROOT" && \
     git clone --depth 1 https://github.com/rbenv/ruby-build.git "$RBENV_ROOT/plugins/ruby-build"
 
-# Install Ruby and ruby-lsp gem
+# Install latest Ruby 3.3.x and ruby-lsp gem
+# ruby-build will install the latest available 3.3.x version
 RUN eval "$("$RBENV_ROOT"/bin/rbenv init -)" && \
-    rbenv install ${RUBY_VERSION} && \
-    rbenv global ${RUBY_VERSION} && \
+    LATEST_33=$(rbenv install --list 2>/dev/null | grep -E "^3\.3\.[0-9]+$" | tail -1) && \
+    rbenv install ${LATEST_33} && \
+    rbenv global ${LATEST_33} && \
     rbenv exec gem install ruby-lsp && \
     rbenv rehash
 
@@ -38,7 +40,7 @@ FROM debian:bookworm-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV HOME=/home/user
-ARG RUBY_VERSION=3.0.7
+ARG RUBY_VERSION=3.3
 
 # Install runtime dependencies AND build tools (needed for native gem compilation)
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -52,6 +54,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libreadline8 \
     libncurses6 \
     libyaml-0-2 \
+    libyaml-dev \
     zlib1g \
     libpq5 \
     libmariadb3 \

@@ -8,7 +8,7 @@ set -e
 # By default:
 #   - Builds WITHOUT cache (use --use-cache to enable caching)
 #   - Builds in PARALLEL with max 4 concurrent jobs (use --jobs=N to adjust)
-#   - Builds ONLY main Ruby versions (use --all-ruby-versions to build all 110 versions)
+#   - Builds all 12 Ruby versions (5 minor + 7 core patch versions)
 #   - Builds for local platform only (use --multiarch for amd64+arm64)
 #   - Tags images as :1.0.0 (use --tag=1.1.0 for custom version)
 #   - Does NOT push (use --registry to push to ghcr/dockerhub/local)
@@ -25,7 +25,7 @@ set -e
 #   --sequential          Build sequentially instead of parallel
 #   --parallel            Build in parallel (default)
 #   --jobs=N, -j=N        Max parallel builds (default: 4, prevents Docker daemon overload)
-#   --all-ruby-versions   Build all 110 Ruby versions (default: main versions only)
+#   --all-ruby-versions   Build all Ruby versions from dockerfiles (currently 12 versions)
 #   --multiarch           Build for both amd64 and arm64 (default: local platform only)
 #   --load                Also build and load local platform into Docker (use with --multiarch)
 #   --tag=TAG             Tag images with specified semver tag (default: 1.0.0)
@@ -66,8 +66,10 @@ REGISTRY=""  # Options: ghcr, dockerhub, local, or empty for no push
 FILTER_LANGUAGES=""  # Empty = build all, otherwise comma-separated list: python,typescript,ruby,ruby-sorbet
 # Default max parallel jobs (4 is safe for most systems, prevents Docker daemon overload)
 MAX_JOBS=4
-# Main Ruby versions that are commonly used (built by default)
-COMMON_RUBY_VERSIONS=("3.2.2" "3.2.6" "3.3.5" "3.3.6" "3.4.1" "3.4.2" "3.4.4")
+# Ruby versions to build (minor versions + core patch versions)
+# Minor versions (3.0, 3.1, etc.) use latest patch from rbenv
+# Core patch versions are commonly used specific releases
+COMMON_RUBY_VERSIONS=("3.0" "3.1" "3.2" "3.2.2" "3.2.6" "3.3" "3.3.5" "3.3.6" "3.4" "3.4.1" "3.4.2" "3.4.4")
 
 # Parse arguments
 for arg in "$@"; do
@@ -80,7 +82,7 @@ for arg in "$@"; do
             echo "  --sequential          Build sequentially instead of parallel"
             echo "  --parallel            Build in parallel (default)"
             echo "  --jobs=N, -j=N        Max parallel builds (default: 4, prevents Docker daemon overload)"
-            echo "  --all-ruby-versions   Build all 110 Ruby versions (default: main versions only)"
+            echo "  --all-ruby-versions   Build all Ruby versions from dockerfiles (currently 12 versions)"
             echo "  --multiarch           Build for both amd64 and arm64 (default: local platform only)"
             echo "  --load                Also build and load local platform into Docker (use with --multiarch)"
             echo "  --tag=TAG             Tag images with specified semver tag (default: 1.0.0)"
@@ -96,7 +98,7 @@ for arg in "$@"; do
             echo "Multi-arch Sorbet builds require --registry because Ruby Sorbet images depend on"
             echo "Ruby base images which must be available in a registry for multi-platform builds."
             echo ""
-            echo "Default Ruby versions built: 3.2.2, 3.2.6, 3.3.5, 3.3.6, 3.4.1, 3.4.2, 3.4.4"
+            echo "Ruby versions built: 3.0, 3.1, 3.2, 3.2.2, 3.2.6, 3.3, 3.3.5, 3.3.6, 3.4, 3.4.1, 3.4.2, 3.4.4"
             echo ""
             echo "Available languages: python, typescript, rust, golang, java, clangd, csharp, php, ruby, ruby-sorbet"
             echo ""
@@ -153,7 +155,7 @@ for arg in "$@"; do
             echo "  --sequential          Build sequentially instead of parallel"
             echo "  --parallel            Build in parallel (default)"
             echo "  --jobs=N, -j=N        Max parallel builds (default: 4, prevents Docker daemon overload)"
-            echo "  --all-ruby-versions   Build all 114 Ruby versions (default: main versions only)"
+            echo "  --all-ruby-versions   Build all Ruby versions from dockerfiles (currently 12 versions)"
             echo "  --multiarch           Build for both amd64 and arm64 (default: local platform only)"
             echo "  --load                Also build and load local platform into Docker (use with --multiarch)"
             echo "  --tag=TAG             Tag images with specified semver tag (default: 1.0.0)"
