@@ -79,7 +79,11 @@ RUN mkdir -p crates/wrapper/src && \
     echo 'fn main() {}' > crates/wrapper/src/main.rs
 
 # Build nuanced-lsp-proxy binary from workspace with cross-compilation support
-RUN mkdir -p /usr/src/bin && \
+# Uses BuildKit cache mounts to cache Cargo registry and build artifacts across builds.
+# These caches persist even with --no-cache flag, significantly speeding up rebuilds.
+RUN --mount=type=cache,target=/usr/local/cargo/registry,id=cargo-registry \
+    --mount=type=cache,target=/usr/src/target,id=cargo-target-proxy \
+    mkdir -p /usr/src/bin && \
     case "$TARGETPLATFORM" in \
     "linux/amd64") \
         if [ "$BUILDARCH" = "arm64" ]; then \
