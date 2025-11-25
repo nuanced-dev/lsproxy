@@ -1,13 +1,12 @@
-use crate::AppState;
-use actix_web::web::{Data, Json};
+use crate::manager::Manager;
 use actix_web::HttpResponse;
-use log::{error, info};
-use lsp_types::{GotoDefinitionResponse, Position as LspPosition};
 use common::api_types::{
-    get_mount_dir, ErrorResponse, FilePosition, GetReferencedSymbolsRequest, Identifier, Position,
-    ReferenceWithSymbolDefinitions, ReferencedSymbolsResponse,
+    get_mount_dir, FilePosition, GetReferencedSymbolsRequest, Identifier, JsonRpcRequest,
+    JsonRpcResponse, Position, ReferenceWithSymbolDefinitions, ReferencedSymbolsResponse,
 };
 use common::utils::file_utils::uri_to_relative_path_string;
+use log::{error, info};
+use lsp_types::{GotoDefinitionResponse, Position as LspPosition};
 
 /// Find all symbols that are referenced from a given symbol's definition
 ///
@@ -30,21 +29,28 @@ use common::utils::file_utils::uri_to_relative_path_string;
 ///     User (with definition from models.py)
 ///   ]
 /// - External symbols: print (Python built-in)
-#[utoipa::path(
-    post,
-    path = "/symbol/find-referenced-symbols",
-    tag = "symbol",
-    request_body = GetReferencedSymbolsRequest,
-    responses(
-        (status = 200, description = "Referenced symbols retrieved successfully", body = ReferencedSymbolsResponse),
-        (status = 400, description = "Bad request"),
-        (status = 500, description = "Internal server error")
-    )
-)]
-pub async fn find_referenced_symbols(
-    data: Data<AppState>,
-    info: Json<GetReferencedSymbolsRequest>,
-) -> HttpResponse {
+pub async fn handle(manager: &Manager, request: JsonRpcRequest) -> HttpResponse {
+    let req_id = request.id.clone();
+
+    let params = match request.params.clone() {
+        Some(p) => p,
+        None => {
+            error!("Missing parameters for findReferencedSymbols");
+            let error = JsonRpcResponse::new_error(req_id, -32602, "Missing params");
+            return HttpResponse::BadRequest().json(error);
+        }
+    };
+
+    let info: GetReferencedSymbolsRequest = match serde_json::from_value(params) {
+        Ok(info) => info,
+        Err(e) => {
+            error!("Invalid parameters for findReferencedSymbols: {}", e);
+            let error =
+                JsonRpcResponse::new_error(req_id, -32602, format!("Invalid params: {}", e));
+            return HttpResponse::BadRequest().json(error);
+        }
+    };
+
     info!(
         "Received referenced symbols request for file: {}, line: {}, character: {}",
         info.identifier_position.path,
@@ -52,8 +58,7 @@ pub async fn find_referenced_symbols(
         info.identifier_position.position.character
     );
 
-    let referenecd_ast_symbols = match data
-        .manager
+    let referenced_ast_symbols = match manager
         .find_referenced_symbols(
             &info.identifier_position.path,
             LspPosition {
@@ -67,14 +72,17 @@ pub async fn find_referenced_symbols(
         Ok(ast_symbols) => ast_symbols,
         Err(e) => {
             error!("Failed to get referenced symbols: {:?}", e);
-            return HttpResponse::InternalServerError().json(ErrorResponse {
-                error: format!("Failed to get referenced symbols: {}", e),
-            });
+            let error = JsonRpcResponse::new_error(
+                req_id,
+                -32603,
+                format!("Failed to get referenced symbols: {}", e),
+            );
+            return HttpResponse::InternalServerError().json(error);
         }
     };
 
     let unwrapped_definition_responses: Vec<(Identifier, Vec<FilePosition>)> =
-        referenecd_ast_symbols
+        referenced_ast_symbols
             .into_iter()
             .map(|(ast_grep_result, definition_response)| {
                 let definitions = match definition_response {
@@ -135,8 +143,7 @@ pub async fn find_referenced_symbols(
                         character: def.position.character,
                     };
 
-                    match data
-                        .manager
+                    match manager
                         .get_symbol_from_position(&def.path, &def_position)
                         .await
                     {
@@ -163,7 +170,7 @@ pub async fn find_referenced_symbols(
                             // Solution: Use ast-grep to get all identifiers in the file, find the one
                             // matching by name and line number, then call get_symbol_from_position
                             // using that identifier's position (which aligns with documentSymbol).
-                            match data.manager.get_file_identifiers(&def.path).await {
+                            match manager.get_file_identifiers(&def.path).await {
                                 Ok(identifiers) => {
                                     // Find the identifier on the same line as the definition with matching name
                                     if let Some(found_identifier) = identifiers.iter().find(|id| {
@@ -180,8 +187,7 @@ pub async fn find_referenced_symbols(
                                                 .character,
                                         };
 
-                                        if let Ok(symbol) = data
-                                            .manager
+                                        if let Ok(symbol) = manager
                                             .get_symbol_from_position(&def.path, &id_position)
                                             .await
                                         {
@@ -259,10 +265,13 @@ pub async fn find_referenced_symbols(
         }
     });
 
-    // Return the sorted response
-    HttpResponse::Ok().json(ReferencedSymbolsResponse {
+    let response = ReferencedSymbolsResponse {
         workspace_symbols,
         external_symbols,
         not_found,
-    })
+    };
+
+    let json_rpc_response = JsonRpcResponse::new_result(req_id, response);
+
+    HttpResponse::Ok().json(json_rpc_response)
 }

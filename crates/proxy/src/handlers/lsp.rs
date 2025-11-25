@@ -3,13 +3,13 @@ use crate::handlers::container_proxy;
 use crate::AppState;
 use actix_web::web::{Data, Json};
 use actix_web::HttpResponse;
+use common::api_types::{JsonRpcRequest, JsonRpcResponse};
 use log::{debug, error, info, warn};
 use lsp_types::{
     DeclarationCapability, FoldingRangeProviderCapability, HoverProviderCapability,
     ImplementationProviderCapability, InitializeResult, OneOf, PositionEncodingKind,
     ServerCapabilities, ServerInfo, TextDocumentSyncKind, TextDocumentSyncOptions,
 };
-use common::api_types::{JsonRpcRequest, JsonRpcResponse};
 use serde_json::Value;
 use std::sync::Arc;
 use url::Url;
@@ -36,6 +36,11 @@ pub async fn lsp(data: Data<AppState>, request: Json<JsonRpcRequest>) -> HttpRes
 
     // Handle lifecycle requests locally
     if let Some(response) = handle_lifecycle_request(&lsp_req) {
+        return response;
+    }
+
+    // Try to handle as a custom command first
+    if let Some(response) = crate::custom_commands::handle_custom_command(lsp_req.clone()).await {
         return response;
     }
 

@@ -1,17 +1,13 @@
-use actix_web::web::{Data, Json};
-use actix_web::HttpResponse;
-use log::{error, info};
-use lsp_types::{Location, Position as LspPosition};
-
-use crate::handlers::error::IntoHttpResponse;
 use crate::handlers::utils;
 use crate::manager::{LspManagerError, Manager};
-use crate::AppState;
+use actix_web::HttpResponse;
 use common::api_types::{
-    get_mount_dir, CodeContext, ErrorResponse, FilePosition, FileRange, GetReferencesRequest,
-    Position, Range, ReferencesResponse,
+    get_mount_dir, CodeContext, FilePosition, FileRange, GetReferencesRequest, JsonRpcRequest,
+    JsonRpcResponse, Position, Range, ReferencesResponse,
 };
 use common::utils::file_utils::uri_to_relative_path_string;
+use log::{error, info};
+use lsp_types::{Location, Position as LspPosition};
 
 /// Find all references to a symbol
 ///
@@ -32,21 +28,28 @@ use common::utils::file_utils::uri_to_relative_path_string;
 ///  5: user = User("John", 30)
 ///  output____^
 /// ```
-#[utoipa::path(
-    post,
-    path = "/symbol/find-references",
-    tag = "symbol",
-    request_body = GetReferencesRequest,
-    responses(
-        (status = 200, description = "References retrieved successfully", body = ReferencesResponse),
-        (status = 400, description = "Bad request"),
-        (status = 500, description = "Internal server error")
-    )
-)]
-pub async fn find_references(
-    data: Data<AppState>,
-    info: Json<GetReferencesRequest>,
-) -> HttpResponse {
+pub async fn handle(manager: &Manager, request: JsonRpcRequest) -> HttpResponse {
+    let req_id = request.id.clone();
+
+    let params = match request.params.clone() {
+        Some(p) => p,
+        None => {
+            error!("Missing parameters for findReferences");
+            let error = JsonRpcResponse::new_error(req_id, -32602, "Missing params");
+            return HttpResponse::BadRequest().json(error);
+        }
+    };
+
+    let info: GetReferencesRequest = match serde_json::from_value(params) {
+        Ok(info) => info,
+        Err(e) => {
+            error!("Invalid parameters for findReferences: {}", e);
+            let error =
+                JsonRpcResponse::new_error(req_id, -32602, format!("Invalid params: {}", e));
+            return HttpResponse::BadRequest().json(error);
+        }
+    };
+
     info!(
         "Received references request for file: {}, line: {}, character: {}",
         info.identifier_position.path,
@@ -54,17 +57,19 @@ pub async fn find_references(
         info.identifier_position.position.character
     );
 
-    let file_identifiers = match data
-        .manager
+    let file_identifiers = match manager
         .get_file_identifiers(&info.identifier_position.path)
         .await
     {
         Ok(identifiers) => identifiers,
         Err(e) => {
             error!("Failed to get file identifiers: {:?}", e);
-            return HttpResponse::InternalServerError().json(ErrorResponse {
-                error: format!("Failed to get file identifiers: {}", e),
-            });
+            let error = JsonRpcResponse::new_error(
+                req_id,
+                -32603,
+                format!("Failed to get file identifiers: {}", e),
+            );
+            return HttpResponse::InternalServerError().json(error);
         }
     };
 
@@ -74,20 +79,18 @@ pub async fn find_references(
             Ok(identifier) => identifier,
             Err(e) => {
                 error!("Failed to find references from position: {:?}", e);
-                return HttpResponse::BadRequest().json(ErrorResponse {
-                    error: format!("Failed to find references from position: {}", e),
-                });
+                let error = JsonRpcResponse::new_error(
+                    req_id,
+                    -32602,
+                    format!("Failed to find references from position: {}", e),
+                );
+                return HttpResponse::BadRequest().json(error);
             }
         };
 
-    let references_result =
-        find_and_filter_references(&data.manager, &info.identifier_position).await;
-    let code_contexts_result = get_code_contexts(
-        &data.manager,
-        &references_result,
-        info.include_code_context_lines,
-    )
-    .await;
+    let references_result = find_and_filter_references(manager, &info.identifier_position).await;
+    let code_contexts_result =
+        get_code_contexts(manager, &references_result, info.include_code_context_lines).await;
 
     match (references_result, code_contexts_result) {
         (Ok(references), Ok(code_contexts)) => {
@@ -118,14 +121,23 @@ pub async fn find_references(
                 context: code_contexts,
                 selected_identifier,
             };
-            HttpResponse::Ok().json(response)
+
+            let json_rpc_response = JsonRpcResponse::new_result(req_id, response);
+
+            HttpResponse::Ok().json(json_rpc_response)
         }
-        (Err(e), _) => handle_lsp_error(e),
+        (Err(e), _) => {
+            let error = JsonRpcResponse::new_error(req_id, -32603, format!("LSP error: {}", e));
+            HttpResponse::InternalServerError().json(error)
+        }
         (_, Err(e)) => {
             error!("Failed to fetch code context: {}", e);
-            HttpResponse::InternalServerError().json(ErrorResponse {
-                error: format!("Failed to fetch code context: {}", e),
-            })
+            let error = JsonRpcResponse::new_error(
+                req_id,
+                -32603,
+                format!("Failed to fetch code context: {}", e),
+            );
+            HttpResponse::InternalServerError().json(error)
         }
     }
 }
@@ -176,10 +188,6 @@ async fn get_code_contexts(
             .map(Some),
         _ => Ok(None),
     }
-}
-
-fn handle_lsp_error(e: LspManagerError) -> HttpResponse {
-    e.into_http_response()
 }
 
 async fn fetch_code_context(

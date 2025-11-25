@@ -2,6 +2,8 @@ use crate::lsp::json_rpc::JsonRpc;
 use crate::lsp::process::Process;
 use crate::lsp::{ExpectedMessageKey, JsonRpcHandler, ProcessHandler};
 use async_trait::async_trait;
+use common::utils::file_utils::{fix_relative_uris, search_paths, FileType};
+use common::utils::language_utils::detect_language_string;
 use log::{debug, error, info, warn};
 use lsp_types::{
     ClientCapabilities, DidOpenTextDocumentParams, DocumentSymbolClientCapabilities,
@@ -11,8 +13,6 @@ use lsp_types::{
     TextDocumentClientCapabilities, TextDocumentIdentifier, TextDocumentItem,
     TextDocumentPositionParams, Url, WorkDoneProgressParams, WorkspaceFolder,
 };
-use common::utils::file_utils::{fix_relative_uris, search_paths, FileType};
-use common::utils::language_utils::detect_language_string;
 use std::error::Error;
 use std::path::{Path, PathBuf};
 

@@ -1,6 +1,4 @@
 use crate::lsp::client::LspClient;
-use log::{error, warn};
-use lsp_types::{GotoDefinitionResponse, Location, Position, Range};
 /// Simplified Manager for lsp-wrapper
 ///
 /// Unlike the main Nuanced LSP Manager that orchestrates multiple language servers,
@@ -10,6 +8,8 @@ use common::ast_grep::client::AstGrepClient;
 use common::ast_grep::types::AstGrepMatch;
 use common::utils::file_utils::uri_to_relative_path_string;
 use common::utils::workspace_documents::WorkspaceDocuments;
+use log::{error, warn};
+use lsp_types::{GotoDefinitionResponse, Location, Position, Range};
 use std::sync::Arc;
 use thiserror::Error;
 use tokio::sync::Mutex;

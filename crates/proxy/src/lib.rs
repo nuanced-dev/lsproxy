@@ -4,9 +4,7 @@ use actix_web::{
     web::{get, post, resource, scope, Data},
     App, HttpServer,
 };
-use handlers::{find_identifier, read_source_code};
 use log::{error, info, warn};
-use common::api_types::{FindIdentifierRequest, IdentifierResponse};
 use middleware::JwtMiddleware;
 use std::fs;
 use std::fs::File;
@@ -19,18 +17,13 @@ use utoipa_swagger_ui::SwaggerUi;
 
 // Local modules
 pub mod container;
+mod custom_commands;
 mod handlers;
 
-use crate::handlers::{
-    definitions_in_file, find_definition, find_referenced_symbols, find_references, health_check,
-    list_files, lsp,
-};
+use crate::handlers::{health_check, lsp};
 use common::api_types::{
-    get_mount_dir, set_global_mount_dir, CodeContext, DefinitionResponse, ErrorResponse,
-    FilePosition, FileRange, FileSymbolsRequest, GetDefinitionRequest, GetReferencedSymbolsRequest,
-    GetReferencesRequest, HealthResponse, JsonRpcError, JsonRpcRequest, JsonRpcResponse, Position,
-    ReferenceWithSymbolDefinitions, ReferencedSymbolsResponse, ReferencesResponse,
-    SupportedLanguages, Symbol, SymbolResponse,
+    get_mount_dir, set_global_mount_dir, HealthResponse, JsonRpcError, JsonRpcRequest,
+    JsonRpcResponse,
 };
 // use common::utils::doc_utils::make_code_sample;
 
@@ -54,52 +47,28 @@ pub fn check_mount_dir() -> std::io::Result<()> {
     ),
     components(
         schemas(
-            FileSymbolsRequest,
-            GetDefinitionRequest,
-            GetReferencesRequest,
-            GetReferencedSymbolsRequest,
-            SupportedLanguages,
-            DefinitionResponse,
-            ReferencesResponse,
-            ReferencedSymbolsResponse,
-            SymbolResponse,
-            ReferenceWithSymbolDefinitions,
-            FilePosition,
-            Position,
-            Symbol,
-            ErrorResponse,
-            CodeContext,
-            FileRange,
             HealthResponse,
-            FindIdentifierRequest,
-            IdentifierResponse,
             JsonRpcRequest,
             JsonRpcResponse,
             JsonRpcError,
         )
     ),
     paths(
-        crate::handlers::definitions_in_file,
-        crate::handlers::find_definition,
-        crate::handlers::find_references,
         crate::handlers::health_check,
-        crate::handlers::list_files,
-        crate::handlers::read_source_code,
-        crate::handlers::find_referenced_symbols,
-        crate::handlers::find_identifier,
         crate::handlers::lsp,
     ),
     tags(
         (name = "nuanced-lsp-api", description = "Nuanced LSP API")
     ),
     servers(
-        (url = "http://localhost:4444/v1", description = "API server v1")
+        (url = "http://localhost:4444/v2", description = "API server v2")
     )
 )]
 pub struct ApiDoc;
 
 pub struct AppState {
     orchestrator: Arc<container::ContainerOrchestrator>,
+    #[allow(dead_code)]
     workspace_path: String,
     initialization_complete: Arc<AtomicBool>,
 }
@@ -263,20 +232,6 @@ pub async fn run_server_with_port_and_host(
             };
 
             api_scope = match (path.as_str(), method) {
-                ("/symbol/find-definition", Some(Method::Post)) =>
-                    api_scope.service(resource(path).route(post().to(find_definition))),
-                ("/symbol/find-references", Some(Method::Post)) =>
-                    api_scope.service(resource(path).route(post().to(find_references))),
-                ("/symbol/find-referenced-symbols", Some(Method::Post)) =>
-                    api_scope.service(resource(path).route(post().to(find_referenced_symbols))),
-                ("/symbol/find-identifier", Some(Method::Post)) =>
-                    api_scope.service(resource(path).route(post().to(find_identifier))),
-                ("/symbol/definitions-in-file", Some(Method::Get)) =>
-                    api_scope.service(resource(path).route(get().to(definitions_in_file))),
-                ("/workspace/list-files", Some(Method::Get)) =>
-                    api_scope.service(resource(path).route(get().to(list_files))),
-                ("/workspace/read-source-code", Some(Method::Post)) =>
-                    api_scope.service(resource(path).route(post().to(read_source_code))),
                 ("/system/health", Some(Method::Get)) =>
                     api_scope.service(resource(path).route(get().to(health_check))),
                 ("/lsp", Some(Method::Post)) =>

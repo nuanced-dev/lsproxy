@@ -5,18 +5,19 @@ use std::sync::Arc;
 
 const DEFAULT_RBENV_ROOT: &str = "/opt/rbenv";
 
+mod custom_commands;
 mod handlers;
 mod lsp;
 mod manager;
 
-use lsp::client::LspClient;
-use lsp::languages::{GenericLspClient, GoplsClient, SorbetClient};
-use lsp::process::ProcessHandler;
 use common::utils::workspace_documents::{
     DidOpenConfiguration, CSHARP_FILE_PATTERNS, C_AND_CPP_FILE_PATTERNS, GOLANG_FILE_PATTERNS,
     JAVA_FILE_PATTERNS, PHP_FILE_PATTERNS, PYTHON_FILE_PATTERNS, RUBY_FILE_PATTERNS,
     RUST_FILE_PATTERNS, TYPESCRIPT_AND_JAVASCRIPT_FILE_PATTERNS,
 };
+use lsp::client::LspClient;
+use lsp::languages::{GenericLspClient, GoplsClient, SorbetClient};
+use lsp::process::ProcessHandler;
 use manager::Manager;
 
 /// HTTP wrapper for LSP servers
@@ -301,26 +302,6 @@ async fn main() -> std::io::Result<()> {
         App::new()
             .app_data(app_state.clone())
             .route("/health", web::get().to(health))
-            .route(
-                "/symbol/find-identifier",
-                web::post().to(handlers::find_identifier::find_identifier),
-            )
-            .route(
-                "/symbol/find-definition",
-                web::post().to(handlers::find_definition::find_definition),
-            )
-            .route(
-                "/symbol/find-references",
-                web::post().to(handlers::find_references::find_references),
-            )
-            .route(
-                "/symbol/find-referenced-symbols",
-                web::post().to(handlers::find_referenced_symbols::find_referenced_symbols),
-            )
-            .route(
-                "/symbol/definitions-in-file",
-                web::get().to(handlers::definitions_in_file::definitions_in_file),
-            )
             .route("/lsp", web::post().to(handlers::lsp::lsp))
     })
     .bind(("0.0.0.0", args.port))?

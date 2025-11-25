@@ -1,12 +1,13 @@
 use crate::AppState;
 use actix_web::{web, HttpResponse};
-use log::{debug, error, info};
 use common::api_types::{JsonRpcRequest, JsonRpcResponse};
+use log::{debug, error, info};
 
 /// Forward raw LSP JSON-RPC requests to the LSP server
 ///
 /// This endpoint provides direct access to the LSP server by forwarding
 /// JSON-RPC requests and returning responses with minimal processing.
+/// Custom lsproxy/* commands are handled locally.
 #[utoipa::path(
     post,
     path = "/lsp",
@@ -29,6 +30,13 @@ pub async fn lsp(
         &req_id, &lsp_req.method
     );
     debug!("LSP request: {:?}", &lsp_req);
+
+    // Try to handle as a custom command first
+    if let Some(response) =
+        crate::custom_commands::handle_custom_command(&app_state.manager, lsp_req.clone()).await
+    {
+        return response;
+    }
 
     // Forward the request to the LSP server
     match app_state.manager.lsp(lsp_req).await {

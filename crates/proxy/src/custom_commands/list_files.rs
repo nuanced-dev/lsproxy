@@ -1,31 +1,23 @@
-use crate::AppState;
-use actix_web::web::Data;
 use actix_web::HttpResponse;
-use ignore::WalkBuilder;
+use common::api_types::{get_mount_dir, JsonRpcRequest, JsonRpcResponse};
 use log::{error, info};
-use std::path::Path;
-use std::sync::{Arc, Mutex};
 
-/// List all files in the workspace
-#[utoipa::path(
-    get,
-    path = "/workspace/list-files",
-    tag = "file",
-    responses(
-        (status = 200, description = "Files listed successfully"),
-        (status = 500, description = "Internal server error")
-    )
-)]
-pub async fn list_files(data: Data<AppState>) -> HttpResponse {
+pub async fn handle(request: JsonRpcRequest) -> HttpResponse {
+    let req_id = request.id.clone();
+
     info!("Received list files request");
 
-    let workspace_path = Path::new(&data.workspace_path);
+    // Get workspace path from manager's mount_dir
+    let workspace_path = get_mount_dir();
 
     // Use parallel file walking for performance on large workspaces
-    let files = Arc::new(Mutex::new(Vec::new()));
-    let workspace_path_arc = Arc::new(workspace_path.to_path_buf());
+    use ignore::WalkBuilder;
+    use std::sync::{Arc, Mutex};
 
-    let walker = WalkBuilder::new(workspace_path)
+    let files = Arc::new(Mutex::new(Vec::new()));
+    let workspace_path_arc = Arc::new(workspace_path.clone());
+
+    let walker = WalkBuilder::new(&workspace_path)
         .hidden(false) // Include hidden files (like .ruby-version, .python-version)
         .git_ignore(false) // Don't filter by gitignore - list all workspace files
         .git_exclude(false) // Don't use git exclude rules
@@ -61,5 +53,7 @@ pub async fn list_files(data: Data<AppState>) -> HttpResponse {
     files.sort();
     files.dedup();
 
-    HttpResponse::Ok().json(files)
+    let json_rpc_response = JsonRpcResponse::new_result(req_id, files);
+
+    HttpResponse::Ok().json(json_rpc_response)
 }

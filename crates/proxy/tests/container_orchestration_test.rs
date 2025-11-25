@@ -21,8 +21,8 @@ use tempfile::TempDir;
 use tokio::sync::Mutex;
 use tokio::time::sleep;
 
-use proxy::container::{language_image_ghcr, proxy_image, WRAPPER_IMAGE_BASE};
 use common::api_types::SupportedLanguages;
+use proxy::container::{language_image_ghcr, proxy_image, WRAPPER_IMAGE_BASE};
 
 // Helper function for Python test image (GHCR name)
 fn python_image() -> String {
@@ -271,7 +271,7 @@ impl ContainerFixture {
     async fn wait_for_health_static() -> Result<(), Box<dyn std::error::Error>> {
         let client = Client::builder().timeout(Duration::from_secs(5)).build()?;
 
-        let health_url = format!("{}/v1/system/health", BASE_URL);
+        let health_url = format!("{}/v2/system/health", BASE_URL);
 
         for attempt in 1..=MAX_RETRIES {
             match client.get(&health_url).send().await {
@@ -324,7 +324,7 @@ async fn wait_for_language_health(lang_key: &str) -> Result<(), Box<dyn std::err
     let client = Client::builder().timeout(Duration::from_secs(30)).build()?;
     for attempt in 1..=30 {
         let resp = client
-            .get(&format!("{}/v1/system/health", BASE_URL))
+            .get(&format!("{}/v2/system/health", BASE_URL))
             .send()
             .await?;
         if resp.status().is_success() {
@@ -366,7 +366,7 @@ async fn test_service_health() -> Result<(), Box<dyn std::error::Error>> {
 
     let client = Client::new();
     let response = client
-        .get(&format!("{}/v1/system/health", BASE_URL))
+        .get(&format!("{}/v2/system/health", BASE_URL))
         .send()
         .await?;
 
@@ -414,14 +414,19 @@ async fn test_container_spawn_on_request() -> Result<(), Box<dyn std::error::Err
     wait_for_language_health("python").await?;
 
     let response = client
-        .post(&format!("{}/v1/symbol/find-definition", BASE_URL))
+        .post(&format!("{}/v2/lsp", BASE_URL))
         .json(&json!({
-            "position": {
-                "path": "test.py",
-                "position": {"line": 0, "character": 4}
-            },
-            "include_source_code": false,
-            "include_raw_response": false
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "lsproxy/symbol/findDefinition",
+            "params": {
+                "position": {
+                    "path": "test.py",
+                    "position": {"line": 0, "character": 4}
+                },
+                "include_source_code": false,
+                "include_raw_response": false
+            }
         }))
         .send()
         .await?;
@@ -458,14 +463,19 @@ async fn test_request_forwarding() -> Result<(), Box<dyn std::error::Error>> {
 
     // Test find-definition endpoint
     let response = client
-        .post(&format!("{}/v1/symbol/find-definition", BASE_URL))
+        .post(&format!("{}/v2/lsp", BASE_URL))
         .json(&json!({
-            "position": {
-                "path": "test.py",
-                "position": {"line": 0, "character": 4}
-            },
-            "include_source_code": false,
-            "include_raw_response": false
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "lsproxy/symbol/findDefinition",
+            "params": {
+                "position": {
+                    "path": "test.py",
+                    "position": {"line": 0, "character": 4}
+                },
+                "include_source_code": false,
+                "include_raw_response": false
+            }
         }))
         .send()
         .await?;
@@ -473,8 +483,11 @@ async fn test_request_forwarding() -> Result<(), Box<dyn std::error::Error>> {
     assert!(response.status().is_success());
     let body: serde_json::Value = response.json().await?;
 
-    // Should have definitions field (even if empty)
-    assert!(body.get("definitions").is_some());
+    // Should have result.definitions field (even if empty)
+    assert!(body
+        .get("result")
+        .and_then(|r| r.get("definitions"))
+        .is_some());
 
     Ok(())
 }
@@ -491,14 +504,19 @@ async fn test_multiple_requests_same_container() -> Result<(), Box<dyn std::erro
 
     // First request - container already spawned during service startup
     let response1 = client
-        .post(&format!("{}/v1/symbol/find-definition", BASE_URL))
+        .post(&format!("{}/v2/lsp", BASE_URL))
         .json(&json!({
-            "position": {
-                "path": "test.py",
-                "position": {"line": 0, "character": 4}
-            },
-            "include_source_code": false,
-            "include_raw_response": false
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "lsproxy/symbol/findDefinition",
+            "params": {
+                "position": {
+                    "path": "test.py",
+                    "position": {"line": 0, "character": 4}
+                },
+                "include_source_code": false,
+                "include_raw_response": false
+            }
         }))
         .send()
         .await?;
@@ -528,13 +546,18 @@ async fn test_multiple_requests_same_container() -> Result<(), Box<dyn std::erro
 
     // Second request - should reuse container
     let response2 = client
-        .post(&format!("{}/v1/symbol/find-references", BASE_URL))
+        .post(&format!("{}/v2/lsp", BASE_URL))
         .json(&json!({
-            "identifier_position": {
-                "path": "test.py",
-                "position": {"line": 0, "character": 4}
-            },
-            "include_code_context_lines": 0
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "lsproxy/symbol/findReferences",
+            "params": {
+                "identifier_position": {
+                    "path": "test.py",
+                    "position": {"line": 0, "character": 4}
+                },
+                "include_code_context_lines": 0
+            }
         }))
         .send()
         .await?;
@@ -564,15 +587,22 @@ async fn test_list_files() -> Result<(), Box<dyn std::error::Error>> {
 
     let client = Client::new();
     let response = client
-        .get(&format!("{}/v1/workspace/list-files", BASE_URL))
+        .post(&format!("{}/v2/lsp", BASE_URL))
+        .json(&json!({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "lsproxy/workspace/listFiles",
+            "params": {}
+        }))
         .send()
         .await?;
 
     assert!(response.status().is_success());
     let body: serde_json::Value = response.json().await?;
 
-    // The endpoint returns a direct array of filenames, not an object with a "files" field
-    assert!(body.is_array());
+    // The result should be a direct array of filenames
+    assert!(body.get("result").is_some());
+    assert!(body.get("result").unwrap().is_array());
 
     Ok(())
 }
@@ -587,13 +617,18 @@ async fn test_find_references() -> Result<(), Box<dyn std::error::Error>> {
     wait_for_language_health("python").await?;
 
     let response = client
-        .post(&format!("{}/v1/symbol/find-references", BASE_URL))
+        .post(&format!("{}/v2/lsp", BASE_URL))
         .json(&json!({
-            "identifier_position": {
-                "path": "test.py",
-                "position": {"line": 0, "character": 4}
-            },
-            "include_code_context_lines": 0
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "lsproxy/symbol/findReferences",
+            "params": {
+                "identifier_position": {
+                    "path": "test.py",
+                    "position": {"line": 0, "character": 4}
+                },
+                "include_code_context_lines": 0
+            }
         }))
         .send()
         .await?;
@@ -601,8 +636,11 @@ async fn test_find_references() -> Result<(), Box<dyn std::error::Error>> {
     assert!(response.status().is_success());
     let body: serde_json::Value = response.json().await?;
 
-    // Should have references field
-    assert!(body.get("references").is_some());
+    // Should have result.references field
+    assert!(body
+        .get("result")
+        .and_then(|r| r.get("references"))
+        .is_some());
 
     Ok(())
 }
@@ -621,13 +659,18 @@ async fn test_find_references_with_context_lines() -> Result<(), Box<dyn std::er
     // test.py contains:
     // def hello():\n    return \"hello\"\n\ndef world():\n    return \"world\"\n\nmessage = hello()\n
     let response = client
-        .post(&format!("{}/v1/symbol/find-references", BASE_URL))
+        .post(&format!("{}/v2/lsp", BASE_URL))
         .json(&json!({
-            "identifier_position": {
-                "path": "test.py",
-                "position": {"line": 0, "character": 4}  // "hello" function definition
-            },
-            "include_code_context_lines": 3
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "lsproxy/symbol/findReferences",
+            "params": {
+                "identifier_position": {
+                    "path": "test.py",
+                    "position": {"line": 0, "character": 4}  // "hello" function definition
+                },
+                "include_code_context_lines": 3
+            }
         }))
         .send()
         .await?;
@@ -635,9 +678,10 @@ async fn test_find_references_with_context_lines() -> Result<(), Box<dyn std::er
     assert!(response.status().is_success());
     let body: serde_json::Value = response.json().await?;
 
-    // Verify references field exists
-    assert!(body.get("references").is_some());
-    let references = body["references"].as_array().unwrap();
+    // Verify result.references field exists
+    let result = body.get("result").expect("should have result field");
+    assert!(result.get("references").is_some());
+    let references = result["references"].as_array().unwrap();
     assert!(
         references.len() > 0,
         "Should find at least one reference to 'hello'"
@@ -666,13 +710,18 @@ async fn test_find_references_with_context_lines() -> Result<(), Box<dyn std::er
 
     // Now test with include_code_context_lines = 0 and verify NO source code is included
     let response_no_context = client
-        .post(&format!("{}/v1/symbol/find-references", BASE_URL))
+        .post(&format!("{}/v2/lsp", BASE_URL))
         .json(&json!({
-            "identifier_position": {
-                "path": "test.py",
-                "position": {"line": 0, "character": 4}
-            },
-            "include_code_context_lines": 0
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "lsproxy/symbol/findReferences",
+            "params": {
+                "identifier_position": {
+                    "path": "test.py",
+                    "position": {"line": 0, "character": 4}
+                },
+                "include_code_context_lines": 0
+            }
         }))
         .send()
         .await?;
@@ -680,7 +729,10 @@ async fn test_find_references_with_context_lines() -> Result<(), Box<dyn std::er
     assert!(response_no_context.status().is_success());
     let body_no_context: serde_json::Value = response_no_context.json().await?;
 
-    let references_no_context = body_no_context["references"].as_array().unwrap();
+    let result_no_context = body_no_context
+        .get("result")
+        .expect("should have result field");
+    let references_no_context = result_no_context["references"].as_array().unwrap();
     for reference in references_no_context {
         // With context_lines=0, source_code field should be absent or empty
         if let Some(source_code) = reference.get("source_code") {
