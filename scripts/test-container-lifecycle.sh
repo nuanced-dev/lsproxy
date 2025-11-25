@@ -66,7 +66,6 @@ cleanup() {
             echo "$ORPHANS" | xargs docker rm -f > /dev/null 2>&1 || true
         fi
 
-        docker network rm nuanced-lsp-network 2>/dev/null || true
         echo -e "${GREEN}Cleanup complete${NC}"
     fi
 
@@ -168,11 +167,7 @@ test_step "Python language works" \
         -H 'Content-Type: application/json' \
         -d '{\"path\":\"main.py\"}' | jq -e '.source_code | length > 0' > /dev/null"
 
-# Test 8: Check Docker network
-test_step "Nuanced LSP Docker network exists" \
-    "docker network ls --format '{{.Name}}' | grep -q lsproxy"
-
-# Test 9: Stop service and verify cleanup
+# Test 8: Stop service and verify cleanup
 echo
 echo -e "${BLUE}Testing cleanup...${NC}"
 docker stop "${SERVICE_NAME}"

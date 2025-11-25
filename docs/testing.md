@@ -74,7 +74,6 @@ Tests:
 - ✓ Service container starts
 - ✓ Service health check responds
 - ✓ Language containers are spawned automatically
-- ✓ Docker network is created
 - ✓ API endpoints work
 - ✓ Containers stop and cleanup properly
 
@@ -226,7 +225,7 @@ Each language has its own sample project:
 ## Test Summary
 
 ### Shell Test Scripts (Integration/System)
-1. **`test-container-lifecycle.sh`** - 8 tests covering service/container lifecycle
+1. **`test-container-lifecycle.sh`** - 7 tests covering service/container lifecycle
 2. **`test-watchdog.sh`** - 18 tests covering watchdog functionality and cleanup
 3. **`test-all-endpoints.sh`** - 80+ tests (9 endpoints × 10 languages)
 
@@ -368,7 +367,6 @@ jobs:
       if: always()
       run: |
         docker rm -f $(docker ps -aq --filter "name=lsproxy-") || true
-        docker network rm lsproxy-network || true
 ```
 
 ## Performance Benchmarks
