@@ -444,6 +444,11 @@ impl ContainerOrchestrator {
 mod tests {
     use super::*;
 
+    // These tests are for the ochestrator and the specific language versions are not important.
+    // Therefore we use published images so we don't rely on local state for which images are available.
+    const GOLANG_IMAGE: &str = "ghcr.io/nuanced-dev/nuanced-lsp-golang:1.0.0";
+    const PYTHON_IMAGE: &str = "ghcr.io/nuanced-dev/nuanced-lsp-python:1.0.0";
+
     // Unit tests - these don't require Docker
 
     #[test]
@@ -563,7 +568,7 @@ mod tests {
         // Store a container
         let info = ContainerInfo {
             container_id: "test-123".to_string(),
-            image_name: "nuanced-lsp-python:latest".to_string(),
+            image_name: PYTHON_IMAGE.to_string(),
             port: 8080,
             endpoint: "http://0.0.0.0:8080".to_string(),
         };
@@ -588,7 +593,7 @@ mod tests {
 
         let info = ContainerInfo {
             container_id: "test-456".to_string(),
-            image_name: "nuanced-lsp-golang:latest".to_string(),
+            image_name: GOLANG_IMAGE.to_string(),
             port: 8081,
             endpoint: "http://0.0.0.0:8081".to_string(),
         };
@@ -627,13 +632,13 @@ mod tests {
         // Add two containers
         let info1 = ContainerInfo {
             container_id: "test-1".to_string(),
-            image_name: "nuanced-lsp-python:latest".to_string(),
+            image_name: PYTHON_IMAGE.to_string(),
             port: 8080,
             endpoint: "http://0.0.0.0:8080".to_string(),
         };
         let info2 = ContainerInfo {
             container_id: "test-2".to_string(),
-            image_name: "nuanced-lsp-golang:latest".to_string(),
+            image_name: GOLANG_IMAGE.to_string(),
             port: 8081,
             endpoint: "http://0.0.0.0:8081".to_string(),
         };
@@ -659,7 +664,7 @@ mod tests {
         // Pre-populate with a "container"
         let existing_info = ContainerInfo {
             container_id: "existing-123".to_string(),
-            image_name: "nuanced-lsp-python:latest".to_string(),
+            image_name: PYTHON_IMAGE.to_string(),
             port: 9000,
             endpoint: "http://0.0.0.0:9000".to_string(),
         };
@@ -679,7 +684,7 @@ mod tests {
     }
 
     // Note: Full spawn_container test would require:
-    // 1. Docker images to be built (nuanced-lsp-golang:latest, etc.)
+    // 1. Docker images to be built (nuanced-lsp-golang:1.0.0, etc.)
     // 2. Valid workspace path
     // 3. Cleanup of created containers
     //

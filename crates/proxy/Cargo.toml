@@ -32,7 +32,7 @@ strum_macros.workspace = true
 url.workspace = true
 
 # Container orchestration specific
-bollard = "0.16"
+bollard = "0.18"
 reqwest = { version = "0.11", features = ["json"] }
 hyper = { version = "0.14", features = ["client", "http1", "http2"] }
 tower = "0.4"

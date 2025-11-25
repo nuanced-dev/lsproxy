@@ -57,6 +57,15 @@ pub fn watchdog_image() -> String {
         .unwrap_or_else(|_| format!("{}:{}", WATCHDOG_IMAGE_BASE, rust_container_version()))
 }
 
+pub fn proxy_image_ghcr() -> String {
+    format!(
+        "{}/{}:{}",
+        CONTAINER_REGISTRY,
+        PROXY_IMAGE_BASE,
+        rust_container_version()
+    )
+}
+
 pub fn watchdog_image_ghcr() -> String {
     format!(
         "{}/{}:{}",
