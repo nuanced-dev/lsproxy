@@ -1,12 +1,12 @@
 use lsp_types::{Location, LocationLink};
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::hash::Hash;
+use std::fmt;
+use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, LazyLock, RwLock};
-use strum_macros::{Display, EnumString};
 use utoipa::{IntoParams, ToSchema};
 
 use crate::utils::file_utils::uri_to_relative_path_string;
@@ -62,173 +62,384 @@ pub struct HealthResponse {
     pub languages: HashMap<SupportedLanguages, bool>,
 }
 
-#[derive(
-    Debug, EnumString, Display, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema,
-)]
-#[strum(serialize_all = "lowercase")]
-pub enum SupportedLanguages {
-    #[serde(rename = "python")]
-    Python,
-    /// TypeScript and JavaScript are handled by the same langserver
-    #[serde(rename = "typescript_javascript")]
-    TypeScriptJavaScript,
-    #[serde(rename = "rust")]
-    Rust,
-    #[serde(rename = "cpp")]
-    CPP,
-    #[serde(rename = "csharp")]
-    CSharp,
-    #[serde(rename = "java")]
-    Java,
-    #[serde(rename = "golang")]
-    Golang,
-    #[serde(rename = "php")]
-    PHP,
-    // These are the existing Ruby versions in Nuanced LSP that we support for Tusk.
-    // TODO: Update how supported languages work to encode language versions in a more maintainable
-    // way (e.g., Ruby(Version("3.4.4")) instead of individual enum variants for each version).
-    #[serde(rename = "ruby_3_4_7")]
-    Ruby3_4_7,
-    #[serde(rename = "ruby_3_4_6")]
-    Ruby3_4_6,
-    #[serde(rename = "ruby_3_4_5")]
-    Ruby3_4_5,
-    #[serde(rename = "ruby_3_4_4")]
-    Ruby3_4_4,
-    #[serde(rename = "ruby_3_4_3")]
-    Ruby3_4_3,
-    #[serde(rename = "ruby_3_4_2")]
-    Ruby3_4_2,
-    #[serde(rename = "ruby_3_4_1")]
-    Ruby3_4_1,
-    #[serde(rename = "ruby_3_4_0")]
-    Ruby3_4_0,
-    #[serde(rename = "ruby_3_3_6")]
-    Ruby3_3_6,
-    #[serde(rename = "ruby_3_3_5")]
-    Ruby3_3_5,
-    #[serde(rename = "ruby_3_2_6")]
-    Ruby3_2_6,
-    #[serde(rename = "ruby_3_2_2")]
-    Ruby3_2_2,
-    #[serde(rename = "ruby_sorbet_3_4_7")]
-    RubySorbet3_4_7,
-    #[serde(rename = "ruby_sorbet_3_4_6")]
-    RubySorbet3_4_6,
-    #[serde(rename = "ruby_sorbet_3_4_5")]
-    RubySorbet3_4_5,
-    #[serde(rename = "ruby_sorbet_3_4_4")]
-    RubySorbet3_4_4,
-    #[serde(rename = "ruby_sorbet_3_4_3")]
-    RubySorbet3_4_3,
-    #[serde(rename = "ruby_sorbet_3_4_2")]
-    RubySorbet3_4_2,
-    #[serde(rename = "ruby_sorbet_3_4_1")]
-    RubySorbet3_4_1,
-    #[serde(rename = "ruby_sorbet_3_4_0")]
-    RubySorbet3_4_0,
-    #[serde(rename = "ruby_sorbet_3_3_6")]
-    RubySorbet3_3_6,
-    #[serde(rename = "ruby_sorbet_3_3_5")]
-    RubySorbet3_3_5,
-    #[serde(rename = "ruby_sorbet_3_2_6")]
-    RubySorbet3_2_6,
-    #[serde(rename = "ruby_sorbet_3_2_2")]
-    RubySorbet3_2_2,
+/// Language version string (e.g., "3.4.4" for Ruby, "3.12" for Python)
+///
+/// This represents the runtime/compiler version of a language, not the container image version.
+/// For languages without version detection, this may be None.
+#[derive(Debug, Clone, PartialEq, Eq, ToSchema)]
+pub struct LanguageVersion(pub String);
+
+impl LanguageVersion {
+    pub fn new(version: impl Into<String>) -> Self {
+        Self(version.into())
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+
+    /// Get the major.minor version (e.g., "3.4" from "3.4.4")
+    pub fn minor_version(&self) -> Option<String> {
+        let parts: Vec<&str> = self.0.split('.').collect();
+        if parts.len() >= 2 {
+            Some(format!("{}.{}", parts[0], parts[1]))
+        } else {
+            None
+        }
+    }
 }
 
+impl Hash for LanguageVersion {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.0.hash(state);
+    }
+}
+
+impl fmt::Display for LanguageVersion {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl Serialize for LanguageVersion {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&self.0)
+    }
+}
+
+impl<'de> Deserialize<'de> for LanguageVersion {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        Ok(LanguageVersion(s))
+    }
+}
+
+/// Language variant for languages that have multiple type system modes
+///
+/// Some languages support different type-checking modes that require different
+/// language servers or configurations. This enum captures those variants.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum LanguageVariant {
+    /// Standard language server without enhanced type checking
+    #[default]
+    Standard,
+    /// Ruby with Sorbet type checker
+    Sorbet,
+    // Future variants could include:
+    // Mypy,     // Python with mypy
+    // Pyright,  // Python with pyright
+}
+
+impl fmt::Display for LanguageVariant {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            LanguageVariant::Standard => write!(f, "standard"),
+            LanguageVariant::Sorbet => write!(f, "sorbet"),
+        }
+    }
+}
+
+/// Supported programming languages with optional version information
+///
+/// This enum represents languages that can be analyzed by the LSP proxy.
+/// Languages with version detection (like Ruby) carry version information,
+/// while others use a single unversioned container.
+#[derive(Debug, Clone, ToSchema)]
+pub enum SupportedLanguages {
+    Python,
+    /// TypeScript and JavaScript are handled by the same langserver
+    TypeScriptJavaScript,
+    Rust,
+    CPP,
+    CSharp,
+    Java,
+    Golang,
+    PHP,
+    /// Ruby with version and optional Sorbet variant
+    Ruby {
+        version: LanguageVersion,
+        variant: LanguageVariant,
+    },
+}
+
+/// Default Ruby version when none is detected
+pub const DEFAULT_RUBY_VERSION: &str = "3.4.4";
+
 impl SupportedLanguages {
-    /// Convert a Ruby version string and Sorbet flag to the appropriate language enum
+    /// Create a Ruby language with version and variant
+    pub fn ruby(version: impl Into<String>, variant: LanguageVariant) -> Self {
+        SupportedLanguages::Ruby {
+            version: LanguageVersion::new(version),
+            variant,
+        }
+    }
+
+    /// Create a Ruby language with default version
+    pub fn ruby_default() -> Self {
+        Self::ruby(DEFAULT_RUBY_VERSION, LanguageVariant::Standard)
+    }
+
+    /// Create a Ruby Sorbet language with default version
+    pub fn ruby_sorbet_default() -> Self {
+        Self::ruby(DEFAULT_RUBY_VERSION, LanguageVariant::Sorbet)
+    }
+
+    /// Convert a Ruby version string and Sorbet flag to the appropriate language
     ///
     /// # Arguments
-    /// * `version` - Version string (e.g., "3.4.4", "3.3.6")
+    /// * `version` - Version string (e.g., "3.4.4", "3.3.6", "3.4")
     /// * `is_sorbet` - Whether this is a Sorbet-enabled Ruby project
     ///
     /// # Returns
-    /// Appropriate Ruby enum variant, defaulting to Ruby3_4_4 or RubySorbet3_4_4 for unsupported versions
+    /// Ruby language with appropriate version and variant
     pub fn from_ruby_version(version: &str, is_sorbet: bool) -> Self {
         let normalized = version.trim();
+        let variant = if is_sorbet {
+            LanguageVariant::Sorbet
+        } else {
+            LanguageVariant::Standard
+        };
 
-        match (normalized, is_sorbet) {
-            ("3.4.7", false) => Self::Ruby3_4_7,
-            ("3.4.6", false) => Self::Ruby3_4_6,
-            ("3.4.5", false) => Self::Ruby3_4_5,
-            ("3.4.4", false) => Self::Ruby3_4_4,
-            ("3.4.3", false) => Self::Ruby3_4_3,
-            ("3.4.2", false) => Self::Ruby3_4_2,
-            ("3.4.1", false) => Self::Ruby3_4_1,
-            ("3.4.0", false) => Self::Ruby3_4_0,
-            ("3.3.6", false) => Self::Ruby3_3_6,
-            ("3.3.5", false) => Self::Ruby3_3_5,
-            ("3.2.6", false) => Self::Ruby3_2_6,
-            ("3.2.2", false) => Self::Ruby3_2_2,
-            ("3.4.7", true) => Self::RubySorbet3_4_7,
-            ("3.4.6", true) => Self::RubySorbet3_4_6,
-            ("3.4.5", true) => Self::RubySorbet3_4_5,
-            ("3.4.4", true) => Self::RubySorbet3_4_4,
-            ("3.4.3", true) => Self::RubySorbet3_4_3,
-            ("3.4.2", true) => Self::RubySorbet3_4_2,
-            ("3.4.1", true) => Self::RubySorbet3_4_1,
-            ("3.4.0", true) => Self::RubySorbet3_4_0,
-            ("3.3.6", true) => Self::RubySorbet3_3_6,
-            ("3.3.5", true) => Self::RubySorbet3_3_5,
-            ("3.2.6", true) => Self::RubySorbet3_2_6,
-            ("3.2.2", true) => Self::RubySorbet3_2_2,
-            // For partial versions like "3.4" or unsupported patch versions like "3.4.8",
-            // default to a stable supported patch version for that minor version
-            (v, false) if v.starts_with("3.4") => Self::Ruby3_4_4, // Stable default for 3.4.x
-            (v, false) if v.starts_with("3.3") => Self::Ruby3_3_6, // Stable default for 3.3.x
-            (v, false) if v.starts_with("3.2") => Self::Ruby3_2_6, // Stable default for 3.2.x
-            (v, true) if v.starts_with("3.4") => Self::RubySorbet3_4_4, // Stable default for 3.4.x
-            (v, true) if v.starts_with("3.3") => Self::RubySorbet3_3_6, // Stable default for 3.3.x
-            (v, true) if v.starts_with("3.2") => Self::RubySorbet3_2_6, // Stable default for 3.2.x
-            // Default to stable version for completely unsupported versions
-            (_, false) => Self::Ruby3_4_4,
-            (_, true) => Self::RubySorbet3_4_4,
+        // Normalize partial versions to a stable patch version
+        let resolved_version = Self::resolve_ruby_version(normalized);
+
+        SupportedLanguages::Ruby {
+            version: LanguageVersion::new(resolved_version),
+            variant,
+        }
+    }
+
+    /// Resolve a Ruby version string to a supported patch version
+    ///
+    /// For partial versions like "3.4" or unsupported patch versions,
+    /// returns a stable supported version for that minor release.
+    fn resolve_ruby_version(version: &str) -> String {
+        // Exact supported versions pass through
+        let supported_versions = [
+            "3.4.7", "3.4.6", "3.4.5", "3.4.4", "3.4.3", "3.4.2", "3.4.1", "3.4.0", "3.3.6",
+            "3.3.5", "3.2.6", "3.2.2",
+        ];
+
+        if supported_versions.contains(&version) {
+            return version.to_string();
+        }
+
+        // Map partial/unsupported versions to stable defaults
+        if version.starts_with("3.4") {
+            "3.4.4".to_string()
+        } else if version.starts_with("3.3") {
+            "3.3.6".to_string()
+        } else if version.starts_with("3.2") {
+            "3.2.6".to_string()
+        } else {
+            // Default for completely unsupported versions
+            DEFAULT_RUBY_VERSION.to_string()
         }
     }
 
     /// Check if this language matches a language family
-    /// Used for filtering with ENABLED_LANGUAGES which uses generic names like "ruby"
-    /// while actual containers use specific versions like "Ruby3_2_6"
     ///
-    /// TODO: This is a temporary solution. We should improve the language version system to:
-    /// 1. Separate language family from version (e.g., Language::Ruby(Version::V3_2_6))
-    /// 2. Make ENABLED_LANGUAGES support both family-level (ruby) and version-level (ruby:3.2.6) filtering
-    /// 3. Remove the need for manual pattern matching across all Ruby versions
+    /// Used for filtering with ENABLED_LANGUAGES which uses generic names like "ruby"
+    /// while actual containers use specific versions.
     pub fn matches_family(&self, family: &SupportedLanguages) -> bool {
-        use SupportedLanguages::*;
-
         match (self, family) {
-            // Exact match
-            (a, b) if a == b => true,
-
+            // Exact match for non-versioned languages
+            (SupportedLanguages::Python, SupportedLanguages::Python) => true,
+            (SupportedLanguages::TypeScriptJavaScript, SupportedLanguages::TypeScriptJavaScript) => {
+                true
+            }
+            (SupportedLanguages::Rust, SupportedLanguages::Rust) => true,
+            (SupportedLanguages::CPP, SupportedLanguages::CPP) => true,
+            (SupportedLanguages::CSharp, SupportedLanguages::CSharp) => true,
+            (SupportedLanguages::Java, SupportedLanguages::Java) => true,
+            (SupportedLanguages::Golang, SupportedLanguages::Golang) => true,
+            (SupportedLanguages::PHP, SupportedLanguages::PHP) => true,
             // Ruby family matching - any Ruby version matches any other Ruby version
-            // This includes cross-variant matching: regular Ruby matches Sorbet and vice versa
-            (
-                Ruby3_4_7 | Ruby3_4_6 | Ruby3_4_5 | Ruby3_4_4 | Ruby3_4_3 | Ruby3_4_2 | Ruby3_4_1
-                | Ruby3_4_0 | Ruby3_3_6 | Ruby3_3_5 | Ruby3_2_6 | Ruby3_2_2,
-                Ruby3_4_7 | Ruby3_4_6 | Ruby3_4_5 | Ruby3_4_4 | Ruby3_4_3 | Ruby3_4_2 | Ruby3_4_1
-                | Ruby3_4_0 | Ruby3_3_6 | Ruby3_3_5 | Ruby3_2_6 | Ruby3_2_2 | RubySorbet3_4_7
-                | RubySorbet3_4_6 | RubySorbet3_4_5 | RubySorbet3_4_4 | RubySorbet3_4_3
-                | RubySorbet3_4_2 | RubySorbet3_4_1 | RubySorbet3_4_0 | RubySorbet3_3_6
-                | RubySorbet3_3_5 | RubySorbet3_2_6 | RubySorbet3_2_2,
-            ) => true,
-
-            // RubySorbet family matching - any RubySorbet version matches any Ruby version (regular or Sorbet)
-            (
-                RubySorbet3_4_7 | RubySorbet3_4_6 | RubySorbet3_4_5 | RubySorbet3_4_4
-                | RubySorbet3_4_3 | RubySorbet3_4_2 | RubySorbet3_4_1 | RubySorbet3_4_0
-                | RubySorbet3_3_6 | RubySorbet3_3_5 | RubySorbet3_2_6 | RubySorbet3_2_2,
-                Ruby3_4_7 | Ruby3_4_6 | Ruby3_4_5 | Ruby3_4_4 | Ruby3_4_3 | Ruby3_4_2 | Ruby3_4_1
-                | Ruby3_4_0 | Ruby3_3_6 | Ruby3_3_5 | Ruby3_2_6 | Ruby3_2_2 | RubySorbet3_4_7
-                | RubySorbet3_4_6 | RubySorbet3_4_5 | RubySorbet3_4_4 | RubySorbet3_4_3
-                | RubySorbet3_4_2 | RubySorbet3_4_1 | RubySorbet3_4_0 | RubySorbet3_3_6
-                | RubySorbet3_3_5 | RubySorbet3_2_6 | RubySorbet3_2_2,
-            ) => true,
-
-            // No match
+            // regardless of specific version or variant
+            (SupportedLanguages::Ruby { .. }, SupportedLanguages::Ruby { .. }) => true,
             _ => false,
+        }
+    }
+
+    /// Get the language family name (without version/variant)
+    pub fn family_name(&self) -> &'static str {
+        match self {
+            SupportedLanguages::Python => "python",
+            SupportedLanguages::TypeScriptJavaScript => "typescript_javascript",
+            SupportedLanguages::Rust => "rust",
+            SupportedLanguages::CPP => "cpp",
+            SupportedLanguages::CSharp => "csharp",
+            SupportedLanguages::Java => "java",
+            SupportedLanguages::Golang => "golang",
+            SupportedLanguages::PHP => "php",
+            SupportedLanguages::Ruby { .. } => "ruby",
+        }
+    }
+
+    /// Check if this is a Ruby language (any version/variant)
+    pub fn is_ruby(&self) -> bool {
+        matches!(self, SupportedLanguages::Ruby { .. })
+    }
+
+    /// Get Ruby version if this is a Ruby language
+    pub fn ruby_version(&self) -> Option<&LanguageVersion> {
+        match self {
+            SupportedLanguages::Ruby { version, .. } => Some(version),
+            _ => None,
+        }
+    }
+
+    /// Get Ruby variant if this is a Ruby language
+    pub fn ruby_variant(&self) -> Option<LanguageVariant> {
+        match self {
+            SupportedLanguages::Ruby { variant, .. } => Some(*variant),
+            _ => None,
+        }
+    }
+}
+
+// Manual implementations for PartialEq, Eq, and Hash to properly compare Ruby variants
+impl PartialEq for SupportedLanguages {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (SupportedLanguages::Python, SupportedLanguages::Python) => true,
+            (SupportedLanguages::TypeScriptJavaScript, SupportedLanguages::TypeScriptJavaScript) => {
+                true
+            }
+            (SupportedLanguages::Rust, SupportedLanguages::Rust) => true,
+            (SupportedLanguages::CPP, SupportedLanguages::CPP) => true,
+            (SupportedLanguages::CSharp, SupportedLanguages::CSharp) => true,
+            (SupportedLanguages::Java, SupportedLanguages::Java) => true,
+            (SupportedLanguages::Golang, SupportedLanguages::Golang) => true,
+            (SupportedLanguages::PHP, SupportedLanguages::PHP) => true,
+            (
+                SupportedLanguages::Ruby {
+                    version: v1,
+                    variant: var1,
+                },
+                SupportedLanguages::Ruby {
+                    version: v2,
+                    variant: var2,
+                },
+            ) => v1 == v2 && var1 == var2,
+            _ => false,
+        }
+    }
+}
+
+impl Eq for SupportedLanguages {}
+
+impl Hash for SupportedLanguages {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        // Hash a discriminant for each variant
+        match self {
+            SupportedLanguages::Python => 0u8.hash(state),
+            SupportedLanguages::TypeScriptJavaScript => 1u8.hash(state),
+            SupportedLanguages::Rust => 2u8.hash(state),
+            SupportedLanguages::CPP => 3u8.hash(state),
+            SupportedLanguages::CSharp => 4u8.hash(state),
+            SupportedLanguages::Java => 5u8.hash(state),
+            SupportedLanguages::Golang => 6u8.hash(state),
+            SupportedLanguages::PHP => 7u8.hash(state),
+            SupportedLanguages::Ruby { version, variant } => {
+                8u8.hash(state);
+                version.hash(state);
+                variant.hash(state);
+            }
+        }
+    }
+}
+
+impl fmt::Display for SupportedLanguages {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            SupportedLanguages::Python => write!(f, "python"),
+            SupportedLanguages::TypeScriptJavaScript => write!(f, "typescript_javascript"),
+            SupportedLanguages::Rust => write!(f, "rust"),
+            SupportedLanguages::CPP => write!(f, "cpp"),
+            SupportedLanguages::CSharp => write!(f, "csharp"),
+            SupportedLanguages::Java => write!(f, "java"),
+            SupportedLanguages::Golang => write!(f, "golang"),
+            SupportedLanguages::PHP => write!(f, "php"),
+            SupportedLanguages::Ruby { version, variant } => match variant {
+                LanguageVariant::Standard => write!(f, "ruby_{}", version.0.replace('.', "_")),
+                LanguageVariant::Sorbet => {
+                    write!(f, "ruby_sorbet_{}", version.0.replace('.', "_"))
+                }
+            },
+        }
+    }
+}
+
+// Custom serialization to maintain backward compatibility with existing API
+impl Serialize for SupportedLanguages {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        // Serialize to the same format as before for API compatibility
+        let s = match self {
+            SupportedLanguages::Python => "python".to_string(),
+            SupportedLanguages::TypeScriptJavaScript => "typescript_javascript".to_string(),
+            SupportedLanguages::Rust => "rust".to_string(),
+            SupportedLanguages::CPP => "cpp".to_string(),
+            SupportedLanguages::CSharp => "csharp".to_string(),
+            SupportedLanguages::Java => "java".to_string(),
+            SupportedLanguages::Golang => "golang".to_string(),
+            SupportedLanguages::PHP => "php".to_string(),
+            SupportedLanguages::Ruby { version, variant } => match variant {
+                LanguageVariant::Standard => format!("ruby_{}", version.0.replace('.', "_")),
+                LanguageVariant::Sorbet => format!("ruby_sorbet_{}", version.0.replace('.', "_")),
+            },
+        };
+        serializer.serialize_str(&s)
+    }
+}
+
+impl<'de> Deserialize<'de> for SupportedLanguages {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+
+        match s.as_str() {
+            "python" => Ok(SupportedLanguages::Python),
+            "typescript_javascript" => Ok(SupportedLanguages::TypeScriptJavaScript),
+            "rust" => Ok(SupportedLanguages::Rust),
+            "cpp" => Ok(SupportedLanguages::CPP),
+            "csharp" => Ok(SupportedLanguages::CSharp),
+            "java" => Ok(SupportedLanguages::Java),
+            "golang" => Ok(SupportedLanguages::Golang),
+            "php" => Ok(SupportedLanguages::PHP),
+            other => {
+                // Parse Ruby versions: ruby_X_Y_Z or ruby_sorbet_X_Y_Z
+                if let Some(version_part) = other.strip_prefix("ruby_sorbet_") {
+                    let version = version_part.replace('_', ".");
+                    Ok(SupportedLanguages::Ruby {
+                        version: LanguageVersion::new(version),
+                        variant: LanguageVariant::Sorbet,
+                    })
+                } else if let Some(version_part) = other.strip_prefix("ruby_") {
+                    let version = version_part.replace('_', ".");
+                    Ok(SupportedLanguages::Ruby {
+                        version: LanguageVersion::new(version),
+                        variant: LanguageVariant::Standard,
+                    })
+                } else {
+                    Err(serde::de::Error::custom(format!(
+                        "Unknown language: {}",
+                        other
+                    )))
+                }
+            }
         }
     }
 }

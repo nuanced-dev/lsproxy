@@ -63,7 +63,7 @@ pub fn detect_language(file_path: &str) -> Result<SupportedLanguages, LspError> 
             }
 
             // Fallback to default version if no workspace markers found
-            Ok(SupportedLanguages::Ruby3_4_4)
+            Ok(SupportedLanguages::ruby_default())
         }
         _ => Err(LspError::UnsupportedFileType(file_path.to_string())),
     }

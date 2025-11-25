@@ -1,4 +1,4 @@
-use common::api_types::SupportedLanguages;
+use common::api_types::{LanguageVariant, SupportedLanguages, DEFAULT_RUBY_VERSION};
 use common::utils::ruby_utils::{
     extract_ruby_version_from_file, has_sorbet_config, has_sorbet_type_annotation,
 };
@@ -130,7 +130,7 @@ impl LanguageManager for RubyManager {
     }
 
     fn finalize(&self) -> Vec<SupportedLanguages> {
-        // Prioritize .ruby-version over Gemfile, default to 3.4.4 if neither exists
+        // Prioritize .ruby-version over Gemfile, default to DEFAULT_RUBY_VERSION if neither exists
         log::debug!(
             "Ruby version detection - .ruby-version: {:?}, Gemfile: {:?}",
             self.ruby_version_file,
@@ -141,7 +141,7 @@ impl LanguageManager for RubyManager {
             .ruby_version_file
             .as_deref()
             .or(self.gemfile_version.as_deref())
-            .unwrap_or("3.4.4");
+            .unwrap_or(DEFAULT_RUBY_VERSION);
 
         let source = if self.ruby_version_file.is_some() {
             ".ruby-version"
@@ -156,7 +156,7 @@ impl LanguageManager for RubyManager {
         let mut langs = Vec::new();
 
         if !self.regular_files.is_empty() {
-            let lang = SupportedLanguages::from_ruby_version(version, false);
+            let lang = SupportedLanguages::ruby(version, LanguageVariant::Standard);
             log::info!(
                 "Found {} regular Ruby files, will spawn {:?}",
                 self.regular_files.len(),
@@ -166,7 +166,7 @@ impl LanguageManager for RubyManager {
         }
 
         if !self.sorbet_files.is_empty() {
-            let lang = SupportedLanguages::from_ruby_version(version, true);
+            let lang = SupportedLanguages::ruby(version, LanguageVariant::Sorbet);
             log::info!(
                 "Found {} Sorbet Ruby files, will spawn {:?}",
                 self.sorbet_files.len(),
@@ -555,7 +555,10 @@ mod tests {
 
         let langs = manager.finalize();
         assert_eq!(langs.len(), 1);
-        assert_eq!(langs[0], SupportedLanguages::Ruby3_4_2);
+        assert_eq!(
+            langs[0],
+            SupportedLanguages::ruby("3.4.2", LanguageVariant::Standard)
+        );
     }
 
     #[test]
@@ -571,7 +574,10 @@ mod tests {
 
         let langs = manager.finalize();
         assert_eq!(langs.len(), 1);
-        assert_eq!(langs[0], SupportedLanguages::Ruby3_3_5);
+        assert_eq!(
+            langs[0],
+            SupportedLanguages::ruby("3.3.5", LanguageVariant::Standard)
+        );
     }
 
     #[test]
@@ -585,7 +591,7 @@ mod tests {
 
         let langs = manager.finalize();
         assert_eq!(langs.len(), 1);
-        assert_eq!(langs[0], SupportedLanguages::Ruby3_4_4);
+        assert_eq!(langs[0], SupportedLanguages::ruby_default());
     }
 
     #[test]
