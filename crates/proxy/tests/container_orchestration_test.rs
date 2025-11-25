@@ -299,32 +299,6 @@ impl ContainerFixture {
         Err("Service did not become healthy within timeout".into())
     }
 
-    async fn wait_for_language_health(lang_key: &str) -> Result<(), Box<dyn std::error::Error>> {
-        let client = Client::builder().timeout(Duration::from_secs(30)).build()?;
-        for attempt in 1..=30 {
-            let resp = client
-                .get(&format!("{}/v1/system/health", BASE_URL))
-                .send()
-                .await?;
-            if resp.status().is_success() {
-                let body: serde_json::Value = resp.json().await?;
-                if body
-                    .get("languages")
-                    .and_then(|l| l.get(lang_key))
-                    .and_then(|v| v.as_bool())
-                    == Some(true)
-                {
-                    return Ok(());
-                }
-            }
-            tokio::time::sleep(Duration::from_secs(1)).await;
-            if attempt == 30 {
-                return Err(format!("Language {} not healthy after 30s", lang_key).into());
-            }
-        }
-        Err("unreachable".into())
-    }
-
     /// Clean up all test containers (for final teardown)
     async fn cleanup(&self) -> Result<(), Box<dyn std::error::Error>> {
         Self::cleanup_all_test_containers(&self.docker).await
