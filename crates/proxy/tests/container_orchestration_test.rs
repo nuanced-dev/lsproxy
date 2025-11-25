@@ -21,8 +21,8 @@ use tempfile::TempDir;
 use tokio::sync::Mutex;
 use tokio::time::sleep;
 
-use proxy::container::{language_image_ghcr, proxy_image, WRAPPER_IMAGE_BASE};
 use common::api_types::SupportedLanguages;
+use proxy::container::{language_image_ghcr, proxy_image_ghcr, WRAPPER_IMAGE_BASE};
 
 // Helper function for Python test image (GHCR name)
 fn python_image() -> String {
@@ -162,7 +162,7 @@ impl ContainerFixture {
     /// Verify required Docker images are available
     async fn verify_images(docker: &Docker) -> Result<(), Box<dyn std::error::Error>> {
         // Check for proxy image
-        let proxy_img = proxy_image();
+        let proxy_img = proxy_image_ghcr();
         let mut filters = HashMap::new();
         filters.insert("reference".to_string(), vec![proxy_img.clone()]);
 
@@ -225,7 +225,7 @@ impl ContainerFixture {
             .ok_or("Invalid workspace path")?;
 
         let config: Config<&str> = Config {
-            image: Some(&proxy_image()),
+            image: Some(&proxy_image_ghcr()),
             env: Some(vec!["USE_AUTH=false", "RUST_LOG=info"]),
             host_config: Some(bollard::models::HostConfig {
                 binds: Some(vec![
