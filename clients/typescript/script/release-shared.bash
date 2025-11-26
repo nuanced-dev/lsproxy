@@ -1,5 +1,51 @@
 ## Shared functions for lsp release scripts.
 
+die() {
+    echo "❌ $*" >&2
+    exit 1
+}
+
+is_semver() {
+  [[ "$1" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+}
+
+check_required_commands() {
+    echo "Checking required commands..."
+    for cmd in bun gh git node; do
+        if ! command -v "$cmd" &> /dev/null; then
+            die "$cmd is not installed or not in PATH"
+        fi
+    done
+}
+
+read_package_metadata() {
+    echo "Reading package metadata..."
+    package_name="$(node -p "require('./package.json').name")"
+    package_version="$(node -p "require('./package.json').version")"
+    unscoped_package_name="${package_name#*/}"
+    echo "Package: $package_name@$package_version"
+}
+
+check_changelog_entry() {
+    # Ensure there's a line `[version] - YYYY-MM-DD` in CHANGELOG.md
+    if [ -f "CHANGELOG.md" ]; then
+        echo "Checking changelog entry..."
+        # Match any date format (YYYY-MM-DD) for the version
+        changelog_pattern="^## \[$package_version\] - [0-9]{4}-[0-9]{2}-[0-9]{2}$"
+        if ! grep -q -E "$changelog_pattern" CHANGELOG.md; then
+            die "missing CHANGELOG.md entry for version $package_version with date format: ## [$package_version] - YYYY-MM-DD"
+        fi
+    fi
+}
+
+check_clean_working_directory() {
+    # Verify that the git working directory is clean after build
+    echo "Checking git working directory is clean..."
+    if ! status="$(git status --porcelain)" || [ -n "$status" ]; then
+        die "git working directory is dirty. Please commit or stash your changes."
+    fi
+}
+
 # Reads a JSON field from config/version.json
 read_version_field() {
   local field="$1"

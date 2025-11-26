@@ -6,17 +6,20 @@ set -euo pipefail
 # This script creates a release for the lsp package. Before running:
 # 1. Edit config/version.json with the desired versions
 # 2. Commit your changes
-# 3. Run this script to build, tag, and push
+# 3. Run this script to build, tag, publish, and release
 #
 # The script will:
 # - Validate all 5 required versions are present in config/version.json
 # - Run the build (which updates package.json and generates version.ts)
 # - Commit any generated file changes
 # - Create and push the git tag (lsp-v<version>)
+# - Publish the package to npm
+# - Create a GitHub release with the package archive
 #
-# The tag push triggers CI to publish to npm and create a GitHub release.
+# Required environment variables for publishing:
+# - NODE_AUTH_TOKEN: npm token for publishing (or be logged in via `npm login`)
+# - GITHUB_TOKEN: for creating the GitHub release (or be logged in via `gh auth`)
 
-. "$(dirname "$0")/../../script/release-shared.bash"
 . "$(dirname "$0")/release-shared.bash"
 
 echo "Starting release process..."
@@ -78,4 +81,27 @@ git tag -a "$TAG" -m "Release $TAG"
 git push origin "$TAG"
 
 echo "✅ Release $TAG tagged and pushed."
-echo "   CI will now publish to npm and create the GitHub release."
+
+# Create package archive
+echo "📦 Creating package archive..."
+archive_dir=$(mktemp -d)
+cleanup() {
+    rm -rf "$archive_dir"
+}
+trap cleanup EXIT
+archive_file="$archive_dir/nuanced-dev-$unscoped_package_name-$package_version.tgz"
+bun pm pack --filename "$archive_file"
+
+# Publish to npm
+echo "🚀 Publishing to npm..."
+bun publish "$archive_file"
+
+# Create GitHub release
+echo "📝 Creating GitHub release..."
+gh release create "$TAG" "$archive_file" \
+    --title "Release $package_version" \
+    --generate-notes \
+    --latest
+
+echo "✅ Release $package_version published successfully!"
+echo "   npm: https://www.npmjs.com/package/$package_name/v/$package_version"
