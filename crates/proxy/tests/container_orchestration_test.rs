@@ -22,7 +22,7 @@ use tokio::sync::Mutex;
 use tokio::time::sleep;
 
 use common::api_types::SupportedLanguages;
-use proxy::container::{language_image_ghcr, proxy_image_ghcr, WRAPPER_IMAGE_BASE};
+use proxy::container::{language_image_ghcr, WRAPPER_IMAGE_BASE};
 
 // Helper function for Python test image (GHCR name)
 fn python_image() -> String {
@@ -33,6 +33,7 @@ const CONTAINER_PORT: u16 = 4444; // Port the service listens on inside containe
 const BASE_URL: &str = "http://localhost:14444";
 const MAX_RETRIES: u32 = 30;
 const RETRY_DELAY: Duration = Duration::from_secs(1);
+const PROXY_TEST_IMAGE: &str = "nuanced-lsp-proxy:latest";
 
 /// Shared test fixture that lives for the entire test suite
 /// Uses Lazy initialization to set up once and reuse across all serial tests
@@ -162,9 +163,9 @@ impl ContainerFixture {
     /// Verify required Docker images are available
     async fn verify_images(docker: &Docker) -> Result<(), Box<dyn std::error::Error>> {
         // Check for proxy image
-        let proxy_img = proxy_image_ghcr();
+        let proxy_img = PROXY_TEST_IMAGE;
         let mut filters = HashMap::new();
-        filters.insert("reference".to_string(), vec![proxy_img.clone()]);
+        filters.insert("reference".to_string(), vec![proxy_img.to_string()]);
 
         let options = ListImagesOptions {
             filters,
@@ -225,7 +226,7 @@ impl ContainerFixture {
             .ok_or("Invalid workspace path")?;
 
         let config: Config<&str> = Config {
-            image: Some(&proxy_image_ghcr()),
+            image: Some(&PROXY_TEST_IMAGE),
             env: Some(vec!["USE_AUTH=false", "RUST_LOG=info"]),
             host_config: Some(bollard::models::HostConfig {
                 binds: Some(vec![
