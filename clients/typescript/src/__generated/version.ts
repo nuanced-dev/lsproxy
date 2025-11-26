@@ -9,4 +9,4 @@ export const DEFAULT_WRAPPER_IMAGE =
 export const DEFAULT_WATCHDOG_IMAGE =
   "ghcr.io/nuanced-dev/nuanced-lsp-watchdog:0.5.0";
 export const VERSION = "0.3.19";
-export const LANGUAGE_CONTAINER_VERSION = "1.0.0";
+export const LANGUAGE_IMAGE_VERSION = "1.0.0";

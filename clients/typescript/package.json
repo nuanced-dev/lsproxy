@@ -43,9 +43,8 @@
   "devDependencies": {
     "@eslint/js": "^9.37.0",
     "@stylistic/eslint-plugin": "^5.4.0",
-    "@types/eslint__js": "^9.14.0",
     "@types/micromatch": "^4.0.9",
-    "@types/node": "^20.11.30",
+    "@types/node": "^20.19.25",
     "esbuild": "^0.25.9",
     "eslint": "^9.33.0",
     "eslint-config-prettier": "^10.1.5",

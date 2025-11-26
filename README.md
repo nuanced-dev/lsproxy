@@ -436,13 +436,13 @@ docker rm -f nuanced-lsp-proxy
 - Large codebases (e.g., Kubernetes) may require higher memory limits for operations like find-references
 - Set lower for resource-constrained environments
 
-**`RUST_CONTAINER_VERSION`** (optional)
+**`RUST_IMAGE_VERSION`** (optional)
 - Docker image tag for Rust containers (proxy, wrapper, watchdog)
 - Default: `0.5.0`
 - Use `latest` for development or specify a version for production
 - Primarily used by test scripts and CI/CD pipelines
 
-**`LANGUAGE_CONTAINER_VERSION`** (optional)
+**`LANGUAGE_IMAGE_VERSION`** (optional)
 - Docker image tag for language server containers (Python, TypeScript, etc.)
 - Default: `1.0.0`
 - Use `latest` for development or specify a version for production
@@ -469,10 +469,10 @@ ENABLED_LANGUAGES="go" NUANCED_LSP_MAX_MEMORY=16384 ./scripts/start-proxy.sh
 ./scripts/start-proxy.sh
 
 # Use specific Docker image versions (for testing or CI/CD)
-RUST_CONTAINER_VERSION=latest LANGUAGE_CONTAINER_VERSION=1.0.0 ./scripts/test.sh
+RUST_IMAGE_VERSION=latest LANGUAGE_IMAGE_VERSION=1.0.0 ./scripts/test.sh
 
 # Test with production versions
-RUST_CONTAINER_VERSION=0.5.0 LANGUAGE_CONTAINER_VERSION=1.0.0 ./scripts/test.sh
+RUST_IMAGE_VERSION=0.5.0 LANGUAGE_IMAGE_VERSION=1.0.0 ./scripts/test.sh
 ```
 
 ### Supported languages and LSP image sizes

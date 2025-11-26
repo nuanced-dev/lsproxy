@@ -15,8 +15,8 @@ NC='\033[0m' # No Color
 WORKSPACE_PATH="${1:-sample_project/python}"
 WORKSPACE_PATH="$(cd "$WORKSPACE_PATH" && pwd)"
 
-# Use RUST_CONTAINER_VERSION from environment, default to "latest"
-RUST_VERSION="${RUST_CONTAINER_VERSION:-latest}"
+# Use RUST_IMAGE_VERSION from environment, default to "latest"
+RUST_VERSION="${RUST_IMAGE_VERSION:-latest}"
 
 echo -e "${BLUE}=========================================${NC}"
 echo -e "${BLUE}  Watchdog Functionality Tests${NC}"

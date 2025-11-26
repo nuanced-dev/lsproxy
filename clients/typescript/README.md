@@ -99,6 +99,6 @@ When Nuanced LSP is run through the Nuanced MCP server, you can override images 
 - `PROXY_IMAGE` - Override the LSP proxy container image
 - `WRAPPER_IMAGE` - Override the LSP wrapper container image
 - `WATCHDOG_IMAGE` - Override the LSP watchdog container image
-- `LANGUAGE_CONTAINER_VERSION` - Override the language container version
+- `LANGUAGE_IMAGE_VERSION` - Override the language container version
 
 These are useful for testing development builds or using custom container images.
