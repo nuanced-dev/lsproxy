@@ -7365,7 +7365,7 @@ var init_version = __esm({
     DEFAULT_PROXY_IMAGE = "ghcr.io/nuanced-dev/nuanced-lsp-proxy:0.4.8";
     DEFAULT_WRAPPER_IMAGE = "ghcr.io/nuanced-dev/nuanced-lsp-wrapper:0.4.8";
     DEFAULT_WATCHDOG_IMAGE = "ghcr.io/nuanced-dev/nuanced-lsp-watchdog:0.4.8";
-    VERSION = "0.3.17";
+    VERSION = "0.3.18";
     LANGUAGE_CONTAINER_VERSION = "1.0.0";
   }
 });
