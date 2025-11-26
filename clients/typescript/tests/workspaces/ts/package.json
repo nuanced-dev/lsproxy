@@ -1,0 +1,8 @@
+{
+  "name": "toy-ts-ws",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "devDependencies": { "typescript": "^5.5.0" },
+  "scripts": { "build": "tsc -p tsconfig.json", "start": "node dist/main.js" }
+}

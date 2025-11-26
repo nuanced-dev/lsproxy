@@ -1,0 +1,61 @@
+{
+  "definitions": [
+    {
+      "path": "src/main/java/com/nuanced/Util.java",
+      "position": {
+        "character": 19,
+        "line": 2
+      }
+    }
+  ],
+  "raw_response": [
+    {
+      "range": {
+        "end": {
+          "character": 23,
+          "line": 2
+        },
+        "start": {
+          "character": 19,
+          "line": 2
+        }
+      },
+      "uri": "file:///mnt/workspace/src/main/java/com/nuanced/Util.java"
+    }
+  ],
+  "selected_identifier": {
+    "file_range": {
+      "path": "src/main/java/com/nuanced/Util.java",
+      "range": {
+        "end": {
+          "character": 23,
+          "line": 2
+        },
+        "start": {
+          "character": 19,
+          "line": 2
+        }
+      }
+    },
+    "kind": null,
+    "name": "Util"
+  },
+  "source_code_context": [
+    {
+      "range": {
+        "path": "src/main/java/com/nuanced/Util.java",
+        "range": {
+          "end": {
+            "character": 1,
+            "line": 10
+          },
+          "start": {
+            "character": 0,
+            "line": 2
+          }
+        }
+      },
+      "source_code": "public final class Util {\n  public static int add(int a, int b) { return a + b; }\n\n  public static class Greeter {\n    private final String name;\n    public Greeter(String name) { this.name = name; }\n    public String greet() { return \"Hello, \" + name + \"!\"; }\n  }\n}"
+    }
+  ]
+}

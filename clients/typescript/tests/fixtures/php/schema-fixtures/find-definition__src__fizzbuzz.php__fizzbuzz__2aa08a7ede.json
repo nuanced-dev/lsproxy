@@ -1,0 +1,46 @@
+{
+  "definitions": [
+    {
+      "path": "src/FizzBuzz.php",
+      "position": {
+        "line": 4,
+        "character": 2
+      }
+    }
+  ],
+  "selected_identifier": {
+    "file_range": {
+      "path": "src/FizzBuzz.php",
+      "range": {
+        "start": {
+          "line": 4,
+          "character": 25
+        },
+        "end": {
+          "line": 4,
+          "character": 33
+        }
+      }
+    },
+    "kind": null,
+    "name": "fizzbuzz"
+  },
+  "source_code_context": [
+    {
+      "file_range": {
+        "path": "src/FizzBuzz.php",
+        "range": {
+          "start": {
+            "line": 1,
+            "character": 0
+          },
+          "end": {
+            "line": 12,
+            "character": 0
+          }
+        }
+      },
+      "source_code": "namespace Nuanced;\n\nfinal class FizzBuzz {\n  public static function fizzbuzz(int $n): string {\n    if ($n % 15 === 0) return \"fizzbuzz\";\n    if ($n % 3 === 0) return \"fizz\";\n    if ($n % 5 === 0) return \"buzz\";\n    return strval($n);\n  }\n"
+    }
+  ]
+}

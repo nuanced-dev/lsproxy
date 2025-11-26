@@ -1,0 +1,167 @@
+{
+  "workspace_symbols": [
+    {
+      "reference": {
+        "name": "Add",
+        "file_range": {
+          "path": "Program.cs",
+          "range": {
+            "start": {
+              "line": 5,
+              "character": 25
+            },
+            "end": {
+              "line": 5,
+              "character": 28
+            }
+          }
+        },
+        "kind": "function-call"
+      },
+      "definitions": [
+        {
+          "name": "Add",
+          "kind": "method",
+          "identifier_position": {
+            "path": "Util.cs",
+            "position": {
+              "line": 1,
+              "character": 22
+            }
+          },
+          "file_range": {
+            "path": "Util.cs",
+            "range": {
+              "start": {
+                "line": 1,
+                "character": 0
+              },
+              "end": {
+                "line": 1,
+                "character": 49
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "reference": {
+        "name": "Greet",
+        "file_range": {
+          "path": "Program.cs",
+          "range": {
+            "start": {
+              "line": 8,
+              "character": 39
+            },
+            "end": {
+              "line": 8,
+              "character": 44
+            }
+          }
+        },
+        "kind": "function-call"
+      },
+      "definitions": [
+        {
+          "name": "Greet",
+          "kind": "method",
+          "identifier_position": {
+            "path": "Util.cs",
+            "position": {
+              "line": 4,
+              "character": 22
+            }
+          },
+          "file_range": {
+            "path": "Util.cs",
+            "range": {
+              "start": {
+                "line": 4,
+                "character": 0
+              },
+              "end": {
+                "line": 4,
+                "character": 51
+              }
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "external_symbols": [
+    {
+      "name": "Range",
+      "file_range": {
+        "path": "Program.cs",
+        "range": {
+          "start": {
+            "line": 7,
+            "character": 32
+          },
+          "end": {
+            "line": 7,
+            "character": 37
+          }
+        }
+      },
+      "kind": "function-call"
+    },
+    {
+      "name": "Select",
+      "file_range": {
+        "path": "Program.cs",
+        "range": {
+          "start": {
+            "line": 7,
+            "character": 45
+          },
+          "end": {
+            "line": 7,
+            "character": 51
+          }
+        }
+      },
+      "kind": "function-call"
+    },
+    {
+      "name": "WriteLine",
+      "file_range": {
+        "path": "Program.cs",
+        "range": {
+          "start": {
+            "line": 8,
+            "character": 16
+          },
+          "end": {
+            "line": 8,
+            "character": 25
+          }
+        }
+      },
+      "kind": "function-call"
+    },
+    {
+      "name": "Join",
+      "file_range": {
+        "path": "Program.cs",
+        "range": {
+          "start": {
+            "line": 8,
+            "character": 57
+          },
+          "end": {
+            "line": 8,
+            "character": 61
+          }
+        }
+      },
+      "kind": "function-call"
+    }
+  ],
+  "not_found": [
+    "[object Object]"
+  ]
+}

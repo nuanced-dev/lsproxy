@@ -1,0 +1,46 @@
+{
+  "definitions": [
+    {
+      "path": "app/util.py",
+      "position": {
+        "line": 4,
+        "character": 4
+      }
+    }
+  ],
+  "selected_identifier": {
+    "file_range": {
+      "path": "app/util.py",
+      "range": {
+        "start": {
+          "line": 4,
+          "character": 4
+        },
+        "end": {
+          "line": 4,
+          "character": 9
+        }
+      }
+    },
+    "kind": null,
+    "name": "greet"
+  },
+  "source_code_context": [
+    {
+      "file_range": {
+        "path": "app/util.py",
+        "range": {
+          "start": {
+            "line": 4,
+            "character": 0
+          },
+          "end": {
+            "line": 5,
+            "character": 39
+          }
+        }
+      },
+      "source_code": "def greet(name: str) -> str:\n    return repeat(f\"Hello, {name}!\", 1)"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "identifiers": [
+    {
+      "file_range": {
+        "path": "src/Util.php",
+        "range": {
+          "start": {
+            "line": 8,
+            "character": 18
+          },
+          "end": {
+            "line": 8,
+            "character": 23
+          }
+        }
+      },
+      "kind": null,
+      "name": "greet"
+    }
+  ]
+}

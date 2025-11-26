@@ -1,0 +1,21 @@
+{
+  "identifiers": [
+    {
+      "file_range": {
+        "path": "src/main/java/com/nuanced/FizzBuzz.java",
+        "range": {
+          "start": {
+            "line": 3,
+            "character": 23
+          },
+          "end": {
+            "line": 3,
+            "character": 31
+          }
+        }
+      },
+      "kind": null,
+      "name": "fizzBuzz"
+    }
+  ]
+}

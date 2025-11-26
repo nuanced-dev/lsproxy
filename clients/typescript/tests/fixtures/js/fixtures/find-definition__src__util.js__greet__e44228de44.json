@@ -1,0 +1,61 @@
+{
+  "definitions": [
+    {
+      "path": "src/util.js",
+      "position": {
+        "character": 2,
+        "line": 8
+      }
+    }
+  ],
+  "raw_response": [
+    {
+      "range": {
+        "end": {
+          "character": 7,
+          "line": 8
+        },
+        "start": {
+          "character": 2,
+          "line": 8
+        }
+      },
+      "uri": "file:///mnt/workspace/src/util.js"
+    }
+  ],
+  "selected_identifier": {
+    "file_range": {
+      "path": "src/util.js",
+      "range": {
+        "end": {
+          "character": 7,
+          "line": 8
+        },
+        "start": {
+          "character": 2,
+          "line": 8
+        }
+      }
+    },
+    "kind": null,
+    "name": "greet"
+  },
+  "source_code_context": [
+    {
+      "range": {
+        "path": "src/util.js",
+        "range": {
+          "end": {
+            "character": 3,
+            "line": 10
+          },
+          "start": {
+            "character": 2,
+            "line": 8
+          }
+        }
+      },
+      "source_code": "greet() {\n    return `Hello, ${this.name}!`;\n  }"
+    }
+  ]
+}

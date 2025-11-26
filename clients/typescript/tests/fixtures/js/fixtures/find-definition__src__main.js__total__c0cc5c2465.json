@@ -1,0 +1,61 @@
+{
+  "definitions": [
+    {
+      "path": "src/main.js",
+      "position": {
+        "character": 6,
+        "line": 3
+      }
+    }
+  ],
+  "raw_response": [
+    {
+      "range": {
+        "end": {
+          "character": 11,
+          "line": 3
+        },
+        "start": {
+          "character": 6,
+          "line": 3
+        }
+      },
+      "uri": "file:///mnt/workspace/src/main.js"
+    }
+  ],
+  "selected_identifier": {
+    "file_range": {
+      "path": "src/main.js",
+      "range": {
+        "end": {
+          "character": 11,
+          "line": 3
+        },
+        "start": {
+          "character": 6,
+          "line": 3
+        }
+      }
+    },
+    "kind": null,
+    "name": "total"
+  },
+  "source_code_context": [
+    {
+      "range": {
+        "path": "src/main.js",
+        "range": {
+          "end": {
+            "character": 23,
+            "line": 3
+          },
+          "start": {
+            "character": 6,
+            "line": 3
+          }
+        }
+      },
+      "source_code": "total = add(2, 3)"
+    }
+  ]
+}

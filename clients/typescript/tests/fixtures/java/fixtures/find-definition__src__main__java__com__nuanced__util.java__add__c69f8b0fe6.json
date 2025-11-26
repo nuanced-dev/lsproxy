@@ -1,0 +1,61 @@
+{
+  "definitions": [
+    {
+      "path": "src/main/java/com/nuanced/Util.java",
+      "position": {
+        "character": 20,
+        "line": 3
+      }
+    }
+  ],
+  "raw_response": [
+    {
+      "range": {
+        "end": {
+          "character": 23,
+          "line": 3
+        },
+        "start": {
+          "character": 20,
+          "line": 3
+        }
+      },
+      "uri": "file:///mnt/workspace/src/main/java/com/nuanced/Util.java"
+    }
+  ],
+  "selected_identifier": {
+    "file_range": {
+      "path": "src/main/java/com/nuanced/Util.java",
+      "range": {
+        "end": {
+          "character": 23,
+          "line": 3
+        },
+        "start": {
+          "character": 20,
+          "line": 3
+        }
+      }
+    },
+    "kind": null,
+    "name": "add"
+  },
+  "source_code_context": [
+    {
+      "range": {
+        "path": "src/main/java/com/nuanced/Util.java",
+        "range": {
+          "end": {
+            "character": 55,
+            "line": 3
+          },
+          "start": {
+            "character": 2,
+            "line": 3
+          }
+        }
+      },
+      "source_code": "public static int add(int a, int b) { return a + b; }"
+    }
+  ]
+}

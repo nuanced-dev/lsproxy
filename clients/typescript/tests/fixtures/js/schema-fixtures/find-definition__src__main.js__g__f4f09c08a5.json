@@ -1,0 +1,46 @@
+{
+  "definitions": [
+    {
+      "path": "src/main.js",
+      "position": {
+        "line": 4,
+        "character": 6
+      }
+    }
+  ],
+  "selected_identifier": {
+    "file_range": {
+      "path": "src/main.js",
+      "range": {
+        "start": {
+          "line": 4,
+          "character": 6
+        },
+        "end": {
+          "line": 4,
+          "character": 7
+        }
+      }
+    },
+    "kind": null,
+    "name": "g"
+  },
+  "source_code_context": [
+    {
+      "file_range": {
+        "path": "src/main.js",
+        "range": {
+          "start": {
+            "line": 4,
+            "character": 6
+          },
+          "end": {
+            "line": 4,
+            "character": 32
+          }
+        }
+      },
+      "source_code": "g = new Greeter(\"Nuanced\")"
+    }
+  ]
+}

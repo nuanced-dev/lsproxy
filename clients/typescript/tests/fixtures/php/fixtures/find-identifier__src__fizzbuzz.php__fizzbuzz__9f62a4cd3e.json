@@ -1,0 +1,21 @@
+{
+  "identifiers": [
+    {
+      "name": "fizzbuzz",
+      "file_range": {
+        "path": "src/FizzBuzz.php",
+        "range": {
+          "start": {
+            "line": 4,
+            "character": 25
+          },
+          "end": {
+            "line": 4,
+            "character": 33
+          }
+        }
+      },
+      "kind": null
+    }
+  ]
+}

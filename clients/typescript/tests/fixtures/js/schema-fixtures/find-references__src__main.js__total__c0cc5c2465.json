@@ -1,0 +1,69 @@
+{
+  "references": [
+    {
+      "path": "src/main.js",
+      "position": {
+        "line": 3,
+        "character": 6
+      }
+    },
+    {
+      "path": "src/main.js",
+      "position": {
+        "line": 6,
+        "character": 12
+      }
+    }
+  ],
+  "selected_identifier": {
+    "file_range": {
+      "path": "src/main.js",
+      "range": {
+        "start": {
+          "line": 3,
+          "character": 6
+        },
+        "end": {
+          "line": 3,
+          "character": 11
+        }
+      }
+    },
+    "kind": null,
+    "name": "total"
+  },
+  "context": [
+    {
+      "file_range": {
+        "path": "src/main.js",
+        "range": {
+          "start": {
+            "line": 3,
+            "character": 0
+          },
+          "end": {
+            "line": 3,
+            "character": 0
+          }
+        }
+      },
+      "source_code": ""
+    },
+    {
+      "file_range": {
+        "path": "src/main.js",
+        "range": {
+          "start": {
+            "line": 6,
+            "character": 0
+          },
+          "end": {
+            "line": 6,
+            "character": 0
+          }
+        }
+      },
+      "source_code": ""
+    }
+  ]
+}

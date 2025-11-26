@@ -1,0 +1,61 @@
+{
+  "definitions": [
+    {
+      "path": "src/util.js",
+      "position": {
+        "character": 2,
+        "line": 5
+      }
+    }
+  ],
+  "raw_response": [
+    {
+      "range": {
+        "end": {
+          "character": 3,
+          "line": 7
+        },
+        "start": {
+          "character": 2,
+          "line": 5
+        }
+      },
+      "uri": "file:///mnt/workspace/src/util.js"
+    }
+  ],
+  "selected_identifier": {
+    "file_range": {
+      "path": "src/util.js",
+      "range": {
+        "end": {
+          "character": 13,
+          "line": 5
+        },
+        "start": {
+          "character": 2,
+          "line": 5
+        }
+      }
+    },
+    "kind": null,
+    "name": "constructor"
+  },
+  "source_code_context": [
+    {
+      "range": {
+        "path": "src/util.js",
+        "range": {
+          "end": {
+            "character": 3,
+            "line": 7
+          },
+          "start": {
+            "character": 2,
+            "line": 5
+          }
+        }
+      },
+      "source_code": "constructor(name) {\n    this.name = name;\n  }"
+    }
+  ]
+}

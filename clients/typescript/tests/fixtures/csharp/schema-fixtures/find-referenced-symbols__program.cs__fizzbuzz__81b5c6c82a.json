@@ -1,0 +1,23 @@
+{
+  "external_symbols": [
+    {
+      "file_range": {
+        "path": "Program.cs",
+        "range": {
+          "start": {
+            "line": 17,
+            "character": 17
+          },
+          "end": {
+            "line": 17,
+            "character": 25
+          }
+        }
+      },
+      "kind": "function-call",
+      "name": "ToString"
+    }
+  ],
+  "not_found": [],
+  "workspace_symbols": []
+}

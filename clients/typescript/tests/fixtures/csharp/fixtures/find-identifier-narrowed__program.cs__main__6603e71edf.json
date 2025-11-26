@@ -1,0 +1,21 @@
+{
+  "identifiers": [
+    {
+      "name": "Main",
+      "file_range": {
+        "path": "Program.cs",
+        "range": {
+          "start": {
+            "line": 24,
+            "character": 16
+          },
+          "end": {
+            "line": 24,
+            "character": 20
+          }
+        }
+      },
+      "kind": null
+    }
+  ]
+}

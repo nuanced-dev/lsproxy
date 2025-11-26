@@ -1,0 +1,21 @@
+{
+  "identifiers": [
+    {
+      "name": "main",
+      "file_range": {
+        "path": "src/main.cpp",
+        "range": {
+          "start": {
+            "line": 5,
+            "character": 4
+          },
+          "end": {
+            "line": 5,
+            "character": 8
+          }
+        }
+      },
+      "kind": null
+    }
+  ]
+}

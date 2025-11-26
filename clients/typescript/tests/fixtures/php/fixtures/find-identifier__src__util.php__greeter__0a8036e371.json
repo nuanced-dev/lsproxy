@@ -1,0 +1,21 @@
+{
+  "identifiers": [
+    {
+      "name": "Greeter",
+      "file_range": {
+        "path": "src/Util.php",
+        "range": {
+          "start": {
+            "line": 5,
+            "character": 12
+          },
+          "end": {
+            "line": 5,
+            "character": 19
+          }
+        }
+      },
+      "kind": null
+    }
+  ]
+}

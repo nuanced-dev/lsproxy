@@ -1,0 +1,21 @@
+{
+  "identifiers": [
+    {
+      "file_range": {
+        "path": "Util.cs",
+        "range": {
+          "start": {
+            "line": 0,
+            "character": 13
+          },
+          "end": {
+            "line": 0,
+            "character": 17
+          }
+        }
+      },
+      "kind": null,
+      "name": "Util"
+    }
+  ]
+}

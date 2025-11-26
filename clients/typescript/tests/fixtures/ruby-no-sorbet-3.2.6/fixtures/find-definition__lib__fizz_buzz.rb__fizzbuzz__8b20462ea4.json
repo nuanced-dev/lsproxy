@@ -1,0 +1,71 @@
+{
+  "definitions": [
+    {
+      "path": "lib/fizz_buzz.rb",
+      "position": {
+        "character": 0,
+        "line": 2
+      }
+    }
+  ],
+  "raw_response": [
+    {
+      "targetRange": {
+        "end": {
+          "character": 3,
+          "line": 22
+        },
+        "start": {
+          "character": 0,
+          "line": 2
+        }
+      },
+      "targetSelectionRange": {
+        "end": {
+          "character": 15,
+          "line": 2
+        },
+        "start": {
+          "character": 7,
+          "line": 2
+        }
+      },
+      "targetUri": "file:///mnt/workspace/lib/fizz_buzz.rb"
+    }
+  ],
+  "selected_identifier": {
+    "file_range": {
+      "path": "lib/fizz_buzz.rb",
+      "range": {
+        "end": {
+          "character": 15,
+          "line": 2
+        },
+        "start": {
+          "character": 7,
+          "line": 2
+        }
+      }
+    },
+    "kind": null,
+    "name": "FizzBuzz"
+  },
+  "source_code_context": [
+    {
+      "range": {
+        "path": "lib/fizz_buzz.rb",
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 25
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        }
+      },
+      "source_code": "# frozen_string_literal: true\n\nmodule FizzBuzz\n  extend T::Sig\n\n  sig { params(n: Integer).returns(String) }\n  def self.value(n)\n    if (n % 15).zero?\n      \"FizzBuzz\"\n    elsif (n % 3).zero?\n      \"Fizz\"\n    elsif (n % 5).zero?\n      \"Buzz\"\n    else\n      n.to_s\n    end\n  end\n\n  sig { params(limit: Integer).returns(T::Array[String]) }\n  def self.series(limit)\n    (1..limit).map { |i| value(i) }\n  end\n"
+    }
+  ]
+}

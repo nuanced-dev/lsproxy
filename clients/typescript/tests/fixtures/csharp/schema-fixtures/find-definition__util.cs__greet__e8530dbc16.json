@@ -1,0 +1,46 @@
+{
+  "definitions": [
+    {
+      "path": "Util.cs",
+      "position": {
+        "line": 4,
+        "character": 22
+      }
+    }
+  ],
+  "selected_identifier": {
+    "file_range": {
+      "path": "Util.cs",
+      "range": {
+        "start": {
+          "line": 4,
+          "character": 22
+        },
+        "end": {
+          "line": 4,
+          "character": 27
+        }
+      }
+    },
+    "kind": null,
+    "name": "Greet"
+  },
+  "source_code_context": [
+    {
+      "file_range": {
+        "path": "Util.cs",
+        "range": {
+          "start": {
+            "line": 4,
+            "character": 8
+          },
+          "end": {
+            "line": 4,
+            "character": 51
+          }
+        }
+      },
+      "source_code": "public string Greet() => $\"Hello, {name}!\";"
+    }
+  ]
+}

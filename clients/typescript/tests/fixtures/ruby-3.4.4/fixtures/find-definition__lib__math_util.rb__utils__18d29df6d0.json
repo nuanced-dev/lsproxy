@@ -1,0 +1,22 @@
+{
+  "definitions": [],
+  "raw_response": [],
+  "selected_identifier": {
+    "file_range": {
+      "path": "lib/math_util.rb",
+      "range": {
+        "end": {
+          "character": 12,
+          "line": 3
+        },
+        "start": {
+          "character": 7,
+          "line": 3
+        }
+      }
+    },
+    "kind": null,
+    "name": "Utils"
+  },
+  "source_code_context": []
+}

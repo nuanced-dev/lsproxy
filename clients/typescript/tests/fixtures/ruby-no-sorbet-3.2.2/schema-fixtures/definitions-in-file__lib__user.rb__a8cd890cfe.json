@@ -1,0 +1,98 @@
+[
+  {
+    "file_range": {
+      "path": "lib/user.rb",
+      "range": {
+        "start": {
+          "line": 2,
+          "character": 0
+        },
+        "end": {
+          "line": 23,
+          "character": 3
+        }
+      }
+    },
+    "identifier_position": {
+      "path": "lib/user.rb",
+      "position": {
+        "line": 2,
+        "character": 6
+      }
+    },
+    "kind": "class",
+    "name": "User"
+  },
+  {
+    "file_range": {
+      "path": "lib/user.rb",
+      "range": {
+        "start": {
+          "line": 9,
+          "character": 0
+        },
+        "end": {
+          "line": 12,
+          "character": 5
+        }
+      }
+    },
+    "identifier_position": {
+      "path": "lib/user.rb",
+      "position": {
+        "line": 9,
+        "character": 6
+      }
+    },
+    "kind": "method",
+    "name": "initialize"
+  },
+  {
+    "file_range": {
+      "path": "lib/user.rb",
+      "range": {
+        "start": {
+          "line": 15,
+          "character": 0
+        },
+        "end": {
+          "line": 17,
+          "character": 5
+        }
+      }
+    },
+    "identifier_position": {
+      "path": "lib/user.rb",
+      "position": {
+        "line": 15,
+        "character": 6
+      }
+    },
+    "kind": "method",
+    "name": "favorite_numbers"
+  },
+  {
+    "file_range": {
+      "path": "lib/user.rb",
+      "range": {
+        "start": {
+          "line": 20,
+          "character": 0
+        },
+        "end": {
+          "line": 22,
+          "character": 5
+        }
+      }
+    },
+    "identifier_position": {
+      "path": "lib/user.rb",
+      "position": {
+        "line": 20,
+        "character": 6
+      }
+    },
+    "kind": "method",
+    "name": "likes?"
+  }
+]

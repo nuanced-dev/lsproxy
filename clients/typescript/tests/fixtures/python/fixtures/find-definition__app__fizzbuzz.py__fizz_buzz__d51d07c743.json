@@ -1,0 +1,61 @@
+{
+  "definitions": [
+    {
+      "path": "app/fizzbuzz.py",
+      "position": {
+        "character": 4,
+        "line": 0
+      }
+    }
+  ],
+  "raw_response": [
+    {
+      "range": {
+        "end": {
+          "character": 13,
+          "line": 0
+        },
+        "start": {
+          "character": 4,
+          "line": 0
+        }
+      },
+      "uri": "file:///mnt/workspace/app/fizzbuzz.py"
+    }
+  ],
+  "selected_identifier": {
+    "file_range": {
+      "path": "app/fizzbuzz.py",
+      "range": {
+        "end": {
+          "character": 13,
+          "line": 0
+        },
+        "start": {
+          "character": 4,
+          "line": 0
+        }
+      }
+    },
+    "kind": null,
+    "name": "fizz_buzz"
+  },
+  "source_code_context": [
+    {
+      "range": {
+        "path": "app/fizzbuzz.py",
+        "range": {
+          "end": {
+            "character": 17,
+            "line": 7
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        }
+      },
+      "source_code": "def fizz_buzz(n: int) -> str:\n    if n % 15 == 0:\n        return \"fizzbuzz\"\n    if n % 3 == 0:\n        return \"fizz\"\n    if n % 5 == 0:\n        return \"buzz\"\n    return str(n)"
+    }
+  ]
+}

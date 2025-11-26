@@ -1,0 +1,98 @@
+[
+  {
+    "file_range": {
+      "path": "lib/math_util.rb",
+      "range": {
+        "end": {
+          "character": 7,
+          "line": 16
+        },
+        "start": {
+          "character": 0,
+          "line": 13
+        }
+      }
+    },
+    "identifier_position": {
+      "path": "lib/math_util.rb",
+      "position": {
+        "character": 13,
+        "line": 13
+      }
+    },
+    "kind": "method",
+    "name": "factorial"
+  },
+  {
+    "file_range": {
+      "path": "lib/math_util.rb",
+      "range": {
+        "end": {
+          "character": 5,
+          "line": 17
+        },
+        "start": {
+          "character": 0,
+          "line": 4
+        }
+      }
+    },
+    "identifier_position": {
+      "path": "lib/math_util.rb",
+      "position": {
+        "character": 9,
+        "line": 4
+      }
+    },
+    "kind": "module",
+    "name": "MathUtil"
+  },
+  {
+    "file_range": {
+      "path": "lib/math_util.rb",
+      "range": {
+        "end": {
+          "character": 7,
+          "line": 10
+        },
+        "start": {
+          "character": 0,
+          "line": 8
+        }
+      }
+    },
+    "identifier_position": {
+      "path": "lib/math_util.rb",
+      "position": {
+        "character": 13,
+        "line": 8
+      }
+    },
+    "kind": "method",
+    "name": "sum"
+  },
+  {
+    "file_range": {
+      "path": "lib/math_util.rb",
+      "range": {
+        "end": {
+          "character": 3,
+          "line": 18
+        },
+        "start": {
+          "character": 0,
+          "line": 3
+        }
+      }
+    },
+    "identifier_position": {
+      "path": "lib/math_util.rb",
+      "position": {
+        "character": 7,
+        "line": 3
+      }
+    },
+    "kind": "module",
+    "name": "Utils"
+  }
+]

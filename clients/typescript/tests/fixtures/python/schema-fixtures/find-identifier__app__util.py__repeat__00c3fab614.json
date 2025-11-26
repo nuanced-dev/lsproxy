@@ -1,0 +1,38 @@
+{
+  "identifiers": [
+    {
+      "file_range": {
+        "path": "app/util.py",
+        "range": {
+          "start": {
+            "line": 0,
+            "character": 4
+          },
+          "end": {
+            "line": 0,
+            "character": 10
+          }
+        }
+      },
+      "kind": null,
+      "name": "repeat"
+    },
+    {
+      "file_range": {
+        "path": "app/util.py",
+        "range": {
+          "start": {
+            "line": 5,
+            "character": 11
+          },
+          "end": {
+            "line": 5,
+            "character": 17
+          }
+        }
+      },
+      "kind": null,
+      "name": "repeat"
+    }
+  ]
+}

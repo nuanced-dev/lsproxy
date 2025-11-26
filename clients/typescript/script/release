@@ -1,0 +1,81 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Usage: script/release
+#
+# This script creates a release for the lsp package. Before running:
+# 1. Edit config/version.json with the desired versions
+# 2. Commit your changes
+# 3. Run this script to build, tag, and push
+#
+# The script will:
+# - Validate all 5 required versions are present in config/version.json
+# - Run the build (which updates package.json and generates version.ts)
+# - Commit any generated file changes
+# - Create and push the git tag (lsp-v<version>)
+#
+# The tag push triggers CI to publish to npm and create a GitHub release.
+
+. "$(dirname "$0")/../../script/release-shared.bash"
+. "$(dirname "$0")/release-shared.bash"
+
+echo "Starting release process..."
+
+check_required_commands
+
+ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+CONFIG_JSON="$ROOT_DIR/config/version.json"
+
+[[ -f "$CONFIG_JSON" ]] || die "Missing $CONFIG_JSON"
+
+# Validate all required versions are present
+validate_all_versions
+
+echo "📌 Release versions:"
+echo "   lsp-version:                $LSP_VERSION"
+echo "   lsp-proxy-version:          $LSP_PROXY_VERSION"
+echo "   lsp-wrapper-version:        $LSP_WRAPPER_VERSION"
+echo "   lsp-watchdog-version:       $LSP_WATCHDOG_VERSION"
+echo "   language-container-version: $LANGUAGE_CONTAINER_VERSION"
+
+# Build (this updates package.json version and generates version.ts)
+echo "🔨 Running build..."
+bun run build
+
+read_package_metadata
+
+check_changelog_entry
+
+TAG="lsp-v$LSP_VERSION"
+CURRENT_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+
+# Refuse to overwrite an existing tag
+if git rev-parse "$TAG" >/dev/null 2>&1; then
+  die "Git tag $TAG already exists. If re-releasing, delete the tag first."
+fi
+
+# Stage generated files that may have changed
+git add \
+  config/version.json \
+  package*.json \
+  src/__generated/version.ts \
+
+# Commit only if there are staged changes
+if git diff --cached --quiet; then
+  echo "ℹ️  No generated file changes to commit."
+else
+  git commit -m "chore(release): $TAG"
+fi
+
+# Verify working directory is clean before tagging
+check_clean_working_directory
+
+# Push the commit first (so the tag points to a pushed commit)
+git push origin "$CURRENT_BRANCH"
+
+# Create an annotated tag and push it
+git tag -a "$TAG" -m "Release $TAG"
+git push origin "$TAG"
+
+echo "✅ Release $TAG tagged and pushed."
+echo "   CI will now publish to npm and create the GitHub release."

@@ -1,0 +1,46 @@
+{
+  "references": [
+    {
+      "path": "src/main.rs",
+      "position": {
+        "line": 3,
+        "character": 7
+      }
+    }
+  ],
+  "selected_identifier": {
+    "file_range": {
+      "path": "src/main.rs",
+      "range": {
+        "start": {
+          "line": 3,
+          "character": 7
+        },
+        "end": {
+          "line": 3,
+          "character": 15
+        }
+      }
+    },
+    "kind": null,
+    "name": "fizzbuzz"
+  },
+  "context": [
+    {
+      "file_range": {
+        "path": "src/main.rs",
+        "range": {
+          "start": {
+            "line": 3,
+            "character": 0
+          },
+          "end": {
+            "line": 3,
+            "character": 0
+          }
+        }
+      },
+      "source_code": ""
+    }
+  ]
+}

@@ -1,0 +1,61 @@
+{
+  "definitions": [
+    {
+      "path": "util.go",
+      "position": {
+        "character": 5,
+        "line": 6
+      }
+    }
+  ],
+  "raw_response": [
+    {
+      "range": {
+        "end": {
+          "character": 12,
+          "line": 6
+        },
+        "start": {
+          "character": 5,
+          "line": 6
+        }
+      },
+      "uri": "file:///mnt/workspace/util.go"
+    }
+  ],
+  "selected_identifier": {
+    "file_range": {
+      "path": "util.go",
+      "range": {
+        "end": {
+          "character": 12,
+          "line": 6
+        },
+        "start": {
+          "character": 5,
+          "line": 6
+        }
+      }
+    },
+    "kind": null,
+    "name": "Greeter"
+  },
+  "source_code_context": [
+    {
+      "range": {
+        "path": "util.go",
+        "range": {
+          "end": {
+            "character": 34,
+            "line": 6
+          },
+          "start": {
+            "character": 5,
+            "line": 6
+          }
+        }
+      },
+      "source_code": "Greeter struct{ Name string }"
+    }
+  ]
+}

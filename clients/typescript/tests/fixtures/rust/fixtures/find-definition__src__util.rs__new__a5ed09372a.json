@@ -1,0 +1,22 @@
+{
+  "definitions": [],
+  "raw_response": [],
+  "selected_identifier": {
+    "file_range": {
+      "path": "src/util.rs",
+      "range": {
+        "end": {
+          "character": 14,
+          "line": 9
+        },
+        "start": {
+          "character": 11,
+          "line": 9
+        }
+      }
+    },
+    "kind": null,
+    "name": "new"
+  },
+  "source_code_context": []
+}

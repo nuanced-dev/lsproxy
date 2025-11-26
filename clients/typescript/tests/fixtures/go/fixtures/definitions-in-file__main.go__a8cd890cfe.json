@@ -1,0 +1,26 @@
+[
+  {
+    "file_range": {
+      "path": "main.go",
+      "range": {
+        "end": {
+          "character": 1,
+          "line": 12
+        },
+        "start": {
+          "character": 0,
+          "line": 4
+        }
+      }
+    },
+    "identifier_position": {
+      "path": "main.go",
+      "position": {
+        "character": 5,
+        "line": 4
+      }
+    },
+    "kind": "function",
+    "name": "main"
+  }
+]

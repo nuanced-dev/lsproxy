@@ -1,0 +1,22 @@
+{
+  "definitions": [],
+  "raw_response": [],
+  "selected_identifier": {
+    "file_range": {
+      "path": "src/main.rs",
+      "range": {
+        "end": {
+          "character": 15,
+          "line": 3
+        },
+        "start": {
+          "character": 7,
+          "line": 3
+        }
+      }
+    },
+    "kind": null,
+    "name": "fizzbuzz"
+  },
+  "source_code_context": []
+}

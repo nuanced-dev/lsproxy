@@ -1,0 +1,21 @@
+{
+  "identifiers": [
+    {
+      "file_range": {
+        "path": "lib/user.rb",
+        "range": {
+          "end": {
+            "character": 10,
+            "line": 3
+          },
+          "start": {
+            "character": 6,
+            "line": 3
+          }
+        }
+      },
+      "kind": null,
+      "name": "User"
+    }
+  ]
+}

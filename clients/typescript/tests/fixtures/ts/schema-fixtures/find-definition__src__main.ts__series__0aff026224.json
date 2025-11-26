@@ -1,0 +1,46 @@
+{
+  "definitions": [
+    {
+      "path": "src/main.ts",
+      "position": {
+        "line": 5,
+        "character": 6
+      }
+    }
+  ],
+  "selected_identifier": {
+    "file_range": {
+      "path": "src/main.ts",
+      "range": {
+        "start": {
+          "line": 5,
+          "character": 6
+        },
+        "end": {
+          "line": 5,
+          "character": 12
+        }
+      }
+    },
+    "kind": null,
+    "name": "series"
+  },
+  "source_code_context": [
+    {
+      "file_range": {
+        "path": "src/main.ts",
+        "range": {
+          "start": {
+            "line": 5,
+            "character": 0
+          },
+          "end": {
+            "line": 5,
+            "character": 69
+          }
+        }
+      },
+      "source_code": "const series = Array.from({ length: 20 }, (_, i) => fizzbuzz(i + 1));"
+    }
+  ]
+}

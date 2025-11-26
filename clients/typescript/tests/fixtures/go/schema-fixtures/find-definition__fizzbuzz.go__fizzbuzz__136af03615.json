@@ -1,0 +1,46 @@
+{
+  "definitions": [
+    {
+      "path": "fizzbuzz.go",
+      "position": {
+        "line": 2,
+        "character": 5
+      }
+    }
+  ],
+  "selected_identifier": {
+    "file_range": {
+      "path": "fizzbuzz.go",
+      "range": {
+        "start": {
+          "line": 2,
+          "character": 5
+        },
+        "end": {
+          "line": 2,
+          "character": 13
+        }
+      }
+    },
+    "kind": null,
+    "name": "FizzBuzz"
+  },
+  "source_code_context": [
+    {
+      "file_range": {
+        "path": "fizzbuzz.go",
+        "range": {
+          "start": {
+            "line": 2,
+            "character": 0
+          },
+          "end": {
+            "line": 13,
+            "character": 1
+          }
+        }
+      },
+      "source_code": "func FizzBuzz(n int) string {\n\tswitch {\n\tcase n%15 == 0:\n\t\treturn \"fizzbuzz\"\n\tcase n%3 == 0:\n\t\treturn \"fizz\"\n\tcase n%5 == 0:\n\t\treturn \"buzz\"\n\tdefault:\n\t\treturn fmtInt(n)\n\t}\n}"
+    }
+  ]
+}

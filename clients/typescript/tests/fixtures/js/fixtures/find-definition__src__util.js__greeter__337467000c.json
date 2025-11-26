@@ -1,0 +1,61 @@
+{
+  "definitions": [
+    {
+      "path": "src/util.js",
+      "position": {
+        "character": 13,
+        "line": 4
+      }
+    }
+  ],
+  "raw_response": [
+    {
+      "range": {
+        "end": {
+          "character": 20,
+          "line": 4
+        },
+        "start": {
+          "character": 13,
+          "line": 4
+        }
+      },
+      "uri": "file:///mnt/workspace/src/util.js"
+    }
+  ],
+  "selected_identifier": {
+    "file_range": {
+      "path": "src/util.js",
+      "range": {
+        "end": {
+          "character": 20,
+          "line": 4
+        },
+        "start": {
+          "character": 13,
+          "line": 4
+        }
+      }
+    },
+    "kind": null,
+    "name": "Greeter"
+  },
+  "source_code_context": [
+    {
+      "range": {
+        "path": "src/util.js",
+        "range": {
+          "end": {
+            "character": 1,
+            "line": 11
+          },
+          "start": {
+            "character": 7,
+            "line": 4
+          }
+        }
+      },
+      "source_code": "class Greeter {\n  constructor(name) {\n    this.name = name;\n  }\n  greet() {\n    return `Hello, ${this.name}!`;\n  }\n}"
+    }
+  ]
+}

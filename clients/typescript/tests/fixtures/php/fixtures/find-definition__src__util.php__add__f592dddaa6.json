@@ -1,0 +1,22 @@
+{
+  "raw_response": [],
+  "definitions": [],
+  "source_code_context": [],
+  "selected_identifier": {
+    "name": "add",
+    "file_range": {
+      "path": "src/Util.php",
+      "range": {
+        "start": {
+          "line": 3,
+          "character": 9
+        },
+        "end": {
+          "line": 3,
+          "character": 12
+        }
+      }
+    },
+    "kind": null
+  }
+}

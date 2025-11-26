@@ -1,0 +1,97 @@
+{
+  "context": [
+    {
+      "range": {
+        "path": "lib/fizz_buzz.rb",
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 2
+          },
+          "start": {
+            "character": 0,
+            "line": 2
+          }
+        }
+      },
+      "source_code": ""
+    },
+    {
+      "range": {
+        "path": "lib/greeter.rb",
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 14
+          },
+          "start": {
+            "character": 0,
+            "line": 14
+          }
+        }
+      },
+      "source_code": ""
+    }
+  ],
+  "raw_response": [
+    {
+      "range": {
+        "end": {
+          "character": 15,
+          "line": 2
+        },
+        "start": {
+          "character": 7,
+          "line": 2
+        }
+      },
+      "uri": "file:///mnt/workspace/lib/fizz_buzz.rb"
+    },
+    {
+      "range": {
+        "end": {
+          "character": 21,
+          "line": 14
+        },
+        "start": {
+          "character": 13,
+          "line": 14
+        }
+      },
+      "uri": "file:///mnt/workspace/lib/greeter.rb"
+    }
+  ],
+  "references": [
+    {
+      "path": "lib/fizz_buzz.rb",
+      "position": {
+        "character": 7,
+        "line": 2
+      }
+    },
+    {
+      "path": "lib/greeter.rb",
+      "position": {
+        "character": 13,
+        "line": 14
+      }
+    }
+  ],
+  "selected_identifier": {
+    "file_range": {
+      "path": "lib/fizz_buzz.rb",
+      "range": {
+        "end": {
+          "character": 15,
+          "line": 2
+        },
+        "start": {
+          "character": 7,
+          "line": 2
+        }
+      }
+    },
+    "kind": null,
+    "name": "FizzBuzz"
+  }
+}

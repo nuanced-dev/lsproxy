@@ -1,0 +1,5 @@
+{
+  "name": "nuanced/toy-php-ws",
+  "require": {},
+  "autoload": { "psr-4": { "Nuanced\\": "src/" } }
+}

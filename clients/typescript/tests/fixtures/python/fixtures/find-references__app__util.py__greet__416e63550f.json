@@ -1,0 +1,133 @@
+{
+  "context": [
+    {
+      "range": {
+        "path": "app/util.py",
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 4
+          },
+          "start": {
+            "character": 0,
+            "line": 4
+          }
+        }
+      },
+      "source_code": ""
+    },
+    {
+      "range": {
+        "path": "main.py",
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 1
+          },
+          "start": {
+            "character": 0,
+            "line": 1
+          }
+        }
+      },
+      "source_code": ""
+    },
+    {
+      "range": {
+        "path": "main.py",
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 10
+          },
+          "start": {
+            "character": 0,
+            "line": 10
+          }
+        }
+      },
+      "source_code": ""
+    }
+  ],
+  "raw_response": [
+    {
+      "range": {
+        "end": {
+          "character": 9,
+          "line": 4
+        },
+        "start": {
+          "character": 4,
+          "line": 4
+        }
+      },
+      "uri": "file:///mnt/workspace/app/util.py"
+    },
+    {
+      "range": {
+        "end": {
+          "character": 26,
+          "line": 1
+        },
+        "start": {
+          "character": 21,
+          "line": 1
+        }
+      },
+      "uri": "file:///mnt/workspace/main.py"
+    },
+    {
+      "range": {
+        "end": {
+          "character": 15,
+          "line": 10
+        },
+        "start": {
+          "character": 10,
+          "line": 10
+        }
+      },
+      "uri": "file:///mnt/workspace/main.py"
+    }
+  ],
+  "references": [
+    {
+      "path": "app/util.py",
+      "position": {
+        "character": 4,
+        "line": 4
+      }
+    },
+    {
+      "path": "main.py",
+      "position": {
+        "character": 21,
+        "line": 1
+      }
+    },
+    {
+      "path": "main.py",
+      "position": {
+        "character": 10,
+        "line": 10
+      }
+    }
+  ],
+  "selected_identifier": {
+    "file_range": {
+      "path": "app/util.py",
+      "range": {
+        "end": {
+          "character": 9,
+          "line": 4
+        },
+        "start": {
+          "character": 4,
+          "line": 4
+        }
+      }
+    },
+    "kind": null,
+    "name": "greet"
+  }
+}

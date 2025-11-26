@@ -1,0 +1,26 @@
+[
+  {
+    "file_range": {
+      "path": "src/fizzbuzz.rs",
+      "range": {
+        "start": {
+          "line": 1,
+          "character": 0
+        },
+        "end": {
+          "line": 11,
+          "character": 1
+        }
+      }
+    },
+    "identifier_position": {
+      "path": "src/fizzbuzz.rs",
+      "position": {
+        "line": 1,
+        "character": 7
+      }
+    },
+    "kind": "function",
+    "name": "fizzbuzz"
+  }
+]

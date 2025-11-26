@@ -1,0 +1,61 @@
+{
+  "raw_response": [
+    {
+      "range": {
+        "end": {
+          "character": 24,
+          "line": 20
+        },
+        "start": {
+          "character": 18,
+          "line": 20
+        }
+      },
+      "uri": "file:///mnt/workspace/Program.cs"
+    }
+  ],
+  "definitions": [
+    {
+      "path": "Program.cs",
+      "position": {
+        "line": 20,
+        "character": 18
+      }
+    }
+  ],
+  "source_code_context": [
+    {
+      "range": {
+        "path": "Program.cs",
+        "range": {
+          "start": {
+            "line": 20,
+            "character": 4
+          },
+          "end": {
+            "line": 22,
+            "character": 5
+          }
+        }
+      },
+      "source_code": "static string Repeat(string s, int times) {\n        return new String(s[0], times) + s.Substring(1); // simple repeat\n    }"
+    }
+  ],
+  "selected_identifier": {
+    "name": "Repeat",
+    "file_range": {
+      "path": "Program.cs",
+      "range": {
+        "start": {
+          "line": 20,
+          "character": 18
+        },
+        "end": {
+          "line": 20,
+          "character": 24
+        }
+      }
+    },
+    "kind": null
+  }
+}

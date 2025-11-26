@@ -1,0 +1,23 @@
+{
+  "external_symbols": [
+    {
+      "file_range": {
+        "path": "FizzBuzz.cs",
+        "range": {
+          "start": {
+            "line": 4,
+            "character": 35
+          },
+          "end": {
+            "line": 4,
+            "character": 43
+          }
+        }
+      },
+      "kind": "function-call",
+      "name": "ToString"
+    }
+  ],
+  "not_found": [],
+  "workspace_symbols": []
+}

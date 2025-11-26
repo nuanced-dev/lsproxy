@@ -1,0 +1,21 @@
+{
+  "identifiers": [
+    {
+      "file_range": {
+        "path": "src/util.ts",
+        "range": {
+          "start": {
+            "line": 4,
+            "character": 2
+          },
+          "end": {
+            "line": 4,
+            "character": 7
+          }
+        }
+      },
+      "kind": null,
+      "name": "greet"
+    }
+  ]
+}

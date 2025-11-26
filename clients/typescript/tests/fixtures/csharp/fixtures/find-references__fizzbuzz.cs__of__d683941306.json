@@ -1,0 +1,46 @@
+{
+  "references": [
+    {
+      "path": "FizzBuzz.cs",
+      "position": {
+        "line": 1,
+        "character": 25
+      }
+    }
+  ],
+  "context": [
+    {
+      "range": {
+        "path": "FizzBuzz.cs",
+        "range": {
+          "start": {
+            "line": 1,
+            "character": 0
+          },
+          "end": {
+            "line": 1,
+            "character": 0
+          }
+        }
+      },
+      "source_code": ""
+    }
+  ],
+  "selected_identifier": {
+    "name": "Of",
+    "file_range": {
+      "path": "FizzBuzz.cs",
+      "range": {
+        "start": {
+          "line": 1,
+          "character": 25
+        },
+        "end": {
+          "line": 1,
+          "character": 27
+        }
+      }
+    },
+    "kind": null
+  }
+}

@@ -1,0 +1,3 @@
+{
+  "source_code": "// Auxiliary file for workspace tests; not compiled by the crate.\npub fn fizzbuzz(n: i32) -> String {\n    if n % 15 == 0 {\n        \"fizzbuzz\".into()\n    } else if n % 3 == 0 {\n        \"fizz\".into()\n    } else if n % 5 == 0 {\n        \"buzz\".into()\n    } else {\n        n.to_string()\n    }\n}\n"
+}

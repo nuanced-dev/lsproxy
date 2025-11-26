@@ -1,0 +1,61 @@
+{
+  "context": [
+    {
+      "range": {
+        "path": "main.go",
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 4
+          },
+          "start": {
+            "character": 0,
+            "line": 4
+          }
+        }
+      },
+      "source_code": ""
+    }
+  ],
+  "raw_response": [
+    {
+      "range": {
+        "end": {
+          "character": 9,
+          "line": 4
+        },
+        "start": {
+          "character": 5,
+          "line": 4
+        }
+      },
+      "uri": "file:///mnt/workspace/main.go"
+    }
+  ],
+  "references": [
+    {
+      "path": "main.go",
+      "position": {
+        "character": 5,
+        "line": 4
+      }
+    }
+  ],
+  "selected_identifier": {
+    "file_range": {
+      "path": "main.go",
+      "range": {
+        "end": {
+          "character": 9,
+          "line": 4
+        },
+        "start": {
+          "character": 5,
+          "line": 4
+        }
+      }
+    },
+    "kind": null,
+    "name": "main"
+  }
+}

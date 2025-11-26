@@ -1,0 +1,133 @@
+{
+  "context": [
+    {
+      "range": {
+        "path": "app/fizzbuzz.py",
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        }
+      },
+      "source_code": ""
+    },
+    {
+      "range": {
+        "path": "main.py",
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        }
+      },
+      "source_code": ""
+    },
+    {
+      "range": {
+        "path": "main.py",
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 5
+          },
+          "start": {
+            "character": 0,
+            "line": 5
+          }
+        }
+      },
+      "source_code": ""
+    }
+  ],
+  "raw_response": [
+    {
+      "range": {
+        "end": {
+          "character": 13,
+          "line": 0
+        },
+        "start": {
+          "character": 4,
+          "line": 0
+        }
+      },
+      "uri": "file:///mnt/workspace/app/fizzbuzz.py"
+    },
+    {
+      "range": {
+        "end": {
+          "character": 34,
+          "line": 0
+        },
+        "start": {
+          "character": 25,
+          "line": 0
+        }
+      },
+      "uri": "file:///mnt/workspace/main.py"
+    },
+    {
+      "range": {
+        "end": {
+          "character": 21,
+          "line": 5
+        },
+        "start": {
+          "character": 12,
+          "line": 5
+        }
+      },
+      "uri": "file:///mnt/workspace/main.py"
+    }
+  ],
+  "references": [
+    {
+      "path": "app/fizzbuzz.py",
+      "position": {
+        "character": 4,
+        "line": 0
+      }
+    },
+    {
+      "path": "main.py",
+      "position": {
+        "character": 25,
+        "line": 0
+      }
+    },
+    {
+      "path": "main.py",
+      "position": {
+        "character": 12,
+        "line": 5
+      }
+    }
+  ],
+  "selected_identifier": {
+    "file_range": {
+      "path": "app/fizzbuzz.py",
+      "range": {
+        "end": {
+          "character": 13,
+          "line": 0
+        },
+        "start": {
+          "character": 4,
+          "line": 0
+        }
+      }
+    },
+    "kind": null,
+    "name": "fizz_buzz"
+  }
+}

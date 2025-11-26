@@ -1,0 +1,21 @@
+{
+  "identifiers": [
+    {
+      "name": "greet",
+      "file_range": {
+        "path": "src/util.hpp",
+        "range": {
+          "start": {
+            "line": 8,
+            "character": 14
+          },
+          "end": {
+            "line": 8,
+            "character": 19
+          }
+        }
+      },
+      "kind": null
+    }
+  ]
+}

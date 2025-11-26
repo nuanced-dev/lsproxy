@@ -1,0 +1,22 @@
+{
+  "definitions": [],
+  "raw_response": [],
+  "selected_identifier": {
+    "file_range": {
+      "path": "lib/greeter.rb",
+      "range": {
+        "end": {
+          "character": 16,
+          "line": 9
+        },
+        "start": {
+          "character": 6,
+          "line": 9
+        }
+      }
+    },
+    "kind": null,
+    "name": "initialize"
+  },
+  "source_code_context": []
+}

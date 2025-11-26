@@ -1,0 +1,61 @@
+{
+  "definitions": [
+    {
+      "path": "util.go",
+      "position": {
+        "character": 17,
+        "line": 8
+      }
+    }
+  ],
+  "raw_response": [
+    {
+      "range": {
+        "end": {
+          "character": 22,
+          "line": 8
+        },
+        "start": {
+          "character": 17,
+          "line": 8
+        }
+      },
+      "uri": "file:///mnt/workspace/util.go"
+    }
+  ],
+  "selected_identifier": {
+    "file_range": {
+      "path": "util.go",
+      "range": {
+        "end": {
+          "character": 22,
+          "line": 8
+        },
+        "start": {
+          "character": 17,
+          "line": 8
+        }
+      }
+    },
+    "kind": null,
+    "name": "Greet"
+  },
+  "source_code_context": [
+    {
+      "range": {
+        "path": "util.go",
+        "range": {
+          "end": {
+            "character": 76,
+            "line": 8
+          },
+          "start": {
+            "character": 0,
+            "line": 8
+          }
+        }
+      },
+      "source_code": "func (g Greeter) Greet() string { return fmt.Sprintf(\"Hello, %s!\", g.Name) }"
+    }
+  ]
+}

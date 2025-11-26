@@ -1,0 +1,21 @@
+{
+  "identifiers": [
+    {
+      "file_range": {
+        "path": "util.go",
+        "range": {
+          "end": {
+            "character": 12,
+            "line": 6
+          },
+          "start": {
+            "character": 5,
+            "line": 6
+          }
+        }
+      },
+      "kind": null,
+      "name": "Greeter"
+    }
+  ]
+}

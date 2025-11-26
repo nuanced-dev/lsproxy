@@ -1,0 +1,46 @@
+{
+  "references": [
+    {
+      "path": "src/main/java/com/nuanced/App.java",
+      "position": {
+        "line": 5,
+        "character": 21
+      }
+    }
+  ],
+  "selected_identifier": {
+    "file_range": {
+      "path": "src/main/java/com/nuanced/App.java",
+      "range": {
+        "start": {
+          "line": 5,
+          "character": 21
+        },
+        "end": {
+          "line": 5,
+          "character": 25
+        }
+      }
+    },
+    "kind": null,
+    "name": "main"
+  },
+  "context": [
+    {
+      "file_range": {
+        "path": "src/main/java/com/nuanced/App.java",
+        "range": {
+          "start": {
+            "line": 5,
+            "character": 0
+          },
+          "end": {
+            "line": 5,
+            "character": 0
+          }
+        }
+      },
+      "source_code": ""
+    }
+  ]
+}

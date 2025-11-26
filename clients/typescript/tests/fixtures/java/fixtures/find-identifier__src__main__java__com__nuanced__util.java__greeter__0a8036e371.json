@@ -1,0 +1,38 @@
+{
+  "identifiers": [
+    {
+      "file_range": {
+        "path": "src/main/java/com/nuanced/Util.java",
+        "range": {
+          "end": {
+            "character": 29,
+            "line": 5
+          },
+          "start": {
+            "character": 22,
+            "line": 5
+          }
+        }
+      },
+      "kind": null,
+      "name": "Greeter"
+    },
+    {
+      "file_range": {
+        "path": "src/main/java/com/nuanced/Util.java",
+        "range": {
+          "end": {
+            "character": 18,
+            "line": 7
+          },
+          "start": {
+            "character": 11,
+            "line": 7
+          }
+        }
+      },
+      "kind": null,
+      "name": "Greeter"
+    }
+  ]
+}

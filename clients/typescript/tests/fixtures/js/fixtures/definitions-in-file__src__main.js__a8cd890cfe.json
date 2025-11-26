@@ -1,0 +1,74 @@
+[
+  {
+    "file_range": {
+      "path": "src/main.js",
+      "range": {
+        "end": {
+          "character": 32,
+          "line": 4
+        },
+        "start": {
+          "character": 0,
+          "line": 4
+        }
+      }
+    },
+    "identifier_position": {
+      "path": "src/main.js",
+      "position": {
+        "character": 6,
+        "line": 4
+      }
+    },
+    "kind": "variable",
+    "name": "g"
+  },
+  {
+    "file_range": {
+      "path": "src/main.js",
+      "range": {
+        "end": {
+          "character": 68,
+          "line": 5
+        },
+        "start": {
+          "character": 0,
+          "line": 5
+        }
+      }
+    },
+    "identifier_position": {
+      "path": "src/main.js",
+      "position": {
+        "character": 6,
+        "line": 5
+      }
+    },
+    "kind": "variable",
+    "name": "series"
+  },
+  {
+    "file_range": {
+      "path": "src/main.js",
+      "range": {
+        "end": {
+          "character": 23,
+          "line": 3
+        },
+        "start": {
+          "character": 0,
+          "line": 3
+        }
+      }
+    },
+    "identifier_position": {
+      "path": "src/main.js",
+      "position": {
+        "character": 6,
+        "line": 3
+      }
+    },
+    "kind": "variable",
+    "name": "total"
+  }
+]

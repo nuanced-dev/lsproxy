@@ -1,0 +1,1 @@
+"{\n  \"source_code\": \"package com.nuanced;\\n\\npublic final class FizzBuzz {\\n  public static String fizzBuzz(int n) {\\n    if (n % 15 == 0) return \\\"fizzbuzz\\\";\\n    if (n % 3 == 0) return \\\"fizz\\\";\\n    if (n % 5 == 0) return \\\"buzz\\\";\\n    return Integer.toString(n);\\n  }\\n}\\n\"\n}\n"

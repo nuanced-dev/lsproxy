@@ -1,0 +1,98 @@
+[
+  {
+    "file_range": {
+      "path": "src/util.ts",
+      "range": {
+        "end": {
+          "character": 67,
+          "line": 0
+        },
+        "start": {
+          "character": 0,
+          "line": 0
+        }
+      }
+    },
+    "identifier_position": {
+      "path": "src/util.ts",
+      "position": {
+        "character": 16,
+        "line": 0
+      }
+    },
+    "kind": "function",
+    "name": "add"
+  },
+  {
+    "file_range": {
+      "path": "src/util.ts",
+      "range": {
+        "end": {
+          "character": 37,
+          "line": 3
+        },
+        "start": {
+          "character": 0,
+          "line": 3
+        }
+      }
+    },
+    "identifier_position": {
+      "path": "src/util.ts",
+      "position": {
+        "character": 2,
+        "line": 3
+      }
+    },
+    "kind": "method",
+    "name": "constructor"
+  },
+  {
+    "file_range": {
+      "path": "src/util.ts",
+      "range": {
+        "end": {
+          "character": 52,
+          "line": 4
+        },
+        "start": {
+          "character": 0,
+          "line": 4
+        }
+      }
+    },
+    "identifier_position": {
+      "path": "src/util.ts",
+      "position": {
+        "character": 2,
+        "line": 4
+      }
+    },
+    "kind": "method",
+    "name": "greet"
+  },
+  {
+    "file_range": {
+      "path": "src/util.ts",
+      "range": {
+        "end": {
+          "character": 1,
+          "line": 5
+        },
+        "start": {
+          "character": 0,
+          "line": 2
+        }
+      }
+    },
+    "identifier_position": {
+      "path": "src/util.ts",
+      "position": {
+        "character": 13,
+        "line": 2
+      }
+    },
+    "kind": "class",
+    "name": "Greeter"
+  }
+]

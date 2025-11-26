@@ -1,0 +1,12 @@
+{
+  "javascript":            { "language": "JavaScript", "lsp": ["typescript-language-server"] },
+  "typescript":            { "language": "TypeScript", "lsp": ["typescript-language-server"] },
+  "python":                { "language": "Python",     "lsp": ["jedi-language-server"] },
+  "golang":                { "language": "Go",         "lsp": ["gopls"] },
+  "java":                  { "language": "Java",       "lsp": ["jdtls"] },
+  "ruby":                  { "language": "Ruby",       "lsp": ["sorbet"] },
+  "rust":                  { "language": "Rust",       "lsp": ["rust-analyzer"] },
+  "php":                   { "language": "PHP",        "lsp": ["phpactor"] },
+  "cpp":                   { "language": "C/C++",      "lsp": ["clangd"] },
+  "csharp":                { "language": "C#",         "lsp": ["omnisharp"] }
+}

@@ -1,0 +1,69 @@
+{
+  "references": [
+    {
+      "path": "lib/fizz_buzz.rb",
+      "position": {
+        "line": 7,
+        "character": 2
+      }
+    },
+    {
+      "path": "lib/fizz_buzz.rb",
+      "position": {
+        "line": 21,
+        "character": 25
+      }
+    }
+  ],
+  "selected_identifier": {
+    "file_range": {
+      "path": "lib/fizz_buzz.rb",
+      "range": {
+        "start": {
+          "line": 7,
+          "character": 11
+        },
+        "end": {
+          "line": 7,
+          "character": 16
+        }
+      }
+    },
+    "kind": null,
+    "name": "value"
+  },
+  "context": [
+    {
+      "file_range": {
+        "path": "lib/fizz_buzz.rb",
+        "range": {
+          "start": {
+            "line": 7,
+            "character": 0
+          },
+          "end": {
+            "line": 7,
+            "character": 0
+          }
+        }
+      },
+      "source_code": ""
+    },
+    {
+      "file_range": {
+        "path": "lib/fizz_buzz.rb",
+        "range": {
+          "start": {
+            "line": 21,
+            "character": 0
+          },
+          "end": {
+            "line": 21,
+            "character": 0
+          }
+        }
+      },
+      "source_code": ""
+    }
+  ]
+}

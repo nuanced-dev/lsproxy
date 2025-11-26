@@ -1,0 +1,22 @@
+{
+  "definitions": [],
+  "raw_response": [],
+  "selected_identifier": {
+    "file_range": {
+      "path": "src/util.rs",
+      "range": {
+        "end": {
+          "character": 12,
+          "line": 8
+        },
+        "start": {
+          "character": 5,
+          "line": 8
+        }
+      }
+    },
+    "kind": null,
+    "name": "Greeter"
+  },
+  "source_code_context": []
+}

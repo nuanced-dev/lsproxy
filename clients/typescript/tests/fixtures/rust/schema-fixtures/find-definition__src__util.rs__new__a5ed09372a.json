@@ -1,0 +1,46 @@
+{
+  "definitions": [
+    {
+      "path": "src/util.rs",
+      "position": {
+        "line": 9,
+        "character": 11
+      }
+    }
+  ],
+  "selected_identifier": {
+    "file_range": {
+      "path": "src/util.rs",
+      "range": {
+        "start": {
+          "line": 9,
+          "character": 11
+        },
+        "end": {
+          "line": 9,
+          "character": 14
+        }
+      }
+    },
+    "kind": null,
+    "name": "new"
+  },
+  "source_code_context": [
+    {
+      "file_range": {
+        "path": "src/util.rs",
+        "range": {
+          "start": {
+            "line": 9,
+            "character": 4
+          },
+          "end": {
+            "line": 13,
+            "character": 5
+          }
+        }
+      },
+      "source_code": "pub fn new(name: &str) -> Greeter {\n        Greeter {\n            name: name.to_string(),\n        }\n    }"
+    }
+  ]
+}

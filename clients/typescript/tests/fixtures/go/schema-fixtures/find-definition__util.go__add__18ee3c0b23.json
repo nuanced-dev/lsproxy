@@ -1,0 +1,46 @@
+{
+  "definitions": [
+    {
+      "path": "util.go",
+      "position": {
+        "line": 4,
+        "character": 5
+      }
+    }
+  ],
+  "selected_identifier": {
+    "file_range": {
+      "path": "util.go",
+      "range": {
+        "start": {
+          "line": 4,
+          "character": 5
+        },
+        "end": {
+          "line": 4,
+          "character": 8
+        }
+      }
+    },
+    "kind": null,
+    "name": "Add"
+  },
+  "source_code_context": [
+    {
+      "file_range": {
+        "path": "util.go",
+        "range": {
+          "start": {
+            "line": 4,
+            "character": 0
+          },
+          "end": {
+            "line": 4,
+            "character": 39
+          }
+        }
+      },
+      "source_code": "func Add(a, b int) int { return a + b }"
+    }
+  ]
+}

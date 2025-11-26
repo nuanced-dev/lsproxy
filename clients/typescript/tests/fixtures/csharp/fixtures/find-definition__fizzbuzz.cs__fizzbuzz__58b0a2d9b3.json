@@ -1,0 +1,61 @@
+{
+  "raw_response": [
+    {
+      "range": {
+        "end": {
+          "character": 21,
+          "line": 0
+        },
+        "start": {
+          "character": 13,
+          "line": 0
+        }
+      },
+      "uri": "file:///mnt/workspace/FizzBuzz.cs"
+    }
+  ],
+  "definitions": [
+    {
+      "path": "FizzBuzz.cs",
+      "position": {
+        "line": 0,
+        "character": 13
+      }
+    }
+  ],
+  "source_code_context": [
+    {
+      "range": {
+        "path": "FizzBuzz.cs",
+        "range": {
+          "start": {
+            "line": 0,
+            "character": 0
+          },
+          "end": {
+            "line": 5,
+            "character": 1
+          }
+        }
+      },
+      "source_code": "static class FizzBuzz {\n    public static string Of(int n) =>\n        (n % 15 == 0) ? \"fizzbuzz\" :\n        (n % 3 == 0)  ? \"fizz\" :\n        (n % 5 == 0)  ? \"buzz\" : n.ToString();\n}"
+    }
+  ],
+  "selected_identifier": {
+    "name": "FizzBuzz",
+    "file_range": {
+      "path": "FizzBuzz.cs",
+      "range": {
+        "start": {
+          "line": 0,
+          "character": 13
+        },
+        "end": {
+          "line": 0,
+          "character": 21
+        }
+      }
+    },
+    "kind": null
+  }
+}

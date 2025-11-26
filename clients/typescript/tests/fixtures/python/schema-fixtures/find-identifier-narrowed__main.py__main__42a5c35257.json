@@ -1,0 +1,21 @@
+{
+  "identifiers": [
+    {
+      "file_range": {
+        "path": "main.py",
+        "range": {
+          "start": {
+            "line": 4,
+            "character": 4
+          },
+          "end": {
+            "line": 4,
+            "character": 8
+          }
+        }
+      },
+      "kind": null,
+      "name": "main"
+    }
+  ]
+}

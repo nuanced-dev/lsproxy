@@ -1,0 +1,97 @@
+{
+  "context": [
+    {
+      "range": {
+        "path": "src/main/java/com/nuanced/App.java",
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 9
+          },
+          "start": {
+            "character": 0,
+            "line": 9
+          }
+        }
+      },
+      "source_code": ""
+    },
+    {
+      "range": {
+        "path": "src/main/java/com/nuanced/FizzBuzz.java",
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 2
+          },
+          "start": {
+            "character": 0,
+            "line": 2
+          }
+        }
+      },
+      "source_code": ""
+    }
+  ],
+  "raw_response": [
+    {
+      "range": {
+        "end": {
+          "character": 53,
+          "line": 9
+        },
+        "start": {
+          "character": 45,
+          "line": 9
+        }
+      },
+      "uri": "file:///mnt/workspace/src/main/java/com/nuanced/App.java"
+    },
+    {
+      "range": {
+        "end": {
+          "character": 27,
+          "line": 2
+        },
+        "start": {
+          "character": 19,
+          "line": 2
+        }
+      },
+      "uri": "file:///mnt/workspace/src/main/java/com/nuanced/FizzBuzz.java"
+    }
+  ],
+  "references": [
+    {
+      "path": "src/main/java/com/nuanced/App.java",
+      "position": {
+        "character": 45,
+        "line": 9
+      }
+    },
+    {
+      "path": "src/main/java/com/nuanced/FizzBuzz.java",
+      "position": {
+        "character": 19,
+        "line": 2
+      }
+    }
+  ],
+  "selected_identifier": {
+    "file_range": {
+      "path": "src/main/java/com/nuanced/FizzBuzz.java",
+      "range": {
+        "end": {
+          "character": 27,
+          "line": 2
+        },
+        "start": {
+          "character": 19,
+          "line": 2
+        }
+      }
+    },
+    "kind": null,
+    "name": "FizzBuzz"
+  }
+}

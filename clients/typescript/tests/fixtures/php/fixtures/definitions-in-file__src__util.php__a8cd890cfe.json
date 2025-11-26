@@ -1,0 +1,122 @@
+[
+  {
+    "name": "__construct",
+    "kind": "method",
+    "identifier_position": {
+      "path": "src/Util.php",
+      "position": {
+        "line": 7,
+        "character": 18
+      }
+    },
+    "file_range": {
+      "path": "src/Util.php",
+      "range": {
+        "start": {
+          "line": 7,
+          "character": 0
+        },
+        "end": {
+          "line": 7,
+          "character": 68
+        }
+      }
+    }
+  },
+  {
+    "name": "add",
+    "kind": "function",
+    "identifier_position": {
+      "path": "src/Util.php",
+      "position": {
+        "line": 3,
+        "character": 9
+      }
+    },
+    "file_range": {
+      "path": "src/Util.php",
+      "range": {
+        "start": {
+          "line": 3,
+          "character": 0
+        },
+        "end": {
+          "line": 3,
+          "character": 53
+        }
+      }
+    }
+  },
+  {
+    "name": "greet",
+    "kind": "method",
+    "identifier_position": {
+      "path": "src/Util.php",
+      "position": {
+        "line": 8,
+        "character": 18
+      }
+    },
+    "file_range": {
+      "path": "src/Util.php",
+      "range": {
+        "start": {
+          "line": 8,
+          "character": 0
+        },
+        "end": {
+          "line": 8,
+          "character": 69
+        }
+      }
+    }
+  },
+  {
+    "name": "Greeter",
+    "kind": "class",
+    "identifier_position": {
+      "path": "src/Util.php",
+      "position": {
+        "line": 5,
+        "character": 12
+      }
+    },
+    "file_range": {
+      "path": "src/Util.php",
+      "range": {
+        "start": {
+          "line": 5,
+          "character": 0
+        },
+        "end": {
+          "line": 9,
+          "character": 1
+        }
+      }
+    }
+  },
+  {
+    "name": "name",
+    "kind": "property",
+    "identifier_position": {
+      "path": "src/Util.php",
+      "position": {
+        "line": 6,
+        "character": 18
+      }
+    },
+    "file_range": {
+      "path": "src/Util.php",
+      "range": {
+        "start": {
+          "line": 6,
+          "character": 0
+        },
+        "end": {
+          "line": 6,
+          "character": 23
+        }
+      }
+    }
+  }
+]

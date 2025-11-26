@@ -1,0 +1,46 @@
+{
+  "definitions": [
+    {
+      "path": "Util.cs",
+      "position": {
+        "line": 0,
+        "character": 13
+      }
+    }
+  ],
+  "selected_identifier": {
+    "file_range": {
+      "path": "Util.cs",
+      "range": {
+        "start": {
+          "line": 0,
+          "character": 13
+        },
+        "end": {
+          "line": 0,
+          "character": 17
+        }
+      }
+    },
+    "kind": null,
+    "name": "Util"
+  },
+  "source_code_context": [
+    {
+      "file_range": {
+        "path": "Util.cs",
+        "range": {
+          "start": {
+            "line": 0,
+            "character": 0
+          },
+          "end": {
+            "line": 6,
+            "character": 1
+          }
+        }
+      },
+      "source_code": "static class Util {\n    public static int Add(int a, int b) => a + b;\n\n    public sealed class Greeter(string name) {\n        public string Greet() => $\"Hello, {name}!\";\n    }\n}"
+    }
+  ]
+}

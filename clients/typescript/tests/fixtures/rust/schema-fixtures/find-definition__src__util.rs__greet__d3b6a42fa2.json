@@ -1,0 +1,46 @@
+{
+  "definitions": [
+    {
+      "path": "src/util.rs",
+      "position": {
+        "line": 14,
+        "character": 11
+      }
+    }
+  ],
+  "selected_identifier": {
+    "file_range": {
+      "path": "src/util.rs",
+      "range": {
+        "start": {
+          "line": 14,
+          "character": 11
+        },
+        "end": {
+          "line": 14,
+          "character": 16
+        }
+      }
+    },
+    "kind": null,
+    "name": "greet"
+  },
+  "source_code_context": [
+    {
+      "file_range": {
+        "path": "src/util.rs",
+        "range": {
+          "start": {
+            "line": 14,
+            "character": 4
+          },
+          "end": {
+            "line": 16,
+            "character": 5
+          }
+        }
+      },
+      "source_code": "pub fn greet(&self) -> String {\n        format!(\"Hello, {}!\", self.name)\n    }"
+    }
+  ]
+}

@@ -1,0 +1,61 @@
+{
+  "raw_response": [
+    {
+      "range": {
+        "end": {
+          "character": 26,
+          "line": 13
+        },
+        "start": {
+          "character": 18,
+          "line": 13
+        }
+      },
+      "uri": "file:///mnt/workspace/Program.cs"
+    }
+  ],
+  "definitions": [
+    {
+      "path": "Program.cs",
+      "position": {
+        "line": 13,
+        "character": 18
+      }
+    }
+  ],
+  "source_code_context": [
+    {
+      "range": {
+        "path": "Program.cs",
+        "range": {
+          "start": {
+            "line": 13,
+            "character": 4
+          },
+          "end": {
+            "line": 18,
+            "character": 5
+          }
+        }
+      },
+      "source_code": "static string FizzBuzz(int n) {\n        if (n % 15 == 0) return \"fizzbuzz\";\n        if (n % 3 == 0) return \"fizz\";\n        if (n % 5 == 0) return \"buzz\";\n        return n.ToString();\n    }"
+    }
+  ],
+  "selected_identifier": {
+    "name": "FizzBuzz",
+    "file_range": {
+      "path": "Program.cs",
+      "range": {
+        "start": {
+          "line": 13,
+          "character": 18
+        },
+        "end": {
+          "line": 13,
+          "character": 26
+        }
+      }
+    },
+    "kind": null
+  }
+}

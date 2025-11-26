@@ -1,0 +1,46 @@
+{
+  "definitions": [
+    {
+      "path": "src/util.ts",
+      "position": {
+        "line": 3,
+        "character": 2
+      }
+    }
+  ],
+  "selected_identifier": {
+    "file_range": {
+      "path": "src/util.ts",
+      "range": {
+        "start": {
+          "line": 3,
+          "character": 2
+        },
+        "end": {
+          "line": 3,
+          "character": 13
+        }
+      }
+    },
+    "kind": null,
+    "name": "constructor"
+  },
+  "source_code_context": [
+    {
+      "file_range": {
+        "path": "src/util.ts",
+        "range": {
+          "start": {
+            "line": 3,
+            "character": 2
+          },
+          "end": {
+            "line": 3,
+            "character": 37
+          }
+        }
+      },
+      "source_code": "constructor(public name: string) {}"
+    }
+  ]
+}

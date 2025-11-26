@@ -1,0 +1,23 @@
+{
+  "external_symbols": [
+    {
+      "file_range": {
+        "path": "src/fizzbuzz.ts",
+        "range": {
+          "end": {
+            "character": 15,
+            "line": 4
+          },
+          "start": {
+            "character": 9,
+            "line": 4
+          }
+        }
+      },
+      "kind": "function-call",
+      "name": "String"
+    }
+  ],
+  "not_found": [],
+  "workspace_symbols": []
+}

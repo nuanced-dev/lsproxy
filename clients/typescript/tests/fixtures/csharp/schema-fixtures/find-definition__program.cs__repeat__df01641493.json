@@ -1,0 +1,46 @@
+{
+  "definitions": [
+    {
+      "path": "Program.cs",
+      "position": {
+        "line": 20,
+        "character": 18
+      }
+    }
+  ],
+  "selected_identifier": {
+    "file_range": {
+      "path": "Program.cs",
+      "range": {
+        "start": {
+          "line": 20,
+          "character": 18
+        },
+        "end": {
+          "line": 20,
+          "character": 24
+        }
+      }
+    },
+    "kind": null,
+    "name": "Repeat"
+  },
+  "source_code_context": [
+    {
+      "file_range": {
+        "path": "Program.cs",
+        "range": {
+          "start": {
+            "line": 20,
+            "character": 4
+          },
+          "end": {
+            "line": 22,
+            "character": 5
+          }
+        }
+      },
+      "source_code": "static string Repeat(string s, int times) {\n        return new String(s[0], times) + s.Substring(1); // simple repeat\n    }"
+    }
+  ]
+}

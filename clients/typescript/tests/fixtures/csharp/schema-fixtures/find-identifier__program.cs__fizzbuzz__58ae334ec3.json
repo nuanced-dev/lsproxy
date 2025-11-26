@@ -1,0 +1,55 @@
+{
+  "identifiers": [
+    {
+      "file_range": {
+        "path": "Program.cs",
+        "range": {
+          "start": {
+            "line": 7,
+            "character": 52
+          },
+          "end": {
+            "line": 7,
+            "character": 60
+          }
+        }
+      },
+      "kind": null,
+      "name": "FizzBuzz"
+    },
+    {
+      "file_range": {
+        "path": "Program.cs",
+        "range": {
+          "start": {
+            "line": 13,
+            "character": 18
+          },
+          "end": {
+            "line": 13,
+            "character": 26
+          }
+        }
+      },
+      "kind": null,
+      "name": "FizzBuzz"
+    },
+    {
+      "file_range": {
+        "path": "Program.cs",
+        "range": {
+          "start": {
+            "line": 26,
+            "character": 30
+          },
+          "end": {
+            "line": 26,
+            "character": 38
+          }
+        }
+      },
+      "kind": null,
+      "name": "FizzBuzz"
+    }
+  ]
+}

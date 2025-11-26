@@ -1,0 +1,97 @@
+{
+  "context": [
+    {
+      "range": {
+        "path": "fizzbuzz.go",
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 2
+          },
+          "start": {
+            "character": 0,
+            "line": 2
+          }
+        }
+      },
+      "source_code": ""
+    },
+    {
+      "range": {
+        "path": "main.go",
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 9
+          },
+          "start": {
+            "character": 0,
+            "line": 9
+          }
+        }
+      },
+      "source_code": ""
+    }
+  ],
+  "raw_response": [
+    {
+      "range": {
+        "end": {
+          "character": 13,
+          "line": 2
+        },
+        "start": {
+          "character": 5,
+          "line": 2
+        }
+      },
+      "uri": "file:///mnt/workspace/fizzbuzz.go"
+    },
+    {
+      "range": {
+        "end": {
+          "character": 34,
+          "line": 9
+        },
+        "start": {
+          "character": 26,
+          "line": 9
+        }
+      },
+      "uri": "file:///mnt/workspace/main.go"
+    }
+  ],
+  "references": [
+    {
+      "path": "fizzbuzz.go",
+      "position": {
+        "character": 5,
+        "line": 2
+      }
+    },
+    {
+      "path": "main.go",
+      "position": {
+        "character": 26,
+        "line": 9
+      }
+    }
+  ],
+  "selected_identifier": {
+    "file_range": {
+      "path": "fizzbuzz.go",
+      "range": {
+        "end": {
+          "character": 13,
+          "line": 2
+        },
+        "start": {
+          "character": 5,
+          "line": 2
+        }
+      }
+    },
+    "kind": null,
+    "name": "FizzBuzz"
+  }
+}

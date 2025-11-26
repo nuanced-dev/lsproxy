@@ -1,0 +1,26 @@
+[
+  {
+    "file_range": {
+      "path": "app/fizzbuzz.py",
+      "range": {
+        "end": {
+          "character": 17,
+          "line": 7
+        },
+        "start": {
+          "character": 0,
+          "line": 0
+        }
+      }
+    },
+    "identifier_position": {
+      "path": "app/fizzbuzz.py",
+      "position": {
+        "character": 4,
+        "line": 0
+      }
+    },
+    "kind": "function",
+    "name": "fizz_buzz"
+  }
+]

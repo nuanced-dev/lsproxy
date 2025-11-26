@@ -1,0 +1,74 @@
+[
+  {
+    "file_range": {
+      "path": "lib/greeter.rb",
+      "range": {
+        "end": {
+          "character": 3,
+          "line": 18
+        },
+        "start": {
+          "character": 0,
+          "line": 5
+        }
+      }
+    },
+    "identifier_position": {
+      "path": "lib/greeter.rb",
+      "position": {
+        "character": 6,
+        "line": 5
+      }
+    },
+    "kind": "class",
+    "name": "Greeter"
+  },
+  {
+    "file_range": {
+      "path": "lib/greeter.rb",
+      "range": {
+        "end": {
+          "character": 5,
+          "line": 17
+        },
+        "start": {
+          "character": 0,
+          "line": 14
+        }
+      }
+    },
+    "identifier_position": {
+      "path": "lib/greeter.rb",
+      "position": {
+        "character": 6,
+        "line": 14
+      }
+    },
+    "kind": "method",
+    "name": "hello"
+  },
+  {
+    "file_range": {
+      "path": "lib/greeter.rb",
+      "range": {
+        "end": {
+          "character": 5,
+          "line": 11
+        },
+        "start": {
+          "character": 0,
+          "line": 9
+        }
+      }
+    },
+    "identifier_position": {
+      "path": "lib/greeter.rb",
+      "position": {
+        "character": 6,
+        "line": 9
+      }
+    },
+    "kind": "method",
+    "name": "initialize"
+  }
+]

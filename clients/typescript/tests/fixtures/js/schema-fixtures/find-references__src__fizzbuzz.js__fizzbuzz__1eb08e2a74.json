@@ -1,0 +1,92 @@
+{
+  "references": [
+    {
+      "path": "src/fizzbuzz.js",
+      "position": {
+        "line": 0,
+        "character": 16
+      }
+    },
+    {
+      "path": "src/main.js",
+      "position": {
+        "line": 0,
+        "character": 9
+      }
+    },
+    {
+      "path": "src/main.js",
+      "position": {
+        "line": 5,
+        "character": 52
+      }
+    }
+  ],
+  "selected_identifier": {
+    "file_range": {
+      "path": "src/fizzbuzz.js",
+      "range": {
+        "start": {
+          "line": 0,
+          "character": 16
+        },
+        "end": {
+          "line": 0,
+          "character": 24
+        }
+      }
+    },
+    "kind": null,
+    "name": "fizzbuzz"
+  },
+  "context": [
+    {
+      "file_range": {
+        "path": "src/fizzbuzz.js",
+        "range": {
+          "start": {
+            "line": 0,
+            "character": 0
+          },
+          "end": {
+            "line": 0,
+            "character": 0
+          }
+        }
+      },
+      "source_code": ""
+    },
+    {
+      "file_range": {
+        "path": "src/main.js",
+        "range": {
+          "start": {
+            "line": 0,
+            "character": 0
+          },
+          "end": {
+            "line": 0,
+            "character": 0
+          }
+        }
+      },
+      "source_code": ""
+    },
+    {
+      "file_range": {
+        "path": "src/main.js",
+        "range": {
+          "start": {
+            "line": 5,
+            "character": 0
+          },
+          "end": {
+            "line": 5,
+            "character": 0
+          }
+        }
+      },
+      "source_code": ""
+    }
+  ]
+}
