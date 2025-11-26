@@ -106,7 +106,7 @@ export const DEFAULT_WRAPPER_IMAGE =
 export const DEFAULT_WATCHDOG_IMAGE =
   ${JSON.stringify(DEFAULT_WATCHDOG_IMAGE)};
 export const VERSION = ${JSON.stringify(lspVersion)};
-export const LANGUAGE_CONTAINER_VERSION = ${JSON.stringify(languageContainerVersion)};
+export const LANGUAGE_IMAGE_VERSION = ${JSON.stringify(languageContainerVersion)};
 `;
 fs.writeFileSync(outFile, contents, "utf8");
 

@@ -19,8 +19,8 @@ PORT=4444
 DETACHED=true
 TAIL_LOGS=false
 
-# Use RUST_CONTAINER_VERSION from environment, default to "latest"
-RUST_VERSION="${RUST_CONTAINER_VERSION:-latest}"
+# Use RUST_IMAGE_VERSION from environment, default to "latest"
+RUST_VERSION="${RUST_IMAGE_VERSION:-latest}"
 
 # Parse options
 shift || true

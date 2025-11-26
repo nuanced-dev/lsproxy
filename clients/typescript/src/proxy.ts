@@ -24,7 +24,7 @@ import {
   DEFAULT_WATCHDOG_IMAGE,
   DEFAULT_WRAPPER_IMAGE,
 } from "./defaults.js";
-import { LANGUAGE_CONTAINER_VERSION } from "./__generated/version.js";
+import { LANGUAGE_IMAGE_VERSION } from "./__generated/version.js";
 
 // Lazy import http module.
 type HttpModule = typeof import("./http.js");
@@ -198,7 +198,7 @@ export async function up(
 ): Promise<DockerResult<UpResult>> {
   const {
     containerName = DEFAULT_CONTAINER_NAME,
-    languageContainerVersion = LANGUAGE_CONTAINER_VERSION,
+    languageContainerVersion = LANGUAGE_IMAGE_VERSION,
     proxyImage: proxyImage = DEFAULT_PROXY_IMAGE,
     watchdogImage: watchdogImage = DEFAULT_WATCHDOG_IMAGE,
     wrapperImage: wrapperImage = DEFAULT_WRAPPER_IMAGE,
@@ -260,7 +260,7 @@ export async function up(
     "-e",
     `WRAPPER_IMAGE=${wrapperImage}`,
     "-e",
-    `LANGUAGE_CONTAINER_VERSION=${languageContainerVersion}`,
+    `LANGUAGE_IMAGE_VERSION=${languageContainerVersion}`,
     // env flags inserted below
   ];
 

@@ -404,11 +404,11 @@ impl ContainerOrchestrator {
     /// - Ruby: nuanced-lsp-ruby-{ruby_version}:{container_version}
     /// - Ruby Sorbet: nuanced-lsp-ruby-sorbet-{ruby_version}:{container_version}
     ///
-    /// Container version can be overridden via LANGUAGE_CONTAINER_VERSION environment variable.
+    /// Container version can be overridden via LANGUAGE_IMAGE_VERSION environment variable.
     /// Ruby language version is detected from the workspace (.ruby-version or Gemfile).
     pub fn image_name_for_language(language: &SupportedLanguages) -> String {
-        use super::language_container_version;
-        let container_version = language_container_version();
+        use super::language_image_version;
+        let container_version = language_image_version();
 
         match language {
             SupportedLanguages::Golang => format!("nuanced-lsp-golang:{}", container_version),
@@ -475,8 +475,8 @@ mod tests {
 
     #[test]
     fn test_image_name_for_language() {
-        use super::super::language_container_version;
-        let version = language_container_version();
+        use super::super::language_image_version;
+        let version = language_image_version();
 
         assert_eq!(
             ContainerOrchestrator::image_name_for_language(&SupportedLanguages::Golang),

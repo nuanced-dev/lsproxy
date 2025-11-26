@@ -36,7 +36,7 @@ import type {
   UpCommandOptions,
   UpResult,
 } from "./types.js";
-import { VERSION, LANGUAGE_CONTAINER_VERSION } from "./__generated/version.js";
+import { VERSION, LANGUAGE_IMAGE_VERSION } from "./__generated/version.js";
 import {
   DEFAULT_BIND_HOST,
   DEFAULT_CONTAINER_NAME,
@@ -620,7 +620,7 @@ program
   )
   .option(
     "--language-container-version <version>",
-    `Nuanced LSP language container version (default: ${LANGUAGE_CONTAINER_VERSION})`,
+    `Nuanced LSP language container version (default: ${LANGUAGE_IMAGE_VERSION})`,
   )
   .option(
     "--container-name <name>",

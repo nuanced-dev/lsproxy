@@ -75,8 +75,8 @@ cleanup() {
 # Register cleanup on exit (success, failure, or Ctrl+C)
 trap cleanup EXIT INT TERM
 
-# Use RUST_CONTAINER_VERSION from environment, default to "latest"
-RUST_VERSION="${RUST_CONTAINER_VERSION:-latest}"
+# Use RUST_IMAGE_VERSION from environment, default to "latest"
+RUST_VERSION="${RUST_IMAGE_VERSION:-latest}"
 
 # Test 1: Service image exists
 test_step "Service image exists" \

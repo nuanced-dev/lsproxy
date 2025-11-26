@@ -22,18 +22,22 @@ use tokio::sync::Mutex;
 use tokio::time::sleep;
 
 use common::api_types::SupportedLanguages;
-use proxy::container::{language_image_ghcr, WRAPPER_IMAGE_BASE};
+use proxy::container::{language_image_ghcr, PROXY_IMAGE_BASE, WRAPPER_IMAGE_BASE};
 
-// Helper function for Python test image (GHCR name)
-fn python_image() -> String {
-    language_image_ghcr(&SupportedLanguages::Python)
-}
 const SERVICE_PORT: u16 = 14444; // Use non-standard port to avoid conflicts
 const CONTAINER_PORT: u16 = 4444; // Port the service listens on inside container
 const BASE_URL: &str = "http://localhost:14444";
 const MAX_RETRIES: u32 = 30;
 const RETRY_DELAY: Duration = Duration::from_secs(1);
-const PROXY_TEST_IMAGE: &str = "nuanced-lsp-proxy:latest";
+const TEST_RUST_IMAGE_VERSION: &str = "latest";
+
+// Helper functions for test images
+fn test_proxy_image() -> String {
+    format!("{PROXY_IMAGE_BASE}:{TEST_RUST_IMAGE_VERSION}")
+}
+fn test_python_image() -> String {
+    language_image_ghcr(&SupportedLanguages::Python)
+}
 
 /// Shared test fixture that lives for the entire test suite
 /// Uses Lazy initialization to set up once and reuse across all serial tests
@@ -163,7 +167,7 @@ impl ContainerFixture {
     /// Verify required Docker images are available
     async fn verify_images(docker: &Docker) -> Result<(), Box<dyn std::error::Error>> {
         // Check for proxy image
-        let proxy_img = PROXY_TEST_IMAGE;
+        let proxy_img = test_proxy_image();
         let mut filters = HashMap::new();
         filters.insert("reference".to_string(), vec![proxy_img.to_string()]);
 
@@ -182,7 +186,7 @@ impl ContainerFixture {
         }
 
         // Check for Python image (GHCR name)
-        let python_img = python_image();
+        let python_img = test_python_image();
         let mut filters = HashMap::new();
         filters.insert("reference".to_string(), vec![python_img.clone()]);
         let options = ListImagesOptions {
@@ -225,9 +229,11 @@ impl ContainerFixture {
             .to_str()
             .ok_or("Invalid workspace path")?;
 
+        let proxy_img = test_proxy_image();
+        let image_version_env = format!("RUST_IMAGE_VERSION={TEST_RUST_IMAGE_VERSION}");
         let config: Config<&str> = Config {
-            image: Some(&PROXY_TEST_IMAGE),
-            env: Some(vec!["USE_AUTH=false", "RUST_LOG=info"]),
+            image: Some(&proxy_img),
+            env: Some(vec!["USE_AUTH=false", "RUST_LOG=info", &image_version_env]),
             host_config: Some(bollard::models::HostConfig {
                 binds: Some(vec![
                     "/var/run/docker.sock:/var/run/docker.sock".to_string(),

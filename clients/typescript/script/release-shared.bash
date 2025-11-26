@@ -79,7 +79,7 @@ validate_all_versions() {
   LSP_PROXY_VERSION="$(read_lsp_proxy_version)"
   LSP_WRAPPER_VERSION="$(read_lsp_wrapper_version)"
   LSP_WATCHDOG_VERSION="$(read_lsp_watchdog_version)"
-  LANGUAGE_CONTAINER_VERSION="$(read_language_container_version)"
+  LANGUAGE_IMAGE_VERSION="$(read_language_container_version)"
 
   if [[ -z "$LSP_VERSION" ]]; then
     missing+=("lsp-version")
@@ -105,10 +105,10 @@ validate_all_versions() {
     die "lsp-watchdog-version must be in x.y.z form (got: '$LSP_WATCHDOG_VERSION')"
   fi
 
-  if [[ -z "$LANGUAGE_CONTAINER_VERSION" ]]; then
+  if [[ -z "$LANGUAGE_IMAGE_VERSION" ]]; then
     missing+=("language-container-version")
-  elif ! is_semver "$LANGUAGE_CONTAINER_VERSION"; then
-    die "language-container-version must be in x.y.z form (got: '$LANGUAGE_CONTAINER_VERSION')"
+  elif ! is_semver "$LANGUAGE_IMAGE_VERSION"; then
+    die "language-container-version must be in x.y.z form (got: '$LANGUAGE_IMAGE_VERSION')"
   fi
 
   if [[ ${#missing[@]} -gt 0 ]]; then

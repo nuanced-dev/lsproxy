@@ -39,7 +39,7 @@ echo "   lsp-version:                $LSP_VERSION"
 echo "   lsp-proxy-version:          $LSP_PROXY_VERSION"
 echo "   lsp-wrapper-version:        $LSP_WRAPPER_VERSION"
 echo "   lsp-watchdog-version:       $LSP_WATCHDOG_VERSION"
-echo "   language-container-version: $LANGUAGE_CONTAINER_VERSION"
+echo "   language-container-version: $LANGUAGE_IMAGE_VERSION"
 
 # Build (this updates package.json version and generates version.ts)
 echo "🔨 Running build..."

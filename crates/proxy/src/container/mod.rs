@@ -14,12 +14,12 @@ pub mod orchestrator;
 // and scripts/build-language-images.sh
 
 /// Default version tag for Rust containers (wrapper, proxy, watchdog)
-/// Can be overridden with RUST_CONTAINER_VERSION environment variable
-pub const DEFAULT_RUST_CONTAINER_VERSION: &str = "0.4.8";
+/// Can be overridden with RUST_IMAGE_VERSION environment variable
+pub const DEFAULT_RUST_IMAGE_VERSION: &str = "0.4.8";
 
 /// Default version tag for language containers (python, ruby, typescript, etc.)
-/// Can be overridden with LANGUAGE_CONTAINER_VERSION environment variable
-pub const DEFAULT_LANGUAGE_CONTAINER_VERSION: &str = "1.0.0";
+/// Can be overridden with LANGUAGE_IMAGE_VERSION environment variable
+pub const DEFAULT_LANGUAGE_IMAGE_VERSION: &str = "1.0.0";
 
 /// Base image names (without version tags)
 pub const PROXY_IMAGE_BASE: &str = "nuanced-lsp-proxy";
@@ -30,31 +30,31 @@ pub const WATCHDOG_IMAGE_BASE: &str = "nuanced-lsp-watchdog";
 pub const CONTAINER_REGISTRY: &str = "ghcr.io/nuanced-dev";
 
 /// Get Rust container version from environment or use default
-pub fn rust_container_version() -> String {
-    std::env::var("RUST_CONTAINER_VERSION")
-        .unwrap_or_else(|_| DEFAULT_RUST_CONTAINER_VERSION.to_string())
+pub fn rust_image_version() -> String {
+    std::env::var("RUST_IMAGE_VERSION")
+        .unwrap_or_else(|_| DEFAULT_RUST_IMAGE_VERSION.to_string())
 }
 
 /// Get language container version from environment or use default
-pub fn language_container_version() -> String {
-    std::env::var("LANGUAGE_CONTAINER_VERSION")
-        .unwrap_or_else(|_| DEFAULT_LANGUAGE_CONTAINER_VERSION.to_string())
+pub fn language_image_version() -> String {
+    std::env::var("LANGUAGE_IMAGE_VERSION")
+        .unwrap_or_else(|_| DEFAULT_LANGUAGE_IMAGE_VERSION.to_string())
 }
 
 /// Helper functions to get full image names with version tags
 pub fn proxy_image() -> String {
     std::env::var("PROXY_IMAGE")
-        .unwrap_or_else(|_| format!("{}:{}", PROXY_IMAGE_BASE, rust_container_version()))
+        .unwrap_or_else(|_| format!("{}:{}", PROXY_IMAGE_BASE, rust_image_version()))
 }
 
 pub fn wrapper_image() -> String {
     std::env::var("WRAPPER_IMAGE")
-        .unwrap_or_else(|_| format!("{}:{}", WRAPPER_IMAGE_BASE, rust_container_version()))
+        .unwrap_or_else(|_| format!("{}:{}", WRAPPER_IMAGE_BASE, rust_image_version()))
 }
 
 pub fn watchdog_image() -> String {
     std::env::var("WATCHDOG_IMAGE")
-        .unwrap_or_else(|_| format!("{}:{}", WATCHDOG_IMAGE_BASE, rust_container_version()))
+        .unwrap_or_else(|_| format!("{}:{}", WATCHDOG_IMAGE_BASE, rust_image_version()))
 }
 
 pub fn proxy_image_ghcr() -> String {
@@ -62,7 +62,7 @@ pub fn proxy_image_ghcr() -> String {
         "{}/{}:{}",
         CONTAINER_REGISTRY,
         PROXY_IMAGE_BASE,
-        rust_container_version()
+        rust_image_version()
     )
 }
 
@@ -71,7 +71,7 @@ pub fn watchdog_image_ghcr() -> String {
         "{}/{}:{}",
         CONTAINER_REGISTRY,
         WATCHDOG_IMAGE_BASE,
-        rust_container_version()
+        rust_image_version()
     )
 }
 
@@ -80,7 +80,7 @@ pub fn wrapper_image_ghcr() -> String {
         "{}/{}:{}",
         CONTAINER_REGISTRY,
         WRAPPER_IMAGE_BASE,
-        rust_container_version()
+        rust_image_version()
     )
 }
 

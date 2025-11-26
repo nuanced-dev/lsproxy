@@ -20,9 +20,9 @@ echo "1. Running Rust unit and integration tests..."
 echo "----------------------------------------"
 # Set Docker image versions for tests
 # Use "latest" for development, or override with specific versions for production testing
-export RUST_CONTAINER_VERSION="${RUST_CONTAINER_VERSION:-latest}"
-export LANGUAGE_CONTAINER_VERSION="${LANGUAGE_CONTAINER_VERSION:-1.0.0}"
-echo "Using image versions: Rust=${RUST_CONTAINER_VERSION}, Language=${LANGUAGE_CONTAINER_VERSION}"
+export RUST_IMAGE_VERSION="${RUST_IMAGE_VERSION:-latest}"
+export LANGUAGE_IMAGE_VERSION="${LANGUAGE_IMAGE_VERSION:-1.0.0}"
+echo "Using image versions: Rust=${RUST_IMAGE_VERSION}, Language=${LANGUAGE_IMAGE_VERSION}"
 # Run with --test-threads=1 to ensure serial execution of integration tests
 # The container orchestration tests use #[serial] and a shared fixture
 cargo test --workspace -- --test-threads=1 $@
