@@ -1,0 +1,36 @@
+{
+  "definitions": [
+    {
+      "path": "lib/math_util.rb",
+      "position": {
+        "line": 8,
+        "character": 4
+      }
+    },
+    {
+      "path": "math_util.rb",
+      "position": {
+        "line": 8,
+        "character": 4
+      }
+    }
+  ],
+  "selected_identifier": {
+    "file_range": {
+      "path": "lib/math_util.rb",
+      "range": {
+        "start": {
+          "line": 8,
+          "character": 13
+        },
+        "end": {
+          "line": 8,
+          "character": 16
+        }
+      }
+    },
+    "kind": null,
+    "name": "sum"
+  },
+  "source_code_context": null
+}

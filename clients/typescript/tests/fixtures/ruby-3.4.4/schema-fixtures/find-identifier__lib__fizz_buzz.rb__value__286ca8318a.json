@@ -1,0 +1,38 @@
+{
+  "identifiers": [
+    {
+      "file_range": {
+        "path": "lib/fizz_buzz.rb",
+        "range": {
+          "start": {
+            "line": 7,
+            "character": 11
+          },
+          "end": {
+            "line": 7,
+            "character": 16
+          }
+        }
+      },
+      "kind": null,
+      "name": "value"
+    },
+    {
+      "file_range": {
+        "path": "lib/fizz_buzz.rb",
+        "range": {
+          "start": {
+            "line": 21,
+            "character": 25
+          },
+          "end": {
+            "line": 21,
+            "character": 30
+          }
+        }
+      },
+      "kind": null,
+      "name": "value"
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "external_symbols": [],
+  "not_found": [
+    "{'name': 'name', 'file_range': {'path': 'src/util.ts', 'range': {'start': {'line': 4, 'character': 42}, 'end': {'line': 4, 'character': 46}}}, 'kind': 'component-render'}"
+  ],
+  "workspace_symbols": []
+}

@@ -1,0 +1,21 @@
+{
+  "identifiers": [
+    {
+      "file_range": {
+        "path": "lib/greeter.rb",
+        "range": {
+          "start": {
+            "line": 14,
+            "character": 6
+          },
+          "end": {
+            "line": 14,
+            "character": 11
+          }
+        }
+      },
+      "kind": null,
+      "name": "hello"
+    }
+  ]
+}

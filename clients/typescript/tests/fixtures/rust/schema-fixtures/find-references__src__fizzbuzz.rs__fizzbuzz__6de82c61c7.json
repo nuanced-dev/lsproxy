@@ -1,0 +1,21 @@
+{
+  "references": [],
+  "selected_identifier": {
+    "file_range": {
+      "path": "src/fizzbuzz.rs",
+      "range": {
+        "start": {
+          "line": 1,
+          "character": 7
+        },
+        "end": {
+          "line": 1,
+          "character": 15
+        }
+      }
+    },
+    "kind": null,
+    "name": "fizzbuzz"
+  },
+  "context": []
+}

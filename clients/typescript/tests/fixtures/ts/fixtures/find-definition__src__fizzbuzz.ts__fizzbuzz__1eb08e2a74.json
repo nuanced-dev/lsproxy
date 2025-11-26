@@ -1,0 +1,61 @@
+{
+  "definitions": [
+    {
+      "path": "src/fizzbuzz.ts",
+      "position": {
+        "character": 16,
+        "line": 0
+      }
+    }
+  ],
+  "raw_response": [
+    {
+      "range": {
+        "end": {
+          "character": 24,
+          "line": 0
+        },
+        "start": {
+          "character": 16,
+          "line": 0
+        }
+      },
+      "uri": "file:///mnt/workspace/src/fizzbuzz.ts"
+    }
+  ],
+  "selected_identifier": {
+    "file_range": {
+      "path": "src/fizzbuzz.ts",
+      "range": {
+        "end": {
+          "character": 24,
+          "line": 0
+        },
+        "start": {
+          "character": 16,
+          "line": 0
+        }
+      }
+    },
+    "kind": null,
+    "name": "fizzbuzz"
+  },
+  "source_code_context": [
+    {
+      "range": {
+        "path": "src/fizzbuzz.ts",
+        "range": {
+          "end": {
+            "character": 1,
+            "line": 5
+          },
+          "start": {
+            "character": 7,
+            "line": 0
+          }
+        }
+      },
+      "source_code": "function fizzbuzz(n: number): string {\n  if (n % 15 === 0) return \"fizzbuzz\";\n  if (n % 3 === 0) return \"fizz\";\n  if (n % 5 === 0) return \"buzz\";\n  return String(n);\n}"
+    }
+  ]
+}

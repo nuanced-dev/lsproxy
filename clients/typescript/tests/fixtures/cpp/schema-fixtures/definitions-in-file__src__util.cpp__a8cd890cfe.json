@@ -1,0 +1,26 @@
+[
+  {
+    "file_range": {
+      "path": "src/util.cpp",
+      "range": {
+        "start": {
+          "line": 1,
+          "character": 0
+        },
+        "end": {
+          "line": 1,
+          "character": 39
+        }
+      }
+    },
+    "identifier_position": {
+      "path": "src/util.cpp",
+      "position": {
+        "line": 1,
+        "character": 4
+      }
+    },
+    "kind": "function-definition",
+    "name": "add"
+  }
+]

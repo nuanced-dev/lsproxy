@@ -1,0 +1,92 @@
+{
+  "references": [
+    {
+      "path": "app/fizzbuzz.py",
+      "position": {
+        "line": 0,
+        "character": 4
+      }
+    },
+    {
+      "path": "main.py",
+      "position": {
+        "line": 0,
+        "character": 25
+      }
+    },
+    {
+      "path": "main.py",
+      "position": {
+        "line": 5,
+        "character": 12
+      }
+    }
+  ],
+  "selected_identifier": {
+    "file_range": {
+      "path": "app/fizzbuzz.py",
+      "range": {
+        "start": {
+          "line": 0,
+          "character": 4
+        },
+        "end": {
+          "line": 0,
+          "character": 13
+        }
+      }
+    },
+    "kind": null,
+    "name": "fizz_buzz"
+  },
+  "context": [
+    {
+      "file_range": {
+        "path": "app/fizzbuzz.py",
+        "range": {
+          "start": {
+            "line": 0,
+            "character": 0
+          },
+          "end": {
+            "line": 0,
+            "character": 0
+          }
+        }
+      },
+      "source_code": ""
+    },
+    {
+      "file_range": {
+        "path": "main.py",
+        "range": {
+          "start": {
+            "line": 0,
+            "character": 0
+          },
+          "end": {
+            "line": 0,
+            "character": 0
+          }
+        }
+      },
+      "source_code": ""
+    },
+    {
+      "file_range": {
+        "path": "main.py",
+        "range": {
+          "start": {
+            "line": 5,
+            "character": 0
+          },
+          "end": {
+            "line": 5,
+            "character": 0
+          }
+        }
+      },
+      "source_code": ""
+    }
+  ]
+}

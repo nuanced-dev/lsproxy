@@ -1,0 +1,46 @@
+{
+  "definitions": [
+    {
+      "path": "src/main/java/com/nuanced/Util.java",
+      "position": {
+        "line": 5,
+        "character": 22
+      }
+    }
+  ],
+  "selected_identifier": {
+    "file_range": {
+      "path": "src/main/java/com/nuanced/Util.java",
+      "range": {
+        "start": {
+          "line": 5,
+          "character": 22
+        },
+        "end": {
+          "line": 5,
+          "character": 29
+        }
+      }
+    },
+    "kind": null,
+    "name": "Greeter"
+  },
+  "source_code_context": [
+    {
+      "file_range": {
+        "path": "src/main/java/com/nuanced/Util.java",
+        "range": {
+          "start": {
+            "line": 5,
+            "character": 2
+          },
+          "end": {
+            "line": 9,
+            "character": 3
+          }
+        }
+      },
+      "source_code": "public static class Greeter {\n    private final String name;\n    public Greeter(String name) { this.name = name; }\n    public String greet() { return \"Hello, \" + name + \"!\"; }\n  }"
+    }
+  ]
+}

@@ -1,0 +1,61 @@
+{
+  "context": [
+    {
+      "range": {
+        "path": "src/fizzbuzz.js",
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        }
+      },
+      "source_code": ""
+    }
+  ],
+  "raw_response": [
+    {
+      "range": {
+        "end": {
+          "character": 24,
+          "line": 0
+        },
+        "start": {
+          "character": 16,
+          "line": 0
+        }
+      },
+      "uri": "file:///mnt/workspace/src/fizzbuzz.js"
+    }
+  ],
+  "references": [
+    {
+      "path": "src/fizzbuzz.js",
+      "position": {
+        "character": 16,
+        "line": 0
+      }
+    }
+  ],
+  "selected_identifier": {
+    "file_range": {
+      "path": "src/fizzbuzz.js",
+      "range": {
+        "end": {
+          "character": 24,
+          "line": 0
+        },
+        "start": {
+          "character": 16,
+          "line": 0
+        }
+      }
+    },
+    "kind": null,
+    "name": "fizzbuzz"
+  }
+}

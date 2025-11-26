@@ -1,0 +1,46 @@
+{
+  "definitions": [
+    {
+      "path": "src/util.rs",
+      "position": {
+        "line": 0,
+        "character": 7
+      }
+    }
+  ],
+  "selected_identifier": {
+    "file_range": {
+      "path": "src/util.rs",
+      "range": {
+        "start": {
+          "line": 0,
+          "character": 7
+        },
+        "end": {
+          "line": 0,
+          "character": 10
+        }
+      }
+    },
+    "kind": null,
+    "name": "add"
+  },
+  "source_code_context": [
+    {
+      "file_range": {
+        "path": "src/util.rs",
+        "range": {
+          "start": {
+            "line": 0,
+            "character": 0
+          },
+          "end": {
+            "line": 2,
+            "character": 1
+          }
+        }
+      },
+      "source_code": "pub fn add(a: i32, b: i32) -> i32 {\n    a + b\n}"
+    }
+  ]
+}

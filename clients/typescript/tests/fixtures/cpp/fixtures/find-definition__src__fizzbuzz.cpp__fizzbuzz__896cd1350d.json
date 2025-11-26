@@ -1,0 +1,61 @@
+{
+  "raw_response": [
+    {
+      "range": {
+        "end": {
+          "character": 20,
+          "line": 2
+        },
+        "start": {
+          "character": 12,
+          "line": 2
+        }
+      },
+      "uri": "file:///mnt/workspace/src/fizzbuzz.hpp"
+    }
+  ],
+  "definitions": [
+    {
+      "path": "src/fizzbuzz.hpp",
+      "position": {
+        "line": 2,
+        "character": 12
+      }
+    }
+  ],
+  "source_code_context": [
+    {
+      "range": {
+        "path": "src/fizzbuzz.hpp",
+        "range": {
+          "start": {
+            "line": 2,
+            "character": 0
+          },
+          "end": {
+            "line": 2,
+            "character": 28
+          }
+        }
+      },
+      "source_code": "std::string fizzbuzz(int n);"
+    }
+  ],
+  "selected_identifier": {
+    "name": "fizzbuzz",
+    "file_range": {
+      "path": "src/fizzbuzz.cpp",
+      "range": {
+        "start": {
+          "line": 3,
+          "character": 12
+        },
+        "end": {
+          "line": 3,
+          "character": 20
+        }
+      }
+    },
+    "kind": null
+  }
+}

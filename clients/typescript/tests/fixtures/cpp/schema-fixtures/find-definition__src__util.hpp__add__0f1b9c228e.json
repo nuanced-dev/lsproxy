@@ -1,0 +1,46 @@
+{
+  "definitions": [
+    {
+      "path": "src/util.cpp",
+      "position": {
+        "line": 1,
+        "character": 4
+      }
+    }
+  ],
+  "selected_identifier": {
+    "file_range": {
+      "path": "src/util.hpp",
+      "range": {
+        "start": {
+          "line": 3,
+          "character": 4
+        },
+        "end": {
+          "line": 3,
+          "character": 7
+        }
+      }
+    },
+    "kind": null,
+    "name": "add"
+  },
+  "source_code_context": [
+    {
+      "file_range": {
+        "path": "src/util.cpp",
+        "range": {
+          "start": {
+            "line": 1,
+            "character": 0
+          },
+          "end": {
+            "line": 1,
+            "character": 39
+          }
+        }
+      },
+      "source_code": "int add(int a, int b) { return a + b; }"
+    }
+  ]
+}

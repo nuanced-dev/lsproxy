@@ -469,7 +469,7 @@ ENABLED_LANGUAGES="go" NUANCED_LSP_MAX_MEMORY=16384 ./scripts/start-proxy.sh
 ./scripts/start-proxy.sh
 
 # Use specific Docker image versions (for testing or CI/CD)
-RUST_CONTAINER_VERSION=latest LANGUAGE_CONTAINER_VERSION=latest ./scripts/test.sh
+RUST_CONTAINER_VERSION=latest LANGUAGE_CONTAINER_VERSION=1.0.0 ./scripts/test.sh
 
 # Test with production versions
 RUST_CONTAINER_VERSION=0.4.8 LANGUAGE_CONTAINER_VERSION=1.0.0 ./scripts/test.sh

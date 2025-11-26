@@ -1,0 +1,26 @@
+[
+  {
+    "name": "fizzbuzz",
+    "kind": "function-declaration",
+    "identifier_position": {
+      "path": "src/fizzbuzz.hpp",
+      "position": {
+        "line": 2,
+        "character": 12
+      }
+    },
+    "file_range": {
+      "path": "src/fizzbuzz.hpp",
+      "range": {
+        "start": {
+          "line": 2,
+          "character": 0
+        },
+        "end": {
+          "line": 2,
+          "character": 28
+        }
+      }
+    }
+  }
+]

@@ -1,0 +1,50 @@
+[
+  {
+    "file_range": {
+      "path": "src/main/java/com/nuanced/App.java",
+      "range": {
+        "end": {
+          "character": 1,
+          "line": 12
+        },
+        "start": {
+          "character": 0,
+          "line": 4
+        }
+      }
+    },
+    "identifier_position": {
+      "path": "src/main/java/com/nuanced/App.java",
+      "position": {
+        "character": 13,
+        "line": 4
+      }
+    },
+    "kind": "class",
+    "name": "App"
+  },
+  {
+    "file_range": {
+      "path": "src/main/java/com/nuanced/App.java",
+      "range": {
+        "end": {
+          "character": 3,
+          "line": 11
+        },
+        "start": {
+          "character": 0,
+          "line": 5
+        }
+      }
+    },
+    "identifier_position": {
+      "path": "src/main/java/com/nuanced/App.java",
+      "position": {
+        "character": 21,
+        "line": 5
+      }
+    },
+    "kind": "method",
+    "name": "main"
+  }
+]

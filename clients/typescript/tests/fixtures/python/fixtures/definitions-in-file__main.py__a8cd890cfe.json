@@ -1,0 +1,26 @@
+[
+  {
+    "file_range": {
+      "path": "main.py",
+      "range": {
+        "end": {
+          "character": 50,
+          "line": 5
+        },
+        "start": {
+          "character": 0,
+          "line": 4
+        }
+      }
+    },
+    "identifier_position": {
+      "path": "main.py",
+      "position": {
+        "character": 4,
+        "line": 4
+      }
+    },
+    "kind": "function",
+    "name": "main"
+  }
+]

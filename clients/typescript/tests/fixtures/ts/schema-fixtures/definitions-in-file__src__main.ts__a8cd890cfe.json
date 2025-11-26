@@ -1,0 +1,74 @@
+[
+  {
+    "file_range": {
+      "path": "src/main.ts",
+      "range": {
+        "start": {
+          "line": 3,
+          "character": 0
+        },
+        "end": {
+          "line": 3,
+          "character": 24
+        }
+      }
+    },
+    "identifier_position": {
+      "path": "src/main.ts",
+      "position": {
+        "line": 3,
+        "character": 6
+      }
+    },
+    "kind": "variable",
+    "name": "total"
+  },
+  {
+    "file_range": {
+      "path": "src/main.ts",
+      "range": {
+        "start": {
+          "line": 4,
+          "character": 0
+        },
+        "end": {
+          "line": 4,
+          "character": 33
+        }
+      }
+    },
+    "identifier_position": {
+      "path": "src/main.ts",
+      "position": {
+        "line": 4,
+        "character": 6
+      }
+    },
+    "kind": "variable",
+    "name": "g"
+  },
+  {
+    "file_range": {
+      "path": "src/main.ts",
+      "range": {
+        "start": {
+          "line": 5,
+          "character": 0
+        },
+        "end": {
+          "line": 5,
+          "character": 69
+        }
+      }
+    },
+    "identifier_position": {
+      "path": "src/main.ts",
+      "position": {
+        "line": 5,
+        "character": 6
+      }
+    },
+    "kind": "variable",
+    "name": "series"
+  }
+]

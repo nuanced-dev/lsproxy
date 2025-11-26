@@ -1,0 +1,8 @@
+[package]
+name = "toy_rust_ws"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "toy_rust_ws"
+path = "src/lib.rs"

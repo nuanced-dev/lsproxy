@@ -1,0 +1,96 @@
+{
+  "external_symbols": [],
+  "not_found": [],
+  "workspace_symbols": [
+    {
+      "reference": {
+        "file_range": {
+          "path": "main.py",
+          "range": {
+            "start": {
+              "line": 5,
+              "character": 12
+            },
+            "end": {
+              "line": 5,
+              "character": 21
+            }
+          }
+        },
+        "kind": "function-call",
+        "name": "fizz_buzz"
+      },
+      "definitions": [
+        {
+          "file_range": {
+            "path": "app/fizzbuzz.py",
+            "range": {
+              "start": {
+                "line": 0,
+                "character": 0
+              },
+              "end": {
+                "line": 7,
+                "character": 17
+              }
+            }
+          },
+          "identifier_position": {
+            "path": "app/fizzbuzz.py",
+            "position": {
+              "line": 0,
+              "character": 4
+            }
+          },
+          "kind": "function",
+          "name": "fizz_buzz"
+        }
+      ]
+    },
+    {
+      "reference": {
+        "file_range": {
+          "path": "main.py",
+          "range": {
+            "start": {
+              "line": 5,
+              "character": 34
+            },
+            "end": {
+              "line": 5,
+              "character": 39
+            }
+          }
+        },
+        "kind": "function-call",
+        "name": "range"
+      },
+      "definitions": [
+        {
+          "file_range": {
+            "path": "/opt/jedi-venv/lib/python3.11/site-packages/jedi/third_party/typeshed/stdlib/3/builtins.pyi",
+            "range": {
+              "start": {
+                "line": 855,
+                "character": 0
+              },
+              "end": {
+                "line": 873,
+                "character": 48
+              }
+            }
+          },
+          "identifier_position": {
+            "path": "/opt/jedi-venv/lib/python3.11/site-packages/jedi/third_party/typeshed/stdlib/3/builtins.pyi",
+            "position": {
+              "line": 855,
+              "character": 6
+            }
+          },
+          "kind": "class",
+          "name": "range"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "context": [],
+  "raw_response": [],
+  "references": [],
+  "selected_identifier": {
+    "file_range": {
+      "path": "src/main.rs",
+      "range": {
+        "end": {
+          "character": 9,
+          "line": 19
+        },
+        "start": {
+          "character": 7,
+          "line": 19
+        }
+      }
+    },
+    "kind": null,
+    "name": "fb"
+  }
+}

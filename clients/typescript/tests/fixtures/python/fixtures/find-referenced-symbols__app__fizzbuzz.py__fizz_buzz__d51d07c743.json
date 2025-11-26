@@ -1,0 +1,23 @@
+{
+  "external_symbols": [
+    {
+      "file_range": {
+        "path": "app/fizzbuzz.py",
+        "range": {
+          "end": {
+            "character": 14,
+            "line": 7
+          },
+          "start": {
+            "character": 11,
+            "line": 7
+          }
+        }
+      },
+      "kind": "function-call",
+      "name": "str"
+    }
+  ],
+  "not_found": [],
+  "workspace_symbols": []
+}

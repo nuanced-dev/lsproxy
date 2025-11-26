@@ -1,0 +1,21 @@
+{
+  "identifiers": [
+    {
+      "file_range": {
+        "path": "src/util.rs",
+        "range": {
+          "end": {
+            "character": 16,
+            "line": 14
+          },
+          "start": {
+            "character": 11,
+            "line": 14
+          }
+        }
+      },
+      "kind": null,
+      "name": "greet"
+    }
+  ]
+}

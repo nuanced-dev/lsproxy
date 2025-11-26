@@ -1,0 +1,21 @@
+{
+  "identifiers": [
+    {
+      "file_range": {
+        "path": "src/main.ts",
+        "range": {
+          "start": {
+            "line": 5,
+            "character": 6
+          },
+          "end": {
+            "line": 5,
+            "character": 12
+          }
+        }
+      },
+      "kind": null,
+      "name": "series"
+    }
+  ]
+}

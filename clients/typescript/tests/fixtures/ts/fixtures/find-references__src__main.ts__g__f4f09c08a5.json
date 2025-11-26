@@ -1,0 +1,97 @@
+{
+  "context": [
+    {
+      "range": {
+        "path": "src/main.ts",
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 4
+          },
+          "start": {
+            "character": 0,
+            "line": 4
+          }
+        }
+      },
+      "source_code": ""
+    },
+    {
+      "range": {
+        "path": "src/main.ts",
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 6
+          },
+          "start": {
+            "character": 0,
+            "line": 6
+          }
+        }
+      },
+      "source_code": ""
+    }
+  ],
+  "raw_response": [
+    {
+      "range": {
+        "end": {
+          "character": 7,
+          "line": 4
+        },
+        "start": {
+          "character": 6,
+          "line": 4
+        }
+      },
+      "uri": "file:///mnt/workspace/src/main.ts"
+    },
+    {
+      "range": {
+        "end": {
+          "character": 20,
+          "line": 6
+        },
+        "start": {
+          "character": 19,
+          "line": 6
+        }
+      },
+      "uri": "file:///mnt/workspace/src/main.ts"
+    }
+  ],
+  "references": [
+    {
+      "path": "src/main.ts",
+      "position": {
+        "character": 6,
+        "line": 4
+      }
+    },
+    {
+      "path": "src/main.ts",
+      "position": {
+        "character": 19,
+        "line": 6
+      }
+    }
+  ],
+  "selected_identifier": {
+    "file_range": {
+      "path": "src/main.ts",
+      "range": {
+        "end": {
+          "character": 7,
+          "line": 4
+        },
+        "start": {
+          "character": 6,
+          "line": 4
+        }
+      }
+    },
+    "kind": null,
+    "name": "g"
+  }
+}

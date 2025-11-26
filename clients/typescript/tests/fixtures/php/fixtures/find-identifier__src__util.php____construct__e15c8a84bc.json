@@ -1,0 +1,21 @@
+{
+  "identifiers": [
+    {
+      "name": "__construct",
+      "file_range": {
+        "path": "src/Util.php",
+        "range": {
+          "start": {
+            "line": 7,
+            "character": 18
+          },
+          "end": {
+            "line": 7,
+            "character": 29
+          }
+        }
+      },
+      "kind": null
+    }
+  ]
+}

@@ -1,7 +1,7 @@
 use super::{ContainerHealthStatus, ContainerInfo, ContainerOrchestrator, OrchestratorError};
 use bollard::container::{Config, CreateContainerOptions};
 use bollard::models::{HostConfig, PortBinding};
-use common::api_types::SupportedLanguages;
+use common::api_types::{LanguageVariant, SupportedLanguages};
 use std::collections::HashMap;
 use std::net::TcpListener;
 use std::sync::Arc;
@@ -127,9 +127,13 @@ impl ContainerOrchestrator {
 
         // Pass through all environment variables from parent process
         // This ensures LSP containers inherit configuration like RUST_LOG, custom settings, etc.
-        let env: Vec<String> = std::env::vars()
+        let mut env: Vec<String> = std::env::vars()
             .map(|(key, value)| format!("{}={}", key, value))
             .collect();
+
+        // Add Ruby-specific env vars to avoid bundler version mismatch issues
+        // This is harmless for non-Ruby containers
+        env.push("BUNDLE_DISABLE_VERSION_CHECK=true".to_string());
 
         // Label containers with parent ID for watchdog cleanup (use short form consistently)
         let mut labels = HashMap::new();
@@ -140,8 +144,49 @@ impl ContainerOrchestrator {
             self.instance_id_short().clone(),
         );
 
+        // Build CMD override for Sorbet containers with a config directory
+        // Sorbet reads sorbet/config which contains "--dir ." (current directory).
+        // We need to change the working directory so "." resolves to the right place.
+        let cmd = if let Some(sorbet_dir) = language.sorbet_config_dir() {
+            // The sorbet_dir could be either:
+            // 1. A container path (starts with /mnt/workspace) - use directly
+            // 2. A host path - strip mount_source prefix and prepend /mnt/workspace
+            let container_sorbet_path = if sorbet_dir.starts_with("/mnt/workspace") {
+                // Already a container path, use as-is
+                sorbet_dir.display().to_string()
+            } else {
+                // Host path - compute relative path and convert to container path
+                let relative_path = sorbet_dir
+                    .strip_prefix(&mount_source)
+                    .unwrap_or(sorbet_dir.as_path());
+                format!("/mnt/workspace/{}", relative_path.display())
+            };
+
+            log::info!(
+                "Sorbet container will run from {} (original: {}, workspace: {})",
+                container_sorbet_path,
+                sorbet_dir.display(),
+                mount_source
+            );
+
+            // Use shell to cd to the correct directory before running srb
+            // This ensures sorbet/config's "--dir ." resolves correctly
+            Some(vec![
+                "--lsp-command".to_string(),
+                "sh".to_string(),
+                "--lsp-arg=-c".to_string(),
+                format!(
+                    "--lsp-arg=cd {} && exec srb tc --lsp --disable-watchman",
+                    container_sorbet_path
+                ),
+            ])
+        } else {
+            None
+        };
+
         let config = Config {
             image: Some(image_name.clone()),
+            cmd,
             env: Some(env),
             host_config: Some(host_config),
             labels: Some(labels),
@@ -353,90 +398,71 @@ impl ContainerOrchestrator {
     }
 
     /// Get the Docker image name for a language
+    ///
     /// Language container images follow the naming convention:
-    /// - Non-Ruby: nuanced-lsp-{language}:{version}
-    /// - Ruby: nuanced-lsp-ruby-{version}:{version}
-    /// - Ruby Sorbet: nuanced-lsp-ruby-sorbet-{version}:{version}
-    /// Version can be overridden via LANGUAGE_CONTAINER_VERSION environment variable
-    #[rustfmt::skip]
+    /// - Non-Ruby: nuanced-lsp-{language}:{container_version}
+    /// - Ruby: nuanced-lsp-ruby-{ruby_version}:{container_version}
+    /// - Ruby Sorbet: nuanced-lsp-ruby-sorbet-{ruby_version}:{container_version}
+    ///
+    /// Container version can be overridden via LANGUAGE_CONTAINER_VERSION environment variable.
+    /// Ruby language version is detected from the workspace (.ruby-version or Gemfile).
     pub fn image_name_for_language(language: &SupportedLanguages) -> String {
         use super::language_container_version;
-        let version = language_container_version();
+        let container_version = language_container_version();
 
         match language {
-            SupportedLanguages::Golang => format!("nuanced-lsp-golang:{}", version),
-            SupportedLanguages::Python => format!("nuanced-lsp-python:{}", version),
-            SupportedLanguages::TypeScriptJavaScript => format!("nuanced-lsp-typescript:{}", version),
-            SupportedLanguages::Ruby3_4_7 => format!("nuanced-lsp-ruby-3.4.7:{}", version),
-            SupportedLanguages::Ruby3_4_6 => format!("nuanced-lsp-ruby-3.4.6:{}", version),
-            SupportedLanguages::Ruby3_4_5 => format!("nuanced-lsp-ruby-3.4.5:{}", version),
-            SupportedLanguages::Ruby3_4_4 => format!("nuanced-lsp-ruby-3.4.4:{}", version),
-            SupportedLanguages::Ruby3_4_3 => format!("nuanced-lsp-ruby-3.4.3:{}", version),
-            SupportedLanguages::Ruby3_4_2 => format!("nuanced-lsp-ruby-3.4.2:{}", version),
-            SupportedLanguages::Ruby3_4_1 => format!("nuanced-lsp-ruby-3.4.1:{}", version),
-            SupportedLanguages::Ruby3_4_0 => format!("nuanced-lsp-ruby-3.4.0:{}", version),
-            SupportedLanguages::Ruby3_3_6 => format!("nuanced-lsp-ruby-3.3.6:{}", version),
-            SupportedLanguages::Ruby3_3_5 => format!("nuanced-lsp-ruby-3.3.5:{}", version),
-            SupportedLanguages::Ruby3_2_6 => format!("nuanced-lsp-ruby-3.2.6:{}", version),
-            SupportedLanguages::Ruby3_2_2 => format!("nuanced-lsp-ruby-3.2.2:{}", version),
-            SupportedLanguages::RubySorbet3_4_7 => format!("nuanced-lsp-ruby-sorbet-3.4.7:{}", version),
-            SupportedLanguages::RubySorbet3_4_6 => format!("nuanced-lsp-ruby-sorbet-3.4.6:{}", version),
-            SupportedLanguages::RubySorbet3_4_5 => format!("nuanced-lsp-ruby-sorbet-3.4.5:{}", version),
-            SupportedLanguages::RubySorbet3_4_4 => format!("nuanced-lsp-ruby-sorbet-3.4.4:{}", version),
-            SupportedLanguages::RubySorbet3_4_3 => format!("nuanced-lsp-ruby-sorbet-3.4.3:{}", version),
-            SupportedLanguages::RubySorbet3_4_2 => format!("nuanced-lsp-ruby-sorbet-3.4.2:{}", version),
-            SupportedLanguages::RubySorbet3_4_1 => format!("nuanced-lsp-ruby-sorbet-3.4.1:{}", version),
-            SupportedLanguages::RubySorbet3_4_0 => format!("nuanced-lsp-ruby-sorbet-3.4.0:{}", version),
-            SupportedLanguages::RubySorbet3_3_6 => format!("nuanced-lsp-ruby-sorbet-3.3.6:{}", version),
-            SupportedLanguages::RubySorbet3_3_5 => format!("nuanced-lsp-ruby-sorbet-3.3.5:{}", version),
-            SupportedLanguages::RubySorbet3_2_6 => format!("nuanced-lsp-ruby-sorbet-3.2.6:{}", version),
-            SupportedLanguages::RubySorbet3_2_2 => format!("nuanced-lsp-ruby-sorbet-3.2.2:{}", version),
-            SupportedLanguages::Rust => format!("nuanced-lsp-rust:{}", version),
-            SupportedLanguages::CPP => format!("nuanced-lsp-clangd:{}", version),
-            SupportedLanguages::Java => format!("nuanced-lsp-java:{}", version),
-            SupportedLanguages::PHP => format!("nuanced-lsp-php:{}", version),
-            SupportedLanguages::CSharp => format!("nuanced-lsp-csharp:{}", version),
+            SupportedLanguages::Golang => format!("nuanced-lsp-golang:{}", container_version),
+            SupportedLanguages::Python => format!("nuanced-lsp-python:{}", container_version),
+            SupportedLanguages::TypeScriptJavaScript => {
+                format!("nuanced-lsp-typescript:{}", container_version)
+            }
+            SupportedLanguages::Rust => format!("nuanced-lsp-rust:{}", container_version),
+            SupportedLanguages::CPP => format!("nuanced-lsp-clangd:{}", container_version),
+            SupportedLanguages::Java => format!("nuanced-lsp-java:{}", container_version),
+            SupportedLanguages::PHP => format!("nuanced-lsp-php:{}", container_version),
+            SupportedLanguages::CSharp => format!("nuanced-lsp-csharp:{}", container_version),
+            SupportedLanguages::Ruby {
+                version, variant, ..
+            } => {
+                let ruby_version = version.as_str();
+                match variant {
+                    LanguageVariant::Standard => {
+                        format!("nuanced-lsp-ruby-{}:{}", ruby_version, container_version)
+                    }
+                    LanguageVariant::Sorbet => {
+                        format!(
+                            "nuanced-lsp-ruby-sorbet-{}:{}",
+                            ruby_version, container_version
+                        )
+                    }
+                }
+            }
         }
     }
 
     /// Get a URL-safe slug for a language
-    #[rustfmt::skip]
+    ///
+    /// Used for container naming to create unique, identifiable container names.
     fn language_slug(language: &SupportedLanguages) -> String {
         match language {
-            SupportedLanguages::Golang => "golang",
-            SupportedLanguages::Python => "python",
-            SupportedLanguages::TypeScriptJavaScript => "typescript",
-            SupportedLanguages::Ruby3_4_7 => "ruby-3.4.7",
-            SupportedLanguages::Ruby3_4_6 => "ruby-3.4.6",
-            SupportedLanguages::Ruby3_4_5 => "ruby-3.4.5",
-            SupportedLanguages::Ruby3_4_4 => "ruby-3.4.4",
-            SupportedLanguages::Ruby3_4_3 => "ruby-3.4.3",
-            SupportedLanguages::Ruby3_4_2 => "ruby-3.4.2",
-            SupportedLanguages::Ruby3_4_1 => "ruby-3.4.1",
-            SupportedLanguages::Ruby3_4_0 => "ruby-3.4.0",
-            SupportedLanguages::Ruby3_3_6 => "ruby-3.3.6",
-            SupportedLanguages::Ruby3_3_5 => "ruby-3.3.5",
-            SupportedLanguages::Ruby3_2_6 => "ruby-3.2.6",
-            SupportedLanguages::Ruby3_2_2 => "ruby-3.2.2",
-            SupportedLanguages::RubySorbet3_4_7 => "ruby-sorbet-3.4.7",
-            SupportedLanguages::RubySorbet3_4_6 => "ruby-sorbet-3.4.6",
-            SupportedLanguages::RubySorbet3_4_5 => "ruby-sorbet-3.4.5",
-            SupportedLanguages::RubySorbet3_4_4 => "ruby-sorbet-3.4.4",
-            SupportedLanguages::RubySorbet3_4_3 => "ruby-sorbet-3.4.3",
-            SupportedLanguages::RubySorbet3_4_2 => "ruby-sorbet-3.4.2",
-            SupportedLanguages::RubySorbet3_4_1 => "ruby-sorbet-3.4.1",
-            SupportedLanguages::RubySorbet3_4_0 => "ruby-sorbet-3.4.0",
-            SupportedLanguages::RubySorbet3_3_6 => "ruby-sorbet-3.3.6",
-            SupportedLanguages::RubySorbet3_3_5 => "ruby-sorbet-3.3.5",
-            SupportedLanguages::RubySorbet3_2_6 => "ruby-sorbet-3.2.6",
-            SupportedLanguages::RubySorbet3_2_2 => "ruby-sorbet-3.2.2",
-            SupportedLanguages::Rust => "rust",
-            SupportedLanguages::CPP => "clangd",
-            SupportedLanguages::Java => "java",
-            SupportedLanguages::PHP => "php",
-            SupportedLanguages::CSharp => "csharp",
+            SupportedLanguages::Golang => "golang".to_string(),
+            SupportedLanguages::Python => "python".to_string(),
+            SupportedLanguages::TypeScriptJavaScript => "typescript".to_string(),
+            SupportedLanguages::Rust => "rust".to_string(),
+            SupportedLanguages::CPP => "clangd".to_string(),
+            SupportedLanguages::Java => "java".to_string(),
+            SupportedLanguages::PHP => "php".to_string(),
+            SupportedLanguages::CSharp => "csharp".to_string(),
+            SupportedLanguages::Ruby {
+                version, variant, ..
+            } => {
+                let ruby_version = version.as_str();
+                match variant {
+                    LanguageVariant::Standard => format!("ruby-{}", ruby_version),
+                    LanguageVariant::Sorbet => format!("ruby-sorbet-{}", ruby_version),
+                }
+            }
         }
-        .to_string()
     }
 }
 
@@ -471,15 +497,24 @@ mod tests {
             format!("nuanced-lsp-typescript:{}", version)
         );
         assert_eq!(
-            ContainerOrchestrator::image_name_for_language(&SupportedLanguages::Ruby3_4_4),
+            ContainerOrchestrator::image_name_for_language(&SupportedLanguages::ruby(
+                "3.4.4",
+                LanguageVariant::Standard
+            )),
             format!("nuanced-lsp-ruby-3.4.4:{}", version)
         );
         assert_eq!(
-            ContainerOrchestrator::image_name_for_language(&SupportedLanguages::Ruby3_3_6),
+            ContainerOrchestrator::image_name_for_language(&SupportedLanguages::ruby(
+                "3.3.6",
+                LanguageVariant::Standard
+            )),
             format!("nuanced-lsp-ruby-3.3.6:{}", version)
         );
         assert_eq!(
-            ContainerOrchestrator::image_name_for_language(&SupportedLanguages::RubySorbet3_4_4),
+            ContainerOrchestrator::image_name_for_language(&SupportedLanguages::ruby(
+                "3.4.4",
+                LanguageVariant::Sorbet
+            )),
             format!("nuanced-lsp-ruby-sorbet-3.4.4:{}", version)
         );
         assert_eq!(
@@ -519,15 +554,24 @@ mod tests {
             "typescript"
         );
         assert_eq!(
-            ContainerOrchestrator::language_slug(&SupportedLanguages::Ruby3_4_4),
+            ContainerOrchestrator::language_slug(&SupportedLanguages::ruby(
+                "3.4.4",
+                LanguageVariant::Standard
+            )),
             "ruby-3.4.4"
         );
         assert_eq!(
-            ContainerOrchestrator::language_slug(&SupportedLanguages::Ruby3_3_6),
+            ContainerOrchestrator::language_slug(&SupportedLanguages::ruby(
+                "3.3.6",
+                LanguageVariant::Standard
+            )),
             "ruby-3.3.6"
         );
         assert_eq!(
-            ContainerOrchestrator::language_slug(&SupportedLanguages::RubySorbet3_4_4),
+            ContainerOrchestrator::language_slug(&SupportedLanguages::ruby(
+                "3.4.4",
+                LanguageVariant::Sorbet
+            )),
             "ruby-sorbet-3.4.4"
         );
         assert_eq!(

@@ -1,0 +1,26 @@
+[
+  {
+    "file_range": {
+      "path": "fizzbuzz.go",
+      "range": {
+        "end": {
+          "character": 1,
+          "line": 13
+        },
+        "start": {
+          "character": 0,
+          "line": 2
+        }
+      }
+    },
+    "identifier_position": {
+      "path": "fizzbuzz.go",
+      "position": {
+        "character": 5,
+        "line": 2
+      }
+    },
+    "kind": "function",
+    "name": "FizzBuzz"
+  }
+]

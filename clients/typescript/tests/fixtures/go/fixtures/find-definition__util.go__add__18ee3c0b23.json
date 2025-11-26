@@ -1,0 +1,61 @@
+{
+  "definitions": [
+    {
+      "path": "util.go",
+      "position": {
+        "character": 5,
+        "line": 4
+      }
+    }
+  ],
+  "raw_response": [
+    {
+      "range": {
+        "end": {
+          "character": 8,
+          "line": 4
+        },
+        "start": {
+          "character": 5,
+          "line": 4
+        }
+      },
+      "uri": "file:///mnt/workspace/util.go"
+    }
+  ],
+  "selected_identifier": {
+    "file_range": {
+      "path": "util.go",
+      "range": {
+        "end": {
+          "character": 8,
+          "line": 4
+        },
+        "start": {
+          "character": 5,
+          "line": 4
+        }
+      }
+    },
+    "kind": null,
+    "name": "Add"
+  },
+  "source_code_context": [
+    {
+      "range": {
+        "path": "util.go",
+        "range": {
+          "end": {
+            "character": 39,
+            "line": 4
+          },
+          "start": {
+            "character": 0,
+            "line": 4
+          }
+        }
+      },
+      "source_code": "func Add(a, b int) int { return a + b }"
+    }
+  ]
+}

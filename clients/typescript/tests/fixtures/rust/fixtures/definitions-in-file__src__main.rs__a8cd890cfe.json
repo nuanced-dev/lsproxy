@@ -1,0 +1,50 @@
+[
+  {
+    "file_range": {
+      "path": "src/main.rs",
+      "range": {
+        "end": {
+          "character": 5,
+          "line": 21
+        },
+        "start": {
+          "character": 0,
+          "line": 19
+        }
+      }
+    },
+    "identifier_position": {
+      "path": "src/main.rs",
+      "position": {
+        "character": 7,
+        "line": 19
+      }
+    },
+    "kind": "function",
+    "name": "fb"
+  },
+  {
+    "file_range": {
+      "path": "src/main.rs",
+      "range": {
+        "end": {
+          "character": 1,
+          "line": 13
+        },
+        "start": {
+          "character": 0,
+          "line": 3
+        }
+      }
+    },
+    "identifier_position": {
+      "path": "src/main.rs",
+      "position": {
+        "character": 7,
+        "line": 3
+      }
+    },
+    "kind": "function",
+    "name": "fizzbuzz"
+  }
+]

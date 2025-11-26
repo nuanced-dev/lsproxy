@@ -1,0 +1,291 @@
+{
+  "external_symbols": [],
+  "not_found": [],
+  "workspace_symbols": [
+    {
+      "reference": {
+        "file_range": {
+          "path": "src/fizzbuzz.ts",
+          "range": {
+            "start": {
+              "line": 4,
+              "character": 9
+            },
+            "end": {
+              "line": 4,
+              "character": 15
+            }
+          }
+        },
+        "kind": "function-call",
+        "name": "String"
+      },
+      "definitions": [
+        {
+          "file_range": {
+            "path": "/usr/lib/node_modules/typescript/lib/lib.es5.d.ts",
+            "range": {
+              "start": {
+                "line": 409,
+                "character": 0
+              },
+              "end": {
+                "line": 531,
+                "character": 1
+              }
+            }
+          },
+          "identifier_position": {
+            "path": "/usr/lib/node_modules/typescript/lib/lib.es5.d.ts",
+            "position": {
+              "line": 409,
+              "character": 10
+            }
+          },
+          "kind": "interface",
+          "name": "String"
+        },
+        {
+          "file_range": {
+            "path": "/usr/lib/node_modules/typescript/lib/lib.es5.d.ts",
+            "range": {
+              "start": {
+                "line": 543,
+                "character": 0
+              },
+              "end": {
+                "line": 543,
+                "character": 18
+              }
+            }
+          },
+          "identifier_position": {
+            "path": "/usr/lib/node_modules/typescript/lib/lib.es5.d.ts",
+            "position": {
+              "line": 543,
+              "character": 12
+            }
+          },
+          "kind": "local-variable",
+          "name": "String"
+        },
+        {
+          "file_range": {
+            "path": "/usr/lib/node_modules/typescript/lib/lib.es5.d.ts",
+            "range": {
+              "start": {
+                "line": 4561,
+                "character": 0
+              },
+              "end": {
+                "line": 4569,
+                "character": 1
+              }
+            }
+          },
+          "identifier_position": {
+            "path": "/usr/lib/node_modules/typescript/lib/lib.es5.d.ts",
+            "position": {
+              "line": 4561,
+              "character": 10
+            }
+          },
+          "kind": "interface",
+          "name": "String"
+        },
+        {
+          "file_range": {
+            "path": "/usr/lib/node_modules/typescript/lib/lib.es2015.core.d.ts",
+            "range": {
+              "start": {
+                "line": 401,
+                "character": 0
+              },
+              "end": {
+                "line": 541,
+                "character": 1
+              }
+            }
+          },
+          "identifier_position": {
+            "path": "/usr/lib/node_modules/typescript/lib/lib.es2015.core.d.ts",
+            "position": {
+              "line": 401,
+              "character": 10
+            }
+          },
+          "kind": "interface",
+          "name": "String"
+        },
+        {
+          "file_range": {
+            "path": "/usr/lib/node_modules/typescript/lib/lib.es2015.iterable.d.ts",
+            "range": {
+              "start": {
+                "line": 269,
+                "character": 0
+              },
+              "end": {
+                "line": 272,
+                "character": 1
+              }
+            }
+          },
+          "identifier_position": {
+            "path": "/usr/lib/node_modules/typescript/lib/lib.es2015.iterable.d.ts",
+            "position": {
+              "line": 269,
+              "character": 10
+            }
+          },
+          "kind": "interface",
+          "name": "String"
+        },
+        {
+          "file_range": {
+            "path": "/usr/lib/node_modules/typescript/lib/lib.es2015.symbol.wellknown.d.ts",
+            "range": {
+              "start": {
+                "line": 234,
+                "character": 0
+              },
+              "end": {
+                "line": 268,
+                "character": 1
+              }
+            }
+          },
+          "identifier_position": {
+            "path": "/usr/lib/node_modules/typescript/lib/lib.es2015.symbol.wellknown.d.ts",
+            "position": {
+              "line": 234,
+              "character": 10
+            }
+          },
+          "kind": "interface",
+          "name": "String"
+        },
+        {
+          "file_range": {
+            "path": "/usr/lib/node_modules/typescript/lib/lib.es2017.string.d.ts",
+            "range": {
+              "start": {
+                "line": 18,
+                "character": 0
+              },
+              "end": {
+                "line": 44,
+                "character": 1
+              }
+            }
+          },
+          "identifier_position": {
+            "path": "/usr/lib/node_modules/typescript/lib/lib.es2017.string.d.ts",
+            "position": {
+              "line": 18,
+              "character": 10
+            }
+          },
+          "kind": "interface",
+          "name": "String"
+        },
+        {
+          "file_range": {
+            "path": "/usr/lib/node_modules/typescript/lib/lib.es2019.string.d.ts",
+            "range": {
+              "start": {
+                "line": 18,
+                "character": 0
+              },
+              "end": {
+                "line": 36,
+                "character": 1
+              }
+            }
+          },
+          "identifier_position": {
+            "path": "/usr/lib/node_modules/typescript/lib/lib.es2019.string.d.ts",
+            "position": {
+              "line": 18,
+              "character": 10
+            }
+          },
+          "kind": "interface",
+          "name": "String"
+        },
+        {
+          "file_range": {
+            "path": "/usr/lib/node_modules/typescript/lib/lib.es2020.string.d.ts",
+            "range": {
+              "start": {
+                "line": 22,
+                "character": 0
+              },
+              "end": {
+                "line": 43,
+                "character": 1
+              }
+            }
+          },
+          "identifier_position": {
+            "path": "/usr/lib/node_modules/typescript/lib/lib.es2020.string.d.ts",
+            "position": {
+              "line": 22,
+              "character": 10
+            }
+          },
+          "kind": "interface",
+          "name": "String"
+        },
+        {
+          "file_range": {
+            "path": "/usr/lib/node_modules/typescript/lib/lib.es2021.string.d.ts",
+            "range": {
+              "start": {
+                "line": 18,
+                "character": 0
+              },
+              "end": {
+                "line": 32,
+                "character": 1
+              }
+            }
+          },
+          "identifier_position": {
+            "path": "/usr/lib/node_modules/typescript/lib/lib.es2021.string.d.ts",
+            "position": {
+              "line": 18,
+              "character": 10
+            }
+          },
+          "kind": "interface",
+          "name": "String"
+        },
+        {
+          "file_range": {
+            "path": "/usr/lib/node_modules/typescript/lib/lib.es2022.string.d.ts",
+            "range": {
+              "start": {
+                "line": 18,
+                "character": 0
+              },
+              "end": {
+                "line": 24,
+                "character": 1
+              }
+            }
+          },
+          "identifier_position": {
+            "path": "/usr/lib/node_modules/typescript/lib/lib.es2022.string.d.ts",
+            "position": {
+              "line": 18,
+              "character": 10
+            }
+          },
+          "kind": "interface",
+          "name": "String"
+        }
+      ]
+    }
+  ]
+}

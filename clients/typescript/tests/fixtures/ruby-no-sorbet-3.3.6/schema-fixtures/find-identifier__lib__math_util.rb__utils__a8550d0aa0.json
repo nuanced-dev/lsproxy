@@ -1,0 +1,21 @@
+{
+  "identifiers": [
+    {
+      "file_range": {
+        "path": "lib/math_util.rb",
+        "range": {
+          "start": {
+            "line": 2,
+            "character": 7
+          },
+          "end": {
+            "line": 2,
+            "character": 12
+          }
+        }
+      },
+      "kind": null,
+      "name": "Utils"
+    }
+  ]
+}

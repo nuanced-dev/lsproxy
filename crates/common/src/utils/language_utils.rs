@@ -2,7 +2,7 @@ use crate::api_types::SupportedLanguages;
 use crate::error::LspError;
 use std::path::{Path, PathBuf};
 
-use super::ruby_utils::{detect_ruby_version, has_sorbet_config, has_sorbet_type_annotation};
+use super::ruby_utils::{detect_ruby_version, find_sorbet_config_dir, has_sorbet_type_annotation};
 use super::workspace_documents::{
     CPP_EXTENSIONS, CSHARP_EXTENSIONS, C_AND_CPP_EXTENSIONS, C_EXTENSIONS, GOLANG_EXTENSIONS,
     JAVASCRIPTREACT_EXTENSIONS, JAVASCRIPT_EXTENSIONS, JAVA_EXTENSIONS, PHP_EXTENSIONS,
@@ -49,9 +49,18 @@ pub fn detect_language(file_path: &str) -> Result<SupportedLanguages, LspError> 
                     // 1. File has type annotations (# typed: comment)
                     // 2. Workspace has sorbet/config file
                     // This prevents spawning broken Sorbet containers that spin at 100% CPU
-                    let is_sorbet = has_sorbet_type_annotation(path) && has_sorbet_config(path);
+                    let sorbet_config_dir = if has_sorbet_type_annotation(path) {
+                        find_sorbet_config_dir(path)
+                    } else {
+                        None
+                    };
+                    let is_sorbet = sorbet_config_dir.is_some();
 
-                    return Ok(SupportedLanguages::from_ruby_version(&version, is_sorbet));
+                    return Ok(SupportedLanguages::from_ruby_version_with_config(
+                        &version,
+                        is_sorbet,
+                        sorbet_config_dir,
+                    ));
                 }
 
                 workspace_path = parent;
@@ -63,7 +72,7 @@ pub fn detect_language(file_path: &str) -> Result<SupportedLanguages, LspError> 
             }
 
             // Fallback to default version if no workspace markers found
-            Ok(SupportedLanguages::Ruby3_4_4)
+            Ok(SupportedLanguages::ruby_default())
         }
         _ => Err(LspError::UnsupportedFileType(file_path.to_string())),
     }

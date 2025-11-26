@@ -1,0 +1,36 @@
+{
+  "definitions": [
+    {
+      "path": "lib/user.rb",
+      "position": {
+        "line": 16,
+        "character": 2
+      }
+    },
+    {
+      "path": "user.rb",
+      "position": {
+        "line": 16,
+        "character": 2
+      }
+    }
+  ],
+  "selected_identifier": {
+    "file_range": {
+      "path": "lib/user.rb",
+      "range": {
+        "start": {
+          "line": 16,
+          "character": 6
+        },
+        "end": {
+          "line": 16,
+          "character": 22
+        }
+      }
+    },
+    "kind": null,
+    "name": "favorite_numbers"
+  },
+  "source_code_context": null
+}

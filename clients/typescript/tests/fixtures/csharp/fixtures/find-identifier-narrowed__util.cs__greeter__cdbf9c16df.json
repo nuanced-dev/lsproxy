@@ -1,0 +1,21 @@
+{
+  "identifiers": [
+    {
+      "name": "Greeter",
+      "file_range": {
+        "path": "Util.cs",
+        "range": {
+          "start": {
+            "line": 3,
+            "character": 24
+          },
+          "end": {
+            "line": 3,
+            "character": 31
+          }
+        }
+      },
+      "kind": null
+    }
+  ]
+}

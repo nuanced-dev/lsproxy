@@ -1,0 +1,61 @@
+{
+  "definitions": [
+    {
+      "path": "src/util.ts",
+      "position": {
+        "character": 16,
+        "line": 0
+      }
+    }
+  ],
+  "raw_response": [
+    {
+      "range": {
+        "end": {
+          "character": 19,
+          "line": 0
+        },
+        "start": {
+          "character": 16,
+          "line": 0
+        }
+      },
+      "uri": "file:///mnt/workspace/src/util.ts"
+    }
+  ],
+  "selected_identifier": {
+    "file_range": {
+      "path": "src/util.ts",
+      "range": {
+        "end": {
+          "character": 19,
+          "line": 0
+        },
+        "start": {
+          "character": 16,
+          "line": 0
+        }
+      }
+    },
+    "kind": null,
+    "name": "add"
+  },
+  "source_code_context": [
+    {
+      "range": {
+        "path": "src/util.ts",
+        "range": {
+          "end": {
+            "character": 67,
+            "line": 0
+          },
+          "start": {
+            "character": 7,
+            "line": 0
+          }
+        }
+      },
+      "source_code": "function add(a: number, b: number): number { return a + b; }"
+    }
+  ]
+}

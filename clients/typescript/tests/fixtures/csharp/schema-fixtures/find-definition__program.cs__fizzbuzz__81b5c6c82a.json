@@ -1,0 +1,46 @@
+{
+  "definitions": [
+    {
+      "path": "Program.cs",
+      "position": {
+        "line": 13,
+        "character": 18
+      }
+    }
+  ],
+  "selected_identifier": {
+    "file_range": {
+      "path": "Program.cs",
+      "range": {
+        "start": {
+          "line": 13,
+          "character": 18
+        },
+        "end": {
+          "line": 13,
+          "character": 26
+        }
+      }
+    },
+    "kind": null,
+    "name": "FizzBuzz"
+  },
+  "source_code_context": [
+    {
+      "file_range": {
+        "path": "Program.cs",
+        "range": {
+          "start": {
+            "line": 13,
+            "character": 4
+          },
+          "end": {
+            "line": 18,
+            "character": 5
+          }
+        }
+      },
+      "source_code": "static string FizzBuzz(int n) {\n        if (n % 15 == 0) return \"fizzbuzz\";\n        if (n % 3 == 0) return \"fizz\";\n        if (n % 5 == 0) return \"buzz\";\n        return n.ToString();\n    }"
+    }
+  ]
+}

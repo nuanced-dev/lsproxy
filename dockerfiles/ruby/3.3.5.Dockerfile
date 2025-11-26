@@ -52,6 +52,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libreadline8 \
     libncurses6 \
     libyaml-0-2 \
+    libyaml-dev \
     zlib1g \
     libpq5 \
     libmariadb3 \

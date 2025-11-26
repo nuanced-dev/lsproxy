@@ -1,0 +1,36 @@
+{
+  "definitions": [
+    {
+      "path": "fizz_buzz.rb",
+      "position": {
+        "line": 7,
+        "character": 2
+      }
+    },
+    {
+      "path": "lib/fizz_buzz.rb",
+      "position": {
+        "line": 7,
+        "character": 2
+      }
+    }
+  ],
+  "selected_identifier": {
+    "file_range": {
+      "path": "lib/fizz_buzz.rb",
+      "range": {
+        "start": {
+          "line": 7,
+          "character": 11
+        },
+        "end": {
+          "line": 7,
+          "character": 16
+        }
+      }
+    },
+    "kind": null,
+    "name": "value"
+  },
+  "source_code_context": null
+}

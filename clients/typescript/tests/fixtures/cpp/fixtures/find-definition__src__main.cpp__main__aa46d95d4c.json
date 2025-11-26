@@ -1,0 +1,61 @@
+{
+  "raw_response": [
+    {
+      "range": {
+        "end": {
+          "character": 8,
+          "line": 5
+        },
+        "start": {
+          "character": 4,
+          "line": 5
+        }
+      },
+      "uri": "file:///mnt/workspace/src/main.cpp"
+    }
+  ],
+  "definitions": [
+    {
+      "path": "src/main.cpp",
+      "position": {
+        "line": 5,
+        "character": 4
+      }
+    }
+  ],
+  "source_code_context": [
+    {
+      "range": {
+        "path": "src/main.cpp",
+        "range": {
+          "start": {
+            "line": 5,
+            "character": 0
+          },
+          "end": {
+            "line": 19,
+            "character": 1
+          }
+        }
+      },
+      "source_code": "int main() {\n  int total = add(2, 3);\n  Greeter g{\"Nuanced\"};\n  std::vector<std::string> series;\n  series.reserve(20);\n  for (int i = 1; i <= 20; ++i) series.push_back(fizzbuzz(i));\n\n  std::cout << total << \" \" << g.greet() << \" [\";\n  for (size_t i = 0; i < series.size(); ++i) {\n    if (i) std::cout << \", \";\n    std::cout << series[i];\n  }\n  std::cout << \"]\\n\";\n  return 0;\n}"
+    }
+  ],
+  "selected_identifier": {
+    "name": "main",
+    "file_range": {
+      "path": "src/main.cpp",
+      "range": {
+        "start": {
+          "line": 5,
+          "character": 4
+        },
+        "end": {
+          "line": 5,
+          "character": 8
+        }
+      }
+    },
+    "kind": null
+  }
+}

@@ -1,0 +1,61 @@
+{
+  "definitions": [
+    {
+      "path": "src/util.ts",
+      "position": {
+        "character": 2,
+        "line": 3
+      }
+    }
+  ],
+  "raw_response": [
+    {
+      "range": {
+        "end": {
+          "character": 37,
+          "line": 3
+        },
+        "start": {
+          "character": 2,
+          "line": 3
+        }
+      },
+      "uri": "file:///mnt/workspace/src/util.ts"
+    }
+  ],
+  "selected_identifier": {
+    "file_range": {
+      "path": "src/util.ts",
+      "range": {
+        "end": {
+          "character": 13,
+          "line": 3
+        },
+        "start": {
+          "character": 2,
+          "line": 3
+        }
+      }
+    },
+    "kind": null,
+    "name": "constructor"
+  },
+  "source_code_context": [
+    {
+      "range": {
+        "path": "src/util.ts",
+        "range": {
+          "end": {
+            "character": 37,
+            "line": 3
+          },
+          "start": {
+            "character": 2,
+            "line": 3
+          }
+        }
+      },
+      "source_code": "constructor(public name: string) {}"
+    }
+  ]
+}

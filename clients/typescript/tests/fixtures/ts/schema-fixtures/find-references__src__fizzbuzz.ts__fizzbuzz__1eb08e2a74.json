@@ -1,0 +1,92 @@
+{
+  "references": [
+    {
+      "path": "src/fizzbuzz.ts",
+      "position": {
+        "line": 0,
+        "character": 16
+      }
+    },
+    {
+      "path": "src/main.ts",
+      "position": {
+        "line": 0,
+        "character": 9
+      }
+    },
+    {
+      "path": "src/main.ts",
+      "position": {
+        "line": 5,
+        "character": 52
+      }
+    }
+  ],
+  "selected_identifier": {
+    "file_range": {
+      "path": "src/fizzbuzz.ts",
+      "range": {
+        "start": {
+          "line": 0,
+          "character": 16
+        },
+        "end": {
+          "line": 0,
+          "character": 24
+        }
+      }
+    },
+    "kind": null,
+    "name": "fizzbuzz"
+  },
+  "context": [
+    {
+      "file_range": {
+        "path": "src/fizzbuzz.ts",
+        "range": {
+          "start": {
+            "line": 0,
+            "character": 0
+          },
+          "end": {
+            "line": 0,
+            "character": 0
+          }
+        }
+      },
+      "source_code": ""
+    },
+    {
+      "file_range": {
+        "path": "src/main.ts",
+        "range": {
+          "start": {
+            "line": 0,
+            "character": 0
+          },
+          "end": {
+            "line": 0,
+            "character": 0
+          }
+        }
+      },
+      "source_code": ""
+    },
+    {
+      "file_range": {
+        "path": "src/main.ts",
+        "range": {
+          "start": {
+            "line": 5,
+            "character": 0
+          },
+          "end": {
+            "line": 5,
+            "character": 0
+          }
+        }
+      },
+      "source_code": ""
+    }
+  ]
+}

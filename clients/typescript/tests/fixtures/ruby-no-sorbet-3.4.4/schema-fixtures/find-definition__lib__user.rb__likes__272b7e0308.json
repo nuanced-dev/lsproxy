@@ -1,0 +1,21 @@
+{
+  "definitions": [],
+  "selected_identifier": {
+    "file_range": {
+      "path": "lib/user.rb",
+      "range": {
+        "start": {
+          "line": 20,
+          "character": 6
+        },
+        "end": {
+          "line": 20,
+          "character": 12
+        }
+      }
+    },
+    "kind": null,
+    "name": "likes?"
+  },
+  "source_code_context": []
+}

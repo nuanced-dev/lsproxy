@@ -1,0 +1,26 @@
+[
+  {
+    "file_range": {
+      "path": "src/main.cpp",
+      "range": {
+        "start": {
+          "line": 5,
+          "character": 0
+        },
+        "end": {
+          "line": 19,
+          "character": 1
+        }
+      }
+    },
+    "identifier_position": {
+      "path": "src/main.cpp",
+      "position": {
+        "line": 5,
+        "character": 4
+      }
+    },
+    "kind": "function-definition",
+    "name": "main"
+  }
+]

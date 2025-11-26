@@ -1,0 +1,46 @@
+{
+  "definitions": [
+    {
+      "path": "Util.cs",
+      "position": {
+        "line": 3,
+        "character": 24
+      }
+    }
+  ],
+  "selected_identifier": {
+    "file_range": {
+      "path": "Util.cs",
+      "range": {
+        "start": {
+          "line": 3,
+          "character": 24
+        },
+        "end": {
+          "line": 3,
+          "character": 31
+        }
+      }
+    },
+    "kind": null,
+    "name": "Greeter"
+  },
+  "source_code_context": [
+    {
+      "file_range": {
+        "path": "Util.cs",
+        "range": {
+          "start": {
+            "line": 3,
+            "character": 4
+          },
+          "end": {
+            "line": 5,
+            "character": 5
+          }
+        }
+      },
+      "source_code": "public sealed class Greeter(string name) {\n        public string Greet() => $\"Hello, {name}!\";\n    }"
+    }
+  ]
+}

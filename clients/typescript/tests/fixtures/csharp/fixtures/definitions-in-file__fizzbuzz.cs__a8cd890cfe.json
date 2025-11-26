@@ -1,0 +1,50 @@
+[
+  {
+    "name": "FizzBuzz",
+    "kind": "class",
+    "identifier_position": {
+      "path": "FizzBuzz.cs",
+      "position": {
+        "line": 0,
+        "character": 13
+      }
+    },
+    "file_range": {
+      "path": "FizzBuzz.cs",
+      "range": {
+        "start": {
+          "line": 0,
+          "character": 0
+        },
+        "end": {
+          "line": 5,
+          "character": 1
+        }
+      }
+    }
+  },
+  {
+    "name": "Of",
+    "kind": "method",
+    "identifier_position": {
+      "path": "FizzBuzz.cs",
+      "position": {
+        "line": 1,
+        "character": 25
+      }
+    },
+    "file_range": {
+      "path": "FizzBuzz.cs",
+      "range": {
+        "start": {
+          "line": 1,
+          "character": 0
+        },
+        "end": {
+          "line": 4,
+          "character": 46
+        }
+      }
+    }
+  }
+]

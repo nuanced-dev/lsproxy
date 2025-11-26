@@ -1,0 +1,46 @@
+{
+  "definitions": [
+    {
+      "path": "src/util.js",
+      "position": {
+        "line": 4,
+        "character": 13
+      }
+    }
+  ],
+  "selected_identifier": {
+    "file_range": {
+      "path": "src/util.js",
+      "range": {
+        "start": {
+          "line": 4,
+          "character": 13
+        },
+        "end": {
+          "line": 4,
+          "character": 20
+        }
+      }
+    },
+    "kind": null,
+    "name": "Greeter"
+  },
+  "source_code_context": [
+    {
+      "file_range": {
+        "path": "src/util.js",
+        "range": {
+          "start": {
+            "line": 4,
+            "character": 7
+          },
+          "end": {
+            "line": 11,
+            "character": 1
+          }
+        }
+      },
+      "source_code": "class Greeter {\n  constructor(name) {\n    this.name = name;\n  }\n  greet() {\n    return `Hello, ${this.name}!`;\n  }\n}"
+    }
+  ]
+}

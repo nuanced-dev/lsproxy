@@ -282,6 +282,9 @@ impl ContainerOrchestrator {
     }
 
     /// Parse a language string (case-insensitive, handles aliases)
+    ///
+    /// For languages with version support (like Ruby), returns the default version.
+    /// This is used for parsing the ENABLED_LANGUAGES environment variable.
     fn parse_language(s: &str) -> Option<SupportedLanguages> {
         match s.trim().to_lowercase().as_str() {
             "python" => Some(SupportedLanguages::Python),
@@ -292,8 +295,8 @@ impl ContainerOrchestrator {
             "java" => Some(SupportedLanguages::Java),
             "go" => Some(SupportedLanguages::Golang),
             "php" => Some(SupportedLanguages::PHP),
-            "ruby" => Some(SupportedLanguages::Ruby3_4_4),
-            "ruby-sorbet" | "sorbet" => Some(SupportedLanguages::RubySorbet3_4_4),
+            "ruby" => Some(SupportedLanguages::ruby_default()),
+            "ruby-sorbet" | "sorbet" => Some(SupportedLanguages::ruby_sorbet_default()),
             _ => None,
         }
     }
@@ -973,11 +976,11 @@ mod tests {
         );
         assert_eq!(
             ContainerOrchestrator::parse_language("ruby-sorbet"),
-            Some(SupportedLanguages::RubySorbet3_4_4)
+            Some(SupportedLanguages::ruby_sorbet_default())
         );
         assert_eq!(
             ContainerOrchestrator::parse_language("sorbet"),
-            Some(SupportedLanguages::RubySorbet3_4_4)
+            Some(SupportedLanguages::ruby_sorbet_default())
         );
 
         // Test invalid language

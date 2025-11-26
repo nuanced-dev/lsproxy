@@ -1,0 +1,74 @@
+[
+  {
+    "file_range": {
+      "path": "lib/fizz_buzz.rb",
+      "range": {
+        "end": {
+          "character": 3,
+          "line": 22
+        },
+        "start": {
+          "character": 0,
+          "line": 2
+        }
+      }
+    },
+    "identifier_position": {
+      "path": "lib/fizz_buzz.rb",
+      "position": {
+        "character": 7,
+        "line": 2
+      }
+    },
+    "kind": "module",
+    "name": "FizzBuzz"
+  },
+  {
+    "file_range": {
+      "path": "lib/fizz_buzz.rb",
+      "range": {
+        "end": {
+          "character": 5,
+          "line": 21
+        },
+        "start": {
+          "character": 0,
+          "line": 19
+        }
+      }
+    },
+    "identifier_position": {
+      "path": "lib/fizz_buzz.rb",
+      "position": {
+        "character": 11,
+        "line": 19
+      }
+    },
+    "kind": "method",
+    "name": "series"
+  },
+  {
+    "file_range": {
+      "path": "lib/fizz_buzz.rb",
+      "range": {
+        "end": {
+          "character": 5,
+          "line": 16
+        },
+        "start": {
+          "character": 0,
+          "line": 6
+        }
+      }
+    },
+    "identifier_position": {
+      "path": "lib/fizz_buzz.rb",
+      "position": {
+        "character": 11,
+        "line": 6
+      }
+    },
+    "kind": "method",
+    "name": "value"
+  }
+]

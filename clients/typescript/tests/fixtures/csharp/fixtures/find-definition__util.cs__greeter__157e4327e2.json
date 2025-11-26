@@ -1,0 +1,61 @@
+{
+  "raw_response": [
+    {
+      "range": {
+        "end": {
+          "character": 31,
+          "line": 3
+        },
+        "start": {
+          "character": 24,
+          "line": 3
+        }
+      },
+      "uri": "file:///mnt/workspace/Util.cs"
+    }
+  ],
+  "definitions": [
+    {
+      "path": "Util.cs",
+      "position": {
+        "line": 3,
+        "character": 24
+      }
+    }
+  ],
+  "source_code_context": [
+    {
+      "range": {
+        "path": "Util.cs",
+        "range": {
+          "start": {
+            "line": 3,
+            "character": 4
+          },
+          "end": {
+            "line": 5,
+            "character": 5
+          }
+        }
+      },
+      "source_code": "public sealed class Greeter(string name) {\n        public string Greet() => $\"Hello, {name}!\";\n    }"
+    }
+  ],
+  "selected_identifier": {
+    "name": "Greeter",
+    "file_range": {
+      "path": "Util.cs",
+      "range": {
+        "start": {
+          "line": 3,
+          "character": 24
+        },
+        "end": {
+          "line": 3,
+          "character": 31
+        }
+      }
+    },
+    "kind": null
+  }
+}

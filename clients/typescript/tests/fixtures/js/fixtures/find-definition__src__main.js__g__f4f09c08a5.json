@@ -1,0 +1,61 @@
+{
+  "definitions": [
+    {
+      "path": "src/main.js",
+      "position": {
+        "character": 6,
+        "line": 4
+      }
+    }
+  ],
+  "raw_response": [
+    {
+      "range": {
+        "end": {
+          "character": 7,
+          "line": 4
+        },
+        "start": {
+          "character": 6,
+          "line": 4
+        }
+      },
+      "uri": "file:///mnt/workspace/src/main.js"
+    }
+  ],
+  "selected_identifier": {
+    "file_range": {
+      "path": "src/main.js",
+      "range": {
+        "end": {
+          "character": 7,
+          "line": 4
+        },
+        "start": {
+          "character": 6,
+          "line": 4
+        }
+      }
+    },
+    "kind": null,
+    "name": "g"
+  },
+  "source_code_context": [
+    {
+      "range": {
+        "path": "src/main.js",
+        "range": {
+          "end": {
+            "character": 32,
+            "line": 4
+          },
+          "start": {
+            "character": 6,
+            "line": 4
+          }
+        }
+      },
+      "source_code": "g = new Greeter(\"Nuanced\")"
+    }
+  ]
+}
