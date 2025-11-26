@@ -1,6 +1,6 @@
 use common::api_types::{LanguageVariant, SupportedLanguages, DEFAULT_RUBY_VERSION};
 use common::utils::ruby_utils::{
-    extract_ruby_version_from_file, has_sorbet_config, has_sorbet_type_annotation,
+    extract_ruby_version_from_file, find_sorbet_config_dir, has_sorbet_type_annotation,
 };
 use common::utils::workspace_documents::*;
 use std::collections::HashSet;
@@ -35,6 +35,7 @@ pub struct RubyManager {
     gemfile_version: Option<String>,   // Version from Gemfile (fallback)
     regular_files: Vec<PathBuf>,
     sorbet_files: Vec<PathBuf>,
+    sorbet_config_dir: Option<PathBuf>, // Directory containing sorbet/config (for Sorbet variant)
     manifest_patterns: HashSet<String>,
     source_patterns: HashSet<String>,
 }
@@ -55,6 +56,7 @@ impl RubyManager {
             gemfile_version: None,
             regular_files: Vec::new(),
             sorbet_files: Vec::new(),
+            sorbet_config_dir: None,
             manifest_patterns,
             source_patterns,
         }
@@ -120,8 +122,21 @@ impl LanguageManager for RubyManager {
         else if self.is_source(file_path) {
             // Categorize into regular or Sorbet bucket based on type annotations AND sorbet/config existence
             // Only use Sorbet if BOTH conditions are met to prevent spawning broken containers
-            if has_sorbet_type_annotation(file_path) && has_sorbet_config(file_path) {
-                self.sorbet_files.push(file_path.to_owned());
+            if has_sorbet_type_annotation(file_path) {
+                if let Some(config_dir) = find_sorbet_config_dir(file_path) {
+                    // Store the first sorbet config dir found (they should all be the same for a project)
+                    if self.sorbet_config_dir.is_none() {
+                        log::debug!(
+                            "Found Sorbet config dir: {}",
+                            config_dir.display()
+                        );
+                        self.sorbet_config_dir = Some(config_dir);
+                    }
+                    self.sorbet_files.push(file_path.to_owned());
+                } else {
+                    // Has type annotation but no sorbet/config - treat as regular Ruby
+                    self.regular_files.push(file_path.to_owned());
+                }
             } else {
                 self.regular_files.push(file_path.to_owned());
             }
@@ -166,11 +181,16 @@ impl LanguageManager for RubyManager {
         }
 
         if !self.sorbet_files.is_empty() {
-            let lang = SupportedLanguages::ruby(version, LanguageVariant::Sorbet);
+            let lang = SupportedLanguages::ruby_with_config(
+                version,
+                LanguageVariant::Sorbet,
+                self.sorbet_config_dir.clone(),
+            );
             log::info!(
-                "Found {} Sorbet Ruby files, will spawn {:?}",
+                "Found {} Sorbet Ruby files, will spawn {:?} (config dir: {:?})",
                 self.sorbet_files.len(),
-                lang
+                lang,
+                self.sorbet_config_dir
             );
             langs.push(lang);
         }

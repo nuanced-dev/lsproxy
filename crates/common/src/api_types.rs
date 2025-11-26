@@ -166,6 +166,11 @@ pub enum SupportedLanguages {
     Ruby {
         version: LanguageVersion,
         variant: LanguageVariant,
+        /// For Sorbet variant: the directory containing sorbet/config (relative to workspace root)
+        /// This is used to pass --dir to Sorbet so it can find its config in nested projects
+        /// This field is runtime-only and not exposed in the API schema
+        #[schema(value_type = Option<String>)]
+        sorbet_config_dir: Option<PathBuf>,
     },
 }
 
@@ -178,6 +183,20 @@ impl SupportedLanguages {
         SupportedLanguages::Ruby {
             version: LanguageVersion::new(version),
             variant,
+            sorbet_config_dir: None,
+        }
+    }
+
+    /// Create a Ruby language with version, variant, and optional Sorbet config directory
+    pub fn ruby_with_config(
+        version: impl Into<String>,
+        variant: LanguageVariant,
+        sorbet_config_dir: Option<PathBuf>,
+    ) -> Self {
+        SupportedLanguages::Ruby {
+            version: LanguageVersion::new(version),
+            variant,
+            sorbet_config_dir,
         }
     }
 
@@ -200,6 +219,23 @@ impl SupportedLanguages {
     /// # Returns
     /// Ruby language with appropriate version and variant
     pub fn from_ruby_version(version: &str, is_sorbet: bool) -> Self {
+        Self::from_ruby_version_with_config(version, is_sorbet, None)
+    }
+
+    /// Convert a Ruby version string, Sorbet flag, and optional config dir to the appropriate language
+    ///
+    /// # Arguments
+    /// * `version` - Version string (e.g., "3.4.4", "3.3.6", "3.4")
+    /// * `is_sorbet` - Whether this is a Sorbet-enabled Ruby project
+    /// * `sorbet_config_dir` - For Sorbet projects, the directory containing sorbet/config
+    ///
+    /// # Returns
+    /// Ruby language with appropriate version, variant, and config
+    pub fn from_ruby_version_with_config(
+        version: &str,
+        is_sorbet: bool,
+        sorbet_config_dir: Option<PathBuf>,
+    ) -> Self {
         let normalized = version.trim();
         let variant = if is_sorbet {
             LanguageVariant::Sorbet
@@ -213,6 +249,7 @@ impl SupportedLanguages {
         SupportedLanguages::Ruby {
             version: LanguageVersion::new(resolved_version),
             variant,
+            sorbet_config_dir,
         }
     }
 
@@ -310,6 +347,17 @@ impl SupportedLanguages {
             _ => None,
         }
     }
+
+    /// Get Sorbet config directory if this is a Ruby Sorbet language with a config dir
+    pub fn sorbet_config_dir(&self) -> Option<&PathBuf> {
+        match self {
+            SupportedLanguages::Ruby {
+                sorbet_config_dir: Some(dir),
+                ..
+            } => Some(dir),
+            _ => None,
+        }
+    }
 }
 
 // Manual implementations for PartialEq, Eq, and Hash to properly compare Ruby variants
@@ -330,10 +378,12 @@ impl PartialEq for SupportedLanguages {
                 SupportedLanguages::Ruby {
                     version: v1,
                     variant: var1,
+                    ..
                 },
                 SupportedLanguages::Ruby {
                     version: v2,
                     variant: var2,
+                    ..
                 },
             ) => v1 == v2 && var1 == var2,
             _ => false,
@@ -355,7 +405,7 @@ impl Hash for SupportedLanguages {
             SupportedLanguages::Java => 5u8.hash(state),
             SupportedLanguages::Golang => 6u8.hash(state),
             SupportedLanguages::PHP => 7u8.hash(state),
-            SupportedLanguages::Ruby { version, variant } => {
+            SupportedLanguages::Ruby { version, variant, .. } => {
                 8u8.hash(state);
                 version.hash(state);
                 variant.hash(state);
@@ -375,7 +425,7 @@ impl fmt::Display for SupportedLanguages {
             SupportedLanguages::Java => write!(f, "java"),
             SupportedLanguages::Golang => write!(f, "golang"),
             SupportedLanguages::PHP => write!(f, "php"),
-            SupportedLanguages::Ruby { version, variant } => match variant {
+            SupportedLanguages::Ruby { version, variant, .. } => match variant {
                 LanguageVariant::Standard => write!(f, "ruby_{}", version.0.replace('.', "_")),
                 LanguageVariant::Sorbet => {
                     write!(f, "ruby_sorbet_{}", version.0.replace('.', "_"))
@@ -401,7 +451,7 @@ impl Serialize for SupportedLanguages {
             SupportedLanguages::Java => "java".to_string(),
             SupportedLanguages::Golang => "golang".to_string(),
             SupportedLanguages::PHP => "php".to_string(),
-            SupportedLanguages::Ruby { version, variant } => match variant {
+            SupportedLanguages::Ruby { version, variant, .. } => match variant {
                 LanguageVariant::Standard => format!("ruby_{}", version.0.replace('.', "_")),
                 LanguageVariant::Sorbet => format!("ruby_sorbet_{}", version.0.replace('.', "_")),
             },
@@ -433,12 +483,14 @@ impl<'de> Deserialize<'de> for SupportedLanguages {
                     Ok(SupportedLanguages::Ruby {
                         version: LanguageVersion::new(version),
                         variant: LanguageVariant::Sorbet,
+                        sorbet_config_dir: None,
                     })
                 } else if let Some(version_part) = other.strip_prefix("ruby_") {
                     let version = version_part.replace('_', ".");
                     Ok(SupportedLanguages::Ruby {
                         version: LanguageVersion::new(version),
                         variant: LanguageVariant::Standard,
+                        sorbet_config_dir: None,
                     })
                 } else {
                     Err(serde::de::Error::custom(format!(
