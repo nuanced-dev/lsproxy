@@ -43,7 +43,7 @@ echo "   language-container-version: $LANGUAGE_CONTAINER_VERSION"
 
 # Build (this updates package.json version and generates version.ts)
 echo "🔨 Running build..."
-bun run build
+npm run build
 
 read_package_metadata
 
@@ -89,12 +89,11 @@ cleanup() {
     rm -rf "$archive_dir"
 }
 trap cleanup EXIT
-archive_file="$archive_dir/nuanced-dev-$unscoped_package_name-$package_version.tgz"
-bun pm pack --filename "$archive_file"
+archive_file="$(npm pack --pack-destination "$archive_dir" | tail -1)"
 
 # Publish to npm
 echo "🚀 Publishing to npm..."
-bun publish "$archive_file"
+npm publish
 
 # Create GitHub release
 echo "📝 Creating GitHub release..."

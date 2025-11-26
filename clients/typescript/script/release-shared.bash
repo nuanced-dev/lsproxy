@@ -11,7 +11,7 @@ is_semver() {
 
 check_required_commands() {
     echo "Checking required commands..."
-    for cmd in bun gh git node; do
+    for cmd in gh git node npm; do
         if ! command -v "$cmd" &> /dev/null; then
             die "$cmd is not installed or not in PATH"
         fi
@@ -22,7 +22,6 @@ read_package_metadata() {
     echo "Reading package metadata..."
     package_name="$(node -p "require('./package.json').name")"
     package_version="$(node -p "require('./package.json').version")"
-    unscoped_package_name="${package_name#*/}"
     echo "Package: $package_name@$package_version"
 }
 
