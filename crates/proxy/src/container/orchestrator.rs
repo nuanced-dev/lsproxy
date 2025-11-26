@@ -127,9 +127,13 @@ impl ContainerOrchestrator {
 
         // Pass through all environment variables from parent process
         // This ensures LSP containers inherit configuration like RUST_LOG, custom settings, etc.
-        let env: Vec<String> = std::env::vars()
+        let mut env: Vec<String> = std::env::vars()
             .map(|(key, value)| format!("{}={}", key, value))
             .collect();
+
+        // Add Ruby-specific env vars to avoid bundler version mismatch issues
+        // This is harmless for non-Ruby containers
+        env.push("BUNDLE_DISABLE_VERSION_CHECK=true".to_string());
 
         // Label containers with parent ID for watchdog cleanup (use short form consistently)
         let mut labels = HashMap::new();
