@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
-use common::api_types::SupportedLanguages;
+use common::api_types::{LanguageVariant, SupportedLanguages};
 
 pub mod http_client;
 pub mod language_manager;
@@ -29,13 +29,46 @@ pub const WATCHDOG_IMAGE_BASE: &str = "nuanced-lsp-watchdog";
 /// Container registry for published images
 pub const CONTAINER_REGISTRY: &str = "ghcr.io/nuanced-dev";
 
-/// Get Rust container version from environment or use default
-pub fn rust_image_version() -> String {
-    std::env::var("RUST_IMAGE_VERSION")
-        .unwrap_or_else(|_| DEFAULT_RUST_IMAGE_VERSION.to_string())
+/// Get language image base name
+///
+/// Language container images follow the naming convention:
+/// - Non-Ruby: nuanced-lsp-{language}
+/// - Ruby: nuanced-lsp-ruby-{ruby_version}
+/// - Ruby Sorbet: nuanced-lsp-ruby-sorbet-{ruby_version}
+pub fn language_image_base(language: &SupportedLanguages) -> String {
+    match language {
+        SupportedLanguages::Golang => format!("nuanced-lsp-golang"),
+        SupportedLanguages::Python => format!("nuanced-lsp-python"),
+        SupportedLanguages::TypeScriptJavaScript => {
+            format!("nuanced-lsp-typescript")
+        }
+        SupportedLanguages::Rust => format!("nuanced-lsp-rust"),
+        SupportedLanguages::CPP => format!("nuanced-lsp-clangd"),
+        SupportedLanguages::Java => format!("nuanced-lsp-java"),
+        SupportedLanguages::PHP => format!("nuanced-lsp-php"),
+        SupportedLanguages::CSharp => format!("nuanced-lsp-csharp"),
+        SupportedLanguages::Ruby {
+            version, variant, ..
+        } => {
+            let ruby_version = version.as_str();
+            match variant {
+                LanguageVariant::Standard => {
+                    format!("nuanced-lsp-ruby-{}", ruby_version)
+                }
+                LanguageVariant::Sorbet => {
+                    format!("nuanced-lsp-ruby-sorbet-{}", ruby_version)
+                }
+            }
+        }
+    }
 }
 
-/// Get language container version from environment or use default
+/// Get Rust image version from environment or use default
+pub fn rust_image_version() -> String {
+    std::env::var("RUST_IMAGE_VERSION").unwrap_or_else(|_| DEFAULT_RUST_IMAGE_VERSION.to_string())
+}
+
+/// Get language image version from environment or use default
 pub fn language_image_version() -> String {
     std::env::var("LANGUAGE_IMAGE_VERSION")
         .unwrap_or_else(|_| DEFAULT_LANGUAGE_IMAGE_VERSION.to_string())
@@ -55,6 +88,14 @@ pub fn wrapper_image() -> String {
 pub fn watchdog_image() -> String {
     std::env::var("WATCHDOG_IMAGE")
         .unwrap_or_else(|_| format!("{}:{}", WATCHDOG_IMAGE_BASE, rust_image_version()))
+}
+
+pub fn language_image(language: &SupportedLanguages) -> String {
+    format!(
+        "{}:{}",
+        language_image_base(language),
+        language_image_version()
+    )
 }
 
 pub fn proxy_image_ghcr() -> String {
@@ -85,14 +126,12 @@ pub fn wrapper_image_ghcr() -> String {
 }
 
 pub fn language_image_ghcr(language: &SupportedLanguages) -> String {
-    let base_name = ContainerOrchestrator::image_name_for_language(language);
-    // image_name_for_language returns "nuanced-lsp-<lang>:version", we need "ghcr.io/nuanced-dev/nuanced-lsp-<lang>:version"
-    let parts: Vec<&str> = base_name.split(':').collect();
-    if parts.len() == 2 {
-        format!("{}/{}:{}", CONTAINER_REGISTRY, parts[0], parts[1])
-    } else {
-        base_name
-    }
+    format!(
+        "{}/{}:{}",
+        CONTAINER_REGISTRY,
+        language_image_base(language),
+        language_image_version()
+    )
 }
 
 pub use http_client::ContainerHttpClient;

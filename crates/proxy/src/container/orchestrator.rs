@@ -1,3 +1,5 @@
+use crate::container::language_image;
+
 use super::{ContainerHealthStatus, ContainerInfo, ContainerOrchestrator, OrchestratorError};
 use bollard::container::{Config, CreateContainerOptions};
 use bollard::models::{HostConfig, PortBinding};
@@ -64,7 +66,7 @@ impl ContainerOrchestrator {
         let wrapper_container_id = self.ensure_wrapper_container().await?;
         log::debug!("Using wrapper container: {}", wrapper_container_id);
 
-        let image_name = Self::image_name_for_language(&language);
+        let image_name = language_image(&language);
         let container_name = format!(
             "nuanced-lsp-{}-{}",
             Self::language_slug(&language),
@@ -397,47 +399,6 @@ impl ContainerOrchestrator {
         }
     }
 
-    /// Get the Docker image name for a language
-    ///
-    /// Language container images follow the naming convention:
-    /// - Non-Ruby: nuanced-lsp-{language}:{container_version}
-    /// - Ruby: nuanced-lsp-ruby-{ruby_version}:{container_version}
-    /// - Ruby Sorbet: nuanced-lsp-ruby-sorbet-{ruby_version}:{container_version}
-    ///
-    /// Container version can be overridden via LANGUAGE_IMAGE_VERSION environment variable.
-    /// Ruby language version is detected from the workspace (.ruby-version or Gemfile).
-    pub fn image_name_for_language(language: &SupportedLanguages) -> String {
-        use super::language_image_version;
-        let container_version = language_image_version();
-
-        match language {
-            SupportedLanguages::Golang => format!("nuanced-lsp-golang:{}", container_version),
-            SupportedLanguages::Python => format!("nuanced-lsp-python:{}", container_version),
-            SupportedLanguages::TypeScriptJavaScript => {
-                format!("nuanced-lsp-typescript:{}", container_version)
-            }
-            SupportedLanguages::Rust => format!("nuanced-lsp-rust:{}", container_version),
-            SupportedLanguages::CPP => format!("nuanced-lsp-clangd:{}", container_version),
-            SupportedLanguages::Java => format!("nuanced-lsp-java:{}", container_version),
-            SupportedLanguages::PHP => format!("nuanced-lsp-php:{}", container_version),
-            SupportedLanguages::CSharp => format!("nuanced-lsp-csharp:{}", container_version),
-            SupportedLanguages::Ruby { version, variant, .. } => {
-                let ruby_version = version.as_str();
-                match variant {
-                    LanguageVariant::Standard => {
-                        format!("nuanced-lsp-ruby-{}:{}", ruby_version, container_version)
-                    }
-                    LanguageVariant::Sorbet => {
-                        format!(
-                            "nuanced-lsp-ruby-sorbet-{}:{}",
-                            ruby_version, container_version
-                        )
-                    }
-                }
-            }
-        }
-    }
-
     /// Get a URL-safe slug for a language
     ///
     /// Used for container naming to create unique, identifiable container names.
@@ -451,7 +412,9 @@ impl ContainerOrchestrator {
             SupportedLanguages::Java => "java".to_string(),
             SupportedLanguages::PHP => "php".to_string(),
             SupportedLanguages::CSharp => "csharp".to_string(),
-            SupportedLanguages::Ruby { version, variant, .. } => {
+            SupportedLanguages::Ruby {
+                version, variant, ..
+            } => {
                 let ruby_version = version.as_str();
                 match variant {
                     LanguageVariant::Standard => format!("ruby-{}", ruby_version),
@@ -464,12 +427,17 @@ impl ContainerOrchestrator {
 
 #[cfg(test)]
 mod tests {
+    use crate::container::language_image;
+
     use super::*;
 
-    // These tests are for the ochestrator and the specific language versions are not important.
-    // Therefore we use published images so we don't rely on local state for which images are available.
-    const GOLANG_IMAGE: &str = "ghcr.io/nuanced-dev/nuanced-lsp-golang:1.0.0";
-    const PYTHON_IMAGE: &str = "ghcr.io/nuanced-dev/nuanced-lsp-python:1.0.0";
+    fn test_golang_image() -> String {
+        language_image(&SupportedLanguages::Golang)
+    }
+
+    fn test_python_image() -> String {
+        language_image(&SupportedLanguages::Python)
+    }
 
     // Unit tests - these don't require Docker
 
@@ -479,58 +447,53 @@ mod tests {
         let version = language_image_version();
 
         assert_eq!(
-            ContainerOrchestrator::image_name_for_language(&SupportedLanguages::Golang),
+            language_image(&SupportedLanguages::Golang),
             format!("nuanced-lsp-golang:{}", version)
         );
         assert_eq!(
-            ContainerOrchestrator::image_name_for_language(&SupportedLanguages::Python),
+            language_image(&SupportedLanguages::Python),
             format!("nuanced-lsp-python:{}", version)
         );
         assert_eq!(
-            ContainerOrchestrator::image_name_for_language(
-                &SupportedLanguages::TypeScriptJavaScript
-            ),
+            language_image(&SupportedLanguages::TypeScriptJavaScript),
             format!("nuanced-lsp-typescript:{}", version)
         );
         assert_eq!(
-            ContainerOrchestrator::image_name_for_language(&SupportedLanguages::ruby(
+            language_image(&SupportedLanguages::ruby(
                 "3.4.4",
                 LanguageVariant::Standard
             )),
             format!("nuanced-lsp-ruby-3.4.4:{}", version)
         );
         assert_eq!(
-            ContainerOrchestrator::image_name_for_language(&SupportedLanguages::ruby(
+            language_image(&SupportedLanguages::ruby(
                 "3.3.6",
                 LanguageVariant::Standard
             )),
             format!("nuanced-lsp-ruby-3.3.6:{}", version)
         );
         assert_eq!(
-            ContainerOrchestrator::image_name_for_language(&SupportedLanguages::ruby(
-                "3.4.4",
-                LanguageVariant::Sorbet
-            )),
+            language_image(&SupportedLanguages::ruby("3.4.4", LanguageVariant::Sorbet)),
             format!("nuanced-lsp-ruby-sorbet-3.4.4:{}", version)
         );
         assert_eq!(
-            ContainerOrchestrator::image_name_for_language(&SupportedLanguages::Rust),
+            language_image(&SupportedLanguages::Rust),
             format!("nuanced-lsp-rust:{}", version)
         );
         assert_eq!(
-            ContainerOrchestrator::image_name_for_language(&SupportedLanguages::CPP),
+            language_image(&SupportedLanguages::CPP),
             format!("nuanced-lsp-clangd:{}", version)
         );
         assert_eq!(
-            ContainerOrchestrator::image_name_for_language(&SupportedLanguages::Java),
+            language_image(&SupportedLanguages::Java),
             format!("nuanced-lsp-java:{}", version)
         );
         assert_eq!(
-            ContainerOrchestrator::image_name_for_language(&SupportedLanguages::PHP),
+            language_image(&SupportedLanguages::PHP),
             format!("nuanced-lsp-php:{}", version)
         );
         assert_eq!(
-            ContainerOrchestrator::image_name_for_language(&SupportedLanguages::CSharp),
+            language_image(&SupportedLanguages::CSharp),
             format!("nuanced-lsp-csharp:{}", version)
         );
     }
@@ -608,7 +571,7 @@ mod tests {
         // Store a container
         let info = ContainerInfo {
             container_id: "test-123".to_string(),
-            image_name: PYTHON_IMAGE.to_string(),
+            image_name: test_python_image(),
             port: 8080,
             endpoint: "http://0.0.0.0:8080".to_string(),
         };
@@ -633,7 +596,7 @@ mod tests {
 
         let info = ContainerInfo {
             container_id: "test-456".to_string(),
-            image_name: GOLANG_IMAGE.to_string(),
+            image_name: test_golang_image(),
             port: 8081,
             endpoint: "http://0.0.0.0:8081".to_string(),
         };
@@ -672,13 +635,13 @@ mod tests {
         // Add two containers
         let info1 = ContainerInfo {
             container_id: "test-1".to_string(),
-            image_name: PYTHON_IMAGE.to_string(),
+            image_name: test_python_image(),
             port: 8080,
             endpoint: "http://0.0.0.0:8080".to_string(),
         };
         let info2 = ContainerInfo {
             container_id: "test-2".to_string(),
-            image_name: GOLANG_IMAGE.to_string(),
+            image_name: test_golang_image(),
             port: 8081,
             endpoint: "http://0.0.0.0:8081".to_string(),
         };
@@ -704,7 +667,7 @@ mod tests {
         // Pre-populate with a "container"
         let existing_info = ContainerInfo {
             container_id: "existing-123".to_string(),
-            image_name: PYTHON_IMAGE.to_string(),
+            image_name: test_python_image(),
             port: 9000,
             endpoint: "http://0.0.0.0:9000".to_string(),
         };
