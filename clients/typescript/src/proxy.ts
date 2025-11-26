@@ -254,7 +254,7 @@ export async function up(
     "-e",
     "USE_AUTH=false",
     "-e",
-    `RUST_LOG=info${debug ? ",lsproxy=debug,lsp_wrapper=debug" : ""}`,
+    `RUST_LOG=info${debug ? ",nuanced-lsp-proxy=debug,nuanced-lsp-wrapper=debug" : ""}`,
     "-e",
     `WATCHDOG_IMAGE=${watchdogImage}`,
     "-e",
