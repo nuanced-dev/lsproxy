@@ -1,0 +1,86 @@
+{
+  "external_symbols": [
+    {
+      "file_range": {
+        "path": "src/main.ts",
+        "range": {
+          "end": {
+            "character": 25,
+            "line": 5
+          },
+          "start": {
+            "character": 21,
+            "line": 5
+          }
+        }
+      },
+      "kind": "component-render",
+      "name": "from"
+    },
+    {
+      "file_range": {
+        "path": "src/main.ts",
+        "range": {
+          "end": {
+            "character": 25,
+            "line": 5
+          },
+          "start": {
+            "character": 21,
+            "line": 5
+          }
+        }
+      },
+      "kind": "function-call",
+      "name": "from"
+    }
+  ],
+  "not_found": [],
+  "workspace_symbols": [
+    {
+      "definitions": [
+        {
+          "file_range": {
+            "path": "src/fizzbuzz.ts",
+            "range": {
+              "end": {
+                "character": 1,
+                "line": 5
+              },
+              "start": {
+                "character": 0,
+                "line": 0
+              }
+            }
+          },
+          "identifier_position": {
+            "path": "src/fizzbuzz.ts",
+            "position": {
+              "character": 16,
+              "line": 0
+            }
+          },
+          "kind": "function",
+          "name": "fizzbuzz"
+        }
+      ],
+      "reference": {
+        "file_range": {
+          "path": "src/main.ts",
+          "range": {
+            "end": {
+              "character": 60,
+              "line": 5
+            },
+            "start": {
+              "character": 52,
+              "line": 5
+            }
+          }
+        },
+        "kind": "function-call",
+        "name": "fizzbuzz"
+      }
+    }
+  ]
+}

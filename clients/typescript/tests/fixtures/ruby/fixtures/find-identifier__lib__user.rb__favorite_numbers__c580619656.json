@@ -1,0 +1,55 @@
+{
+  "identifiers": [
+    {
+      "file_range": {
+        "path": "lib/user.rb",
+        "range": {
+          "end": {
+            "character": 39,
+            "line": 10
+          },
+          "start": {
+            "character": 23,
+            "line": 10
+          }
+        }
+      },
+      "kind": null,
+      "name": "favorite_numbers"
+    },
+    {
+      "file_range": {
+        "path": "lib/user.rb",
+        "range": {
+          "end": {
+            "character": 40,
+            "line": 12
+          },
+          "start": {
+            "character": 24,
+            "line": 12
+          }
+        }
+      },
+      "kind": null,
+      "name": "favorite_numbers"
+    },
+    {
+      "file_range": {
+        "path": "lib/user.rb",
+        "range": {
+          "end": {
+            "character": 22,
+            "line": 16
+          },
+          "start": {
+            "character": 6,
+            "line": 16
+          }
+        }
+      },
+      "kind": null,
+      "name": "favorite_numbers"
+    }
+  ]
+}

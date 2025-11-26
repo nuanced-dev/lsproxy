@@ -1,0 +1,61 @@
+{
+  "raw_response": [
+    {
+      "range": {
+        "end": {
+          "character": 20,
+          "line": 4
+        },
+        "start": {
+          "character": 16,
+          "line": 4
+        }
+      },
+      "uri": "file:///mnt/workspace/Program.cs"
+    }
+  ],
+  "definitions": [
+    {
+      "path": "Program.cs",
+      "position": {
+        "line": 4,
+        "character": 16
+      }
+    }
+  ],
+  "source_code_context": [
+    {
+      "range": {
+        "path": "Program.cs",
+        "range": {
+          "start": {
+            "line": 4,
+            "character": 4
+          },
+          "end": {
+            "line": 9,
+            "character": 5
+          }
+        }
+      },
+      "source_code": "static void Main() {\n        var total = Util.Add(2, 3);\n        var g = new Util.Greeter(\"Nuanced\");\n        var series = Enumerable.Range(1, 20).Select(FizzBuzz.Of).ToArray();\n        Console.WriteLine($\"{total} {g.Greet()} [{string.Join(\", \", series)}]\");\n    }"
+    }
+  ],
+  "selected_identifier": {
+    "name": "Main",
+    "file_range": {
+      "path": "Program.cs",
+      "range": {
+        "start": {
+          "line": 4,
+          "character": 16
+        },
+        "end": {
+          "line": 4,
+          "character": 20
+        }
+      }
+    },
+    "kind": null
+  }
+}

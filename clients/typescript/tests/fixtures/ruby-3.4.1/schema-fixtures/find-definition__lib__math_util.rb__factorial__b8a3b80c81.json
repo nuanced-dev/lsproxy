@@ -1,0 +1,36 @@
+{
+  "definitions": [
+    {
+      "path": "lib/math_util.rb",
+      "position": {
+        "line": 13,
+        "character": 4
+      }
+    },
+    {
+      "path": "math_util.rb",
+      "position": {
+        "line": 13,
+        "character": 4
+      }
+    }
+  ],
+  "selected_identifier": {
+    "file_range": {
+      "path": "lib/math_util.rb",
+      "range": {
+        "start": {
+          "line": 13,
+          "character": 13
+        },
+        "end": {
+          "line": 13,
+          "character": 22
+        }
+      }
+    },
+    "kind": null,
+    "name": "factorial"
+  },
+  "source_code_context": null
+}

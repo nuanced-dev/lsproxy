@@ -1,0 +1,46 @@
+{
+  "definitions": [
+    {
+      "path": "src/util.js",
+      "position": {
+        "line": 0,
+        "character": 16
+      }
+    }
+  ],
+  "selected_identifier": {
+    "file_range": {
+      "path": "src/util.js",
+      "range": {
+        "start": {
+          "line": 0,
+          "character": 16
+        },
+        "end": {
+          "line": 0,
+          "character": 19
+        }
+      }
+    },
+    "kind": null,
+    "name": "add"
+  },
+  "source_code_context": [
+    {
+      "file_range": {
+        "path": "src/util.js",
+        "range": {
+          "start": {
+            "line": 0,
+            "character": 7
+          },
+          "end": {
+            "line": 2,
+            "character": 1
+          }
+        }
+      },
+      "source_code": "function add(a, b) {\n  return a + b;\n}"
+    }
+  ]
+}

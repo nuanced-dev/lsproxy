@@ -1,0 +1,50 @@
+[
+  {
+    "file_range": {
+      "path": "app/util.py",
+      "range": {
+        "start": {
+          "line": 0,
+          "character": 0
+        },
+        "end": {
+          "line": 1,
+          "character": 20
+        }
+      }
+    },
+    "identifier_position": {
+      "path": "app/util.py",
+      "position": {
+        "line": 0,
+        "character": 4
+      }
+    },
+    "kind": "function",
+    "name": "repeat"
+  },
+  {
+    "file_range": {
+      "path": "app/util.py",
+      "range": {
+        "start": {
+          "line": 4,
+          "character": 0
+        },
+        "end": {
+          "line": 5,
+          "character": 39
+        }
+      }
+    },
+    "identifier_position": {
+      "path": "app/util.py",
+      "position": {
+        "line": 4,
+        "character": 4
+      }
+    },
+    "kind": "function",
+    "name": "greet"
+  }
+]

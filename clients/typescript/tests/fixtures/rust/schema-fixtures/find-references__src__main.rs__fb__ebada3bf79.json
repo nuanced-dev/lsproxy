@@ -1,0 +1,46 @@
+{
+  "references": [
+    {
+      "path": "src/main.rs",
+      "position": {
+        "line": 19,
+        "character": 7
+      }
+    }
+  ],
+  "selected_identifier": {
+    "file_range": {
+      "path": "src/main.rs",
+      "range": {
+        "start": {
+          "line": 19,
+          "character": 7
+        },
+        "end": {
+          "line": 19,
+          "character": 9
+        }
+      }
+    },
+    "kind": null,
+    "name": "fb"
+  },
+  "context": [
+    {
+      "file_range": {
+        "path": "src/main.rs",
+        "range": {
+          "start": {
+            "line": 19,
+            "character": 0
+          },
+          "end": {
+            "line": 19,
+            "character": 0
+          }
+        }
+      },
+      "source_code": ""
+    }
+  ]
+}

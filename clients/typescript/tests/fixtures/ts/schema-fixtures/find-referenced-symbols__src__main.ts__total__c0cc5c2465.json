@@ -1,0 +1,51 @@
+{
+  "external_symbols": [],
+  "not_found": [],
+  "workspace_symbols": [
+    {
+      "reference": {
+        "file_range": {
+          "path": "src/main.ts",
+          "range": {
+            "start": {
+              "line": 3,
+              "character": 14
+            },
+            "end": {
+              "line": 3,
+              "character": 17
+            }
+          }
+        },
+        "kind": "function-call",
+        "name": "add"
+      },
+      "definitions": [
+        {
+          "file_range": {
+            "path": "src/util.ts",
+            "range": {
+              "start": {
+                "line": 0,
+                "character": 0
+              },
+              "end": {
+                "line": 0,
+                "character": 67
+              }
+            }
+          },
+          "identifier_position": {
+            "path": "src/util.ts",
+            "position": {
+              "line": 0,
+              "character": 16
+            }
+          },
+          "kind": "function",
+          "name": "add"
+        }
+      ]
+    }
+  ]
+}

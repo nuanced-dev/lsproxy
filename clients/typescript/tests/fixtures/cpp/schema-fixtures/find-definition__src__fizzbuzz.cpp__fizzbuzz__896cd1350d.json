@@ -1,0 +1,46 @@
+{
+  "definitions": [
+    {
+      "path": "src/fizzbuzz.hpp",
+      "position": {
+        "line": 2,
+        "character": 12
+      }
+    }
+  ],
+  "selected_identifier": {
+    "file_range": {
+      "path": "src/fizzbuzz.cpp",
+      "range": {
+        "start": {
+          "line": 3,
+          "character": 12
+        },
+        "end": {
+          "line": 3,
+          "character": 20
+        }
+      }
+    },
+    "kind": null,
+    "name": "fizzbuzz"
+  },
+  "source_code_context": [
+    {
+      "file_range": {
+        "path": "src/fizzbuzz.hpp",
+        "range": {
+          "start": {
+            "line": 2,
+            "character": 0
+          },
+          "end": {
+            "line": 2,
+            "character": 28
+          }
+        }
+      },
+      "source_code": "std::string fizzbuzz(int n);"
+    }
+  ]
+}

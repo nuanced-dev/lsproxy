@@ -140,8 +140,49 @@ impl ContainerOrchestrator {
             self.instance_id_short().clone(),
         );
 
+        // Build CMD override for Sorbet containers with a config directory
+        // Sorbet reads sorbet/config which contains "--dir ." (current directory).
+        // We need to change the working directory so "." resolves to the right place.
+        let cmd = if let Some(sorbet_dir) = language.sorbet_config_dir() {
+            // The sorbet_dir could be either:
+            // 1. A container path (starts with /mnt/workspace) - use directly
+            // 2. A host path - strip mount_source prefix and prepend /mnt/workspace
+            let container_sorbet_path = if sorbet_dir.starts_with("/mnt/workspace") {
+                // Already a container path, use as-is
+                sorbet_dir.display().to_string()
+            } else {
+                // Host path - compute relative path and convert to container path
+                let relative_path = sorbet_dir
+                    .strip_prefix(&mount_source)
+                    .unwrap_or(sorbet_dir.as_path());
+                format!("/mnt/workspace/{}", relative_path.display())
+            };
+
+            log::info!(
+                "Sorbet container will run from {} (original: {}, workspace: {})",
+                container_sorbet_path,
+                sorbet_dir.display(),
+                mount_source
+            );
+
+            // Use shell to cd to the correct directory before running srb
+            // This ensures sorbet/config's "--dir ." resolves correctly
+            Some(vec![
+                "--lsp-command".to_string(),
+                "sh".to_string(),
+                "--lsp-arg=-c".to_string(),
+                format!(
+                    "--lsp-arg=cd {} && exec srb tc --lsp --disable-watchman",
+                    container_sorbet_path
+                ),
+            ])
+        } else {
+            None
+        };
+
         let config = Config {
             image: Some(image_name.clone()),
+            cmd,
             env: Some(env),
             host_config: Some(host_config),
             labels: Some(labels),
@@ -376,7 +417,7 @@ impl ContainerOrchestrator {
             SupportedLanguages::Java => format!("nuanced-lsp-java:{}", container_version),
             SupportedLanguages::PHP => format!("nuanced-lsp-php:{}", container_version),
             SupportedLanguages::CSharp => format!("nuanced-lsp-csharp:{}", container_version),
-            SupportedLanguages::Ruby { version, variant } => {
+            SupportedLanguages::Ruby { version, variant, .. } => {
                 let ruby_version = version.as_str();
                 match variant {
                     LanguageVariant::Standard => {
@@ -406,7 +447,7 @@ impl ContainerOrchestrator {
             SupportedLanguages::Java => "java".to_string(),
             SupportedLanguages::PHP => "php".to_string(),
             SupportedLanguages::CSharp => "csharp".to_string(),
-            SupportedLanguages::Ruby { version, variant } => {
+            SupportedLanguages::Ruby { version, variant, .. } => {
                 let ruby_version = version.as_str();
                 match variant {
                     LanguageVariant::Standard => format!("ruby-{}", ruby_version),

@@ -1,0 +1,61 @@
+{
+  "definitions": [
+    {
+      "path": "src/main/java/com/nuanced/Util.java",
+      "position": {
+        "character": 18,
+        "line": 8
+      }
+    }
+  ],
+  "raw_response": [
+    {
+      "range": {
+        "end": {
+          "character": 23,
+          "line": 8
+        },
+        "start": {
+          "character": 18,
+          "line": 8
+        }
+      },
+      "uri": "file:///mnt/workspace/src/main/java/com/nuanced/Util.java"
+    }
+  ],
+  "selected_identifier": {
+    "file_range": {
+      "path": "src/main/java/com/nuanced/Util.java",
+      "range": {
+        "end": {
+          "character": 23,
+          "line": 8
+        },
+        "start": {
+          "character": 18,
+          "line": 8
+        }
+      }
+    },
+    "kind": null,
+    "name": "greet"
+  },
+  "source_code_context": [
+    {
+      "range": {
+        "path": "src/main/java/com/nuanced/Util.java",
+        "range": {
+          "end": {
+            "character": 60,
+            "line": 8
+          },
+          "start": {
+            "character": 4,
+            "line": 8
+          }
+        }
+      },
+      "source_code": "public String greet() { return \"Hello, \" + name + \"!\"; }"
+    }
+  ]
+}

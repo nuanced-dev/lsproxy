@@ -1,0 +1,97 @@
+{
+  "context": [
+    {
+      "range": {
+        "path": "lib/greeter.rb",
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 9
+          },
+          "start": {
+            "character": 0,
+            "line": 9
+          }
+        }
+      },
+      "source_code": ""
+    },
+    {
+      "range": {
+        "path": "lib/user.rb",
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 10
+          },
+          "start": {
+            "character": 0,
+            "line": 10
+          }
+        }
+      },
+      "source_code": ""
+    }
+  ],
+  "raw_response": [
+    {
+      "range": {
+        "end": {
+          "character": 16,
+          "line": 9
+        },
+        "start": {
+          "character": 6,
+          "line": 9
+        }
+      },
+      "uri": "file:///mnt/workspace/lib/greeter.rb"
+    },
+    {
+      "range": {
+        "end": {
+          "character": 16,
+          "line": 10
+        },
+        "start": {
+          "character": 6,
+          "line": 10
+        }
+      },
+      "uri": "file:///mnt/workspace/lib/user.rb"
+    }
+  ],
+  "references": [
+    {
+      "path": "lib/greeter.rb",
+      "position": {
+        "character": 6,
+        "line": 9
+      }
+    },
+    {
+      "path": "lib/user.rb",
+      "position": {
+        "character": 6,
+        "line": 10
+      }
+    }
+  ],
+  "selected_identifier": {
+    "file_range": {
+      "path": "lib/greeter.rb",
+      "range": {
+        "end": {
+          "character": 16,
+          "line": 9
+        },
+        "start": {
+          "character": 6,
+          "line": 9
+        }
+      }
+    },
+    "kind": null,
+    "name": "initialize"
+  }
+}

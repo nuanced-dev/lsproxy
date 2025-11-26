@@ -1,0 +1,133 @@
+{
+  "context": [
+    {
+      "range": {
+        "path": "src/fizzbuzz.ts",
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        }
+      },
+      "source_code": ""
+    },
+    {
+      "range": {
+        "path": "src/main.ts",
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        }
+      },
+      "source_code": ""
+    },
+    {
+      "range": {
+        "path": "src/main.ts",
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 5
+          },
+          "start": {
+            "character": 0,
+            "line": 5
+          }
+        }
+      },
+      "source_code": ""
+    }
+  ],
+  "raw_response": [
+    {
+      "range": {
+        "end": {
+          "character": 24,
+          "line": 0
+        },
+        "start": {
+          "character": 16,
+          "line": 0
+        }
+      },
+      "uri": "file:///mnt/workspace/src/fizzbuzz.ts"
+    },
+    {
+      "range": {
+        "end": {
+          "character": 17,
+          "line": 0
+        },
+        "start": {
+          "character": 9,
+          "line": 0
+        }
+      },
+      "uri": "file:///mnt/workspace/src/main.ts"
+    },
+    {
+      "range": {
+        "end": {
+          "character": 60,
+          "line": 5
+        },
+        "start": {
+          "character": 52,
+          "line": 5
+        }
+      },
+      "uri": "file:///mnt/workspace/src/main.ts"
+    }
+  ],
+  "references": [
+    {
+      "path": "src/fizzbuzz.ts",
+      "position": {
+        "character": 16,
+        "line": 0
+      }
+    },
+    {
+      "path": "src/main.ts",
+      "position": {
+        "character": 9,
+        "line": 0
+      }
+    },
+    {
+      "path": "src/main.ts",
+      "position": {
+        "character": 52,
+        "line": 5
+      }
+    }
+  ],
+  "selected_identifier": {
+    "file_range": {
+      "path": "src/fizzbuzz.ts",
+      "range": {
+        "end": {
+          "character": 24,
+          "line": 0
+        },
+        "start": {
+          "character": 16,
+          "line": 0
+        }
+      }
+    },
+    "kind": null,
+    "name": "fizzbuzz"
+  }
+}

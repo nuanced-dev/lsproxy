@@ -1,0 +1,46 @@
+{
+  "references": [
+    {
+      "path": "Program.cs",
+      "position": {
+        "line": 4,
+        "character": 16
+      }
+    }
+  ],
+  "selected_identifier": {
+    "file_range": {
+      "path": "Program.cs",
+      "range": {
+        "start": {
+          "line": 4,
+          "character": 16
+        },
+        "end": {
+          "line": 4,
+          "character": 20
+        }
+      }
+    },
+    "kind": null,
+    "name": "Main"
+  },
+  "context": [
+    {
+      "file_range": {
+        "path": "Program.cs",
+        "range": {
+          "start": {
+            "line": 4,
+            "character": 0
+          },
+          "end": {
+            "line": 4,
+            "character": 0
+          }
+        }
+      },
+      "source_code": ""
+    }
+  ]
+}

@@ -1,0 +1,46 @@
+{
+  "definitions": [
+    {
+      "path": "lib/user.rb",
+      "position": {
+        "line": 2,
+        "character": 0
+      }
+    }
+  ],
+  "selected_identifier": {
+    "file_range": {
+      "path": "lib/user.rb",
+      "range": {
+        "start": {
+          "line": 2,
+          "character": 6
+        },
+        "end": {
+          "line": 2,
+          "character": 10
+        }
+      }
+    },
+    "kind": null,
+    "name": "User"
+  },
+  "source_code_context": [
+    {
+      "file_range": {
+        "path": "lib/user.rb",
+        "range": {
+          "start": {
+            "line": 0,
+            "character": 0
+          },
+          "end": {
+            "line": 26,
+            "character": 0
+          }
+        }
+      },
+      "source_code": "# frozen_string_literal: true\n\nclass User\n  extend T::Sig\n\n  sig { returns(String) }\n  attr_reader :name\n\n  sig { params(name: String, favorite_numbers: T::Array[Integer]).void }\n  def initialize(name, favorite_numbers: [])\n    @name = name\n    @favorite_numbers = favorite_numbers\n  end\n\n  sig { returns(T::Array[Integer]) }\n  def favorite_numbers\n    @favorite_numbers.dup\n  end\n\n  sig { params(n: Integer).returns(T::Boolean) }\n  def likes?(n)\n    @favorite_numbers.include?(n)\n  end\n"
+    }
+  ]
+}

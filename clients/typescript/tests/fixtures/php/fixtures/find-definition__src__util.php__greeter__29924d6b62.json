@@ -1,0 +1,59 @@
+{
+  "raw_response": {
+    "range": {
+      "end": {
+        "character": 1,
+        "line": 9
+      },
+      "start": {
+        "character": 0,
+        "line": 5
+      }
+    },
+    "uri": "file:///mnt/workspace/src/Util.php"
+  },
+  "definitions": [
+    {
+      "path": "src/Util.php",
+      "position": {
+        "line": 5,
+        "character": 0
+      }
+    }
+  ],
+  "source_code_context": [
+    {
+      "range": {
+        "path": "src/Util.php",
+        "range": {
+          "start": {
+            "line": 2,
+            "character": 0
+          },
+          "end": {
+            "line": 12,
+            "character": 0
+          }
+        }
+      },
+      "source_code": "\nfunction add(int $a, int $b): int { return $a + $b; }\n\nfinal class Greeter {\n  private string $name;\n  public function __construct(string $name) { $this->name = $name; }\n  public function greet(): string { return \"Hello, {$this->name}!\"; }\n"
+    }
+  ],
+  "selected_identifier": {
+    "name": "Greeter",
+    "file_range": {
+      "path": "src/Util.php",
+      "range": {
+        "start": {
+          "line": 5,
+          "character": 12
+        },
+        "end": {
+          "line": 5,
+          "character": 19
+        }
+      }
+    },
+    "kind": null
+  }
+}

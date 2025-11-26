@@ -1,0 +1,98 @@
+[
+  {
+    "file_range": {
+      "path": "src/util.js",
+      "range": {
+        "end": {
+          "character": 1,
+          "line": 2
+        },
+        "start": {
+          "character": 0,
+          "line": 0
+        }
+      }
+    },
+    "identifier_position": {
+      "path": "src/util.js",
+      "position": {
+        "character": 16,
+        "line": 0
+      }
+    },
+    "kind": "function",
+    "name": "add"
+  },
+  {
+    "file_range": {
+      "path": "src/util.js",
+      "range": {
+        "end": {
+          "character": 3,
+          "line": 7
+        },
+        "start": {
+          "character": 0,
+          "line": 5
+        }
+      }
+    },
+    "identifier_position": {
+      "path": "src/util.js",
+      "position": {
+        "character": 2,
+        "line": 5
+      }
+    },
+    "kind": "method",
+    "name": "constructor"
+  },
+  {
+    "file_range": {
+      "path": "src/util.js",
+      "range": {
+        "end": {
+          "character": 3,
+          "line": 10
+        },
+        "start": {
+          "character": 0,
+          "line": 8
+        }
+      }
+    },
+    "identifier_position": {
+      "path": "src/util.js",
+      "position": {
+        "character": 2,
+        "line": 8
+      }
+    },
+    "kind": "method",
+    "name": "greet"
+  },
+  {
+    "file_range": {
+      "path": "src/util.js",
+      "range": {
+        "end": {
+          "character": 1,
+          "line": 11
+        },
+        "start": {
+          "character": 0,
+          "line": 4
+        }
+      }
+    },
+    "identifier_position": {
+      "path": "src/util.js",
+      "position": {
+        "character": 13,
+        "line": 4
+      }
+    },
+    "kind": "class",
+    "name": "Greeter"
+  }
+]

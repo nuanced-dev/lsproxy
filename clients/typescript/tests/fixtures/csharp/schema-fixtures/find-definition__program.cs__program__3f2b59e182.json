@@ -1,0 +1,92 @@
+{
+  "definitions": [
+    {
+      "path": "Program.cs",
+      "position": {
+        "line": 0,
+        "character": 0
+      }
+    },
+    {
+      "path": "Program.cs",
+      "position": {
+        "line": 3,
+        "character": 6
+      }
+    },
+    {
+      "path": "Program.cs",
+      "position": {
+        "line": 12,
+        "character": 6
+      }
+    }
+  ],
+  "selected_identifier": {
+    "file_range": {
+      "path": "Program.cs",
+      "range": {
+        "start": {
+          "line": 3,
+          "character": 6
+        },
+        "end": {
+          "line": 3,
+          "character": 13
+        }
+      }
+    },
+    "kind": null,
+    "name": "Program"
+  },
+  "source_code_context": [
+    {
+      "file_range": {
+        "path": "Program.cs",
+        "range": {
+          "start": {
+            "line": 0,
+            "character": 0
+          },
+          "end": {
+            "line": 3,
+            "character": 0
+          }
+        }
+      },
+      "source_code": "uusing System;\nusing System.Linq;\n\n"
+    },
+    {
+      "file_range": {
+        "path": "Program.cs",
+        "range": {
+          "start": {
+            "line": 3,
+            "character": 0
+          },
+          "end": {
+            "line": 10,
+            "character": 1
+          }
+        }
+      },
+      "source_code": "class Program {\n    static void Main() {\n        var total = Util.Add(2, 3);\n        var g = new Util.Greeter(\"Nuanced\");\n        var series = Enumerable.Range(1, 20).Select(FizzBuzz.Of).ToArray();\n        Console.WriteLine($\"{total} {g.Greet()} [{string.Join(\", \", series)}]\");\n    }\n}"
+    },
+    {
+      "file_range": {
+        "path": "Program.cs",
+        "range": {
+          "start": {
+            "line": 12,
+            "character": 0
+          },
+          "end": {
+            "line": 29,
+            "character": 1
+          }
+        }
+      },
+      "source_code": "class Program {\n    static string FizzBuzz(int n) {\n        if (n % 15 == 0) return \"fizzbuzz\";\n        if (n % 3 == 0) return \"fizz\";\n        if (n % 5 == 0) return \"buzz\";\n        return n.ToString();\n    }\n\n    static string Repeat(string s, int times) {\n        return new String(s[0], times) + s.Substring(1); // simple repeat\n    }\n\n    static void Main(string[] args) {\n        for (int i = 1; i <= 15; i++) {\n            Console.WriteLine(FizzBuzz(i));\n        }\n    }\n}"
+    }
+  ]
+}

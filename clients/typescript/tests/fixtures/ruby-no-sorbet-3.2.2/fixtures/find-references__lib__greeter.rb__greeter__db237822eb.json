@@ -1,0 +1,61 @@
+{
+  "context": [
+    {
+      "range": {
+        "path": "lib/greeter.rb",
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 4
+          },
+          "start": {
+            "character": 0,
+            "line": 4
+          }
+        }
+      },
+      "source_code": ""
+    }
+  ],
+  "raw_response": [
+    {
+      "range": {
+        "end": {
+          "character": 13,
+          "line": 4
+        },
+        "start": {
+          "character": 6,
+          "line": 4
+        }
+      },
+      "uri": "file:///mnt/workspace/lib/greeter.rb"
+    }
+  ],
+  "references": [
+    {
+      "path": "lib/greeter.rb",
+      "position": {
+        "character": 6,
+        "line": 4
+      }
+    }
+  ],
+  "selected_identifier": {
+    "file_range": {
+      "path": "lib/greeter.rb",
+      "range": {
+        "end": {
+          "character": 13,
+          "line": 4
+        },
+        "start": {
+          "character": 6,
+          "line": 4
+        }
+      }
+    },
+    "kind": null,
+    "name": "Greeter"
+  }
+}

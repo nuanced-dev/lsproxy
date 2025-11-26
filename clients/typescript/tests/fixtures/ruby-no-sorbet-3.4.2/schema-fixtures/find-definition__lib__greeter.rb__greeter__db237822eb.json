@@ -1,0 +1,46 @@
+{
+  "definitions": [
+    {
+      "path": "lib/greeter.rb",
+      "position": {
+        "line": 4,
+        "character": 0
+      }
+    }
+  ],
+  "selected_identifier": {
+    "file_range": {
+      "path": "lib/greeter.rb",
+      "range": {
+        "start": {
+          "line": 4,
+          "character": 6
+        },
+        "end": {
+          "line": 4,
+          "character": 13
+        }
+      }
+    },
+    "kind": null,
+    "name": "Greeter"
+  },
+  "source_code_context": [
+    {
+      "file_range": {
+        "path": "lib/greeter.rb",
+        "range": {
+          "start": {
+            "line": 1,
+            "character": 0
+          },
+          "end": {
+            "line": 20,
+            "character": 0
+          }
+        }
+      },
+      "source_code": "\nrequire_relative \"fizz_buzz\"\n\nclass Greeter\n  extend T::Sig\n\n  sig { params(name: String).void }\n  def initialize(name)\n    @name = name\n  end\n\n  sig { returns(String) }\n  def hello\n    series = FizzBuzz.series(5).join(\", \")\n    \"Hello, #{@name}! Here's some FizzBuzz: #{series}\"\n  end\n"
+    }
+  ]
+}

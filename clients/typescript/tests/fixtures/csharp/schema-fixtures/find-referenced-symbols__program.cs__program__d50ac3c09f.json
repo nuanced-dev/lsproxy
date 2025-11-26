@@ -1,0 +1,120 @@
+{
+  "external_symbols": [
+    {
+      "file_range": {
+        "path": "Program.cs",
+        "range": {
+          "start": {
+            "line": 17,
+            "character": 17
+          },
+          "end": {
+            "line": 17,
+            "character": 25
+          }
+        }
+      },
+      "kind": "function-call",
+      "name": "ToString"
+    },
+    {
+      "file_range": {
+        "path": "Program.cs",
+        "range": {
+          "start": {
+            "line": 21,
+            "character": 19
+          },
+          "end": {
+            "line": 21,
+            "character": 25
+          }
+        }
+      },
+      "kind": "class-instantiation",
+      "name": "String"
+    },
+    {
+      "file_range": {
+        "path": "Program.cs",
+        "range": {
+          "start": {
+            "line": 21,
+            "character": 43
+          },
+          "end": {
+            "line": 21,
+            "character": 52
+          }
+        }
+      },
+      "kind": "function-call",
+      "name": "Substring"
+    },
+    {
+      "file_range": {
+        "path": "Program.cs",
+        "range": {
+          "start": {
+            "line": 26,
+            "character": 20
+          },
+          "end": {
+            "line": 26,
+            "character": 29
+          }
+        }
+      },
+      "kind": "function-call",
+      "name": "WriteLine"
+    }
+  ],
+  "not_found": [],
+  "workspace_symbols": [
+    {
+      "reference": {
+        "file_range": {
+          "path": "Program.cs",
+          "range": {
+            "start": {
+              "line": 26,
+              "character": 30
+            },
+            "end": {
+              "line": 26,
+              "character": 38
+            }
+          }
+        },
+        "kind": "function-call",
+        "name": "FizzBuzz"
+      },
+      "definitions": [
+        {
+          "file_range": {
+            "path": "Program.cs",
+            "range": {
+              "start": {
+                "line": 13,
+                "character": 0
+              },
+              "end": {
+                "line": 18,
+                "character": 5
+              }
+            }
+          },
+          "identifier_position": {
+            "path": "Program.cs",
+            "position": {
+              "line": 13,
+              "character": 18
+            }
+          },
+          "kind": "method",
+          "name": "FizzBuzz"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "definitions": [],
+  "selected_identifier": {
+    "file_range": {
+      "path": "lib/user.rb",
+      "range": {
+        "start": {
+          "line": 9,
+          "character": 6
+        },
+        "end": {
+          "line": 9,
+          "character": 16
+        }
+      }
+    },
+    "kind": null,
+    "name": "initialize"
+  },
+  "source_code_context": []
+}

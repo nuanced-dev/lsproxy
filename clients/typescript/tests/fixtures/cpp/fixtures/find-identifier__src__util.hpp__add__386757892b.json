@@ -1,0 +1,21 @@
+{
+  "identifiers": [
+    {
+      "name": "add",
+      "file_range": {
+        "path": "src/util.hpp",
+        "range": {
+          "start": {
+            "line": 3,
+            "character": 4
+          },
+          "end": {
+            "line": 3,
+            "character": 7
+          }
+        }
+      },
+      "kind": null
+    }
+  ]
+}

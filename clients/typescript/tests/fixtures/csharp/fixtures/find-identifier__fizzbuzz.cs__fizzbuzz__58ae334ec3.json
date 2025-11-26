@@ -1,0 +1,21 @@
+{
+  "identifiers": [
+    {
+      "name": "FizzBuzz",
+      "file_range": {
+        "path": "FizzBuzz.cs",
+        "range": {
+          "start": {
+            "line": 0,
+            "character": 13
+          },
+          "end": {
+            "line": 0,
+            "character": 21
+          }
+        }
+      },
+      "kind": null
+    }
+  ]
+}

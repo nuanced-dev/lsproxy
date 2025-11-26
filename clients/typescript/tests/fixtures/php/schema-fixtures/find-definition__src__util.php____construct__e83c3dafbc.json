@@ -1,0 +1,46 @@
+{
+  "definitions": [
+    {
+      "path": "src/Util.php",
+      "position": {
+        "line": 7,
+        "character": 2
+      }
+    }
+  ],
+  "selected_identifier": {
+    "file_range": {
+      "path": "src/Util.php",
+      "range": {
+        "start": {
+          "line": 7,
+          "character": 18
+        },
+        "end": {
+          "line": 7,
+          "character": 29
+        }
+      }
+    },
+    "kind": null,
+    "name": "__construct"
+  },
+  "source_code_context": [
+    {
+      "file_range": {
+        "path": "src/Util.php",
+        "range": {
+          "start": {
+            "line": 4,
+            "character": 0
+          },
+          "end": {
+            "line": 10,
+            "character": 0
+          }
+        }
+      },
+      "source_code": "\nfinal class Greeter {\n  private string $name;\n  public function __construct(string $name) { $this->name = $name; }\n  public function greet(): string { return \"Hello, {$this->name}!\"; }\n"
+    }
+  ]
+}

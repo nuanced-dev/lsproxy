@@ -1,0 +1,46 @@
+{
+  "definitions": [
+    {
+      "path": "src/main.rs",
+      "position": {
+        "line": 19,
+        "character": 7
+      }
+    }
+  ],
+  "selected_identifier": {
+    "file_range": {
+      "path": "src/main.rs",
+      "range": {
+        "start": {
+          "line": 19,
+          "character": 7
+        },
+        "end": {
+          "line": 19,
+          "character": 9
+        }
+      }
+    },
+    "kind": null,
+    "name": "fb"
+  },
+  "source_code_context": [
+    {
+      "file_range": {
+        "path": "src/main.rs",
+        "range": {
+          "start": {
+            "line": 19,
+            "character": 4
+          },
+          "end": {
+            "line": 21,
+            "character": 5
+          }
+        }
+      },
+      "source_code": "fn fb() {\n        assert_eq!(fizzbuzz(15), \"fizzbuzz\");\n    }"
+    }
+  ]
+}

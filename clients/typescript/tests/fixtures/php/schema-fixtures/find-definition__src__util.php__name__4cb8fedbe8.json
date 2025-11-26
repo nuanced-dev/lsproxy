@@ -1,0 +1,46 @@
+{
+  "definitions": [
+    {
+      "path": "src/Util.php",
+      "position": {
+        "line": 6,
+        "character": 2
+      }
+    }
+  ],
+  "selected_identifier": {
+    "file_range": {
+      "path": "src/Util.php",
+      "range": {
+        "start": {
+          "line": 6,
+          "character": 18
+        },
+        "end": {
+          "line": 6,
+          "character": 22
+        }
+      }
+    },
+    "kind": null,
+    "name": "name"
+  },
+  "source_code_context": [
+    {
+      "file_range": {
+        "path": "src/Util.php",
+        "range": {
+          "start": {
+            "line": 3,
+            "character": 0
+          },
+          "end": {
+            "line": 9,
+            "character": 0
+          }
+        }
+      },
+      "source_code": "function add(int $a, int $b): int { return $a + $b; }\n\nfinal class Greeter {\n  private string $name;\n  public function __construct(string $name) { $this->name = $name; }\n  public function greet(): string { return \"Hello, {$this->name}!\"; }\n"
+    }
+  ]
+}

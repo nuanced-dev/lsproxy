@@ -1,21 +1,23 @@
 use log::debug;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
-/// Checks if a workspace has a valid Sorbet configuration.
+/// Finds the directory containing a valid Sorbet configuration.
 ///
-/// Returns true if a `sorbet/config` file exists in the workspace.
+/// Returns the path to the directory containing `sorbet/config` if found.
 /// Sorbet LSP requires this file to function - without it, Sorbet will exit with an error
 /// and cause a restart loop consuming 100% CPU.
-pub fn has_sorbet_config(file_path: &Path) -> bool {
-    // Walk up the directory tree to find workspace root (where sorbet/config would be)
+///
+/// Walks up the directory tree from the given file path looking for a `sorbet/config` file.
+pub fn find_sorbet_config_dir(file_path: &Path) -> Option<PathBuf> {
+    // Walk up the directory tree to find the directory containing sorbet/config
     let mut current = file_path;
     while let Some(parent) = current.parent() {
         let sorbet_config = parent.join("sorbet").join("config");
         if sorbet_config.exists() {
             debug!("Found sorbet/config at: {:?}", sorbet_config);
-            return true;
+            return Some(parent.to_path_buf());
         }
         current = parent;
 
@@ -24,7 +26,7 @@ pub fn has_sorbet_config(file_path: &Path) -> bool {
             break;
         }
     }
-    false
+    None
 }
 
 /// Checks if a Ruby file has Sorbet type annotations.

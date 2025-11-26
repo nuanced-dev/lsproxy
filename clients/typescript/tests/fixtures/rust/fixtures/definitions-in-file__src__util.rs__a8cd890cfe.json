@@ -1,0 +1,122 @@
+[
+  {
+    "file_range": {
+      "path": "src/util.rs",
+      "range": {
+        "end": {
+          "character": 1,
+          "line": 2
+        },
+        "start": {
+          "character": 0,
+          "line": 0
+        }
+      }
+    },
+    "identifier_position": {
+      "path": "src/util.rs",
+      "position": {
+        "character": 7,
+        "line": 0
+      }
+    },
+    "kind": "function",
+    "name": "add"
+  },
+  {
+    "file_range": {
+      "path": "src/util.rs",
+      "range": {
+        "end": {
+          "character": 5,
+          "line": 16
+        },
+        "start": {
+          "character": 0,
+          "line": 14
+        }
+      }
+    },
+    "identifier_position": {
+      "path": "src/util.rs",
+      "position": {
+        "character": 11,
+        "line": 14
+      }
+    },
+    "kind": "function",
+    "name": "greet"
+  },
+  {
+    "file_range": {
+      "path": "src/util.rs",
+      "range": {
+        "end": {
+          "character": 1,
+          "line": 6
+        },
+        "start": {
+          "character": 0,
+          "line": 4
+        }
+      }
+    },
+    "identifier_position": {
+      "path": "src/util.rs",
+      "position": {
+        "character": 11,
+        "line": 4
+      }
+    },
+    "kind": "struct",
+    "name": "Greeter"
+  },
+  {
+    "file_range": {
+      "path": "src/util.rs",
+      "range": {
+        "end": {
+          "character": 1,
+          "line": 17
+        },
+        "start": {
+          "character": 0,
+          "line": 8
+        }
+      }
+    },
+    "identifier_position": {
+      "path": "src/util.rs",
+      "position": {
+        "character": 5,
+        "line": 8
+      }
+    },
+    "kind": "implementation",
+    "name": "Greeter"
+  },
+  {
+    "file_range": {
+      "path": "src/util.rs",
+      "range": {
+        "end": {
+          "character": 5,
+          "line": 13
+        },
+        "start": {
+          "character": 0,
+          "line": 9
+        }
+      }
+    },
+    "identifier_position": {
+      "path": "src/util.rs",
+      "position": {
+        "character": 11,
+        "line": 9
+      }
+    },
+    "kind": "function",
+    "name": "new"
+  }
+]

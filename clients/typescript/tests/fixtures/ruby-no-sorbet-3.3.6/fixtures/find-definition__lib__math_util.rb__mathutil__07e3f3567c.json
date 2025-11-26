@@ -1,0 +1,71 @@
+{
+  "definitions": [
+    {
+      "path": "lib/math_util.rb",
+      "position": {
+        "character": 2,
+        "line": 3
+      }
+    }
+  ],
+  "raw_response": [
+    {
+      "targetRange": {
+        "end": {
+          "character": 5,
+          "line": 16
+        },
+        "start": {
+          "character": 2,
+          "line": 3
+        }
+      },
+      "targetSelectionRange": {
+        "end": {
+          "character": 17,
+          "line": 3
+        },
+        "start": {
+          "character": 9,
+          "line": 3
+        }
+      },
+      "targetUri": "file:///mnt/workspace/lib/math_util.rb"
+    }
+  ],
+  "selected_identifier": {
+    "file_range": {
+      "path": "lib/math_util.rb",
+      "range": {
+        "end": {
+          "character": 17,
+          "line": 3
+        },
+        "start": {
+          "character": 9,
+          "line": 3
+        }
+      }
+    },
+    "kind": null,
+    "name": "MathUtil"
+  },
+  "source_code_context": [
+    {
+      "range": {
+        "path": "lib/math_util.rb",
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 19
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        }
+      },
+      "source_code": "# frozen_string_literal: true\n\nmodule Utils\n  module MathUtil\n    extend T::Sig\n\n    sig { params(xs: T::Array[Integer]).returns(Integer) }\n    def self.sum(xs)\n      xs.reduce(0, :+)\n    end\n\n    sig { params(n: Integer).returns(Integer) }\n    def self.factorial(n)\n      raise ArgumentError, \"n must be >= 0\" if n.negative?\n      (1..n).reduce(1, :*)\n    end\n  end\n"
+    }
+  ]
+}

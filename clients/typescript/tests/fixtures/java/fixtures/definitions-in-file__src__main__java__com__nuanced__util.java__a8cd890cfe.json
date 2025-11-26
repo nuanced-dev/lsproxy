@@ -1,0 +1,98 @@
+[
+  {
+    "file_range": {
+      "path": "src/main/java/com/nuanced/Util.java",
+      "range": {
+        "end": {
+          "character": 55,
+          "line": 3
+        },
+        "start": {
+          "character": 0,
+          "line": 3
+        }
+      }
+    },
+    "identifier_position": {
+      "path": "src/main/java/com/nuanced/Util.java",
+      "position": {
+        "character": 20,
+        "line": 3
+      }
+    },
+    "kind": "method",
+    "name": "add"
+  },
+  {
+    "file_range": {
+      "path": "src/main/java/com/nuanced/Util.java",
+      "range": {
+        "end": {
+          "character": 60,
+          "line": 8
+        },
+        "start": {
+          "character": 0,
+          "line": 8
+        }
+      }
+    },
+    "identifier_position": {
+      "path": "src/main/java/com/nuanced/Util.java",
+      "position": {
+        "character": 18,
+        "line": 8
+      }
+    },
+    "kind": "method",
+    "name": "greet"
+  },
+  {
+    "file_range": {
+      "path": "src/main/java/com/nuanced/Util.java",
+      "range": {
+        "end": {
+          "character": 3,
+          "line": 9
+        },
+        "start": {
+          "character": 0,
+          "line": 5
+        }
+      }
+    },
+    "identifier_position": {
+      "path": "src/main/java/com/nuanced/Util.java",
+      "position": {
+        "character": 22,
+        "line": 5
+      }
+    },
+    "kind": "class",
+    "name": "Greeter"
+  },
+  {
+    "file_range": {
+      "path": "src/main/java/com/nuanced/Util.java",
+      "range": {
+        "end": {
+          "character": 1,
+          "line": 10
+        },
+        "start": {
+          "character": 0,
+          "line": 2
+        }
+      }
+    },
+    "identifier_position": {
+      "path": "src/main/java/com/nuanced/Util.java",
+      "position": {
+        "character": 19,
+        "line": 2
+      }
+    },
+    "kind": "class",
+    "name": "Util"
+  }
+]

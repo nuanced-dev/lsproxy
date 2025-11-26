@@ -1,0 +1,61 @@
+{
+  "raw_response": [
+    {
+      "range": {
+        "end": {
+          "character": 25,
+          "line": 1
+        },
+        "start": {
+          "character": 22,
+          "line": 1
+        }
+      },
+      "uri": "file:///mnt/workspace/Util.cs"
+    }
+  ],
+  "definitions": [
+    {
+      "path": "Util.cs",
+      "position": {
+        "line": 1,
+        "character": 22
+      }
+    }
+  ],
+  "source_code_context": [
+    {
+      "range": {
+        "path": "Util.cs",
+        "range": {
+          "start": {
+            "line": 1,
+            "character": 4
+          },
+          "end": {
+            "line": 1,
+            "character": 49
+          }
+        }
+      },
+      "source_code": "public static int Add(int a, int b) => a + b;"
+    }
+  ],
+  "selected_identifier": {
+    "name": "Add",
+    "file_range": {
+      "path": "Util.cs",
+      "range": {
+        "start": {
+          "line": 1,
+          "character": 22
+        },
+        "end": {
+          "line": 1,
+          "character": 25
+        }
+      }
+    },
+    "kind": null
+  }
+}

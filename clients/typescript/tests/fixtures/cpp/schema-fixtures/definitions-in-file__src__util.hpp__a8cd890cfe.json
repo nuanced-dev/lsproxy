@@ -1,0 +1,98 @@
+[
+  {
+    "file_range": {
+      "path": "src/util.hpp",
+      "range": {
+        "start": {
+          "line": 3,
+          "character": 0
+        },
+        "end": {
+          "line": 3,
+          "character": 22
+        }
+      }
+    },
+    "identifier_position": {
+      "path": "src/util.hpp",
+      "position": {
+        "line": 3,
+        "character": 4
+      }
+    },
+    "kind": "function-declaration",
+    "name": "add"
+  },
+  {
+    "file_range": {
+      "path": "src/util.hpp",
+      "range": {
+        "start": {
+          "line": 5,
+          "character": 0
+        },
+        "end": {
+          "line": 9,
+          "character": 1
+        }
+      }
+    },
+    "identifier_position": {
+      "path": "src/util.hpp",
+      "position": {
+        "line": 5,
+        "character": 7
+      }
+    },
+    "kind": "class",
+    "name": "Greeter"
+  },
+  {
+    "file_range": {
+      "path": "src/util.hpp",
+      "range": {
+        "start": {
+          "line": 7,
+          "character": 0
+        },
+        "end": {
+          "line": 7,
+          "character": 63
+        }
+      }
+    },
+    "identifier_position": {
+      "path": "src/util.hpp",
+      "position": {
+        "line": 7,
+        "character": 11
+      }
+    },
+    "kind": "function-definition",
+    "name": "Greeter"
+  },
+  {
+    "file_range": {
+      "path": "src/util.hpp",
+      "range": {
+        "start": {
+          "line": 8,
+          "character": 0
+        },
+        "end": {
+          "line": 8,
+          "character": 62
+        }
+      }
+    },
+    "identifier_position": {
+      "path": "src/util.hpp",
+      "position": {
+        "line": 8,
+        "character": 14
+      }
+    },
+    "kind": "function-definition",
+    "name": "greet"
+  }
+]

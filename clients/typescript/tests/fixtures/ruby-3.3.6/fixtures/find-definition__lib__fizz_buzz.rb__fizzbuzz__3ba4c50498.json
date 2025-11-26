@@ -1,0 +1,22 @@
+{
+  "definitions": [],
+  "raw_response": [],
+  "selected_identifier": {
+    "file_range": {
+      "path": "lib/fizz_buzz.rb",
+      "range": {
+        "end": {
+          "character": 15,
+          "line": 3
+        },
+        "start": {
+          "character": 7,
+          "line": 3
+        }
+      }
+    },
+    "kind": null,
+    "name": "FizzBuzz"
+  },
+  "source_code_context": []
+}

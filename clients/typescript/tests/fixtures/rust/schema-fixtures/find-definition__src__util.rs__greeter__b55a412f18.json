@@ -1,0 +1,46 @@
+{
+  "definitions": [
+    {
+      "path": "src/util.rs",
+      "position": {
+        "line": 4,
+        "character": 11
+      }
+    }
+  ],
+  "selected_identifier": {
+    "file_range": {
+      "path": "src/util.rs",
+      "range": {
+        "start": {
+          "line": 4,
+          "character": 11
+        },
+        "end": {
+          "line": 4,
+          "character": 18
+        }
+      }
+    },
+    "kind": null,
+    "name": "Greeter"
+  },
+  "source_code_context": [
+    {
+      "file_range": {
+        "path": "src/util.rs",
+        "range": {
+          "start": {
+            "line": 4,
+            "character": 0
+          },
+          "end": {
+            "line": 6,
+            "character": 1
+          }
+        }
+      },
+      "source_code": "pub struct Greeter {\n    pub name: String,\n}"
+    }
+  ]
+}

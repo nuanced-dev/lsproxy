@@ -1,0 +1,59 @@
+{
+  "raw_response": {
+    "range": {
+      "end": {
+        "character": 3,
+        "line": 9
+      },
+      "start": {
+        "character": 2,
+        "line": 4
+      }
+    },
+    "uri": "file:///mnt/workspace/src/FizzBuzz.php"
+  },
+  "definitions": [
+    {
+      "path": "src/FizzBuzz.php",
+      "position": {
+        "line": 4,
+        "character": 2
+      }
+    }
+  ],
+  "source_code_context": [
+    {
+      "range": {
+        "path": "src/FizzBuzz.php",
+        "range": {
+          "start": {
+            "line": 1,
+            "character": 0
+          },
+          "end": {
+            "line": 12,
+            "character": 0
+          }
+        }
+      },
+      "source_code": "namespace Nuanced;\n\nfinal class FizzBuzz {\n  public static function fizzbuzz(int $n): string {\n    if ($n % 15 === 0) return \"fizzbuzz\";\n    if ($n % 3 === 0) return \"fizz\";\n    if ($n % 5 === 0) return \"buzz\";\n    return strval($n);\n  }\n"
+    }
+  ],
+  "selected_identifier": {
+    "name": "fizzbuzz",
+    "file_range": {
+      "path": "src/FizzBuzz.php",
+      "range": {
+        "start": {
+          "line": 4,
+          "character": 25
+        },
+        "end": {
+          "line": 4,
+          "character": 33
+        }
+      }
+    },
+    "kind": null
+  }
+}

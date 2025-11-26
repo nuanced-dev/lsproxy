@@ -1,0 +1,61 @@
+{
+  "raw_response": [
+    {
+      "range": {
+        "end": {
+          "character": 27,
+          "line": 4
+        },
+        "start": {
+          "character": 22,
+          "line": 4
+        }
+      },
+      "uri": "file:///mnt/workspace/Util.cs"
+    }
+  ],
+  "definitions": [
+    {
+      "path": "Util.cs",
+      "position": {
+        "line": 4,
+        "character": 22
+      }
+    }
+  ],
+  "source_code_context": [
+    {
+      "range": {
+        "path": "Util.cs",
+        "range": {
+          "start": {
+            "line": 4,
+            "character": 8
+          },
+          "end": {
+            "line": 4,
+            "character": 51
+          }
+        }
+      },
+      "source_code": "public string Greet() => $\"Hello, {name}!\";"
+    }
+  ],
+  "selected_identifier": {
+    "name": "Greet",
+    "file_range": {
+      "path": "Util.cs",
+      "range": {
+        "start": {
+          "line": 4,
+          "character": 22
+        },
+        "end": {
+          "line": 4,
+          "character": 27
+        }
+      }
+    },
+    "kind": null
+  }
+}

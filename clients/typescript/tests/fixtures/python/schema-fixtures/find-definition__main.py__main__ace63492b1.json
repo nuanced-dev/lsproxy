@@ -1,0 +1,46 @@
+{
+  "definitions": [
+    {
+      "path": "main.py",
+      "position": {
+        "line": 4,
+        "character": 4
+      }
+    }
+  ],
+  "selected_identifier": {
+    "file_range": {
+      "path": "main.py",
+      "range": {
+        "start": {
+          "line": 4,
+          "character": 4
+        },
+        "end": {
+          "line": 4,
+          "character": 8
+        }
+      }
+    },
+    "kind": null,
+    "name": "main"
+  },
+  "source_code_context": [
+    {
+      "file_range": {
+        "path": "main.py",
+        "range": {
+          "start": {
+            "line": 4,
+            "character": 0
+          },
+          "end": {
+            "line": 5,
+            "character": 50
+          }
+        }
+      },
+      "source_code": "def main(n: int) -> list[str]:\n    return [fizz_buzz(i) for i in range(1, n + 1)]"
+    }
+  ]
+}

@@ -1,0 +1,46 @@
+{
+  "definitions": [
+    {
+      "path": "src/util.hpp",
+      "position": {
+        "line": 7,
+        "character": 11
+      }
+    }
+  ],
+  "selected_identifier": {
+    "file_range": {
+      "path": "src/util.hpp",
+      "range": {
+        "start": {
+          "line": 7,
+          "character": 11
+        },
+        "end": {
+          "line": 7,
+          "character": 18
+        }
+      }
+    },
+    "kind": null,
+    "name": "Greeter"
+  },
+  "source_code_context": [
+    {
+      "file_range": {
+        "path": "src/util.hpp",
+        "range": {
+          "start": {
+            "line": 7,
+            "character": 2
+          },
+          "end": {
+            "line": 7,
+            "character": 63
+          }
+        }
+      },
+      "source_code": "explicit Greeter(std::string name) : name(std::move(name)) {}"
+    }
+  ]
+}

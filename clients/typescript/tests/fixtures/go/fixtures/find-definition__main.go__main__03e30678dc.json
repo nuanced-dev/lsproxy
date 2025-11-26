@@ -1,0 +1,61 @@
+{
+  "definitions": [
+    {
+      "path": "main.go",
+      "position": {
+        "character": 5,
+        "line": 4
+      }
+    }
+  ],
+  "raw_response": [
+    {
+      "range": {
+        "end": {
+          "character": 9,
+          "line": 4
+        },
+        "start": {
+          "character": 5,
+          "line": 4
+        }
+      },
+      "uri": "file:///mnt/workspace/main.go"
+    }
+  ],
+  "selected_identifier": {
+    "file_range": {
+      "path": "main.go",
+      "range": {
+        "end": {
+          "character": 9,
+          "line": 4
+        },
+        "start": {
+          "character": 5,
+          "line": 4
+        }
+      }
+    },
+    "kind": null,
+    "name": "main"
+  },
+  "source_code_context": [
+    {
+      "range": {
+        "path": "main.go",
+        "range": {
+          "end": {
+            "character": 1,
+            "line": 12
+          },
+          "start": {
+            "character": 0,
+            "line": 4
+          }
+        }
+      },
+      "source_code": "func main() {\n\ttotal := Add(2, 3)\n\tg := Greeter{\"Nuanced\"}\n\tseries := make([]string, 0, 20)\n\tfor i := 1; i <= 20; i++ {\n\t\tseries = append(series, FizzBuzz(i))\n\t}\n\tfmt.Println(total, g.Greet(), series)\n}"
+    }
+  ]
+}

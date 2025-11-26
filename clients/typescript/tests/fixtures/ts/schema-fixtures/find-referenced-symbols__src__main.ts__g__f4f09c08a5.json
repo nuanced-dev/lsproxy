@@ -1,0 +1,75 @@
+{
+  "external_symbols": [],
+  "not_found": [],
+  "workspace_symbols": [
+    {
+      "reference": {
+        "file_range": {
+          "path": "src/main.ts",
+          "range": {
+            "start": {
+              "line": 4,
+              "character": 14
+            },
+            "end": {
+              "line": 4,
+              "character": 21
+            }
+          }
+        },
+        "kind": "class-instantiation",
+        "name": "Greeter"
+      },
+      "definitions": [
+        {
+          "file_range": {
+            "path": "src/util.ts",
+            "range": {
+              "start": {
+                "line": 2,
+                "character": 0
+              },
+              "end": {
+                "line": 5,
+                "character": 1
+              }
+            }
+          },
+          "identifier_position": {
+            "path": "src/util.ts",
+            "position": {
+              "line": 2,
+              "character": 13
+            }
+          },
+          "kind": "class",
+          "name": "Greeter"
+        },
+        {
+          "file_range": {
+            "path": "src/util.ts",
+            "range": {
+              "start": {
+                "line": 3,
+                "character": 0
+              },
+              "end": {
+                "line": 3,
+                "character": 37
+              }
+            }
+          },
+          "identifier_position": {
+            "path": "src/util.ts",
+            "position": {
+              "line": 3,
+              "character": 2
+            }
+          },
+          "kind": "method",
+          "name": "constructor"
+        }
+      ]
+    }
+  ]
+}

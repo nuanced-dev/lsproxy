@@ -1,0 +1,50 @@
+[
+  {
+    "file_range": {
+      "path": "src/main/java/com/nuanced/FizzBuzz.java",
+      "range": {
+        "end": {
+          "character": 1,
+          "line": 9
+        },
+        "start": {
+          "character": 0,
+          "line": 2
+        }
+      }
+    },
+    "identifier_position": {
+      "path": "src/main/java/com/nuanced/FizzBuzz.java",
+      "position": {
+        "character": 19,
+        "line": 2
+      }
+    },
+    "kind": "class",
+    "name": "FizzBuzz"
+  },
+  {
+    "file_range": {
+      "path": "src/main/java/com/nuanced/FizzBuzz.java",
+      "range": {
+        "end": {
+          "character": 3,
+          "line": 8
+        },
+        "start": {
+          "character": 0,
+          "line": 3
+        }
+      }
+    },
+    "identifier_position": {
+      "path": "src/main/java/com/nuanced/FizzBuzz.java",
+      "position": {
+        "character": 23,
+        "line": 3
+      }
+    },
+    "kind": "method",
+    "name": "fizzBuzz"
+  }
+]

@@ -1,0 +1,46 @@
+{
+  "references": [
+    {
+      "path": "lib/greeter.rb",
+      "position": {
+        "line": 4,
+        "character": 6
+      }
+    }
+  ],
+  "selected_identifier": {
+    "file_range": {
+      "path": "lib/greeter.rb",
+      "range": {
+        "start": {
+          "line": 4,
+          "character": 6
+        },
+        "end": {
+          "line": 4,
+          "character": 13
+        }
+      }
+    },
+    "kind": null,
+    "name": "Greeter"
+  },
+  "context": [
+    {
+      "file_range": {
+        "path": "lib/greeter.rb",
+        "range": {
+          "start": {
+            "line": 4,
+            "character": 0
+          },
+          "end": {
+            "line": 4,
+            "character": 0
+          }
+        }
+      },
+      "source_code": ""
+    }
+  ]
+}

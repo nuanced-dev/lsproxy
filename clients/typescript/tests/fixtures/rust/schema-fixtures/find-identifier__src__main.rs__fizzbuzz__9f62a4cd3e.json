@@ -1,0 +1,38 @@
+{
+  "identifiers": [
+    {
+      "file_range": {
+        "path": "src/main.rs",
+        "range": {
+          "start": {
+            "line": 3,
+            "character": 7
+          },
+          "end": {
+            "line": 3,
+            "character": 15
+          }
+        }
+      },
+      "kind": null,
+      "name": "fizzbuzz"
+    },
+    {
+      "file_range": {
+        "path": "src/main.rs",
+        "range": {
+          "start": {
+            "line": 20,
+            "character": 19
+          },
+          "end": {
+            "line": 20,
+            "character": 27
+          }
+        }
+      },
+      "kind": null,
+      "name": "fizzbuzz"
+    }
+  ]
+}

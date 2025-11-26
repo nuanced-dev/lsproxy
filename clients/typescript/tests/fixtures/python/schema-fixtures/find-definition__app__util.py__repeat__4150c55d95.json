@@ -1,0 +1,46 @@
+{
+  "definitions": [
+    {
+      "path": "app/util.py",
+      "position": {
+        "line": 0,
+        "character": 4
+      }
+    }
+  ],
+  "selected_identifier": {
+    "file_range": {
+      "path": "app/util.py",
+      "range": {
+        "start": {
+          "line": 0,
+          "character": 4
+        },
+        "end": {
+          "line": 0,
+          "character": 10
+        }
+      }
+    },
+    "kind": null,
+    "name": "repeat"
+  },
+  "source_code_context": [
+    {
+      "file_range": {
+        "path": "app/util.py",
+        "range": {
+          "start": {
+            "line": 0,
+            "character": 0
+          },
+          "end": {
+            "line": 1,
+            "character": 20
+          }
+        }
+      },
+      "source_code": "def repeat(s: str, times: int) -> str:\n    return s * times"
+    }
+  ]
+}

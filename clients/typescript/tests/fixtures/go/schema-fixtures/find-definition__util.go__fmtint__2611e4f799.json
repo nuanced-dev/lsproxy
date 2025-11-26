@@ -1,0 +1,46 @@
+{
+  "definitions": [
+    {
+      "path": "util.go",
+      "position": {
+        "line": 10,
+        "character": 5
+      }
+    }
+  ],
+  "selected_identifier": {
+    "file_range": {
+      "path": "util.go",
+      "range": {
+        "start": {
+          "line": 10,
+          "character": 5
+        },
+        "end": {
+          "line": 10,
+          "character": 11
+        }
+      }
+    },
+    "kind": null,
+    "name": "fmtInt"
+  },
+  "source_code_context": [
+    {
+      "file_range": {
+        "path": "util.go",
+        "range": {
+          "start": {
+            "line": 10,
+            "character": 0
+          },
+          "end": {
+            "line": 10,
+            "character": 57
+          }
+        }
+      },
+      "source_code": "func fmtInt(n int) string { return fmt.Sprintf(\"%d\", n) }"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "identifiers": [
+    {
+      "file_range": {
+        "path": "src/main/java/com/nuanced/App.java",
+        "range": {
+          "end": {
+            "character": 25,
+            "line": 5
+          },
+          "start": {
+            "character": 21,
+            "line": 5
+          }
+        }
+      },
+      "kind": null,
+      "name": "main"
+    }
+  ]
+}

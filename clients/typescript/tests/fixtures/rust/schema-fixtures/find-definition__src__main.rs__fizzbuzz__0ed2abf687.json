@@ -1,0 +1,46 @@
+{
+  "definitions": [
+    {
+      "path": "src/main.rs",
+      "position": {
+        "line": 3,
+        "character": 7
+      }
+    }
+  ],
+  "selected_identifier": {
+    "file_range": {
+      "path": "src/main.rs",
+      "range": {
+        "start": {
+          "line": 3,
+          "character": 7
+        },
+        "end": {
+          "line": 3,
+          "character": 15
+        }
+      }
+    },
+    "kind": null,
+    "name": "fizzbuzz"
+  },
+  "source_code_context": [
+    {
+      "file_range": {
+        "path": "src/main.rs",
+        "range": {
+          "start": {
+            "line": 3,
+            "character": 0
+          },
+          "end": {
+            "line": 13,
+            "character": 1
+          }
+        }
+      },
+      "source_code": "pub fn fizzbuzz(n: i32) -> String {\n    if n % 15 == 0 {\n        \"fizzbuzz\".into()\n    } else if n % 3 == 0 {\n        \"fizz\".into()\n    } else if n % 5 == 0 {\n        \"buzz\".into()\n    } else {\n        n.to_string()\n    }\n}"
+    }
+  ]
+}

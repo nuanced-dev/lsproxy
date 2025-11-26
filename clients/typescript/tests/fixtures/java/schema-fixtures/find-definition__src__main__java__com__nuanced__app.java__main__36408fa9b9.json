@@ -1,0 +1,46 @@
+{
+  "definitions": [
+    {
+      "path": "src/main/java/com/nuanced/App.java",
+      "position": {
+        "line": 5,
+        "character": 21
+      }
+    }
+  ],
+  "selected_identifier": {
+    "file_range": {
+      "path": "src/main/java/com/nuanced/App.java",
+      "range": {
+        "start": {
+          "line": 5,
+          "character": 21
+        },
+        "end": {
+          "line": 5,
+          "character": 25
+        }
+      }
+    },
+    "kind": null,
+    "name": "main"
+  },
+  "source_code_context": [
+    {
+      "file_range": {
+        "path": "src/main/java/com/nuanced/App.java",
+        "range": {
+          "start": {
+            "line": 5,
+            "character": 2
+          },
+          "end": {
+            "line": 11,
+            "character": 3
+          }
+        }
+      },
+      "source_code": "public static void main(String[] args) {\n    int total = Util.add(2, 3);\n    Util.Greeter g = new Util.Greeter(\"Nuanced\");\n    List<String> series = new ArrayList<>();\n    for (int i = 1; i <= 20; i++) series.add(FizzBuzz.fizzBuzz(i));\n    System.out.println(total + \" \" + g.greet() + \" \" + series);\n  }"
+    }
+  ]
+}

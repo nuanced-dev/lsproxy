@@ -1,0 +1,51 @@
+{
+  "external_symbols": [],
+  "not_found": [],
+  "workspace_symbols": [
+    {
+      "reference": {
+        "file_range": {
+          "path": "app/fizzbuzz.py",
+          "range": {
+            "start": {
+              "line": 7,
+              "character": 11
+            },
+            "end": {
+              "line": 7,
+              "character": 14
+            }
+          }
+        },
+        "kind": "function-call",
+        "name": "str"
+      },
+      "definitions": [
+        {
+          "file_range": {
+            "path": "/opt/jedi-venv/lib/python3.11/site-packages/jedi/third_party/typeshed/stdlib/3/builtins.pyi",
+            "range": {
+              "start": {
+                "line": 327,
+                "character": 0
+              },
+              "end": {
+                "line": 408,
+                "character": 47
+              }
+            }
+          },
+          "identifier_position": {
+            "path": "/opt/jedi-venv/lib/python3.11/site-packages/jedi/third_party/typeshed/stdlib/3/builtins.pyi",
+            "position": {
+              "line": 327,
+              "character": 6
+            }
+          },
+          "kind": "class",
+          "name": "str"
+        }
+      ]
+    }
+  ]
+}

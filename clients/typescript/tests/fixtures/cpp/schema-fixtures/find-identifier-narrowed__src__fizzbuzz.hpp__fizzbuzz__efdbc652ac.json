@@ -1,0 +1,21 @@
+{
+  "identifiers": [
+    {
+      "file_range": {
+        "path": "src/fizzbuzz.hpp",
+        "range": {
+          "start": {
+            "line": 2,
+            "character": 12
+          },
+          "end": {
+            "line": 2,
+            "character": 20
+          }
+        }
+      },
+      "kind": null,
+      "name": "fizzbuzz"
+    }
+  ]
+}

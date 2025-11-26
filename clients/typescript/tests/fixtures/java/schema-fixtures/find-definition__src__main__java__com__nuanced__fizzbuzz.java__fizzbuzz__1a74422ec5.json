@@ -1,0 +1,46 @@
+{
+  "definitions": [
+    {
+      "path": "src/main/java/com/nuanced/FizzBuzz.java",
+      "position": {
+        "line": 2,
+        "character": 19
+      }
+    }
+  ],
+  "selected_identifier": {
+    "file_range": {
+      "path": "src/main/java/com/nuanced/FizzBuzz.java",
+      "range": {
+        "start": {
+          "line": 2,
+          "character": 19
+        },
+        "end": {
+          "line": 2,
+          "character": 27
+        }
+      }
+    },
+    "kind": null,
+    "name": "FizzBuzz"
+  },
+  "source_code_context": [
+    {
+      "file_range": {
+        "path": "src/main/java/com/nuanced/FizzBuzz.java",
+        "range": {
+          "start": {
+            "line": 2,
+            "character": 0
+          },
+          "end": {
+            "line": 9,
+            "character": 1
+          }
+        }
+      },
+      "source_code": "public final class FizzBuzz {\n  public static String fizzBuzz(int n) {\n    if (n % 15 == 0) return \"fizzbuzz\";\n    if (n % 3 == 0) return \"fizz\";\n    if (n % 5 == 0) return \"buzz\";\n    return Integer.toString(n);\n  }\n}"
+    }
+  ]
+}

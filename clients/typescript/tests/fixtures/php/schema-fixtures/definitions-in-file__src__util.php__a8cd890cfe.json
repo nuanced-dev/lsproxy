@@ -1,0 +1,122 @@
+[
+  {
+    "file_range": {
+      "path": "src/Util.php",
+      "range": {
+        "start": {
+          "line": 3,
+          "character": 0
+        },
+        "end": {
+          "line": 3,
+          "character": 53
+        }
+      }
+    },
+    "identifier_position": {
+      "path": "src/Util.php",
+      "position": {
+        "line": 3,
+        "character": 9
+      }
+    },
+    "kind": "function",
+    "name": "add"
+  },
+  {
+    "file_range": {
+      "path": "src/Util.php",
+      "range": {
+        "start": {
+          "line": 5,
+          "character": 0
+        },
+        "end": {
+          "line": 9,
+          "character": 1
+        }
+      }
+    },
+    "identifier_position": {
+      "path": "src/Util.php",
+      "position": {
+        "line": 5,
+        "character": 12
+      }
+    },
+    "kind": "class",
+    "name": "Greeter"
+  },
+  {
+    "file_range": {
+      "path": "src/Util.php",
+      "range": {
+        "start": {
+          "line": 6,
+          "character": 0
+        },
+        "end": {
+          "line": 6,
+          "character": 23
+        }
+      }
+    },
+    "identifier_position": {
+      "path": "src/Util.php",
+      "position": {
+        "line": 6,
+        "character": 18
+      }
+    },
+    "kind": "property",
+    "name": "name"
+  },
+  {
+    "file_range": {
+      "path": "src/Util.php",
+      "range": {
+        "start": {
+          "line": 7,
+          "character": 0
+        },
+        "end": {
+          "line": 7,
+          "character": 68
+        }
+      }
+    },
+    "identifier_position": {
+      "path": "src/Util.php",
+      "position": {
+        "line": 7,
+        "character": 18
+      }
+    },
+    "kind": "method",
+    "name": "__construct"
+  },
+  {
+    "file_range": {
+      "path": "src/Util.php",
+      "range": {
+        "start": {
+          "line": 8,
+          "character": 0
+        },
+        "end": {
+          "line": 8,
+          "character": 69
+        }
+      }
+    },
+    "identifier_position": {
+      "path": "src/Util.php",
+      "position": {
+        "line": 8,
+        "character": 18
+      }
+    },
+    "kind": "method",
+    "name": "greet"
+  }
+]

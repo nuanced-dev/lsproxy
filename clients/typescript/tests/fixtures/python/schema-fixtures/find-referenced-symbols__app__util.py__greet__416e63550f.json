@@ -1,0 +1,51 @@
+{
+  "external_symbols": [],
+  "not_found": [],
+  "workspace_symbols": [
+    {
+      "reference": {
+        "file_range": {
+          "path": "app/util.py",
+          "range": {
+            "start": {
+              "line": 5,
+              "character": 11
+            },
+            "end": {
+              "line": 5,
+              "character": 17
+            }
+          }
+        },
+        "kind": "function-call",
+        "name": "repeat"
+      },
+      "definitions": [
+        {
+          "file_range": {
+            "path": "app/util.py",
+            "range": {
+              "start": {
+                "line": 0,
+                "character": 0
+              },
+              "end": {
+                "line": 1,
+                "character": 20
+              }
+            }
+          },
+          "identifier_position": {
+            "path": "app/util.py",
+            "position": {
+              "line": 0,
+              "character": 4
+            }
+          },
+          "kind": "function",
+          "name": "repeat"
+        }
+      ]
+    }
+  ]
+}

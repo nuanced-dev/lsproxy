@@ -1,0 +1,21 @@
+{
+  "identifiers": [
+    {
+      "file_range": {
+        "path": "src/fizzbuzz.ts",
+        "range": {
+          "end": {
+            "character": 24,
+            "line": 0
+          },
+          "start": {
+            "character": 16,
+            "line": 0
+          }
+        }
+      },
+      "kind": null,
+      "name": "fizzbuzz"
+    }
+  ]
+}
