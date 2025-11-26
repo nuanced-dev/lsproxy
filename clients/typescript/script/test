@@ -119,9 +119,9 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-bun run build
+npm run build
 
-CMD=(bunx vitest run)
+CMD=(npx vitest run)
 [[ ${#VITEST_PASSTHRU[@]} -gt 0 ]] && CMD+=("${VITEST_PASSTHRU[@]}")
 
 exec "${CMD[@]}"
