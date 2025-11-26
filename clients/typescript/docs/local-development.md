@@ -11,7 +11,7 @@ Key points of difference between Nuanced LSP and the upstream LSProxy:
 
 | Path              | Description                                  |
 |-------------------|----------------------------------------------|
-| `bin/nuanced-lsp` | Built CLI binary (output of `bun run build`) |
+| `bin/nuanced-lsp` | Built CLI binary (output of `npm run build`) |
 | `src/`            | TypeScript client (CLI + library)            |
 | `script/`         | Project-level scripts                        |
 | `tests/`          | Unified test suite                           |
@@ -32,7 +32,7 @@ For releasing new images, please see [nuanced-dev/lsproxy](https://github.com/nu
 
 Build the project with
 ```bash
-bun run build
+npm run build
 ```
 
 ### Testing
@@ -40,7 +40,7 @@ bun run build
 The tests can be run in two ways
 - Run with default settings
   ```bash
-  bun run test
+  npm run test
   ```
 - Run with possible custom falgs using `script/test`
   ```bash
