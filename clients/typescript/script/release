@@ -60,7 +60,7 @@ fi
 # Stage generated files that may have changed
 git add \
   config/version.json \
-  package*.json \
+  package.json \
   src/__generated/version.ts \
 
 # Commit only if there are staged changes
