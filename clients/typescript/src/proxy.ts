@@ -342,7 +342,7 @@ export async function up(
 
       const h = await pollHttpWithRetries<HealthResult>(
         "GET",
-        "/v1/system/health",
+        "/v2/system/health",
         base,
         {
           // Each attempt: quick timeout, tiny retry budget
@@ -366,7 +366,7 @@ export async function up(
         const httpErr = h.data;
         return err<DockerErr>({
           error_code: httpErr.status_code ?? 1,
-          message: `Health check polling loop timed out before successful response: ${httpErr.error}`,
+          message: `Health check polling loop timed out before successful response: ${JSON.stringify(httpErr.error)}`,
           stdout: "",
           stderr: "",
         });

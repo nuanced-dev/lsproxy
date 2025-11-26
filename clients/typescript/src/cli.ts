@@ -31,6 +31,7 @@ import type {
   Result,
   RunCommandOptions,
   RunResult,
+  ServerCommandOptions,
   StatusCommandOptions,
   StatusResult,
   UpCommandOptions,
@@ -48,6 +49,12 @@ import {
   DEFAULT_WRAPPER_IMAGE,
 } from "./defaults.js";
 import type { NuancedLspClient } from "./client.js";
+
+async function generateRandomContainerName(): Promise<string> {
+  const { randomUUID } = await import("node:crypto");
+  const id = randomUUID().slice(0, 8);
+  return `nuanced-lsp-${id}`;
+}
 
 // Lazy-load client (avoids startup cost if user only runs --help, etc.)
 async function lspClient(opts: {
@@ -247,6 +254,27 @@ async function upCommand(
       );
     },
   });
+}
+
+async function serverCommand(
+  workspace: string,
+  opts: ServerCommandOptions,
+): Promise<void> {
+  const containerName = await generateRandomContainerName();
+  const client = await lspClient({
+    containerName,
+    ...opts,
+    lspPort: opts.hostPort,
+  });
+
+  try {
+    // Run the LSP server stdio loop
+    const { runLspServer } = await import("./server.js");
+    await runLspServer(client, workspace, opts, process.stdin, process.stdout);
+  } catch {
+    // Fatal errors are already logged via window/logMessage
+    process.exitCode = 1;
+  }
 }
 
 async function downCommand(opts: DownCommandOptions): Promise<void> {
@@ -646,6 +674,50 @@ program
   )
   .option("--env-file <path>", "Path to an env file")
   .action(upCommand);
+
+program
+  .command("server")
+  .description(
+    ansi.pink(
+      "Start a stdio LSP server that forwards requests to the Nuanced LSP container.",
+    ),
+  )
+  .argument("<workspace>", "Host workspace directory to mount")
+  .option(
+    "--host-port <n>",
+    `Host port to map to ${DEFAULT_HOST_PORT}. Note: Use port 0 for a dynamically assigned host port from Docker.`,
+    (v: string) => parseInt(v, 10),
+  )
+  .option(
+    "--bind-host <host>",
+    "Host/IP to bind (e.g. 127.0.0.1, 0.0.0.0, 192.168.1.10)",
+    DEFAULT_BIND_HOST,
+  )
+  .option(
+    "--proxy-image <ref>",
+    `Nuanced LSP proxy image (default: ${DEFAULT_PROXY_IMAGE})`,
+  )
+  .option("--watchdog-image <ref>", "Nuanced LSP watchdog image")
+  .option("--wrapper-image <ref>", "Nuanced LSP wrapper image")
+  .option(
+    "--language-container-version <version>",
+    `Nuanced LSP language container version (default: ${LANGUAGE_CONTAINER_VERSION})`,
+  )
+  .option(
+    "--timeout <s>",
+    `Health check poll loop timeout seconds (<=0 to skip) (default: ${DEFAULT_TIMEOUT_SECS})`,
+    (v: string) => parseInt(v, 10),
+  )
+  .option("--sudo", "Run Docker commands with sudo")
+  .option("--ro", "Mount workspace as read-only (default is read-write)")
+  .option("--debug", "Run the container with debug logging enabled")
+  .option(
+    "--env <k=v>",
+    "Set environment variable (repeatable)",
+    (v: string, prev: string[] | undefined) => (prev ? prev.concat(v) : [v]),
+  )
+  .option("--env-file <path>", "Path to an env file")
+  .action(serverCommand);
 
 program
   .command("down")

@@ -79,7 +79,7 @@ export const HttpErrSchema = z.object({
 export type HttpErr = Named<typeof HttpErrSchema, "HttpErr">;
 export type HttpResult<T> = Result<T, HttpErr>;
 
-// ---- Health (data-plane /v1/system/health) ----------------------------------
+// ---- Health (data-plane /v2/system/health) ----------------------------------
 export const HealthResultSchema = z.object({
   status: z.union([z.literal("ok"), z.literal("not ok")]),
   version: z.string().optional(),
@@ -298,6 +298,38 @@ export type FindReferencesResult = Named<
   "FindReferencesResult"
 >;
 
+// ---- JSON-RPC types ---------------------------------------------------------
+
+export interface JsonRpcMessage {
+  jsonrpc: "2.0";
+}
+
+export interface JsonRpcRequest extends JsonRpcMessage {
+  id?: string | number;
+  method: string;
+  params?: any;
+}
+
+export interface JsonRpcResponse extends JsonRpcMessage {
+  id: string | number | null;
+  result?: any;
+  error?: JsonRpcError;
+}
+
+export interface JsonRpcError {
+  code: JsonRpcErrorCode;
+  message: string;
+  data?: any;
+}
+
+export enum JsonRpcErrorCode {
+  ParseError = -32700,
+  InvalidRequest = -32600,
+  MethodNotFound = -32601,
+  InvalidParams = -32602,
+  InternalError = -32603,
+}
+
 // ---- CLI Command Options ---------------------------------------------------
 export const BaseCommandOptionsSchema = z.object({
   json: z.boolean().optional(),
@@ -441,4 +473,23 @@ export const FindReferencesOptionsSchema = LspCommandOptionsSchema.extend({
 export type FindReferencesOptions = Named<
   typeof FindReferencesOptionsSchema,
   "FindReferencesOptions"
+>;
+
+export const ServerCommandOptionsSchema = BaseCommandOptionsSchema.extend({
+  hostPort: z.number().int().min(0).optional(),
+  proxyImage: z.string().optional(),
+  wrapperImage: z.string().optional(),
+  watchdogImage: z.string().optional(),
+  languageContainerVersion: z.string().optional(),
+  timeout: z.number().optional(),
+  sudo: z.boolean().optional(),
+  ro: z.boolean().optional(),
+  bindHost: z.string().optional(),
+  debug: z.boolean().optional(),
+  env: z.array(z.string()).optional(),
+  envFile: z.string().optional(),
+});
+export type ServerCommandOptions = Named<
+  typeof ServerCommandOptionsSchema,
+  "ServerCommandOptions"
 >;

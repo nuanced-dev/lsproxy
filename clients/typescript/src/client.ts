@@ -19,6 +19,8 @@ import type {
   StatusResult,
   LogsResult,
   PullResult,
+  JsonRpcRequest,
+  JsonRpcResponse,
 } from "./types.js";
 
 import {
@@ -29,6 +31,7 @@ import {
   DEFAULT_TIMEOUT_SECS,
   DEFAULT_RETRIES,
 } from "./defaults.js";
+import { err, ok } from "./types.js";
 
 // Precompiled tiny helpers
 const TRAILING_SLASH_RE = /\/$/;
@@ -60,6 +63,7 @@ export class NuancedLspClient {
   private timeoutSecs: number;
 
   private fullLsProxyUrl: string | undefined;
+  private nextId = 1;
 
   // Cache for list-files results to avoid redundant calls
   // TODO: Add proper cache invalidation when files are modified
@@ -230,7 +234,7 @@ export class NuancedLspClient {
     const { httpRequestWithRetries } = await http();
     return httpRequestWithRetries<HealthResult>(
       "GET",
-      "/v1/system/health",
+      "/v2/system/health",
       url,
       undefined,
       undefined,
@@ -251,17 +255,11 @@ export class NuancedLspClient {
       return { ok: true, data: this.fileListCache.data };
     }
 
-    // Cache miss or expired - fetch from server
-    const url = await this.lsProxyUrl();
-    const { httpRequestWithRetries } = await http();
-    const result = await httpRequestWithRetries<ListFilesResult>(
-      "GET",
-      "/v1/workspace/list-files",
-      url,
+    // Cache miss or expired - fetch from server via LSP command
+    const result = await this.request(
+      "lsproxy/workspace/listFiles",
       undefined,
-      undefined,
-      this.retries,
-      this.resolveTimeout(timeoutSecs),
+      timeoutSecs,
     );
 
     // Update cache on successful response
@@ -280,16 +278,10 @@ export class NuancedLspClient {
     range?: LspRange | null,
     timeoutSecs?: number,
   ): Promise<HttpResult<ReadSourceResult>> {
-    const url = await this.lsProxyUrl();
-    const { httpRequestWithRetries } = await http();
-    return httpRequestWithRetries<ReadSourceResult>(
-      "POST",
-      "/v1/workspace/read-source-code",
-      url,
+    return this.request(
+      "lsproxy/workspace/readSourceCode",
       { path: filePath, range: range ?? null },
-      undefined,
-      this.retries,
-      this.resolveTimeout(timeoutSecs),
+      timeoutSecs,
     );
   }
 
@@ -299,16 +291,10 @@ export class NuancedLspClient {
     filePath: string,
     timeoutSecs?: number,
   ): Promise<HttpResult<DefinitionsInFileResult>> {
-    const url = await this.lsProxyUrl();
-    const { httpRequestWithRetries } = await http();
-    return httpRequestWithRetries<DefinitionsInFileResult>(
-      "GET",
-      "/v1/symbol/definitions-in-file",
-      url,
-      undefined,
+    return this.request(
+      "lsproxy/symbol/definitionsInFile",
       { file_path: filePath },
-      this.retries,
-      this.resolveTimeout(timeoutSecs),
+      timeoutSecs,
     );
   }
 
@@ -318,20 +304,14 @@ export class NuancedLspClient {
     includeSourceCode?: boolean,
     timeoutSecs?: number,
   ): Promise<HttpResult<FindDefinitionResult>> {
-    const url = await this.lsProxyUrl();
-    const { httpRequestWithRetries } = await http();
-    return httpRequestWithRetries<FindDefinitionResult>(
-      "POST",
-      "/v1/symbol/find-definition",
-      url,
+    return this.request(
+      "lsproxy/symbol/findDefinition",
       {
         include_raw_response: !!includeRawResponse,
         include_source_code: !!includeSourceCode,
         position: filePosition,
       },
-      undefined,
-      this.retries,
-      this.resolveTimeout(timeoutSecs),
+      timeoutSecs,
     );
   }
 
@@ -341,16 +321,10 @@ export class NuancedLspClient {
     position?: LspPosition | null,
     timeoutSecs?: number,
   ): Promise<HttpResult<FindIdentifierResult>> {
-    const url = await this.lsProxyUrl();
-    const { httpRequestWithRetries } = await http();
-    return httpRequestWithRetries<FindIdentifierResult>(
-      "POST",
-      "/v1/symbol/find-identifier",
-      url,
+    return this.request(
+      "lsproxy/symbol/findIdentifier",
       { name, path: filePath, position },
-      undefined,
-      this.retries,
-      this.resolveTimeout(timeoutSecs),
+      timeoutSecs,
     );
   }
 
@@ -359,19 +333,13 @@ export class NuancedLspClient {
     fullScan = false,
     timeoutSecs?: number,
   ): Promise<HttpResult<FindReferencedSymbolsResult>> {
-    const url = await this.lsProxyUrl();
-    const { httpRequestWithRetries } = await http();
-    return httpRequestWithRetries<FindReferencedSymbolsResult>(
-      "POST",
-      "/v1/symbol/find-referenced-symbols",
-      url,
+    return this.request(
+      "lsproxy/symbol/findReferencedSymbols",
       {
         full_scan: !!fullScan,
         identifier_position: identifierPosition,
       },
-      undefined,
-      this.retries,
-      this.resolveTimeout(timeoutSecs),
+      timeoutSecs,
     );
   }
 
@@ -381,17 +349,76 @@ export class NuancedLspClient {
     includeRawResponse?: boolean,
     timeoutSecs?: number,
   ): Promise<HttpResult<FindReferencesResult>> {
-    const url = await this.lsProxyUrl();
-    const { httpRequestWithRetries } = await http();
-    return httpRequestWithRetries<FindReferencesResult>(
-      "POST",
-      "/v1/symbol/find-references",
-      url,
+    return this.request(
+      "lsproxy/symbol/findReferences",
       {
         identifier_position: identifierPosition,
         include_code_context_lines: contextLines,
         include_raw_response: !!includeRawResponse,
       },
+      timeoutSecs,
+    );
+  }
+
+  // ---- LSP JSON-RPC forwarding -----------------------------------------------
+
+  async request(
+    method: string,
+    params: any | undefined,
+    timeoutSecs?: number,
+  ): Promise<HttpResult<any>> {
+    const url = await this.lsProxyUrl();
+    const { httpRequestWithRetries } = await http();
+    const id = this.nextId++;
+    const request: JsonRpcRequest = {
+      jsonrpc: "2.0",
+      id,
+      method,
+      params,
+    };
+    const result = await httpRequestWithRetries<JsonRpcResponse>(
+      "POST",
+      "/v2/lsp",
+      url,
+      request,
+      undefined,
+      this.retries,
+      this.resolveTimeout(timeoutSecs),
+    );
+
+    if (!result.ok) {
+      return result;
+    }
+
+    // If JSON-RPC response contains an error, translate to 500 HTTP error
+    if (result.data.error) {
+      return err({
+        status_code: 500,
+        error: result.data.error,
+      });
+    }
+
+    // Return just the result data
+    return ok(result.data.result);
+  }
+
+  async notify(
+    method: string,
+    params: any | undefined,
+    timeoutSecs?: number,
+  ): Promise<HttpResult<undefined>> {
+    const url = await this.lsProxyUrl();
+    const { httpRequestWithRetries } = await http();
+    const request: JsonRpcRequest = {
+      jsonrpc: "2.0",
+      method,
+      params,
+    };
+    return httpRequestWithRetries<undefined>(
+      "POST",
+      "/v2/lsp",
+      url,
+      request,
       undefined,
       this.retries,
       this.resolveTimeout(timeoutSecs),
