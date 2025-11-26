@@ -49,7 +49,7 @@ read_package_metadata
 
 check_changelog_entry
 
-TAG="lsp-v$LSP_VERSION"
+TAG="typescript-cli-v$LSP_VERSION"
 CURRENT_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
 
 # Refuse to overwrite an existing tag
