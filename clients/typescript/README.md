@@ -86,9 +86,9 @@ You can override the default container images using CLI flags:
 
 ```bash
 nuanced-lsp up /path/to/workspace \
-  --proxy-image ghcr.io/nuanced-dev/nuanced-lsp-proxy:0.4.8 \
-  --wrapper-image ghcr.io/nuanced-dev/nuanced-lsp-wrapper:0.4.8 \
-  --watchdog-image ghcr.io/nuanced-dev/nuanced-lsp-watchdog:0.4.8 \
+  --proxy-image ghcr.io/nuanced-dev/nuanced-lsp-proxy:0.5.0 \
+  --wrapper-image ghcr.io/nuanced-dev/nuanced-lsp-wrapper:0.5.0 \
+  --watchdog-image ghcr.io/nuanced-dev/nuanced-lsp-watchdog:0.5.0 \
   --language-container-version 1.0.0
 ```
 

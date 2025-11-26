@@ -438,7 +438,7 @@ docker rm -f nuanced-lsp-proxy
 
 **`RUST_CONTAINER_VERSION`** (optional)
 - Docker image tag for Rust containers (proxy, wrapper, watchdog)
-- Default: `0.4.8`
+- Default: `0.5.0`
 - Use `latest` for development or specify a version for production
 - Primarily used by test scripts and CI/CD pipelines
 
@@ -472,7 +472,7 @@ ENABLED_LANGUAGES="go" NUANCED_LSP_MAX_MEMORY=16384 ./scripts/start-proxy.sh
 RUST_CONTAINER_VERSION=latest LANGUAGE_CONTAINER_VERSION=1.0.0 ./scripts/test.sh
 
 # Test with production versions
-RUST_CONTAINER_VERSION=0.4.8 LANGUAGE_CONTAINER_VERSION=1.0.0 ./scripts/test.sh
+RUST_CONTAINER_VERSION=0.5.0 LANGUAGE_CONTAINER_VERSION=1.0.0 ./scripts/test.sh
 ```
 
 ### Supported languages and LSP image sizes

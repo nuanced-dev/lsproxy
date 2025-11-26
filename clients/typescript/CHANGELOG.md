@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+Support using Nuanced LSP as an LSP server through CLI and in VS Code.
+
+- `nuanced-lsp` version 0.3.19
+- `nuanced-lsp-proxy` image version 0.5.0
+- `nuanced-lsp-watchdog` image version 0.5.0
+- `nuanced-lsp-wrapper` image version 0.5.0
+- Version 1.0.0 for Nuanced language images
+
 ## [0.3.18] - 2025-11-25
 
 Nuanced LSP rearchitecture release for dynamic container orchestration.

@@ -15,7 +15,7 @@ pub mod orchestrator;
 
 /// Default version tag for Rust containers (wrapper, proxy, watchdog)
 /// Can be overridden with RUST_CONTAINER_VERSION environment variable
-pub const DEFAULT_RUST_CONTAINER_VERSION: &str = "0.4.8";
+pub const DEFAULT_RUST_CONTAINER_VERSION: &str = "0.5.0";
 
 /// Default version tag for language containers (python, ruby, typescript, etc.)
 /// Can be overridden with LANGUAGE_CONTAINER_VERSION environment variable

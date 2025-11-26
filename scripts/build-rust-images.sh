@@ -9,7 +9,7 @@ set -e
 #   - Builds WITHOUT cache (use --use-cache to enable caching)
 #   - Builds for local platform only (use --multiarch for amd64+arm64)
 #   - Builds Rust binaries first before Docker images (only for single-arch builds)
-#   - Tags images as :latest (use --tag=0.4.8 for custom tag)
+#   - Tags images as :latest (use --tag=0.5.0 for custom tag)
 #   - Does NOT push (use --registry to push to ghcr/dockerhub/local)
 #   - Builds in PARALLEL (use --sequential to disable)
 #
@@ -23,9 +23,9 @@ set -e
 #   --help, -h        Show help message
 #
 # Examples:
-#   ./scripts/build-rust-images.sh --tag=0.4.8
-#   ./scripts/build-rust-images.sh --multiarch --tag=0.4.8 --registry=ghcr
-#   ./scripts/build-rust-images.sh --multiarch --load --tag=0.4.8
+#   ./scripts/build-rust-images.sh --tag=0.5.0
+#   ./scripts/build-rust-images.sh --multiarch --tag=0.5.0 --registry=ghcr
+#   ./scripts/build-rust-images.sh --multiarch --load --tag=0.5.0
 
 # Colors
 GREEN='\033[0;32m'
@@ -80,8 +80,8 @@ for arg in "$@"; do
             echo "  --help, -h        Show this help message"
             echo ""
             echo "Examples:"
-            echo "  $0 --tag=0.4.8"
-            echo "  $0 --multiarch --tag=0.4.8 --registry=ghcr"
+            echo "  $0 --tag=0.5.0"
+            echo "  $0 --multiarch --tag=0.5.0 --registry=ghcr"
             exit 0
             ;;
         *)
