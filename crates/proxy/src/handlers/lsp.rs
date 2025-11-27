@@ -51,7 +51,7 @@ pub async fn lsp(data: Data<AppState>, request: Json<JsonRpcRequest>) -> HttpRes
     let document_uri = match lsp_req
         .params
         .as_ref()
-        .and_then(|p| extract_document_uri(&lsp_req.method, p))
+        .and_then(|p| extract_document_uri(&lsp_req.method, p, &data.workspace_path))
     {
         Some(uri) => uri,
         None => {
@@ -214,31 +214,31 @@ fn handle_lifecycle_request(request: &JsonRpcRequest) -> Option<HttpResponse> {
 }
 
 /// Extract document URI from JSON-RPC request parameters
-fn extract_document_uri(method: &str, params: &Value) -> Option<String> {
+fn extract_document_uri(method: &str, params: &Value, workspace_path: &str) -> Option<String> {
     match method {
         "lsproxy/symbol/findDefinition" => {
             serde_json::from_value::<GetDefinitionRequest>(params.clone())
-                .map(|p| p.position.path)
+                .map(|p| format!("file://{workspace_path}/{}", p.position.path))
                 .ok()
         }
         "lsproxy/symbol/findReferences" => {
             serde_json::from_value::<GetReferencesRequest>(params.clone())
-                .map(|p| p.identifier_position.path)
+                .map(|p| format!("file://{workspace_path}/{}", p.identifier_position.path))
                 .ok()
         }
         "lsproxy/symbol/definitionsInFile" => {
             serde_json::from_value::<FileSymbolsRequest>(params.clone())
-                .map(|p| p.file_path)
+                .map(|p| format!("file://{workspace_path}/{}", p.file_path))
                 .ok()
         }
         "lsproxy/symbol/findIdentifier" => {
             serde_json::from_value::<FindIdentifierRequest>(params.clone())
-                .map(|p| p.path)
+                .map(|p| format!("file://{workspace_path}/{}", p.path))
                 .ok()
         }
         "lsproxy/symbol/findReferencedSymbols" => {
             serde_json::from_value::<GetReferencedSymbolsRequest>(params.clone())
-                .map(|p| p.identifier_position.path)
+                .map(|p| format!("file://{workspace_path}/{}", p.identifier_position.path))
                 .ok()
         }
         _ => params
