@@ -3,7 +3,10 @@ use crate::handlers::container_proxy;
 use crate::AppState;
 use actix_web::web::{Data, Json};
 use actix_web::HttpResponse;
-use common::api_types::{JsonRpcRequest, JsonRpcResponse};
+use common::api_types::{
+    FileSymbolsRequest, FindIdentifierRequest, GetDefinitionRequest, GetReferencedSymbolsRequest,
+    GetReferencesRequest, JsonRpcRequest, JsonRpcResponse,
+};
 use log::{debug, error, info, warn};
 use lsp_types::{
     DeclarationCapability, FoldingRangeProviderCapability, HoverProviderCapability,
@@ -45,7 +48,11 @@ pub async fn lsp(data: Data<AppState>, request: Json<JsonRpcRequest>) -> HttpRes
     }
 
     // For language feature requests, extract document URI and route to appropriate backend
-    let document_uri = match extract_document_uri(lsp_req.params.as_ref()) {
+    let document_uri = match lsp_req
+        .params
+        .as_ref()
+        .and_then(|p| extract_document_uri(&lsp_req.method, p))
+    {
         Some(uri) => uri,
         None => {
             warn!(
@@ -207,17 +214,39 @@ fn handle_lifecycle_request(request: &JsonRpcRequest) -> Option<HttpResponse> {
 }
 
 /// Extract document URI from JSON-RPC request parameters
-fn extract_document_uri(params: Option<&Value>) -> Option<String> {
-    // Try textDocument.uri
-    if let Some(uri) = params
-        .and_then(|p| p.get("textDocument"))
-        .and_then(|td| td.get("uri"))
-        .and_then(|u| u.as_str())
-    {
-        return Some(uri.to_string());
+fn extract_document_uri(method: &str, params: &Value) -> Option<String> {
+    match method {
+        "lsproxy/symbol/findDefinition" => {
+            serde_json::from_value::<GetDefinitionRequest>(params.clone())
+                .map(|p| p.position.path)
+                .ok()
+        }
+        "lsproxy/symbol/findReferences" => {
+            serde_json::from_value::<GetReferencesRequest>(params.clone())
+                .map(|p| p.identifier_position.path)
+                .ok()
+        }
+        "lsproxy/symbol/definitionsInFile" => {
+            serde_json::from_value::<FileSymbolsRequest>(params.clone())
+                .map(|p| p.file_path)
+                .ok()
+        }
+        "lsproxy/symbol/findIdentifier" => {
+            serde_json::from_value::<FindIdentifierRequest>(params.clone())
+                .map(|p| p.path)
+                .ok()
+        }
+        "lsproxy/symbol/findReferencedSymbols" => {
+            serde_json::from_value::<GetReferencedSymbolsRequest>(params.clone())
+                .map(|p| p.identifier_position.path)
+                .ok()
+        }
+        _ => params
+            .get("textDocument")
+            .and_then(|td| td.get("uri"))
+            .and_then(|u| u.as_str())
+            .map(|uri| uri.to_string()),
     }
-
-    None
 }
 
 /// Recursively convert paths in JSON value from host to container
