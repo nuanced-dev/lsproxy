@@ -216,31 +216,29 @@ fn handle_lifecycle_request(request: &JsonRpcRequest) -> Option<HttpResponse> {
 /// Extract document URI from JSON-RPC request parameters
 fn extract_document_uri(method: &str, params: &Value, workspace_path: &str) -> Option<String> {
     match method {
-        "lsproxy/symbol/findDefinition" => {
-            serde_json::from_value::<GetDefinitionRequest>(params.clone())
-                .map(|p| format!("file://{workspace_path}/{}", p.position.path))
-                .ok()
-        }
-        "lsproxy/symbol/findReferences" => {
-            serde_json::from_value::<GetReferencesRequest>(params.clone())
-                .map(|p| format!("file://{workspace_path}/{}", p.identifier_position.path))
-                .ok()
-        }
-        "lsproxy/symbol/definitionsInFile" => {
-            serde_json::from_value::<FileSymbolsRequest>(params.clone())
-                .map(|p| format!("file://{workspace_path}/{}", p.file_path))
-                .ok()
-        }
-        "lsproxy/symbol/findIdentifier" => {
-            serde_json::from_value::<FindIdentifierRequest>(params.clone())
-                .map(|p| format!("file://{workspace_path}/{}", p.path))
-                .ok()
-        }
-        "lsproxy/symbol/findReferencedSymbols" => {
-            serde_json::from_value::<GetReferencedSymbolsRequest>(params.clone())
-                .map(|p| format!("file://{workspace_path}/{}", p.identifier_position.path))
-                .ok()
-        }
+        "lsproxy/symbol/findDefinition" => params
+            .get("position")
+            .and_then(|p| p.get("path"))
+            .and_then(|p| p.as_str())
+            .map(|p| format!("file://{workspace_path}/{}", p)),
+        "lsproxy/symbol/findReferences" => params
+            .get("identifier_position")
+            .and_then(|ip| ip.get("path"))
+            .and_then(|p| p.as_str())
+            .map(|p| format!("file://{workspace_path}/{}", p)),
+        "lsproxy/symbol/definitionsInFile" => params
+            .get("file_path")
+            .and_then(|fp| fp.as_str())
+            .map(|p| format!("file://{workspace_path}/{}", p)),
+        "lsproxy/symbol/findIdentifier" => params
+            .get("path")
+            .and_then(|p| p.as_str())
+            .map(|p| format!("file://{workspace_path}/{}", p)),
+        "lsproxy/symbol/findReferencedSymbols" => params
+            .get("identifier_position")
+            .and_then(|ip| ip.get("path"))
+            .and_then(|p| p.as_str())
+            .map(|p| format!("file://{workspace_path}/{}", p)),
         _ => params
             .get("textDocument")
             .and_then(|td| td.get("uri"))
