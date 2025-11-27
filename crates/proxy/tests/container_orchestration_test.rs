@@ -377,7 +377,12 @@ async fn test_service_health() -> Result<(), Box<dyn std::error::Error>> {
         .send()
         .await?;
 
-    assert!(response.status().is_success());
+    assert!(
+        response.status().is_success(),
+        "request failed: {}: {}",
+        response.status(),
+        response.text().await.unwrap_or_default()
+    );
 
     let health: serde_json::Value = response.json().await?;
     assert_eq!(health["status"], "ok");
@@ -439,7 +444,12 @@ async fn test_container_spawn_on_request() -> Result<(), Box<dyn std::error::Err
         .await?;
 
     // Request should complete successfully
-    assert!(response.status().is_success() || response.status().is_client_error());
+    assert!(
+        response.status().is_success() || response.status().is_client_error(),
+        "failed: {}: {}",
+        response.status(),
+        response.text().await.unwrap_or_default()
+    );
 
     // Verify the same container is still being used (no new containers spawned)
     let containers_after_request: Vec<String> = docker
@@ -487,7 +497,12 @@ async fn test_request_forwarding() -> Result<(), Box<dyn std::error::Error>> {
         .send()
         .await?;
 
-    assert!(response.status().is_success());
+    assert!(
+        response.status().is_success(),
+        "request failed: {}: {}",
+        response.status(),
+        response.text().await.unwrap_or_default()
+    );
     let body: serde_json::Value = response.json().await?;
 
     // Should have result.definitions field (even if empty)
@@ -604,7 +619,12 @@ async fn test_list_files() -> Result<(), Box<dyn std::error::Error>> {
         .send()
         .await?;
 
-    assert!(response.status().is_success());
+    assert!(
+        response.status().is_success(),
+        "request failed: {}: {}",
+        response.status(),
+        response.text().await.unwrap_or_default()
+    );
     let body: serde_json::Value = response.json().await?;
 
     // The result should be a direct array of filenames
@@ -640,7 +660,12 @@ async fn test_find_references() -> Result<(), Box<dyn std::error::Error>> {
         .send()
         .await?;
 
-    assert!(response.status().is_success());
+    assert!(
+        response.status().is_success(),
+        "request failed: {}: {}",
+        response.status(),
+        response.text().await.unwrap_or_default()
+    );
     let body: serde_json::Value = response.json().await?;
 
     // Should have result.references field
@@ -682,7 +707,12 @@ async fn test_find_references_with_context_lines() -> Result<(), Box<dyn std::er
         .send()
         .await?;
 
-    assert!(response.status().is_success());
+    assert!(
+        response.status().is_success(),
+        "request failed: {}: {}",
+        response.status(),
+        response.text().await.unwrap_or_default()
+    );
     let body: serde_json::Value = response.json().await?;
 
     // Verify result.references field exists
