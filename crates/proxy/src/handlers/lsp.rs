@@ -3,10 +3,7 @@ use crate::handlers::container_proxy;
 use crate::AppState;
 use actix_web::web::{Data, Json};
 use actix_web::HttpResponse;
-use common::api_types::{
-    DefinitionsInFileRequest, FindDefinitionRequest, FindIdentifierRequest,
-    FindReferencedSymbolsRequest, FindReferencesRequest, JsonRpcRequest, JsonRpcResponse,
-};
+use common::api_types::{JsonRpcRequest, JsonRpcResponse};
 use log::{debug, error, info, warn};
 use lsp_types::{
     DeclarationCapability, FoldingRangeProviderCapability, HoverProviderCapability,
