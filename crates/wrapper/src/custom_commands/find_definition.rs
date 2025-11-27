@@ -2,8 +2,8 @@ use crate::handlers::utils;
 use crate::manager::{LspManagerError, Manager};
 use actix_web::HttpResponse;
 use common::api_types::{
-    CodeContext, DefinitionResponse, FilePosition, FileRange, GetDefinitionRequest, JsonRpcRequest,
-    JsonRpcResponse, Position, Range,
+    CodeContext, FilePosition, FileRange, FindDefinitionRequest, FindDefinitionResponse,
+    JsonRpcRequest, JsonRpcResponse, Position, Range,
 };
 use common::utils::file_utils::uri_to_relative_path_string;
 use log::{error, info, warn};
@@ -40,7 +40,7 @@ pub async fn handle(manager: &Manager, request: JsonRpcRequest) -> HttpResponse 
         }
     };
 
-    let info: GetDefinitionRequest = match serde_json::from_value(params) {
+    let info: FindDefinitionRequest = match serde_json::from_value(params) {
         Ok(info) => info,
         Err(e) => {
             error!("Invalid parameters for findDefinition: {}", e);
@@ -113,7 +113,7 @@ pub async fn handle(manager: &Manager, request: JsonRpcRequest) -> HttpResponse 
         None
     };
 
-    let response = DefinitionResponse {
+    let response = FindDefinitionResponse {
         raw_response: if info.include_raw_response {
             Some(serde_json::to_value(&definitions).unwrap())
         } else {

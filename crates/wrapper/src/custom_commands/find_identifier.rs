@@ -2,7 +2,7 @@ use crate::handlers::utils;
 use crate::manager::Manager;
 use actix_web::HttpResponse;
 use common::api_types::{
-    FilePosition, FindIdentifierRequest, Identifier, IdentifierResponse, JsonRpcRequest,
+    FilePosition, FindIdentifierRequest, FindIdentifierResponse, Identifier, JsonRpcRequest,
     JsonRpcResponse,
 };
 use log::{error, info};
@@ -54,7 +54,7 @@ pub async fn handle(manager: &Manager, request: JsonRpcRequest) -> HttpResponse 
         .collect();
 
     if name_matched_identifiers.is_empty() {
-        let response = IdentifierResponse {
+        let response = FindIdentifierResponse {
             identifiers: vec![],
         };
         let json_rpc_response = JsonRpcResponse::new_result(req_id, response);
@@ -72,7 +72,7 @@ pub async fn handle(manager: &Manager, request: JsonRpcRequest) -> HttpResponse 
         .await
         {
             Ok(identifier) => {
-                let response = IdentifierResponse {
+                let response = FindIdentifierResponse {
                     identifiers: vec![identifier],
                 };
                 let json_rpc_response = JsonRpcResponse::new_result(req_id, response);
@@ -80,7 +80,7 @@ pub async fn handle(manager: &Manager, request: JsonRpcRequest) -> HttpResponse 
             }
             Err(utils::PositionError::IdentifierNotFound { closest }) => {
                 // Not an error case, just closest matches
-                let response = IdentifierResponse {
+                let response = FindIdentifierResponse {
                     identifiers: closest,
                 };
                 let json_rpc_response = JsonRpcResponse::new_result(req_id, response);
@@ -88,7 +88,7 @@ pub async fn handle(manager: &Manager, request: JsonRpcRequest) -> HttpResponse 
             }
         }
     } else {
-        let response = IdentifierResponse {
+        let response = FindIdentifierResponse {
             identifiers: name_matched_identifiers,
         };
         let json_rpc_response = JsonRpcResponse::new_result(req_id, response);

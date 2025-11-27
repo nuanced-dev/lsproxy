@@ -1,8 +1,8 @@
 use crate::manager::Manager;
 use actix_web::HttpResponse;
 use common::api_types::{
-    get_mount_dir, FilePosition, GetReferencedSymbolsRequest, Identifier, JsonRpcRequest,
-    JsonRpcResponse, Position, ReferenceWithSymbolDefinitions, ReferencedSymbolsResponse,
+    get_mount_dir, FilePosition, FindReferencedSymbolsRequest, FindReferencedSymbolsResponse,
+    Identifier, JsonRpcRequest, JsonRpcResponse, Position, ReferenceWithSymbolDefinitions,
 };
 use common::utils::file_utils::uri_to_relative_path_string;
 use log::{error, info};
@@ -41,7 +41,7 @@ pub async fn handle(manager: &Manager, request: JsonRpcRequest) -> HttpResponse 
         }
     };
 
-    let info: GetReferencedSymbolsRequest = match serde_json::from_value(params) {
+    let info: FindReferencedSymbolsRequest = match serde_json::from_value(params) {
         Ok(info) => info,
         Err(e) => {
             error!("Invalid parameters for findReferencedSymbols: {}", e);
@@ -265,7 +265,7 @@ pub async fn handle(manager: &Manager, request: JsonRpcRequest) -> HttpResponse 
         }
     });
 
-    let response = ReferencedSymbolsResponse {
+    let response = FindReferencedSymbolsResponse {
         workspace_symbols,
         external_symbols,
         not_found,

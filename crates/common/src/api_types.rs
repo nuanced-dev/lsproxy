@@ -625,7 +625,7 @@ pub struct Identifier {
 }
 
 #[derive(Serialize, Deserialize, ToSchema, IntoParams)]
-pub struct GetDefinitionRequest {
+pub struct FindDefinitionRequest {
     pub position: FilePosition,
 
     /// Whether to include the source code around the symbol's identifier in the response.
@@ -643,7 +643,7 @@ pub struct GetDefinitionRequest {
 }
 
 #[derive(Serialize, Deserialize, ToSchema, IntoParams)]
-pub struct GetReferencesRequest {
+pub struct FindReferencesRequest {
     pub identifier_position: FilePosition,
 
     /// Whether to include the source code of the symbol in the response.
@@ -667,7 +667,7 @@ pub struct GetReferencesRequest {
 /// For example, if the position points to a function name, the response will include
 /// all symbols referenced within that function's implementation.
 #[derive(Serialize, Deserialize, ToSchema, IntoParams)]
-pub struct GetReferencedSymbolsRequest {
+pub struct FindReferencedSymbolsRequest {
     /// Whether to use the more permissive rules to find referenced symbols. This will be not just
     /// code that is executed but also things like type hints and chained indirection.
     /// Defaults to false.
@@ -681,7 +681,7 @@ pub struct GetReferencedSymbolsRequest {
 
 /// Request to get the symbols in a file.
 #[derive(Serialize, Deserialize, ToSchema, IntoParams)]
-pub struct FileSymbolsRequest {
+pub struct DefinitionsInFileRequest {
     /// The path to the file to get the symbols for, relative to the root of the workspace.
     #[schema(example = "src/main.py")]
     pub file_path: String,
@@ -720,7 +720,7 @@ pub struct WorkspaceSymbolsRequest {
 /// ```
 /// The definition(s) will be `[{"path": "src/main.py", "line": 0, "character": 6}]`.
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize, ToSchema)]
-pub struct DefinitionResponse {
+pub struct FindDefinitionResponse {
     #[serde(skip_serializing_if = "Option::is_none")]
     /// The raw response from the langserver.
     ///
@@ -752,7 +752,7 @@ pub struct DefinitionResponse {
 /// ```
 /// The references will be `[{"path": "src/main.py", "line": 5, "character": 7}]`.
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize, ToSchema)]
-pub struct ReferencesResponse {
+pub struct FindReferencesResponse {
     #[serde(skip_serializing_if = "Option::is_none")]
     /// The raw response from the langserver.
     ///
@@ -775,7 +775,7 @@ pub struct ReferencesResponse {
 /// - external_symbols: References to symbols from outside the workspace (built-in functions, external libraries)
 /// - not_found: References where the symbol definition could not be found
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize, ToSchema)]
-pub struct ReferencedSymbolsResponse {
+pub struct FindReferencedSymbolsResponse {
     pub workspace_symbols: Vec<ReferenceWithSymbolDefinitions>,
     pub external_symbols: Vec<Identifier>,
     pub not_found: Vec<Identifier>,
@@ -822,7 +822,7 @@ pub struct FindIdentifierRequest {
 
 #[derive(Serialize, Deserialize, Debug, Clone, ToSchema)]
 #[serde(rename_all = "camelCase")]
-pub struct IdentifierResponse {
+pub struct FindIdentifierResponse {
     pub identifiers: Vec<Identifier>,
 }
 

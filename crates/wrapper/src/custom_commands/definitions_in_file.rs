@@ -1,6 +1,6 @@
 use crate::manager::Manager;
 use actix_web::HttpResponse;
-use common::api_types::{FileSymbolsRequest, JsonRpcRequest, JsonRpcResponse, Symbol};
+use common::api_types::{DefinitionsInFileRequest, JsonRpcRequest, JsonRpcResponse, Symbol};
 use log::{error, info};
 
 /// Get symbols in a specific file (uses ast-grep)
@@ -31,7 +31,7 @@ pub async fn handle(manager: &Manager, request: JsonRpcRequest) -> HttpResponse 
         }
     };
 
-    let info: FileSymbolsRequest = match serde_json::from_value(params) {
+    let info: DefinitionsInFileRequest = match serde_json::from_value(params) {
         Ok(info) => info,
         Err(e) => {
             error!("Invalid parameters for definitionsInFile: {}", e);

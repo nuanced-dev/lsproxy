@@ -2,8 +2,8 @@ use crate::handlers::utils;
 use crate::manager::{LspManagerError, Manager};
 use actix_web::HttpResponse;
 use common::api_types::{
-    get_mount_dir, CodeContext, FilePosition, FileRange, GetReferencesRequest, JsonRpcRequest,
-    JsonRpcResponse, Position, Range, ReferencesResponse,
+    get_mount_dir, CodeContext, FilePosition, FileRange, FindReferencesRequest,
+    FindReferencesResponse, JsonRpcRequest, JsonRpcResponse, Position, Range,
 };
 use common::utils::file_utils::uri_to_relative_path_string;
 use log::{error, info};
@@ -40,7 +40,7 @@ pub async fn handle(manager: &Manager, request: JsonRpcRequest) -> HttpResponse 
         }
     };
 
-    let info: GetReferencesRequest = match serde_json::from_value(params) {
+    let info: FindReferencesRequest = match serde_json::from_value(params) {
         Ok(info) => info,
         Err(e) => {
             error!("Invalid parameters for findReferences: {}", e);
@@ -106,7 +106,7 @@ pub async fn handle(manager: &Manager, request: JsonRpcRequest) -> HttpResponse 
                 None
             };
 
-            let response = ReferencesResponse {
+            let response = FindReferencesResponse {
                 raw_response,
                 references: references
                     .into_iter()

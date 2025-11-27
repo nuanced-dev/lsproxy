@@ -4,8 +4,8 @@ use crate::AppState;
 use actix_web::web::{Data, Json};
 use actix_web::HttpResponse;
 use common::api_types::{
-    FileSymbolsRequest, FindIdentifierRequest, GetDefinitionRequest, GetReferencedSymbolsRequest,
-    GetReferencesRequest, JsonRpcRequest, JsonRpcResponse,
+    DefinitionsInFileRequest, FindDefinitionRequest, FindIdentifierRequest,
+    FindReferencedSymbolsRequest, FindReferencesRequest, JsonRpcRequest, JsonRpcResponse,
 };
 use log::{debug, error, info, warn};
 use lsp_types::{

@@ -21,8 +21,8 @@ impl ContainerHttpClient {
     /// Find definition for a symbol
     pub async fn find_definition(
         &self,
-        request: &GetDefinitionRequest,
-    ) -> Result<DefinitionResponse, Box<dyn Error + Send + Sync>> {
+        request: &FindDefinitionRequest,
+    ) -> Result<FindDefinitionResponse, Box<dyn Error + Send + Sync>> {
         let url = format!("{}/symbol/find-definition", self.base_url);
         let response = self.client.post(&url).json(request).send().await?;
 
@@ -37,8 +37,8 @@ impl ContainerHttpClient {
     /// Find references for a symbol
     pub async fn find_references(
         &self,
-        request: &GetReferencesRequest,
-    ) -> Result<ReferencesResponse, Box<dyn Error + Send + Sync>> {
+        request: &FindReferencesRequest,
+    ) -> Result<FindReferencesResponse, Box<dyn Error + Send + Sync>> {
         let url = format!("{}/symbol/find-references", self.base_url);
         let response = self.client.post(&url).json(request).send().await?;
 
@@ -54,7 +54,7 @@ impl ContainerHttpClient {
     pub async fn find_identifier(
         &self,
         request: &FindIdentifierRequest,
-    ) -> Result<IdentifierResponse, Box<dyn Error + Send + Sync>> {
+    ) -> Result<FindIdentifierResponse, Box<dyn Error + Send + Sync>> {
         let url = format!("{}/symbol/find-identifier", self.base_url);
         let response = self.client.post(&url).json(request).send().await?;
 
@@ -69,8 +69,8 @@ impl ContainerHttpClient {
     /// Find referenced symbols within a function
     pub async fn find_referenced_symbols(
         &self,
-        request: &GetReferencedSymbolsRequest,
-    ) -> Result<ReferencedSymbolsResponse, Box<dyn Error + Send + Sync>> {
+        request: &FindReferencedSymbolsRequest,
+    ) -> Result<FindReferencedSymbolsResponse, Box<dyn Error + Send + Sync>> {
         let url = format!("{}/symbol/find-referenced-symbols", self.base_url);
         let response = self.client.post(&url).json(request).send().await?;
 
@@ -85,7 +85,7 @@ impl ContainerHttpClient {
     /// Get all definitions in a file
     pub async fn definitions_in_file(
         &self,
-        request: &FileSymbolsRequest,
+        request: &DefinitionsInFileRequest,
     ) -> Result<Vec<Symbol>, Box<dyn Error + Send + Sync>> {
         let url = format!("{}/symbol/definitions-in-file", self.base_url);
         let response = self.client.get(&url).query(request).send().await?;
