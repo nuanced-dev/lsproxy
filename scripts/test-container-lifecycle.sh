@@ -108,7 +108,7 @@ CONTAINERS_STARTED=true
 echo -e "${YELLOW}Waiting for service to initialize (up to 60s)...${NC}"
 ready=false
 for i in $(seq 1 60); do
-    HEALTH=$(curl -sf http://localhost:4444/v1/system/health || true)
+    HEALTH=$(curl -sf http://localhost:4444/v2/system/health || true)
     STATUS=$(echo "$HEALTH" | jq -r '.status' 2>/dev/null || echo "")
     LANG_PENDING=$(echo "$HEALTH" | jq -r '.languages | to_entries[]? | select(.value != true) | .key' 2>/dev/null || true)
 
@@ -139,7 +139,7 @@ test_step "Service container running" \
 
 # Test 4: Service health check
 test_step "Service health check responds" \
-    "curl -sf http://localhost:4444/v1/system/health > /dev/null"
+    "curl -sf http://localhost:4444/v2/system/health > /dev/null"
 
 # Test 5: Verify language containers were spawned
 echo
@@ -159,13 +159,17 @@ TESTS_RUN=$((TESTS_RUN + 1))
 
 # Test 6: Test an actual API endpoint
 test_step "List files endpoint works" \
-    "curl -sf http://localhost:4444/v1/workspace/list-files | jq -e 'type == \"array\"' > /dev/null"
+    "curl -sf -X POST http://localhost:4444/v2/lsp \
+        -H 'Content-Type: application/json' \
+        -d '{\"jsonrpc\":\"2.0\",\"method\":\"lsproxy/workspace/listFiles\",\"id\":1}' \
+     | jq -e '.result | type == \"array\"' > /dev/null"
 
 # Test 7: Test language-specific endpoint
 test_step "Python language works" \
-    "curl -sf -X POST http://localhost:4444/v1/workspace/read-source-code \
+    "curl -sf -X POST http://localhost:4444/v2/lsp \
         -H 'Content-Type: application/json' \
-        -d '{\"path\":\"main.py\"}' | jq -e '.source_code | length > 0' > /dev/null"
+        -d '{\"jsonrpc\":\"2.0\",\"method\":\"lsproxy/workspace/readSourceCode\",\"id\":2,\"params\":{\"path\":\"main.py\"}}' \
+     | jq -e '.result.source_code | length > 0' > /dev/null"
 
 # Test 8: Stop service and verify cleanup
 echo

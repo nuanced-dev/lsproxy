@@ -26,7 +26,7 @@ YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
 # Configuration
-BASE_URL="${BASE_URL:-http://localhost:4444/v1}"
+BASE_URL="${BASE_URL:-http://localhost:4444/v2}"
 WORKSPACE_PATH="${1:-sample_project/all}"
 CLEANUP_ON_EXIT=true
 
@@ -203,6 +203,19 @@ test_endpoint() {
     fi
 }
 
+test_lsp_method() {
+    local test_name="$1"
+    local method="$2"
+    local data="$3"
+    local expected_status="${4:-200}"
+    local validation_check="$5"
+    if [ -n "$data" ]; then
+        test_endpoint "$test_name" POST /lsp "{\"jsonrpc\":\"2.0\",\"id\":\"$TOTAL_TESTS\",\"method\":\"$method\",\"params\":$data}" "$expected_status" "jq -e '.result' | $validation_check"
+    else
+        test_endpoint "$test_name" POST /lsp "{\"jsonrpc\":\"2.0\",\"id\":\"$TOTAL_TESTS\",\"method\":\"$method\"}" "$expected_status" "jq -e '.result' | $validation_check"
+    fi
+}
+
 # Enhanced test function for find-referenced-symbols with deep validation
 test_find_referenced_symbols_enhanced() {
     local lang="$1"
@@ -219,11 +232,11 @@ test_find_referenced_symbols_enhanced() {
     local data="{\"identifier_position\":{\"path\":\"$file\",\"position\":{\"line\":$line,\"character\":$char}},\"full_scan\":false}"
 
     # Make request
-    local curl_cmd="curl -s -w '\n%{http_code}' --max-time 30 -X POST -H 'Content-Type: application/json' -d '$data' '$BASE_URL/symbol/find-referenced-symbols'"
+    local curl_cmd="curl -s -w '\n%{http_code}' --max-time 30 -X POST -H 'Content-Type: application/json' -d '{\"jsonrpc\":\"2.0\",\"id\":\"$TOTAL_TESTS\",\"method\":\"lsproxy/symbol/findReferencedSymbols\",\"params\":$data}' '$BASE_URL/lsp'"
 
     if response=$(eval "$curl_cmd" 2>&1); then
         # Split response body and status code
-        local body=$(echo "$response" | sed '$d')
+        local body=$(echo "$response" | sed '$d' | jq .result)
         local status=$(echo "$response" | tail -n 1)
 
         # Validate HTTP status code
@@ -391,9 +404,8 @@ echo
 
 # Test 2: List Files (language-agnostic)
 echo -e "${YELLOW}2. Workspace Endpoints (Language-Agnostic)${NC}"
-test_endpoint "List Files" \
-    "GET" \
-    "/workspace/list-files" \
+test_lsp_method "List Files" \
+    "lsproxy/workspace/listFiles" \
     "" \
     "200" \
     "jq -e 'type == \"array\" and length > 0' > /dev/null"
@@ -421,57 +433,50 @@ while IFS='|' read -r lang test_file symbol_name symbol_line symbol_char health_
         "jq -e '.languages.$health_key == true' > /dev/null"
 
     # Read Source Code
-    test_endpoint "Read Source ($lang)" \
-        "POST" \
-        "/workspace/read-source-code" \
+    test_lsp_method "Read Source ($lang)" \
+        "lsproxy/workspace/readSourceCode" \
         "{\"path\":\"$test_file\"}" \
         "200" \
         "jq -e '.source_code | type == \"string\" and length > 0' > /dev/null"
 
     # Read Source Code with Range
-    test_endpoint "Read Source with Range ($lang)" \
-        "POST" \
-        "/workspace/read-source-code" \
+    test_lsp_method "Read Source with Range ($lang)" \
+        "lsproxy/workspace/readSourceCode" \
         "{\"path\":\"$test_file\",\"range\":{\"start\":{\"line\":0,\"character\":0},\"end\":{\"line\":1,\"character\":0}}}" \
         "200" \
         "jq -e '.source_code | type == \"string\"' > /dev/null"
 
     # Find Definition (assert selected identifier and at least one definition)
-    test_endpoint "Find Definition ($lang)" \
-        "POST" \
-        "/symbol/find-definition" \
+    test_lsp_method "Find Definition ($lang)" \
+        "lsproxy/symbol/findDefinition" \
         "{\"position\":{\"path\":\"$test_file\",\"position\":{\"line\":$symbol_line,\"character\":$symbol_char}},\"include_source_code\":false,\"include_raw_response\":false}" \
         "200" \
         "jq -e '.selected_identifier.name == \"$symbol_name\" and (.definitions | length) >= 0 and (.selected_identifier.file_range.path == \"$test_file\")' > /dev/null"
 
     # Find References (assert selected identifier matches and references is an array)
-    test_endpoint "Find References ($lang)" \
-        "POST" \
-        "/symbol/find-references" \
+    test_lsp_method "Find References ($lang)" \
+        "lsproxy/symbol/findReferences" \
         "{\"identifier_position\":{\"path\":\"$test_file\",\"position\":{\"line\":$symbol_line,\"character\":$symbol_char}},\"include_code_context_lines\":0}" \
         "200" \
         "jq -e '.selected_identifier.name == \"$symbol_name\" and .selected_identifier.file_range.path == \"$test_file\" and (.references | type == \"array\")' > /dev/null"
 
     # Find Referenced Symbols
-    test_endpoint "Find Referenced Symbols ($lang)" \
-        "POST" \
-        "/symbol/find-referenced-symbols" \
+    test_lsp_method "Find Referenced Symbols ($lang)" \
+        "lsproxy/symbol/findReferencedSymbols" \
         "{\"identifier_position\":{\"path\":\"$test_file\",\"position\":{\"line\":$symbol_line,\"character\":$symbol_char}},\"full_scan\":false}" \
         "200" \
         "jq -e 'type == \"object\"' > /dev/null"
 
     # Definitions in File
-    test_endpoint "Definitions in File ($lang)" \
-        "GET" \
-        "/symbol/definitions-in-file?file_path=$test_file" \
-        "" \
+    test_lsp_method "Definitions in File ($lang)" \
+        "lsproxy/symbol/definitionsInFile" \
+        "{\"file_path\":\"$test_file\"}" \
         "200" \
         "jq -e 'type == \"array\"' > /dev/null"
 
     # Find Identifier
-    test_endpoint "Find Identifier ($lang)" \
-        "POST" \
-        "/symbol/find-identifier" \
+    test_lsp_method "Find Identifier ($lang)" \
+        "lsproxy/symbol/findIdentifier" \
         "{\"path\":\"$test_file\",\"name\":\"$symbol_name\"}" \
         "200" \
         "jq -e 'type == \"object\"' > /dev/null"

@@ -1,7 +1,7 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "lsproxy",
+    "title": "nuanced-lsp",
     "description": "",
     "license": {
       "name": "Apache-2.0",
@@ -11,66 +11,23 @@
   },
   "servers": [
     {
-      "url": "http://localhost:4444/v1",
-      "description": "API server v1"
+      "url": "http://localhost:4444/v2",
+      "description": "API server v2"
     }
   ],
   "paths": {
-    "/symbol/definitions-in-file": {
-      "get": {
-        "tags": [
-          "symbol"
-        ],
-        "summary": "Get symbols in a specific file (uses ast-grep)",
-        "description": "Returns a list of symbols (functions, classes, variables, etc.) defined in the specified file.\n\nOnly the variabels defined at the file level are included.\n\nThe returned positions point to the start of the symbol's identifier.\n\ne.g. for `User` on line 0 of `src/main.py`:\n```\n0: class User:\n_________^\n1:     def __init__(self, name, age):\n2:         self.name = name\n3:         self.age = age\n```",
-        "operationId": "definitions_in_file",
-        "parameters": [
-          {
-            "name": "file_path",
-            "in": "query",
-            "description": "The path to the file to get the symbols for, relative to the root of the workspace.",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Symbols retrieved successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/Symbol"
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad request"
-          },
-          "500": {
-            "description": "Internal server error"
-          }
-        }
-      }
-    },
-    "/symbol/find-definition": {
+    "/lsp": {
       "post": {
         "tags": [
-          "symbol"
+          "lsp"
         ],
-        "summary": "Get the definition of a symbol at a specific position in a file",
-        "description": "Returns the location of the definition for the symbol at the given position.\n\nThe input position should point inside the symbol's identifier, e.g.\n\nThe returned position points to the identifier of the symbol, and the file_path from workspace root\n\ne.g. for the definition of `User` on line 5 of `src/main.py` with the code:\n```\n0: class User:\noutput___^\n1:     def __init__(self, name, age):\n2:         self.name = name\n3:         self.age = age\n4:\n5: user = User(\"John\", 30)\ninput_____^^^^\n```",
-        "operationId": "find_definition",
+        "summary": "Forward LSP JSON-RPC requests to language servers",
+        "operationId": "lsp",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/GetDefinitionRequest"
+                "$ref": "#/components/schemas/JsonRpcRequest"
               }
             }
           },
@@ -78,131 +35,17 @@
         },
         "responses": {
           "200": {
-            "description": "Definition retrieved successfully",
+            "description": "LSP request processed successfully",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DefinitionResponse"
+                  "$ref": "#/components/schemas/JsonRpcResponse"
                 }
               }
             }
           },
           "400": {
-            "description": "Bad request"
-          },
-          "500": {
-            "description": "Internal server error"
-          }
-        }
-      }
-    },
-    "/symbol/find-identifier": {
-      "post": {
-        "tags": [
-          "symbol"
-        ],
-        "summary": "Finds occurrences of an identifier by name in a file",
-        "description": "Given a file path and identifier name, returns:\n- Without position: All matching identifiers in the file\n- With position: The exact identifier with that name at that position, or 3 closest identifiers with that name\n\nExample finding all occurrences of \"user_name\":\n```\nlet user_name = \"John\";  // First occurrence\nprintln!(\"{}\", user_name); // Second occurrence\n```\n\nWhen a position is provided, it searches for an exact match at that location.\nIf no exact match exists, returns the 3 identifiers closest to the position\nbased on line and character distance, prioritizing lines.",
-        "operationId": "find_identifier",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/FindIdentifierRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Identifier retrieved successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/IdentifierResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad request"
-          },
-          "500": {
-            "description": "Internal server error"
-          }
-        }
-      }
-    },
-    "/symbol/find-referenced-symbols": {
-      "post": {
-        "tags": [
-          "symbol"
-        ],
-        "summary": "Find all symbols that are referenced from a given symbol's definition",
-        "description": "The input position must point to a symbol (e.g. function name, class name, variable name).\nReturns all symbols referenced within that symbol's implementation, categorized into:\n- Workspace symbols (with their definitions)\n- External symbols (built-in functions like 'len', 'print' or from external libraries)\n- Symbols that couldn't be found\n\ne.g. for a function definition in `main.py`:\n```python\n@log_execution_time     # Reference to decorator\ndef process_user():     # <-- Input position here\n    user = User()       # Reference to User class\n    print(\"Done\")       # Reference to built-in function\n```\nThis would return:\n- Workspace symbols: [\n    log_execution_time (with definition from decorators.py),\n    User (with definition from models.py)\n  ]\n- External symbols: print (Python built-in)",
-        "operationId": "find_referenced_symbols",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/GetReferencedSymbolsRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Referenced symbols retrieved successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ReferencedSymbolsResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad request"
-          },
-          "500": {
-            "description": "Internal server error"
-          }
-        }
-      }
-    },
-    "/symbol/find-references": {
-      "post": {
-        "tags": [
-          "symbol"
-        ],
-        "summary": "Find all references to a symbol",
-        "description": "The input position should point to the identifier of the symbol you want to get the references for.\n\nReturns a list of locations where the symbol at the given position is referenced.\n\nThe returned positions point to the start of the reference identifier.\n\ne.g. for `User` on line 0 of `src/main.py`:\n```\n 0: class User:\n input____^^^^\n 1:     def __init__(self, name, age):\n 2:         self.name = name\n 3:         self.age = age\n 4:\n 5: user = User(\"John\", 30)\n output____^\n```",
-        "operationId": "find_references",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/GetReferencesRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "References retrieved successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ReferencesResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad request"
+            "description": "Bad request - invalid JSON-RPC format"
           },
           "500": {
             "description": "Internal server error"
@@ -216,11 +59,11 @@
           "system"
         ],
         "summary": "Get health status of the LSP proxy service",
-        "description": "Returns the service status, version and language server availability",
+        "description": "Returns the service status, version and language server availability\nReturns 503 Service Unavailable while initialization is in progress",
         "operationId": "health_check",
         "responses": {
           "200": {
-            "description": "Health check successful",
+            "description": "Service is healthy and initialized",
             "content": {
               "application/json": {
                 "schema": {
@@ -231,75 +74,16 @@
           },
           "500": {
             "description": "Internal server error"
-          }
-        }
-      }
-    },
-    "/workspace/list-files": {
-      "get": {
-        "tags": [
-          "workspace"
-        ],
-        "summary": "Get a list of all files in the workspace",
-        "description": "Returns an array of file paths for all files in the current workspace.\n\nThis is a convenience endpoint that does not use the underlying Language Servers directly, but it does apply the same filtering.",
-        "operationId": "list_files",
-        "responses": {
-          "200": {
-            "description": "Workspace files retrieved successfully",
+          },
+          "503": {
+            "description": "Service is initializing",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  }
+                  "$ref": "#/components/schemas/HealthResponse"
                 }
               }
             }
-          },
-          "400": {
-            "description": "Bad request"
-          },
-          "500": {
-            "description": "Internal server error"
-          }
-        }
-      }
-    },
-    "/workspace/read-source-code": {
-      "post": {
-        "tags": [
-          "workspace"
-        ],
-        "summary": "Read source code from a file in the workspace",
-        "description": "Returns the contents of the specified file.",
-        "operationId": "read_source_code",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ReadSourceCodeRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Source code retrieved successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ReadSourceCodeResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad request"
-          },
-          "500": {
-            "description": "Internal server error"
           }
         }
       }
@@ -307,214 +91,6 @@
   },
   "components": {
     "schemas": {
-      "CodeContext": {
-        "type": "object",
-        "required": [
-          "range",
-          "source_code"
-        ],
-        "properties": {
-          "range": {
-            "$ref": "#/components/schemas/FileRange"
-          },
-          "source_code": {
-            "type": "string"
-          }
-        }
-      },
-      "DefinitionResponse": {
-        "type": "object",
-        "description": "Response to a definition request.\n\nThe definition(s) of the symbol.\nPoints to the start position of the symbol's identifier.\n\ne.g. for the definition of `User` on line 5 of `src/main.py` with the code:\n```\n0: class User:\n_________^\n1:     def __init__(self, name, age):\n2:         self.name = name\n3:         self.age = age\n4:\n5: user = User(\"John\", 30)\n__________^\n```\nThe definition(s) will be `[{\"path\": \"src/main.py\", \"line\": 0, \"character\": 6}]`.",
-        "required": [
-          "definitions",
-          "selected_identifier"
-        ],
-        "properties": {
-          "definitions": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/FilePosition"
-            }
-          },
-          "raw_response": {
-            "description": "The raw response from the langserver.\n\nhttps://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_definition"
-          },
-          "selected_identifier": {
-            "$ref": "#/components/schemas/Identifier",
-            "description": "The identifier that was \"clicked-on\" to get the definition."
-          },
-          "source_code_context": {
-            "type": [
-              "array",
-              "null"
-            ],
-            "items": {
-              "$ref": "#/components/schemas/CodeContext"
-            },
-            "description": "The source code of symbol definitions."
-          }
-        }
-      },
-      "ErrorResponse": {
-        "type": "object",
-        "description": "Response returned when an API error occurs",
-        "required": [
-          "error"
-        ],
-        "properties": {
-          "error": {
-            "type": "string",
-            "description": "Description of the error that occurred"
-          }
-        }
-      },
-      "FilePosition": {
-        "type": "object",
-        "description": "A position within a specific file in the workspace",
-        "required": [
-          "path",
-          "position"
-        ],
-        "properties": {
-          "path": {
-            "type": "string",
-            "description": "Path to the file, relative to the workspace root",
-            "example": "src/main.py"
-          },
-          "position": {
-            "$ref": "#/components/schemas/Position",
-            "description": "Position within the file"
-          }
-        }
-      },
-      "FileRange": {
-        "type": "object",
-        "description": "A range within a specific file, defined by start and end positions",
-        "required": [
-          "path",
-          "range"
-        ],
-        "properties": {
-          "path": {
-            "type": "string",
-            "description": "The path to the file.",
-            "example": "src/main.py"
-          },
-          "range": {
-            "$ref": "#/components/schemas/Range",
-            "description": "The range within the file"
-          }
-        }
-      },
-      "FileSymbolsRequest": {
-        "type": "object",
-        "description": "Request to get the symbols in a file.",
-        "required": [
-          "file_path"
-        ],
-        "properties": {
-          "file_path": {
-            "type": "string",
-            "description": "The path to the file to get the symbols for, relative to the root of the workspace.",
-            "example": "src/main.py"
-          }
-        }
-      },
-      "FindIdentifierRequest": {
-        "type": "object",
-        "required": [
-          "name",
-          "path"
-        ],
-        "properties": {
-          "name": {
-            "type": "string",
-            "description": "The name of the identifier to search for.",
-            "example": "User"
-          },
-          "path": {
-            "type": "string",
-            "description": "The path to the file to search for identifiers.",
-            "example": "src/main.py"
-          },
-          "position": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/Position",
-                "description": "The position hint to search for identifiers. If not provided."
-              }
-            ]
-          }
-        }
-      },
-      "GetDefinitionRequest": {
-        "type": "object",
-        "required": [
-          "position"
-        ],
-        "properties": {
-          "include_raw_response": {
-            "type": "boolean",
-            "description": "Whether to include the raw response from the langserver in the response.\nDefaults to false.",
-            "example": false
-          },
-          "include_source_code": {
-            "type": "boolean",
-            "description": "Whether to include the source code around the symbol's identifier in the response.\nDefaults to false.\nTODO: Implement this",
-            "example": false
-          },
-          "position": {
-            "$ref": "#/components/schemas/FilePosition"
-          }
-        }
-      },
-      "GetReferencedSymbolsRequest": {
-        "type": "object",
-        "description": "Request to get all symbols that are referenced from a symbol at the given position, either\nfocusing on function calls, or more permissively finding all references\n\nThe input position must point to a symbol (e.g. function name, class name, variable name).\nThe response will include all symbols that are referenced from that input symbol.\nFor example, if the position points to a function name, the response will include\nall symbols referenced within that function's implementation.",
-        "required": [
-          "identifier_position"
-        ],
-        "properties": {
-          "full_scan": {
-            "type": "boolean",
-            "description": "Whether to use the more permissive rules to find referenced symbols. This will be not just\ncode that is executed but also things like type hints and chained indirection.\nDefaults to false.",
-            "example": false
-          },
-          "identifier_position": {
-            "$ref": "#/components/schemas/FilePosition",
-            "description": "The identifier position of the symbol to find references within"
-          }
-        }
-      },
-      "GetReferencesRequest": {
-        "type": "object",
-        "required": [
-          "identifier_position"
-        ],
-        "properties": {
-          "identifier_position": {
-            "$ref": "#/components/schemas/FilePosition"
-          },
-          "include_code_context_lines": {
-            "type": [
-              "integer",
-              "null"
-            ],
-            "format": "int32",
-            "description": "Whether to include the source code of the symbol in the response.\nDefaults to none.",
-            "example": 5,
-            "minimum": 0
-          },
-          "include_raw_response": {
-            "type": "boolean",
-            "description": "Whether to include the raw response from the langserver in the response.\nDefaults to false.",
-            "example": false
-          }
-        }
-      },
       "HealthResponse": {
         "type": "object",
         "description": "Response returned by the health check endpoint",
@@ -531,19 +107,90 @@
               "type": "boolean"
             },
             "propertyNames": {
-              "type": "string",
-              "enum": [
-                "python",
-                "typescript_javascript",
-                "rust",
-                "cpp",
-                "csharp",
-                "java",
-                "golang",
-                "php",
-                "ruby",
-                "ruby_sorbet"
-              ]
+              "oneOf": [
+                {
+                  "type": "string",
+                  "enum": [
+                    "Python"
+                  ]
+                },
+                {
+                  "type": "string",
+                  "description": "TypeScript and JavaScript are handled by the same langserver",
+                  "enum": [
+                    "TypeScriptJavaScript"
+                  ]
+                },
+                {
+                  "type": "string",
+                  "enum": [
+                    "Rust"
+                  ]
+                },
+                {
+                  "type": "string",
+                  "enum": [
+                    "CPP"
+                  ]
+                },
+                {
+                  "type": "string",
+                  "enum": [
+                    "CSharp"
+                  ]
+                },
+                {
+                  "type": "string",
+                  "enum": [
+                    "Java"
+                  ]
+                },
+                {
+                  "type": "string",
+                  "enum": [
+                    "Golang"
+                  ]
+                },
+                {
+                  "type": "string",
+                  "enum": [
+                    "PHP"
+                  ]
+                },
+                {
+                  "type": "object",
+                  "description": "Ruby with version and optional Sorbet variant",
+                  "required": [
+                    "Ruby"
+                  ],
+                  "properties": {
+                    "Ruby": {
+                      "type": "object",
+                      "description": "Ruby with version and optional Sorbet variant",
+                      "required": [
+                        "version",
+                        "variant"
+                      ],
+                      "properties": {
+                        "sorbet_config_dir": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "For Sorbet variant: the directory containing sorbet/config (relative to workspace root)\nThis is used to pass --dir to Sorbet so it can find its config in nested projects\nThis field is runtime-only and not exposed in the API schema"
+                        },
+                        "variant": {
+                          "$ref": "#/components/schemas/LanguageVariant"
+                        },
+                        "version": {
+                          "$ref": "#/components/schemas/LanguageVersion"
+                        }
+                      }
+                    }
+                  }
+                }
+              ],
+              "description": "Supported programming languages with optional version information\n\nThis enum represents languages that can be analyzed by the LSP proxy.\nLanguages with version detection (like Ruby) carry version information,\nwhile others use a single unversioned container."
             }
           },
           "status": {
@@ -556,270 +203,83 @@
           }
         }
       },
-      "Identifier": {
+      "JsonRpcError": {
         "type": "object",
+        "description": "JSON-RPC error",
         "required": [
-          "name",
-          "file_range"
+          "code",
+          "message"
         ],
         "properties": {
-          "file_range": {
-            "$ref": "#/components/schemas/FileRange"
-          },
-          "kind": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "name": {
-            "type": "string"
-          }
-        }
-      },
-      "IdentifierResponse": {
-        "type": "object",
-        "required": [
-          "identifiers"
-        ],
-        "properties": {
-          "identifiers": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/Identifier"
-            }
-          }
-        }
-      },
-      "Position": {
-        "type": "object",
-        "description": "A position within a text document, using 0-based indexing",
-        "required": [
-          "line",
-          "character"
-        ],
-        "properties": {
-          "character": {
+          "code": {
             "type": "integer",
             "format": "int32",
-            "description": "0-indexed character index within the line.",
-            "example": 5,
-            "minimum": 0
+            "description": "Error code"
           },
-          "line": {
-            "type": "integer",
-            "format": "int32",
-            "description": "0-indexed line number.",
-            "example": 10,
-            "minimum": 0
-          }
-        }
-      },
-      "Range": {
-        "type": "object",
-        "required": [
-          "start",
-          "end"
-        ],
-        "properties": {
-          "end": {
-            "$ref": "#/components/schemas/Position",
-            "description": "The end position of the range."
+          "data": {
+            "description": "Optional additional error data"
           },
-          "start": {
-            "$ref": "#/components/schemas/Position",
-            "description": "The start position of the range."
-          }
-        }
-      },
-      "ReadSourceCodeRequest": {
-        "type": "object",
-        "required": [
-          "path"
-        ],
-        "properties": {
-          "path": {
+          "message": {
             "type": "string",
-            "description": "Path to the file, relative to the workspace root",
-            "example": "src/main.py"
+            "description": "Error message"
+          }
+        }
+      },
+      "JsonRpcRequest": {
+        "type": "object",
+        "description": "JSON-RPC request or notification",
+        "required": [
+          "jsonrpc",
+          "method"
+        ],
+        "properties": {
+          "id": {
+            "description": "Optional request ID (for requests that expect a response)"
           },
-          "range": {
+          "jsonrpc": {
+            "type": "string",
+            "description": "The JSON-RPC version (always \"2.0\")",
+            "example": "2.0"
+          },
+          "method": {
+            "type": "string",
+            "description": "The method name",
+            "example": "textDocument/hover"
+          },
+          "params": {
+            "description": "The method parameters (structure varies by method)"
+          }
+        }
+      },
+      "JsonRpcResponse": {
+        "type": "object",
+        "description": "JSON-RPC response",
+        "required": [
+          "jsonrpc",
+          "id"
+        ],
+        "properties": {
+          "error": {
             "oneOf": [
               {
                 "type": "null"
               },
               {
-                "$ref": "#/components/schemas/Range",
-                "description": "Optional range within the file to read"
+                "$ref": "#/components/schemas/JsonRpcError",
+                "description": "The error (present on failure)"
               }
             ]
-          }
-        }
-      },
-      "ReadSourceCodeResponse": {
-        "type": "object",
-        "required": [
-          "source_code"
-        ],
-        "properties": {
-          "source_code": {
-            "type": "string"
-          }
-        }
-      },
-      "ReferenceWithSymbolDefinitions": {
-        "type": "object",
-        "description": "A reference to a symbol along with its definition(s) found in the workspace\n\ne.g. for a reference to `User` in `main.py`:\n```python\nuser = User(\"John\", 30)\n_______^\n```\nThis would contain:\n- The reference location and name (\"User\" at line 0)\n- The symbol definition(s) (e.g. \"class User\" in models.py)",
-        "required": [
-          "reference",
-          "definitions"
-        ],
-        "properties": {
-          "definitions": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/Symbol"
-            }
           },
-          "reference": {
-            "$ref": "#/components/schemas/Identifier"
-          }
-        }
-      },
-      "ReferencedSymbolsResponse": {
-        "type": "object",
-        "description": "Response containing symbols referenced from the requested position\n\nThe symbols are categorized into:\n- workspace_symbols: References to symbols that were found and have definitions in the workspace\n- external_symbols: References to symbols from outside the workspace (built-in functions, external libraries)\n- not_found: References where the symbol definition could not be found",
-        "required": [
-          "workspace_symbols",
-          "external_symbols",
-          "not_found"
-        ],
-        "properties": {
-          "external_symbols": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/Identifier"
-            }
+          "id": {
+            "description": "The request ID (matches the request)"
           },
-          "not_found": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/Identifier"
-            }
-          },
-          "workspace_symbols": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ReferenceWithSymbolDefinitions"
-            }
-          }
-        }
-      },
-      "ReferencesResponse": {
-        "type": "object",
-        "description": "Response to a references request.\n\nPoints to the start position of the symbol's identifier.\n\ne.g. for the references of `User` on line 0 character 6 of `src/main.py` with the code:\n```\n0: class User:\n1:     def __init__(self, name, age):\n2:         self.name = name\n3:         self.age = age\n4:\n5: user = User(\"John\", 30)\n_________^\n6:\n7: print(user.name)\n```\nThe references will be `[{\"path\": \"src/main.py\", \"line\": 5, \"character\": 7}]`.",
-        "required": [
-          "references",
-          "selected_identifier"
-        ],
-        "properties": {
-          "context": {
-            "type": [
-              "array",
-              "null"
-            ],
-            "items": {
-              "$ref": "#/components/schemas/CodeContext"
-            },
-            "description": "The source code around the references."
-          },
-          "raw_response": {
-            "description": "The raw response from the langserver.\n\nhttps://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_references"
-          },
-          "references": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/FilePosition"
-            }
-          },
-          "selected_identifier": {
-            "$ref": "#/components/schemas/Identifier",
-            "description": "The identifier that was \"clicked-on\" to get the references."
-          }
-        }
-      },
-      "SupportedLanguages": {
-        "type": "string",
-        "enum": [
-          "python",
-          "typescript_javascript",
-          "rust",
-          "cpp",
-          "csharp",
-          "java",
-          "golang",
-          "php",
-          "ruby"
-        ]
-      },
-      "Symbol": {
-        "type": "object",
-        "required": [
-          "name",
-          "kind",
-          "identifier_position",
-          "file_range"
-        ],
-        "properties": {
-          "file_range": {
-            "$ref": "#/components/schemas/FileRange",
-            "description": "The full range of the symbol."
-          },
-          "identifier_position": {
-            "$ref": "#/components/schemas/FilePosition",
-            "description": "The start position of the symbol's identifier."
-          },
-          "kind": {
+          "jsonrpc": {
             "type": "string",
-            "description": "The kind of the symbol (e.g., function, class).",
-            "example": "class"
+            "description": "The JSON-RPC version (always \"2.0\")",
+            "example": "2.0"
           },
-          "name": {
-            "type": "string",
-            "description": "The name of the symbol.",
-            "example": "User"
-          }
-        }
-      },
-      "Vec": {
-        "type": "array",
-        "items": {
-          "type": "object",
-          "required": [
-            "name",
-            "kind",
-            "identifier_position",
-            "file_range"
-          ],
-          "properties": {
-            "file_range": {
-              "$ref": "#/components/schemas/FileRange",
-              "description": "The full range of the symbol."
-            },
-            "identifier_position": {
-              "$ref": "#/components/schemas/FilePosition",
-              "description": "The start position of the symbol's identifier."
-            },
-            "kind": {
-              "type": "string",
-              "description": "The kind of the symbol (e.g., function, class).",
-              "example": "class"
-            },
-            "name": {
-              "type": "string",
-              "description": "The name of the symbol.",
-              "example": "User"
-            }
+          "result": {
+            "description": "The result (present on success)"
           }
         }
       }
@@ -839,8 +299,8 @@
   ],
   "tags": [
     {
-      "name": "lsproxy-api",
-      "description": "LSP Proxy API"
+      "name": "nuanced-lsp-api",
+      "description": "Nuanced LSP API"
     }
   ]
 }

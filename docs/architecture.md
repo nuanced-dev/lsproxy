@@ -18,7 +18,7 @@ sequenceDiagram
     participant Workspace as Workspace Files<br/>(/mnt/workspace)
 
     Note over Client,Workspace: 1. Client Request
-    Client->>Service: HTTP POST /v1/{language}/{endpoint}<br/>e.g., /v1/typescript/find-definition
+    Client->>Service: HTTP POST /v2/lsp<br/>e.g., /v2/lsp lsproxy/symbol/findDefinition
 
     Note over Service,Docker: 2. Service Routes Request
     Service->>Service: Parse request body<br/>Validate workspace path
@@ -79,7 +79,7 @@ sequenceDiagram
 - **Container**: `nuanced-lsp-proxy`
 - **Port**: 4444 (exposed to host)
 - **Responsibilities**:
-  - HTTP API gateway (exposes `/v1/{language}/{endpoint}`)
+  - HTTP API gateway (exposes `/v2/lsp`)
   - Container lifecycle management (create, monitor, remove)
   - Request routing to appropriate language containers
   - Workspace management and validation
@@ -243,12 +243,12 @@ The system uses **binary injection** via Docker volumes to share the wrapper bin
 
 1. **Client Request**:
    ```bash
-   curl -X POST http://localhost:4444/v1/typescript/find-definition \
+   curl -X POST http://localhost:4444/v2/lsp \
      -H "Content-Type: application/json" \
-     -d '{
+     -d '{"jsonrpc":"2.0","id":3,"method":"lsproxy/symbol/findDefinition","params":{
        "path": "src/index.ts",
        "position": {"line": 10, "character": 5}
-     }'
+     }}'
    ```
 
 2. **Service Processing**:
@@ -338,26 +338,26 @@ The system uses **binary injection** via Docker volumes to share the wrapper bin
 ## API Endpoints
 
 ### System Endpoints
-- `GET /v1/system/health` - Health check
+- `GET /v2/system/health` - Health check
 - `GET /swagger-ui/` - Swagger documentation
 
-### Workspace Endpoints
-- `POST /v1/workspace/list-files` - List all files in workspace
-
 ### Language-Specific Endpoints
-All endpoints accept POST requests with JSON body.
+The LSP endpoints accept POST requests with JSON-RPC body.
 
-Pattern: `/v1/{language}/{endpoint}`
+Pattern: `/v2/lsp`
 
-**LSP-based endpoints**:
-- `/v1/{language}/find-definition` - Find symbol definition
-- `/v1/{language}/find-references` - Find all references
-- `/v1/{language}/read-source` - Read file contents with optional range
+**Workspace methods**:
+- `lsproxy/workspace/listFiles` - List all files in workspace
+- `lsproxy/workspace/readSourceCode` - Read file contents with optional range
 
-**ast-grep endpoints**:
-- `/v1/{language}/definitions-in-file` - Get all definitions in file
-- `/v1/{language}/find-identifier` - Find identifier by name
-- `/v1/{language}/find-referenced-symbols` - Find symbols referenced in function body
+**LSP-based methods**:
+- `lsproxy/symbol/findDefinition` - Find symbol definition
+- `lsproxy/symbol/findReferences` - Find all references
+
+**ast-grep methods**:
+- `lsproxy/symbol/definitionsInFile` - Get all definitions in file
+- `lsproxy/symbol/findIdentifier` - Find identifier by name
+- `lsproxy/symbol/findReferencedSymbols` - Find symbols referenced in function body
 
 ## Testing
 

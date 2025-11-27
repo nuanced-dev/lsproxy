@@ -86,18 +86,21 @@ Tests:
 
 **Script:** `scripts/test-all-endpoints.sh`
 
-Tests all 8 endpoints × 10 languages = 80+ tests:
+Tests all lsproxy methods × 10 languages = 80+ tests:
 
 **Endpoints tested:**
-1. `GET /v1/system/health` - System health check
-2. `GET /v1/workspace/list-files` - List all files
-3. `POST /v1/workspace/read-source-code` - Read file content
-4. `POST /v1/workspace/read-source-code` (with range) - Read file range
-5. `POST /v1/symbol/find-definition` - Find symbol definitions
-6. `POST /v1/symbol/find-references` - Find symbol references
-7. `POST /v1/symbol/find-referenced-symbols` - Find referenced symbols
-8. `GET /v1/symbol/definitions-in-file` - Get all definitions in file
-9. `POST /v1/symbol/find-identifier` - Find identifier by name
+1. `GET /v2/system/health` - System health check
+2. `POST /v2/lsp` - LSP request
+
+**LSP methods tested:**
+1. `lsproxy/workspace/listFiles` - List all files
+2. `lsproxy/workspace/readSourceCode` - Read file content
+3. `lsproxy/workspace/readSourceCode` (with range) - Read file range
+4. `lsproxy/symbol/findDefinition` - Find symbol definitions
+5. `lsproxy/symbol/findReferences` - Find symbol references
+6. `lsproxy/symbol/findReferencedSymbols` - Find referenced symbols
+7. `lsproxy/symbol/definitionsInFile` - Get all definitions in file
+8. `lsproxy/symbol/findIdentifier` - Find identifier by name
 
 **Languages tested:**
 - Python (jedi-language-server)
@@ -276,26 +279,25 @@ docker exec -it nuanced-lsp-proxy /bin/bash
 ### Manual API Testing
 ```bash
 # Health check
-curl http://localhost:4444/v1/system/health | jq
+curl http://localhost:4444/v2/system/health | jq
 
 # List files
-curl http://localhost:4444/v1/workspace/list-files | jq
+curl -X POST http://localhost:4444/v2/lsp \
+    -H 'Content-Type: application/json' \
+    -d '{"jsonrpc":"2.0","id":2,"method":"lsproxy/workspace/listFiles"}' \
+| jq
 
 # Read source code
-curl -X POST http://localhost:4444/v1/workspace/read-source-code \
+curl -X POST http://localhost:4444/v2/lsp \
     -H 'Content-Type: application/json' \
-    -d '{"path":"main.py"}' | jq
+    -d '{"jsonrpc":"2.0","id":2,"method":"lsproxy/workspace/readSourceCode","params":{"path":"main.py"}}' \
+| jq
 
 # Find definition
-curl -X POST http://localhost:4444/v1/symbol/find-definition \
+curl -X POST http://localhost:4444/v2/lsp \
     -H 'Content-Type: application/json' \
-    -d '{
-        "position": {
-            "path": "main.py",
-            "position": {"line": 15, "character": 4}
-        },
-        "include_source_code": false
-    }' | jq
+    -d '{"jsonrpc":"2.0","id":2,"method":"lsproxy/symbol/findDefinition","params":{"position":{"path":"main.py","position":{"line":15,"character":4}},"include_source_code":false}}' \
+| jq
 ```
 
 ## Container Architecture
@@ -378,7 +380,7 @@ To benchmark container startup time and API latency:
 time ./scripts/start-proxy.sh sample_project/all
 
 # Measure endpoint latency
-time curl http://localhost:4444/v1/workspace/list-files
+time curl http://localhost:4444/v2/lsp # see find-definitions example above
 
 # Measure container spawn time
 docker logs nuanced-lsp-proxy | grep "Container spawned"
