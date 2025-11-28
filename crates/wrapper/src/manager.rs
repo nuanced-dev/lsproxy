@@ -3,7 +3,7 @@ use crate::lsp::client::LspClient;
 ///
 /// Unlike the main Nuanced LSP Manager that orchestrates multiple language servers,
 /// this Manager wraps a single LSP client for the configured language.
-use common::api_types::{get_mount_dir, Identifier, JsonRpcRequest, JsonRpcResponse, Symbol};
+use common::api_types::{get_mount_dir, Identifier, JsonRpcMessage, Symbol};
 use common::ast_grep::client::AstGrepClient;
 use common::ast_grep::types::AstGrepMatch;
 use common::utils::file_utils::uri_to_relative_path_string;
@@ -18,6 +18,9 @@ use tokio::sync::Mutex;
 pub enum LspManagerError {
     #[error("File not found: {0}")]
     FileNotFound(String),
+
+    #[error("Bad request: {0}")]
+    BadRequest(String),
 
     #[error("Internal error: {0}")]
     InternalError(String),
@@ -285,13 +288,16 @@ impl Manager {
     /// Forward a raw LSP JSON-RPC request to the LSP server
     ///
     /// This provides lightweight pass-through of JSON-RPC requests with minimal processing.
-    pub async fn lsp(&self, request: JsonRpcRequest) -> Result<JsonRpcResponse, LspManagerError> {
+    pub async fn lsp(&self, request: JsonRpcMessage) -> Result<JsonRpcMessage, LspManagerError> {
         let req_id = request.id;
+        let Some(method) = request.method else {
+            return Err(LspManagerError::BadRequest("missing method".to_string()));
+        };
 
         // Forward to LSP server
         let mut locked_client = self.client.lock().await;
         let result = locked_client
-            .send_request(&request.method, request.params)
+            .send_request(&method, request.params)
             .await
             .map_err(|e| {
                 error!("Failed to forward LSP request: {}", e);
@@ -299,7 +305,7 @@ impl Manager {
             })?;
 
         // Build response
-        let response = JsonRpcResponse::new_result(req_id, result);
+        let response = JsonRpcMessage::new_result_response(req_id, result);
 
         Ok(response)
     }

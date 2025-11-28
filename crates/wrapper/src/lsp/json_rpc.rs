@@ -1,8 +1,7 @@
-use serde::{Deserialize, Serialize};
+use common::api_types::{JsonRpcError, JsonRpcMessage};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::error::Error;
-use std::fmt;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use tokio::sync::broadcast::{channel, Receiver, Sender};
@@ -14,31 +13,6 @@ pub trait JsonRpc: Send + Sync {
     fn create_notification(&self, method: &str, params: Option<Value>) -> String;
     fn parse_message(&self, data: &str) -> Result<JsonRpcMessage, JsonRpcError>;
 }
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct JsonRpcMessage {
-    pub jsonrpc: String,
-    pub id: Option<u64>,
-    pub method: Option<String>,
-    pub params: Option<Value>,
-    pub result: Option<Value>,
-    pub error: Option<JsonRpcError>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct JsonRpcError {
-    pub code: i32,
-    pub message: String,
-    pub data: Option<Value>,
-}
-
-impl fmt::Display for JsonRpcError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Error {}: {}", self.code, self.message)
-    }
-}
-
-impl std::error::Error for JsonRpcError {}
 
 #[derive(Clone)]
 pub struct JsonRpcHandler {

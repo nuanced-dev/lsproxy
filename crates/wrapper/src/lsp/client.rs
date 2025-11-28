@@ -137,7 +137,11 @@ pub trait LspClient: Send {
             loop {
                 if let Ok(raw_response) = process.receive().await {
                     if let Ok(message) = json_rpc.parse_message(&raw_response) {
-                        if let Some(id) = message.id {
+                        if let Some(id) = &message.id {
+                            // we always use u64 ids here, so the server process should respond with those as well
+                            let id = id.as_u64().unwrap_or_else(|| {
+                                panic!("process responded with invalid id type")
+                            });
                             debug!("Received response for request {}", id);
                             if let Ok(Some(sender)) = pending_requests.remove_request(id).await {
                                 if sender.send(message.clone()).is_err() {

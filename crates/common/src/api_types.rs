@@ -843,56 +843,39 @@ pub struct ReadSourceCodeRequest {
     pub range: Option<Range>,
 }
 
-/// JSON-RPC request or notification
+/// Unified JSON-RPC message
+///
+/// Because multiple message types flow in both directions (requests & notifications
+/// from the client, responses & notifications fro the server), it is easier to work
+/// with a unified message type.
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema, IntoParams)]
-pub struct JsonRpcRequest {
+pub struct JsonRpcMessage {
     /// The JSON-RPC version (always "2.0")
     #[schema(example = "2.0")]
     pub jsonrpc: String,
 
-    /// Optional request ID (for requests that expect a response)
-    #[serde(skip_serializing_if = "Option::is_none")]
+    /// Request ID (required for requests and responses)
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_option_value"
+    )]
     pub id: Option<Value>,
 
-    /// The method name
+    /// Method name (required for requests and notifications)
     #[schema(example = "textDocument/hover")]
-    pub method: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub method: Option<String>,
 
-    /// The method parameters (structure varies by method)
+    /// Parameters (optional for requests and notifications)
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
         deserialize_with = "deserialize_option_value"
     )]
     pub params: Option<Value>,
-}
 
-impl JsonRpcRequest {
-    pub fn new<Id: Serialize, P: Serialize>(
-        id: Option<Id>,
-        method: String,
-        params: Option<P>,
-    ) -> Self {
-        Self {
-            jsonrpc: "2.0".to_string(),
-            id: id.map(|id| serde_json::to_value(id).unwrap()),
-            method,
-            params: params.map(|p| serde_json::to_value(p).unwrap()),
-        }
-    }
-}
-
-/// JSON-RPC response
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
-pub struct JsonRpcResponse {
-    /// The JSON-RPC version (always "2.0")
-    #[schema(example = "2.0")]
-    pub jsonrpc: String,
-
-    /// The request ID (matches the request)
-    pub id: Value,
-
-    /// The result (present on success)
+    /// Result (required for responses, unless error is present)
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
@@ -900,29 +883,62 @@ pub struct JsonRpcResponse {
     )]
     pub result: Option<Value>,
 
-    /// The error (present on failure)
+    /// Error (required for responses, unless result is present)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<JsonRpcError>,
 }
 
-impl JsonRpcResponse {
-    pub fn new_result<Id: Serialize, R: Serialize>(id: Option<Id>, result: R) -> Self {
+impl JsonRpcMessage {
+    pub fn new_notification<Id: Serialize, R: Serialize>(
+        method: String,
+        params: Option<R>,
+    ) -> Self {
         Self {
             jsonrpc: "2.0".to_string(),
-            id: id
-                .map(|id| serde_json::to_value(id).unwrap())
-                .unwrap_or(Value::Null),
+            id: None,
+            method: Some(method),
+            params: params.map(|params| serde_json::to_value(params).unwrap()),
+            result: None,
+            error: None,
+        }
+    }
+
+    pub fn new_request<Id: Serialize, R: Serialize>(
+        id: Id,
+        method: String,
+        params: Option<R>,
+    ) -> Self {
+        Self {
+            jsonrpc: "2.0".to_string(),
+            id: Some(serde_json::to_value(id).unwrap()),
+            method: Some(method),
+            params: params.map(|params| serde_json::to_value(params).unwrap()),
+            result: None,
+            error: None,
+        }
+    }
+
+    pub fn new_result_response<Id: Serialize, R: Serialize>(id: Option<Id>, result: R) -> Self {
+        Self {
+            jsonrpc: "2.0".to_string(),
+            id: Some(id.map_or(Value::Null, |id| serde_json::to_value(id).unwrap())),
+            method: None,
+            params: None,
             result: Some(serde_json::to_value(result).unwrap()),
             error: None,
         }
     }
 
-    pub fn new_error<Id: Serialize>(id: Option<Id>, code: i32, message: impl ToString) -> Self {
+    pub fn new_error_response<Id: Serialize>(
+        id: Option<Id>,
+        code: i32,
+        message: impl ToString,
+    ) -> Self {
         Self {
             jsonrpc: "2.0".to_string(),
-            id: id
-                .map(|id| serde_json::to_value(id).unwrap())
-                .unwrap_or(Value::Null),
+            id: Some(id.map_or(Value::Null, |id| serde_json::to_value(id).unwrap())),
+            method: None,
+            params: None,
             result: None,
             error: Some(JsonRpcError {
                 code,
@@ -936,16 +952,24 @@ impl JsonRpcResponse {
 /// JSON-RPC error
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct JsonRpcError {
-    /// Error code
+    /// Code
     pub code: i32,
 
-    /// Error message
+    /// Message
     pub message: String,
 
     /// Optional additional error data
     #[serde(skip_serializing_if = "Option::is_none")]
     pub data: Option<Value>,
 }
+
+impl fmt::Display for JsonRpcError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Error {}: {}", self.code, self.message)
+    }
+}
+
+impl std::error::Error for JsonRpcError {}
 
 /// Custom deserialize function to ensure `Some(Null)` is not reduced to `None`.
 /// Fields need to be annotated as follows:

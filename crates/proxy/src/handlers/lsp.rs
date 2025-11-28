@@ -3,7 +3,7 @@ use crate::handlers::container_proxy;
 use crate::AppState;
 use actix_web::web::{Data, Json};
 use actix_web::HttpResponse;
-use common::api_types::{JsonRpcRequest, JsonRpcResponse};
+use common::api_types::JsonRpcMessage;
 use log::{debug, error, info, warn};
 use lsp_types::{
     DeclarationCapability, FoldingRangeProviderCapability, HoverProviderCapability,
@@ -19,20 +19,20 @@ use url::Url;
     post,
     path = "/lsp",
     tag = "lsp",
-    request_body = JsonRpcRequest,
+    request_body = JsonRpcMessage,
     responses(
-        (status = 200, description = "LSP request processed successfully", body = JsonRpcResponse),
+        (status = 200, description = "LSP request processed successfully", body = JsonRpcMessage),
         (status = 400, description = "Bad request - invalid JSON-RPC format"),
         (status = 500, description = "Internal server error")
     )
 )]
-pub async fn lsp(data: Data<AppState>, request: Json<JsonRpcRequest>) -> HttpResponse {
+pub async fn lsp(data: Data<AppState>, request: Json<JsonRpcMessage>) -> HttpResponse {
     let lsp_req = request.into_inner();
 
     let method = &lsp_req.method;
     let req_id = lsp_req.id.clone();
-    info!("Received LSP request: id={:?} method={}", &req_id, method);
-    debug!("LSP request: id={:?}", &lsp_req);
+    info!("Received LSP request: id={:?} method={:?}", &req_id, method);
+    debug!("LSP request: {:?}", &lsp_req);
 
     // Handle lifecycle requests locally
     if let Some(response) = handle_lifecycle_request(&lsp_req) {
@@ -48,10 +48,10 @@ pub async fn lsp(data: Data<AppState>, request: Json<JsonRpcRequest>) -> HttpRes
         Some(uri) => uri,
         None => {
             warn!(
-                "Could not extract document URI from request for method: {}",
+                "Could not extract document URI from request for method: {:?}",
                 method
             );
-            return HttpResponse::BadRequest().json(JsonRpcResponse::new_error(
+            return HttpResponse::BadRequest().json(JsonRpcMessage::new_error_response(
                 req_id,
                 -32602,
                 "Invalid params: could not extract document URI",
@@ -65,7 +65,7 @@ pub async fn lsp(data: Data<AppState>, request: Json<JsonRpcRequest>) -> HttpRes
             Ok(path) => path.to_string_lossy().to_string(),
             Err(_) => {
                 error!("Invalid file URI path: {}", document_uri);
-                return HttpResponse::BadRequest().json(JsonRpcResponse::new_error(
+                return HttpResponse::BadRequest().json(JsonRpcMessage::new_error_response(
                     req_id,
                     -32602,
                     "Invalid params: invalid file URI path",
@@ -74,7 +74,7 @@ pub async fn lsp(data: Data<AppState>, request: Json<JsonRpcRequest>) -> HttpRes
         },
         Ok(_) => {
             error!("Non-file URI: {}", document_uri);
-            return HttpResponse::BadRequest().json(JsonRpcResponse::new_error(
+            return HttpResponse::BadRequest().json(JsonRpcMessage::new_error_response(
                 req_id,
                 -32602,
                 "Invalid params: expected file URI",
@@ -82,7 +82,7 @@ pub async fn lsp(data: Data<AppState>, request: Json<JsonRpcRequest>) -> HttpRes
         }
         Err(e) => {
             error!("Invalid document URI: {} - {}", document_uri, e);
-            return HttpResponse::BadRequest().json(JsonRpcResponse::new_error(
+            return HttpResponse::BadRequest().json(JsonRpcMessage::new_error_response(
                 req_id,
                 -32602,
                 "Invalid params: invalid document URI",
@@ -95,7 +95,7 @@ pub async fn lsp(data: Data<AppState>, request: Json<JsonRpcRequest>) -> HttpRes
         Ok(client) => client,
         Err(e) => {
             error!("Failed to get container client: {}", e);
-            return HttpResponse::InternalServerError().json(JsonRpcResponse::new_error(
+            return HttpResponse::InternalServerError().json(JsonRpcMessage::new_error_response(
                 req_id,
                 -32603,
                 &format!("Internal error: {}", e),
@@ -108,7 +108,7 @@ pub async fn lsp(data: Data<AppState>, request: Json<JsonRpcRequest>) -> HttpRes
     if let Some(ref mut params) = converted_request.params {
         if let Err(e) = convert_json_paths_host_to_container(&data.orchestrator, params).await {
             error!("Failed to convert request paths: {}", e);
-            return HttpResponse::InternalServerError().json(JsonRpcResponse::new_error(
+            return HttpResponse::InternalServerError().json(JsonRpcMessage::new_error_response(
                 req_id,
                 -32603,
                 &format!("Path conversion error: {}", e),
@@ -119,7 +119,7 @@ pub async fn lsp(data: Data<AppState>, request: Json<JsonRpcRequest>) -> HttpRes
     // Forward request to container
     match client.lsp(&converted_request).await {
         Ok(mut response) => {
-            info!("Received container response: id={}", response.id);
+            info!("Received container response: id={:?}", response.id);
             debug!("Container response: {:?}", response);
 
             // Convert response paths from container to host
@@ -128,11 +128,13 @@ pub async fn lsp(data: Data<AppState>, request: Json<JsonRpcRequest>) -> HttpRes
                     convert_json_paths_container_to_host(&data.orchestrator, result).await
                 {
                     error!("Failed to convert response paths: {}", e);
-                    return HttpResponse::InternalServerError().json(JsonRpcResponse::new_error(
-                        req_id,
-                        -32603,
-                        &format!("Path conversion error: {}", e),
-                    ));
+                    return HttpResponse::InternalServerError().json(
+                        JsonRpcMessage::new_error_response(
+                            req_id,
+                            -32603,
+                            &format!("Path conversion error: {}", e),
+                        ),
+                    );
                 }
             }
 
@@ -140,7 +142,7 @@ pub async fn lsp(data: Data<AppState>, request: Json<JsonRpcRequest>) -> HttpRes
         }
         Err(e) => {
             error!("Container request failed: {}", e);
-            HttpResponse::InternalServerError().json(JsonRpcResponse::new_error(
+            HttpResponse::InternalServerError().json(JsonRpcMessage::new_error_response(
                 req_id,
                 -32603,
                 &format!("Internal error: {}", e),
@@ -150,9 +152,12 @@ pub async fn lsp(data: Data<AppState>, request: Json<JsonRpcRequest>) -> HttpRes
 }
 
 /// Handle lifecycle requests locally
-fn handle_lifecycle_request(request: &JsonRpcRequest) -> Option<HttpResponse> {
+fn handle_lifecycle_request(request: &JsonRpcMessage) -> Option<HttpResponse> {
     let req_id = request.id.clone();
-    match request.method.as_str() {
+    let Some(method) = request.method.as_ref() else {
+        return None;
+    };
+    match method.as_str() {
         "initialize" => {
             let mut capabilities = ServerCapabilities::default();
             capabilities.call_hierarchy_provider = Some(true.into());
@@ -176,7 +181,7 @@ fn handle_lifecycle_request(request: &JsonRpcRequest) -> Option<HttpResponse> {
                 .into(),
             );
             capabilities.type_definition_provider = Some(true.into());
-            let response = JsonRpcResponse::new_result(
+            let response = JsonRpcMessage::new_result_response(
                 req_id,
                 InitializeResult {
                     capabilities,
@@ -190,12 +195,13 @@ fn handle_lifecycle_request(request: &JsonRpcRequest) -> Option<HttpResponse> {
         }
         "initialized" | "exit" => Some(HttpResponse::Ok().finish()),
         "shutdown" => {
-            let response = JsonRpcResponse::new_result(req_id, Value::Null);
+            let response = JsonRpcMessage::new_result_response(req_id, Value::Null);
             Some(HttpResponse::Ok().json(response))
         }
         dollar_method if dollar_method.starts_with("$/") => {
             if req_id.is_some() {
-                let response = JsonRpcResponse::new_error(req_id, -32601, "Method not found");
+                let response =
+                    JsonRpcMessage::new_error_response(req_id, -32601, "Method not found");
                 Some(HttpResponse::Ok().json(response))
             } else {
                 Some(HttpResponse::Ok().finish())

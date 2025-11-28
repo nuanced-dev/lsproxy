@@ -13,6 +13,9 @@ impl IntoHttpResponse for LspManagerError {
             Self::FileNotFound(path) => HttpResponse::BadRequest().json(ErrorResponse {
                 error: format!("File not found: {}", path),
             }),
+            Self::BadRequest(path) => HttpResponse::BadRequest().json(ErrorResponse {
+                error: format!("{}", path),
+            }),
             Self::LspClientNotFound(lang) => {
                 HttpResponse::InternalServerError().json(ErrorResponse {
                     error: format!("LSP client not found for {:?}", lang),
