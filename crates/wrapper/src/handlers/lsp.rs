@@ -1,6 +1,6 @@
 use crate::AppState;
 use actix_web::{web, HttpResponse};
-use common::api_types::JsonRpcMessage;
+use common::api_types::{JsonRpcErrorCode, JsonRpcMessage};
 use log::{debug, error, info};
 
 /// Forward raw LSP JSON-RPC requests to the LSP server
@@ -41,7 +41,7 @@ pub async fn lsp(
             error!("LSP request failed: {}", e);
             let error = JsonRpcMessage::new_error_response(
                 req_id,
-                -32603,
+                JsonRpcErrorCode::InternalError,
                 format!("Internal error: {}", e),
             );
             HttpResponse::InternalServerError().json(error)

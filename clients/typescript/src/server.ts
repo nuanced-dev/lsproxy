@@ -6,7 +6,7 @@ import type {
   JsonRpcResponse,
   ServerCommandOptions,
 } from "./types.js";
-import { isErr } from "./types.js";
+import { isErr, JsonRpcErrorCode } from "./types.js";
 
 // ---- Types ------------------------------------------------------------------
 
@@ -208,7 +208,7 @@ class LspServer {
             };
           } else {
             error = {
-              code: result.data.status_code ?? -32603,
+              code: result.data.status_code ?? JsonRpcErrorCode.InternalError,
               message: "LSP forwarding error",
               data: result.data.error,
             };
@@ -229,7 +229,7 @@ class LspServer {
           jsonrpc: "2.0",
           id: message.id,
           error: {
-            code: -32603,
+            code: JsonRpcErrorCode.InternalError,
             message: "Internal error",
             data: String(err),
           },

@@ -1,4 +1,4 @@
-use common::api_types::{JsonRpcError, JsonRpcMessage};
+use common::api_types::{JsonRpcError, JsonRpcErrorCode, JsonRpcMessage};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::error::Error;
@@ -60,7 +60,7 @@ impl JsonRpc for JsonRpcHandler {
 
     fn parse_message(&self, data: &str) -> Result<JsonRpcMessage, JsonRpcError> {
         serde_json::from_str(data).map_err(|e| JsonRpcError {
-            code: -32700,
+            code: JsonRpcErrorCode::ParseError,
             message: e.to_string(),
             data: None,
         })
