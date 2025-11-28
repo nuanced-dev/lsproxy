@@ -96,7 +96,7 @@ const DEFAULT_WATCHDOG_IMAGE = `${WATCHDOG_IMAGE_BASE}:${nuancedLSPWatchdogVersi
 // Ensure output dir exists
 fs.mkdirSync(outDir, { recursive: true });
 
-// Emit TypeScript module (formatted to pass Prettier)
+// Emit TypeScript module
 const contents = `/* eslint-ignore */
 /* tslint-ignore */
 // AUTO-GENERATED FILE. Do not edit.
