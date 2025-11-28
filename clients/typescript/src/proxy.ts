@@ -342,7 +342,7 @@ export async function up(
 
       const h = await pollHttpWithRetries<HealthResult>(
         "GET",
-        "/v2/system/health",
+        "/v1/system/health",
         base,
         {
           // Each attempt: quick timeout, tiny retry budget

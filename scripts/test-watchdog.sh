@@ -55,7 +55,7 @@ wait_for_service_ready() {
     echo -e "${YELLOW}Waiting for service to initialize (up to ${timeout}s)...${NC}"
     local ready=false
     for i in $(seq 1 "$timeout"); do
-        HEALTH=$(curl -sf "http://localhost:${port}/v2/system/health" || true)
+        HEALTH=$(curl -sf "http://localhost:${port}/v1/system/health" || true)
         STATUS=$(echo "$HEALTH" | jq -r '.status' 2>/dev/null || echo "")
         LANG_PENDING=$(echo "$HEALTH" | jq -r '.languages | to_entries[]? | select(.value != true) | .key' 2>/dev/null || true)
 

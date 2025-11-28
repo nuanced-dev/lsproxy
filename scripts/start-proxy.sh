@@ -157,8 +157,8 @@ if [ "$DETACHED" = true ]; then
     # Show info
     echo -e "${BLUE}Service Information:${NC}"
     echo -e "  Container: nuanced-lsp-proxy"
-    echo -e "  URL:       http://localhost:${PORT}/v2"
-    echo -e "  Health:    http://localhost:${PORT}/v2/system/health"
+    echo -e "  URL:       http://localhost:${PORT}/v1"
+    echo -e "  Health:    http://localhost:${PORT}/v1/system/health"
     echo -e "  Swagger:   http://localhost:${PORT}/swagger-ui/"
     echo
 
@@ -193,7 +193,7 @@ if [ "$DETACHED" = true ]; then
     echo -e "${BLUE}Useful commands:${NC}"
     echo -e "  View logs:        docker logs -f nuanced-lsp-proxy"
     echo -e "  Stop service:     docker rm -f nuanced-lsp-proxy"
-    echo -e "  Test health:      curl http://localhost:${PORT}/v2/system/health | jq"
+    echo -e "  Test health:      curl http://localhost:${PORT}/v1/system/health | jq"
     echo -e "  Run tests:        ./scripts/test-all-endpoints.sh"
     echo
 

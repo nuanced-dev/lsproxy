@@ -39,16 +39,11 @@ pub async fn lsp(data: Data<AppState>, request: Json<JsonRpcRequest>) -> HttpRes
         return response;
     }
 
-    // Try to handle as a custom command first
-    if let Some(response) = crate::custom_commands::handle_custom_command(lsp_req.clone()).await {
-        return response;
-    }
-
     // For language feature requests, extract document URI and route to appropriate backend
     let document_uri = match lsp_req
         .params
         .as_ref()
-        .and_then(|p| extract_document_uri(&lsp_req.method, p, &data.workspace_path))
+        .and_then(|p| extract_document_uri(p))
     {
         Some(uri) => uri,
         None => {
@@ -122,7 +117,7 @@ pub async fn lsp(data: Data<AppState>, request: Json<JsonRpcRequest>) -> HttpRes
     }
 
     // Forward request to container
-    match client.forward_lsp_request(&converted_request).await {
+    match client.lsp(&converted_request).await {
         Ok(mut response) => {
             info!("Received container response: id={}", response.id);
             debug!("Container response: {:?}", response);
@@ -211,37 +206,12 @@ fn handle_lifecycle_request(request: &JsonRpcRequest) -> Option<HttpResponse> {
 }
 
 /// Extract document URI from JSON-RPC request parameters
-fn extract_document_uri(method: &str, params: &Value, workspace_path: &str) -> Option<String> {
-    match method {
-        "lsproxy/symbol/findDefinition" => params
-            .get("position")
-            .and_then(|p| p.get("path"))
-            .and_then(|p| p.as_str())
-            .map(|p| format!("file://{workspace_path}/{}", p)),
-        "lsproxy/symbol/findReferences" => params
-            .get("identifier_position")
-            .and_then(|ip| ip.get("path"))
-            .and_then(|p| p.as_str())
-            .map(|p| format!("file://{workspace_path}/{}", p)),
-        "lsproxy/symbol/definitionsInFile" => params
-            .get("file_path")
-            .and_then(|fp| fp.as_str())
-            .map(|p| format!("file://{workspace_path}/{}", p)),
-        "lsproxy/symbol/findIdentifier" => params
-            .get("path")
-            .and_then(|p| p.as_str())
-            .map(|p| format!("file://{workspace_path}/{}", p)),
-        "lsproxy/symbol/findReferencedSymbols" => params
-            .get("identifier_position")
-            .and_then(|ip| ip.get("path"))
-            .and_then(|p| p.as_str())
-            .map(|p| format!("file://{workspace_path}/{}", p)),
-        _ => params
-            .get("textDocument")
-            .and_then(|td| td.get("uri"))
-            .and_then(|u| u.as_str())
-            .map(|uri| uri.to_string()),
-    }
+fn extract_document_uri(params: &Value) -> Option<String> {
+    params
+        .get("textDocument")
+        .and_then(|td| td.get("uri"))
+        .and_then(|u| u.as_str())
+        .map(|uri| uri.to_string())
 }
 
 /// Recursively convert paths in JSON value from host to container

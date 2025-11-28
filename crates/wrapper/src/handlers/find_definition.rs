@@ -1,14 +1,16 @@
-use crate::handlers::utils;
+use crate::handlers::error::IntoHttpResponse;
 use crate::manager::{LspManagerError, Manager};
+use actix_web::web::{Data, Json};
 use actix_web::HttpResponse;
-use common::api_types::{
-    CodeContext, FilePosition, FileRange, FindDefinitionRequest, FindDefinitionResponse,
-    JsonRpcRequest, JsonRpcResponse, Position, Range,
-};
+use common::api_types::{CodeContext, FileRange, Position, Range};
 use common::utils::file_utils::uri_to_relative_path_string;
 use log::{error, info, warn};
-use lsp_types::{GotoDefinitionResponse, Location, Position as LspPosition, Range as LspRange};
 
+use crate::handlers::utils;
+use crate::AppState;
+use common::api_types::{ErrorResponse, FilePosition};
+use common::api_types::{FindDefinitionRequest, FindDefinitionResponse};
+use lsp_types::{GotoDefinitionResponse, Location, Position as LspPosition, Range as LspRange};
 /// Get the definition of a symbol at a specific position in a file
 ///
 /// Returns the location of the definition for the symbol at the given position.
@@ -28,28 +30,21 @@ use lsp_types::{GotoDefinitionResponse, Location, Position as LspPosition, Range
 /// 5: user = User("John", 30)
 /// input_____^^^^
 /// ```
-pub async fn handle(manager: &Manager, request: JsonRpcRequest) -> HttpResponse {
-    let req_id = request.id.clone();
-
-    let params = match request.params.clone() {
-        Some(p) => p,
-        None => {
-            error!("Missing parameters for findDefinition");
-            let error = JsonRpcResponse::new_error(req_id, -32602, "Missing params");
-            return HttpResponse::BadRequest().json(error);
-        }
-    };
-
-    let info: FindDefinitionRequest = match serde_json::from_value(params) {
-        Ok(info) => info,
-        Err(e) => {
-            error!("Invalid parameters for findDefinition: {}", e);
-            let error =
-                JsonRpcResponse::new_error(req_id, -32602, format!("Invalid params: {}", e));
-            return HttpResponse::BadRequest().json(error);
-        }
-    };
-
+#[utoipa::path(
+    post,
+    path = "/symbol/find-definition",
+    tag = "symbol",
+    request_body = FindDefinitionRequest,
+    responses(
+        (status = 200, description = "Definition retrieved successfully", body = FindDefinitionResponse),
+        (status = 400, description = "Bad request"),
+        (status = 500, description = "Internal server error")
+    )
+)]
+pub async fn find_definition(
+    data: Data<AppState>,
+    info: Json<FindDefinitionRequest>,
+) -> HttpResponse {
     info!(
         "Received definition request for file: {}, line: {}, character: {}",
         info.position.path, info.position.position.line, info.position.position.character
@@ -61,16 +56,13 @@ pub async fn handle(manager: &Manager, request: JsonRpcRequest) -> HttpResponse 
         position: info.position.position.clone(),
     };
 
-    let file_identifiers = match manager.get_file_identifiers(&file_position.path).await {
+    let file_identifiers = match data.manager.get_file_identifiers(&file_position.path).await {
         Ok(identifiers) => identifiers,
         Err(e) => {
             error!("Failed to get file identifiers: {:?}", e);
-            let error = JsonRpcResponse::new_error(
-                req_id,
-                -32603,
-                format!("Failed to get file identifiers: {}", e),
-            );
-            return HttpResponse::InternalServerError().json(error);
+            return HttpResponse::InternalServerError().json(ErrorResponse {
+                error: format!("Failed to get file identifiers: {}", e),
+            });
         }
     };
 
@@ -84,7 +76,8 @@ pub async fn handle(manager: &Manager, request: JsonRpcRequest) -> HttpResponse 
         };
 
     // Call LSP directly (no ast-grep for identifier detection)
-    let definitions = match manager
+    let definitions = match data
+        .manager
         .find_definition(
             &info.position.path,
             LspPosition {
@@ -96,13 +89,12 @@ pub async fn handle(manager: &Manager, request: JsonRpcRequest) -> HttpResponse 
     {
         Ok(definitions) => definitions,
         Err(e) => {
-            let error = JsonRpcResponse::new_error(req_id, -32603, format!("LSP error: {}", e));
-            return HttpResponse::InternalServerError().json(error);
+            return e.into_http_response();
         }
     };
 
     let source_code_context = if info.include_source_code {
-        match fetch_definition_source_code(manager, &definitions).await {
+        match fetch_definition_source_code(&data.manager, &definitions).await {
             Ok(context) => Some(context),
             Err(e) => {
                 error!("Failed to fetch definition source code: {:?}", e);
@@ -113,7 +105,7 @@ pub async fn handle(manager: &Manager, request: JsonRpcRequest) -> HttpResponse 
         None
     };
 
-    let response = FindDefinitionResponse {
+    HttpResponse::Ok().json(FindDefinitionResponse {
         raw_response: if info.include_raw_response {
             Some(serde_json::to_value(&definitions).unwrap())
         } else {
@@ -138,11 +130,7 @@ pub async fn handle(manager: &Manager, request: JsonRpcRequest) -> HttpResponse 
                 },
             },
         }),
-    };
-
-    let json_rpc_response = JsonRpcResponse::new_result(req_id, response);
-
-    HttpResponse::Ok().json(json_rpc_response)
+    })
 }
 
 async fn fetch_definition_source_code(

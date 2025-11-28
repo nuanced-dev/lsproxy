@@ -18,7 +18,7 @@ sequenceDiagram
     participant Workspace as Workspace Files<br/>(/mnt/workspace)
 
     Note over Client,Workspace: 1. Client Request
-    Client->>Service: HTTP POST /v2/lsp<br/>e.g., /v2/lsp lsproxy/symbol/findDefinition
+    Client->>Service: HTTP POST /v1/{scope}/{endpoint}<br/>e.g., /v1/symbol/find-definition
 
     Note over Service,Docker: 2. Service Routes Request
     Service->>Service: Parse request body<br/>Validate workspace path
@@ -79,7 +79,7 @@ sequenceDiagram
 - **Container**: `nuanced-lsp-proxy`
 - **Port**: 4444 (exposed to host)
 - **Responsibilities**:
-  - HTTP API gateway (exposes `/v2/lsp`)
+  - HTTP API gateway (exposes `/v1/{scope}/{endpoint}`)
   - Container lifecycle management (create, monitor, remove)
   - Request routing to appropriate language containers
   - Workspace management and validation
@@ -243,12 +243,12 @@ The system uses **binary injection** via Docker volumes to share the wrapper bin
 
 1. **Client Request**:
    ```bash
-   curl -X POST http://localhost:4444/v2/lsp \
+   curl -X POST http://localhost:4444/v1/symbol/find-definition \
      -H "Content-Type: application/json" \
-     -d '{"jsonrpc":"2.0","id":3,"method":"lsproxy/symbol/findDefinition","params":{
+     -d '{
        "path": "src/index.ts",
        "position": {"line": 10, "character": 5}
-     }}'
+     }'
    ```
 
 2. **Service Processing**:
@@ -338,26 +338,26 @@ The system uses **binary injection** via Docker volumes to share the wrapper bin
 ## API Endpoints
 
 ### System Endpoints
-- `GET /v2/system/health` - Health check
+- `GET /v1/system/health` - Health check
 - `GET /swagger-ui/` - Swagger documentation
 
+### Workspace Endpoints
+- `GET /v1/workspace/list-files` - List all files in workspace
+- `POST /v1/symbol/read-source-code` - Read file contents with optional range
+
 ### Language-Specific Endpoints
-The LSP endpoints accept POST requests with JSON-RPC body.
+All endpoints accept POST requests with JSON body.
 
-Pattern: `/v2/lsp`
+Pattern: `/v1/symbol/{endpoint}`
 
-**Workspace methods**:
-- `lsproxy/workspace/listFiles` - List all files in workspace
-- `lsproxy/workspace/readSourceCode` - Read file contents with optional range
+**LSP-based endpoints**:
+- `POST /v1/symbol/find-definition` - Find symbol definition
+- `POST /v1/symbol/find-references` - Find all references
 
-**LSP-based methods**:
-- `lsproxy/symbol/findDefinition` - Find symbol definition
-- `lsproxy/symbol/findReferences` - Find all references
-
-**ast-grep methods**:
-- `lsproxy/symbol/definitionsInFile` - Get all definitions in file
-- `lsproxy/symbol/findIdentifier` - Find identifier by name
-- `lsproxy/symbol/findReferencedSymbols` - Find symbols referenced in function body
+**ast-grep endpoints**:
+- `GET /v1/symbol/definitions-in-file` - Get all definitions in file
+- `POST /v1/symbol/find-identifier` - Find identifier by name
+- `POST /v1/symbol/find-referenced-symbols` - Find symbols referenced in function body
 
 ## Testing
 

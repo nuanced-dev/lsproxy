@@ -26,15 +26,50 @@ YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
 # Configuration
-BASE_URL="${BASE_URL:-http://localhost:4444/v2}"
-WORKSPACE_PATH="${1:-sample_project/all}"
+BASE_URL="${BASE_URL:-http://localhost:4444}"
+WORKSPACE_PATH=sample_project/all
 CLEANUP_ON_EXIT=true
 
-# Parse options
-if [ "$2" = "--no-cleanup" ] || [ "$1" = "--no-cleanup" ]; then
-    CLEANUP_ON_EXIT=false
-    WORKSPACE_PATH="${WORKSPACE_PATH:-sample_project/all}"
-fi
+# Parse arguments
+positional_args=()
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --no-cleanup)
+            CLEANUP_ON_EXIT=false
+            shift
+            ;;
+        --)
+            shift
+            positional_args+=("$@")
+            shift $#
+            break
+            ;;
+        -*)
+            echo -e "${RED}Error: Unknown flag: $1${NC}" >&2
+            echo -e "${YELLOW}Usage: $0 [workspace_path] [--no-cleanup]${NC}" >&2
+            exit 1
+            ;;
+        *)
+            positional_args+=("$1")
+            shift
+            ;;
+    esac
+done
+
+# Handle positional arguments
+case ${#positional_args[@]} in
+    0)
+        # Use default WORKSPACE_PATH
+        ;;
+    1)
+        WORKSPACE_PATH="${positional_args[0]}"
+        ;;
+    *)
+        echo -e "${RED}Error: Only one positional argument (workspace_path) is allowed${NC}" >&2
+        echo -e "${YELLOW}Usage: $0 [workspace_path] [--no-cleanup]${NC}" >&2
+        exit 1
+        ;;
+esac
 
 # Counters
 TOTAL_TESTS=0
@@ -43,6 +78,9 @@ FAILED_TESTS=0
 
 # Track if we started the service (to know if we should clean it up)
 STARTED_SERVICE=false
+
+# Workspace URI for testing LSP endpoint
+WORKSPACE_URI="file://$(realpath "$WORKSPACE_PATH")"
 
 # Cleanup function
 cleanup() {
@@ -203,19 +241,6 @@ test_endpoint() {
     fi
 }
 
-test_lsp_method() {
-    local test_name="$1"
-    local method="$2"
-    local data="$3"
-    local expected_status="${4:-200}"
-    local validation_check="$5"
-    if [ -n "$data" ]; then
-        test_endpoint "$test_name" POST /lsp "{\"jsonrpc\":\"2.0\",\"id\":\"$TOTAL_TESTS\",\"method\":\"$method\",\"params\":$data}" "$expected_status" "jq -e '.result' | $validation_check"
-    else
-        test_endpoint "$test_name" POST /lsp "{\"jsonrpc\":\"2.0\",\"id\":\"$TOTAL_TESTS\",\"method\":\"$method\"}" "$expected_status" "jq -e '.result' | $validation_check"
-    fi
-}
-
 # Enhanced test function for find-referenced-symbols with deep validation
 test_find_referenced_symbols_enhanced() {
     local lang="$1"
@@ -232,11 +257,11 @@ test_find_referenced_symbols_enhanced() {
     local data="{\"identifier_position\":{\"path\":\"$file\",\"position\":{\"line\":$line,\"character\":$char}},\"full_scan\":false}"
 
     # Make request
-    local curl_cmd="curl -s -w '\n%{http_code}' --max-time 30 -X POST -H 'Content-Type: application/json' -d '{\"jsonrpc\":\"2.0\",\"id\":\"$TOTAL_TESTS\",\"method\":\"lsproxy/symbol/findReferencedSymbols\",\"params\":$data}' '$BASE_URL/lsp'"
+    local curl_cmd="curl -s -w '\n%{http_code}' --max-time 30 -X POST -H 'Content-Type: application/json' -d '$data' '$BASE_URL/v1/symbol/find-referenced-symbols'"
 
     if response=$(eval "$curl_cmd" 2>&1); then
         # Split response body and status code
-        local body=$(echo "$response" | sed '$d' | jq .result)
+        local body=$(echo "$response" | sed '$d')
         local status=$(echo "$response" | tail -n 1)
 
         # Validate HTTP status code
@@ -357,7 +382,7 @@ else
     echo -e "${YELLOW}  Waiting for service and language health (up to 100s)...${NC}"
     ready=false
     for i in $(seq 1 100); do
-        HEALTH=$(curl -sf "${BASE_URL}/system/health" || true)
+        HEALTH=$(curl -sf "${BASE_URL}/v1/system/health" || true)
         STATUS=$(echo "$HEALTH" | jq -r '.status' 2>/dev/null || echo "")
         LANG_PENDING=$(echo "$HEALTH" | jq -r '.languages | to_entries[]? | select(.value != true) | .key' 2>/dev/null || true)
 
@@ -396,7 +421,7 @@ echo
 echo -e "${YELLOW}1. System Health Check${NC}"
 test_endpoint "Health Check" \
     "GET" \
-    "/system/health" \
+    "/v1/system/health" \
     "" \
     "200" \
     "jq -e '.status == \"ok\"' > /dev/null"
@@ -404,8 +429,9 @@ echo
 
 # Test 2: List Files (language-agnostic)
 echo -e "${YELLOW}2. Workspace Endpoints (Language-Agnostic)${NC}"
-test_lsp_method "List Files" \
-    "lsproxy/workspace/listFiles" \
+test_endpoint "List Files" \
+    "GET" \
+    "/v1/workspace/list-files" \
     "" \
     "200" \
     "jq -e 'type == \"array\" and length > 0' > /dev/null"
@@ -422,64 +448,81 @@ while IFS='|' read -r lang test_file symbol_name symbol_line symbol_char health_
     # Skip empty lines
     [ -z "$lang" ] && continue
 
+    test_uri="$WORKSPACE_URI/$test_file"
+
     echo -e "${BLUE}Testing language: $(echo $lang | tr '[:lower:]' '[:upper:]')${NC}"
 
     # Health check for this language
     test_endpoint "Health ($lang)" \
         "GET" \
-        "/system/health" \
+        "/v1/system/health" \
         "" \
         "200" \
         "jq -e '.languages.$health_key == true' > /dev/null"
 
     # Read Source Code
-    test_lsp_method "Read Source ($lang)" \
-        "lsproxy/workspace/readSourceCode" \
+    test_endpoint "Read Source ($lang)" \
+        "POST" \
+        "/v1/workspace/read-source-code" \
         "{\"path\":\"$test_file\"}" \
         "200" \
         "jq -e '.source_code | type == \"string\" and length > 0' > /dev/null"
 
     # Read Source Code with Range
-    test_lsp_method "Read Source with Range ($lang)" \
-        "lsproxy/workspace/readSourceCode" \
+    test_endpoint "Read Source with Range ($lang)" \
+        "POST" \
+        "/v1/workspace/read-source-code" \
         "{\"path\":\"$test_file\",\"range\":{\"start\":{\"line\":0,\"character\":0},\"end\":{\"line\":1,\"character\":0}}}" \
         "200" \
         "jq -e '.source_code | type == \"string\"' > /dev/null"
 
     # Find Definition (assert selected identifier and at least one definition)
-    test_lsp_method "Find Definition ($lang)" \
-        "lsproxy/symbol/findDefinition" \
+    test_endpoint "Find Definition ($lang)" \
+        "POST" \
+        "/v1/symbol/find-definition" \
         "{\"position\":{\"path\":\"$test_file\",\"position\":{\"line\":$symbol_line,\"character\":$symbol_char}},\"include_source_code\":false,\"include_raw_response\":false}" \
         "200" \
         "jq -e '.selected_identifier.name == \"$symbol_name\" and (.definitions | length) >= 0 and (.selected_identifier.file_range.path == \"$test_file\")' > /dev/null"
 
     # Find References (assert selected identifier matches and references is an array)
-    test_lsp_method "Find References ($lang)" \
-        "lsproxy/symbol/findReferences" \
+    test_endpoint "Find References ($lang)" \
+        "POST" \
+        "/v1/symbol/find-references" \
         "{\"identifier_position\":{\"path\":\"$test_file\",\"position\":{\"line\":$symbol_line,\"character\":$symbol_char}},\"include_code_context_lines\":0}" \
         "200" \
         "jq -e '.selected_identifier.name == \"$symbol_name\" and .selected_identifier.file_range.path == \"$test_file\" and (.references | type == \"array\")' > /dev/null"
 
     # Find Referenced Symbols
-    test_lsp_method "Find Referenced Symbols ($lang)" \
-        "lsproxy/symbol/findReferencedSymbols" \
+    test_endpoint "Find Referenced Symbols ($lang)" \
+        "POST" \
+        "/v1/symbol/find-referenced-symbols" \
         "{\"identifier_position\":{\"path\":\"$test_file\",\"position\":{\"line\":$symbol_line,\"character\":$symbol_char}},\"full_scan\":false}" \
         "200" \
         "jq -e 'type == \"object\"' > /dev/null"
 
     # Definitions in File
-    test_lsp_method "Definitions in File ($lang)" \
-        "lsproxy/symbol/definitionsInFile" \
-        "{\"file_path\":\"$test_file\"}" \
+    test_endpoint "Definitions in File ($lang)" \
+        "GET" \
+        "/v1/symbol/definitions-in-file?file_path=$test_file" \
+        "" \
         "200" \
         "jq -e 'type == \"array\"' > /dev/null"
 
     # Find Identifier
-    test_lsp_method "Find Identifier ($lang)" \
-        "lsproxy/symbol/findIdentifier" \
+    test_endpoint "Find Identifier ($lang)" \
+        "POST" \
+        "/v1/symbol/find-identifier" \
         "{\"path\":\"$test_file\",\"name\":\"$symbol_name\"}" \
         "200" \
         "jq -e 'type == \"object\"' > /dev/null"
+
+    # Find Definition (assert selected identifier and at least one definition)
+    test_endpoint "LSP GoTo Definition ($lang)" \
+        "POST" \
+        "/lsp" \
+        "{\"jsonrpc\":\"2.0\",\"id\":\"$TOTAL_TESTS\",\"method\":\"textDocument/definition\",\"params\":{\"textDocument\":{\"uri\":\"$test_uri\"},\"position\":{\"line\":$symbol_line,\"character\":$symbol_char}}}" \
+        "200" \
+        "jq -e '.result | if type == \"array\" then . else [.] end | length > 0' > /dev/null"
 
     echo
 done <<< "$LANGUAGE_CONFIGS"

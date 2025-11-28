@@ -79,7 +79,7 @@ export const HttpErrSchema = z.object({
 export type HttpErr = Named<typeof HttpErrSchema, "HttpErr">;
 export type HttpResult<T> = Result<T, HttpErr>;
 
-// ---- Health (data-plane /v2/system/health) ----------------------------------
+// ---- Health (data-plane /v1/system/health) ----------------------------------
 export const HealthResultSchema = z.object({
   status: z.union([z.literal("ok"), z.literal("not ok")]),
   version: z.string().optional(),

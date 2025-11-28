@@ -348,9 +348,9 @@ sequenceDiagram
     participant Wrapper as nuanced-lsp-wrapper
     participant Python LSP as nuanced-lsp-python<br />Jedi language server
 
-    Client->>+Proxy: POST /v2/lsp<br/>lsproxy/symbol/findDefinition<br/>{file: "main.py", position: {line: 10, character: 5}}
+    Client->>+Proxy: POST /v1/symbol/find-definition<br/>{file: "main.py", position: {line: 10, character: 5}}
     Note over Proxy: Route to Python LSP server container based on file
-    Proxy->>+Wrapper: HTTP POST localhost:8080/lsp<br/>lsproxy/symbol/findDefinition<br/>{file: "main.py", position: {line: 10, character: 5}}
+    Proxy->>+Wrapper: HTTP POST localhost:8080/symbol/find-definition<br/>{file: "main.py", position: {line: 10, character: 5}}
     Wrapper->>+Python LSP: LSP Request (JSON-RPC over stdio)<br/>textDocument/definition
     Note over LSP: Jedi analyzes code<br/>finds definition
     Python LSP-->>-Wrapper: LSP Response (JSON-RPC)<br/>{uri, range, ...}
@@ -398,7 +398,7 @@ sequenceDiagram
 ENABLED_LANGUAGES="python,typescript" ./scripts/start-proxy.sh /path/to/your/project
 
 # After proxy and LSP server containers are initialized, you can issue curl requests
-curl http://localhost:4444/v2/system/health | jq
+curl http://localhost:4444/v1/system/health | jq
 
 # Verify containers
 docker ps --filter "name=nuanced-lsp-"

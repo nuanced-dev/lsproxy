@@ -2,7 +2,6 @@
 // Exposes modules for testing while keeping binary entry point in main.rs
 
 // Local modules
-pub mod custom_commands;
 pub mod handlers;
 pub mod lsp;
 pub mod manager;

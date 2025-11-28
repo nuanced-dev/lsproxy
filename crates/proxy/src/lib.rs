@@ -17,15 +17,19 @@ use utoipa_swagger_ui::SwaggerUi;
 
 // Local modules
 pub mod container;
-mod custom_commands;
 mod handlers;
 
-use crate::handlers::{health_check, lsp};
-use common::api_types::{
-    get_mount_dir, set_global_mount_dir, HealthResponse, JsonRpcError, JsonRpcRequest,
-    JsonRpcResponse,
+use crate::handlers::{
+    definitions_in_file, find_definition, find_identifier, find_referenced_symbols,
+    find_references, health_check, list_files, lsp, read_source_code,
 };
-// use common::utils::doc_utils::make_code_sample;
+use common::api_types::{
+    get_mount_dir, set_global_mount_dir, CodeContext, DefinitionsInFileRequest, ErrorResponse,
+    FilePosition, FileRange, FindDefinitionRequest, FindDefinitionResponse, FindIdentifierRequest,
+    FindIdentifierResponse, FindReferencedSymbolsRequest, FindReferencedSymbolsResponse,
+    FindReferencesRequest, FindReferencesResponse, HealthResponse, Position,
+    ReferenceWithSymbolDefinitions, SupportedLanguages, Symbol, SymbolResponse,
+};
 
 pub fn check_mount_dir() -> std::io::Result<()> {
     fs::read_dir(get_mount_dir())?;
@@ -47,21 +51,42 @@ pub fn check_mount_dir() -> std::io::Result<()> {
     ),
     components(
         schemas(
+            CodeContext,
+            DefinitionsInFileRequest,
+            ErrorResponse,
+            FilePosition,
+            FileRange,
+            FindDefinitionRequest,
+            FindDefinitionResponse,
+            FindIdentifierRequest,
+            FindIdentifierResponse,
+            FindReferencedSymbolsRequest,
+            FindReferencedSymbolsResponse,
+            FindReferencesRequest,
+            FindReferencesResponse,
             HealthResponse,
-            JsonRpcRequest,
-            JsonRpcResponse,
-            JsonRpcError,
+            Position,
+            ReferenceWithSymbolDefinitions,
+            SupportedLanguages,
+            Symbol,
+            SymbolResponse,
         )
     ),
     paths(
+        crate::handlers::definitions_in_file,
+        crate::handlers::find_definition,
+        crate::handlers::find_identifier,
+        crate::handlers::find_referenced_symbols,
+        crate::handlers::find_references,
         crate::handlers::health_check,
-        crate::handlers::lsp,
+        crate::handlers::list_files,
+        crate::handlers::read_source_code,
     ),
     tags(
         (name = "nuanced-lsp-api", description = "Nuanced LSP API")
     ),
     servers(
-        (url = "http://localhost:4444/v2", description = "API server v2")
+        (url = "http://localhost:4444/v1", description = "Nuanced LSP API v1"),
     )
 )]
 pub struct ApiDoc;
@@ -232,10 +257,22 @@ pub async fn run_server_with_port_and_host(
             };
 
             api_scope = match (path.as_str(), method) {
+                ("/symbol/definitions-in-file", Some(Method::Get)) =>
+                    api_scope.service(resource(path).route(get().to(definitions_in_file))),
+                ("/symbol/find-definition", Some(Method::Post)) =>
+                    api_scope.service(resource(path).route(post().to(find_definition))),
+                ("/symbol/find-identifier", Some(Method::Post)) =>
+                    api_scope.service(resource(path).route(post().to(find_identifier))),
+                ("/symbol/find-referenced-symbols", Some(Method::Post)) =>
+                    api_scope.service(resource(path).route(post().to(find_referenced_symbols))),
+                ("/symbol/find-references", Some(Method::Post)) =>
+                    api_scope.service(resource(path).route(post().to(find_references))),
                 ("/system/health", Some(Method::Get)) =>
                     api_scope.service(resource(path).route(get().to(health_check))),
-                ("/lsp", Some(Method::Post)) =>
-                    api_scope.service(resource(path).route(post().to(lsp))),
+                ("/workspace/list-files", Some(Method::Get)) =>
+                    api_scope.service(resource(path).route(get().to(list_files))),
+                ("/workspace/read-source-code", Some(Method::Post)) =>
+                    api_scope.service(resource(path).route(post().to(read_source_code))),
                 (p, m) => panic!(
                     "Invalid path configuration for {}: {:?}. Ensure the OpenAPI spec matches your handlers.",
                     p,
@@ -249,9 +286,9 @@ pub async fn run_server_with_port_and_host(
             .app_data(app_state.clone())
             .configure(|cfg| {
                 if let Some(ref middleware) = jwt_middleware {
-                    cfg.service(api_scope.wrap(middleware.clone()));
+                    cfg.service(api_scope.wrap(middleware.clone())).route("/lsp", post().to(lsp).wrap(middleware.clone()));
                 } else {
-                    cfg.service(api_scope);
+                    cfg.service(api_scope).route("/lsp", post().to(lsp));
                 }
             })
             .service(
@@ -264,28 +301,10 @@ pub async fn run_server_with_port_and_host(
     .await
 }
 
-// const PYTHON_SAMPLE: &str = r#"
-// import requests
-
-// def get_pet(pet_id: int):
-//     response = requests.get(f'/pets/{pet_id}')
-//     return response.json()
-// "#;
-
 pub fn write_openapi_to_file(file_path: &PathBuf) -> std::io::Result<()> {
     // We use a clone since we're just adding the docs and writing it to the file. We don't need
     // this for runtime
     let mut openapi = ApiDoc::openapi().clone();
-    // if let Some(path_item) = openapi.paths.paths.get_mut("/symbol/find-definition") {
-    //     if let Some(post_op) = &mut path_item.post {
-    //         let mut extensions = Extensions::default();
-    //         extensions.insert(
-    //             String::from("x-codeSamples"),
-    //             serde_json::json!(vec![make_code_sample("python", PYTHON_SAMPLE),]),
-    //         );
-    //         post_op.extensions = Some(extensions);
-    //     }
-    // }
 
     // Create components if none exist
     if openapi.components.is_none() {
