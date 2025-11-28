@@ -86,14 +86,13 @@ pub fn check_mount_dir() -> std::io::Result<()> {
         (name = "nuanced-lsp-api", description = "Nuanced LSP API")
     ),
     servers(
-        (url = "http://localhost:4444/v1", description = "Nuanced LSP API v1"),
+        (url = "http://localhost:4444/v1", description = "API server v1"),
     )
 )]
 pub struct ApiDoc;
 
 pub struct AppState {
     orchestrator: Arc<container::ContainerOrchestrator>,
-    #[allow(dead_code)]
     workspace_path: String,
     initialization_complete: Arc<AtomicBool>,
 }
@@ -286,9 +285,13 @@ pub async fn run_server_with_port_and_host(
             .app_data(app_state.clone())
             .configure(|cfg| {
                 if let Some(ref middleware) = jwt_middleware {
-                    cfg.service(api_scope.wrap(middleware.clone())).route("/lsp", post().to(lsp).wrap(middleware.clone()));
+                    cfg
+                        .service(api_scope.wrap(middleware.clone()))
+                        .route("/lsp", post().to(lsp).wrap(middleware.clone()));
                 } else {
-                    cfg.service(api_scope).route("/lsp", post().to(lsp));
+                    cfg
+                        .service(api_scope)
+                        .route("/lsp", post().to(lsp));
                 }
             })
             .service(
