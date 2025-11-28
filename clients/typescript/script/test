@@ -37,6 +37,7 @@ WRAPPER_IMAGE=               # allows overriding the default nuanced-lsp-wrapper
 SYMBOL_SCENARIO_DELAY=       # delay (in seconds) before running symbol scenario tests.
 WORKSPACE_SCENARIO_DELAY=    # delay (in seconds) before running workspace scenario
 NUANCED_LSP_TIMEOUT=         # number of seconds each test case is allowed to run.
+NUANCED_LANGUAGES=           # languages to run tests for
 VITEST_PASSTHRU=()           # additional args to pass to vitest (e.g. specific test files or --testNamePattern).
 
 while [[ $# -gt 0 ]]; do
@@ -109,6 +110,15 @@ while [[ $# -gt 0 ]]; do
         shift 2
       else
         echo "Error: --timeout requires a numeric value (seconds)" >&2
+        exit 2
+      fi
+      ;;
+    --languages)
+      if [[ $# -gt 1 && "$2" != -* ]]; then
+        export NUANCED_LANGUAGES="$2"
+        shift 2
+      else
+        echo "Error: --languages requires a comma-seprated list of languages" >&2
         exit 2
       fi
       ;;
