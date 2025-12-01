@@ -302,6 +302,7 @@ async fn main() -> std::io::Result<()> {
         App::new()
             .app_data(app_state.clone())
             .route("/lsp", web::post().to(handlers::lsp::lsp))
+            .route("/lsp/ws", web::get().to(handlers::lsp_ws::lsp_ws))
             .route(
                 "/symbol/definitions-in-file",
                 web::get().to(handlers::definitions_in_file::definitions_in_file),

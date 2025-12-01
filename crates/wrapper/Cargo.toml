@@ -15,6 +15,7 @@ path = "src/main.rs"
 ast-grep.workspace = true
 common.workspace = true
 actix-web.workspace = true
+actix-ws.workspace = true
 tokio.workspace = true
 serde.workspace = true
 serde_json.workspace = true
@@ -30,6 +31,7 @@ strum.workspace = true
 strum_macros.workspace = true
 url.workspace = true
 utoipa.workspace = true
+futures = "0.3"
 
 # Wrapper-specific
 notify-debouncer-mini = "0.4"

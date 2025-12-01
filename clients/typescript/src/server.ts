@@ -1,11 +1,7 @@
 import type { Readable, Writable } from "node:stream";
+import WebSocket from "ws";
 import type { NuancedLspClient } from "./client.js";
-import type {
-  JsonRpcMessage,
-  JsonRpcRequest,
-  JsonRpcResponse,
-  ServerCommandOptions,
-} from "./types.js";
+import type { JsonRpcMessage, ServerCommandOptions } from "./types.js";
 import { isErr, JsonRpcErrorCode } from "./types.js";
 
 // ---- Types ------------------------------------------------------------------
@@ -32,6 +28,7 @@ class LspServer {
   private readonly logLevel: MessageType;
   private shutdownReceived = false;
   private isShuttingDown = false;
+  private ws: WebSocket | null = null;
 
   constructor(
     client: NuancedLspClient,
@@ -89,6 +86,48 @@ class LspServer {
       );
       throw new Error("Failed to start container");
     }
+
+    this.ws = await this.client.lsp_ws();
+    await this.connectWebSocket();
+  }
+
+  private async connectWebSocket(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      if (!this.ws) {
+        reject(new Error("WebSocket not initialized"));
+        return;
+      }
+
+      this.ws.on("open", () => {
+        this.sendLogMessage(MessageType.Debug, "WebSocket connected");
+        resolve();
+      });
+
+      this.ws.on("error", (err: Error) => {
+        this.sendLogMessage(
+          MessageType.Error,
+          `WebSocket error: ${err.message}`,
+        );
+        reject(err);
+      });
+
+      this.ws.on("close", () => {
+        this.sendLogMessage(MessageType.Debug, "WebSocket closed");
+      });
+
+      this.ws.on("message", (data: Buffer | string) => {
+        try {
+          const message = JSON.parse(data.toString()) as JsonRpcMessage;
+          // Forward server notifications to stdout
+          writeMessage(this.output, message);
+        } catch (err) {
+          this.sendLogMessage(
+            MessageType.Error,
+            `Failed to parse WebSocket message: ${err}`,
+          );
+        }
+      });
+    });
   }
 
   private setupSignalHandlers(): void {
@@ -103,6 +142,11 @@ class LspServer {
   private async stopServer(): Promise<void> {
     if (this.isShuttingDown) return;
     this.isShuttingDown = true;
+
+    if (this.ws) {
+      this.ws.close();
+      this.ws = null;
+    }
 
     await this.client.down();
   }
@@ -125,7 +169,7 @@ class LspServer {
     }
   }
 
-  private async handleShutdownRequest(message: JsonRpcRequest): Promise<void> {
+  private async handleShutdownRequest(message: JsonRpcMessage): Promise<void> {
     await this.sendLogMessage(
       MessageType.Debug,
       "Nuanced LSP shutdown request received",
@@ -134,7 +178,7 @@ class LspServer {
     this.shutdownReceived = true;
     await this.stopServer();
 
-    const shutdownResponse: JsonRpcResponse = {
+    const shutdownResponse: JsonRpcMessage = {
       jsonrpc: "2.0",
       id: message.id ?? null,
       result: null,
@@ -152,95 +196,50 @@ class LspServer {
     process.exit(exitCode);
   }
 
-  private async forwardMessage(message: JsonRpcRequest): Promise<void> {
+  private async forwardMessage(message: JsonRpcMessage): Promise<void> {
     await this.sendLogMessage(
       MessageType.Debug,
       `Nuanced LSP request: ${JSON.stringify(message)}`,
     );
 
-    try {
-      // Determine if this is a request (has id) or notification (no id)
-      const isRequest = message.id !== undefined;
-      const result = isRequest
-        ? await this.client.request(message.method, message.params, undefined)
-        : await this.client.notify(message.method, message.params, undefined);
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      await this.sendLogMessage(MessageType.Error, "WebSocket not connected");
 
-      if (result.ok) {
-        await this.sendLogMessage(
-          MessageType.Debug,
-          `Nuanced LSP result reponse: ${JSON.stringify(result.data)}`,
-        );
-
-        // Only send response for requests (notifications don't get responses)
-        if (isRequest) {
-          const response: JsonRpcResponse = {
-            jsonrpc: "2.0",
-            id: message.id!,
-            result: result.data,
-          };
-          await writeMessage(this.output, response);
-        }
-      } else {
-        await this.sendLogMessage(
-          MessageType.Error,
-          `Nuanced LSP error response: ${JSON.stringify(result.data)}`,
-        );
-
-        // Only send error response for requests
-        if (isRequest) {
-          // If error is a JsonRpcError (from 500 response), use it directly
-          // Otherwise create a generic error
-          let error: {
-            code: number;
-            message: string;
-            data?: any;
-          };
-          if (
-            typeof result.data.error === "object" &&
-            result.data.error !== null &&
-            "code" in result.data.error &&
-            "message" in result.data.error
-          ) {
-            error = result.data.error as {
-              code: number;
-              message: string;
-              data?: any;
-            };
-          } else {
-            error = {
-              code: result.data.status_code ?? JsonRpcErrorCode.InternalError,
-              message: "LSP forwarding error",
-              data: result.data.error,
-            };
-          }
-
-          const errorResponse: JsonRpcResponse = {
-            jsonrpc: "2.0",
-            id: message.id!,
-            error,
-          };
-          await writeMessage(this.output, errorResponse);
-        }
-      }
-    } catch (err) {
-      // Only send error response for requests
-      if (message.id !== undefined) {
-        const errorResponse: JsonRpcResponse = {
+      if (message.id !== undefined && message.id !== null) {
+        const errorResponse: JsonRpcMessage = {
           jsonrpc: "2.0",
           id: message.id,
           error: {
             code: JsonRpcErrorCode.InternalError,
-            message: "Internal error",
+            message: "WebSocket not connected",
+          },
+        };
+        await writeMessage(this.output, errorResponse);
+      }
+      return;
+    }
+
+    try {
+      this.ws.send(JSON.stringify(message));
+    } catch (err) {
+      await this.sendLogMessage(
+        MessageType.Error,
+        `Nuanced LSP forwarding error: ${err}`,
+      );
+
+      // Only send error response for requests
+      if (message.id !== undefined && message.id !== null) {
+        const errorResponse: JsonRpcMessage = {
+          jsonrpc: "2.0",
+          id: message.id,
+          error: {
+            code: JsonRpcErrorCode.InternalError,
+            message: "Failed to send message over WebSocket",
             data: String(err),
           },
         };
         await writeMessage(this.output, errorResponse);
       }
-
-      await this.sendLogMessage(
-        MessageType.Error,
-        `Nuanced LSP forwarding error: ${err}`,
-      );
     }
   }
 
@@ -250,7 +249,7 @@ class LspServer {
   ): Promise<void> {
     if (type > this.logLevel) return;
 
-    const notification: JsonRpcRequest = {
+    const notification: JsonRpcMessage = {
       jsonrpc: "2.0",
       method: "window/logMessage",
       params: {
@@ -283,7 +282,7 @@ export async function runLspServer(
  * Read a single JSON-RPC message from stdin with Content-Length header parsing.
  * Returns null when stdin is closed.
  */
-async function readMessage(input: Readable): Promise<JsonRpcRequest | null> {
+async function readMessage(input: Readable): Promise<JsonRpcMessage | null> {
   return new Promise((resolve, reject) => {
     let contentLength: number | null = null;
     let buffer = Buffer.alloc(0);
@@ -343,7 +342,7 @@ async function readMessage(input: Readable): Promise<JsonRpcRequest | null> {
           .toString("utf8");
 
         try {
-          const message = JSON.parse(messageContent) as JsonRpcRequest;
+          const message = JSON.parse(messageContent) as JsonRpcMessage;
           cleanup();
           resolve(message);
         } catch (err) {

@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use crate::lsp::{JsonRpcHandler, LspClient, PendingRequests, ProcessHandler};
 
 use async_trait::async_trait;
+use common::api_types::JsonRpcMessage;
 use log::{info, warn};
 use lsp_types::{InitializeParams, Url, WorkspaceFolder};
 use std::error::Error;
@@ -16,6 +17,7 @@ pub struct SorbetClient {
     json_rpc: JsonRpcHandler,
     workspace_documents: common::utils::workspace_documents::WorkspaceDocumentsHandler,
     pending_requests: PendingRequests,
+    unexpected_notifications_tx: tokio::sync::broadcast::Sender<JsonRpcMessage>,
 }
 
 #[async_trait]
@@ -42,8 +44,11 @@ impl LspClient for SorbetClient {
         &mut self.pending_requests
     }
 
-    #[allow(deprecated)]
+    fn get_unexpected_notifications_tx(&self) -> tokio::sync::broadcast::Sender<JsonRpcMessage> {
+        self.unexpected_notifications_tx.clone()
+    }
 
+    #[allow(deprecated)]
     async fn get_initialize_params(
         &mut self,
         root_path: String,
@@ -166,11 +171,13 @@ impl SorbetClient {
         workspace_documents: common::utils::workspace_documents::WorkspaceDocumentsHandler,
         pending_requests: PendingRequests,
     ) -> Self {
+        let (unexpected_notifications_tx, _) = tokio::sync::broadcast::channel(1);
         Self {
             process,
             json_rpc,
             workspace_documents,
             pending_requests,
+            unexpected_notifications_tx,
         }
     }
 }

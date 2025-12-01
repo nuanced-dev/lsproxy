@@ -3,6 +3,7 @@ use std::path::Path;
 use crate::lsp::{JsonRpcHandler, LspClient, PendingRequests, ProcessHandler};
 
 use async_trait::async_trait;
+use common::api_types::JsonRpcMessage;
 use common::utils::workspace_documents::{
     DidOpenConfiguration, WorkspaceDocumentsHandler, DEFAULT_EXCLUDE_PATTERNS,
 };
@@ -14,6 +15,7 @@ pub struct GenericLspClient {
     json_rpc: JsonRpcHandler,
     workspace_documents: WorkspaceDocumentsHandler,
     pending_requests: PendingRequests,
+    unexpected_notifications_tx: tokio::sync::broadcast::Sender<JsonRpcMessage>,
     initialization_options: Option<serde_json::Value>,
     setup_workspace_method: Option<String>,
 }
@@ -40,8 +42,11 @@ impl LspClient for GenericLspClient {
         &mut self.pending_requests
     }
 
-    #[allow(deprecated)]
+    fn get_unexpected_notifications_tx(&self) -> tokio::sync::broadcast::Sender<JsonRpcMessage> {
+        self.unexpected_notifications_tx.clone()
+    }
 
+    #[allow(deprecated)]
     async fn get_initialize_params(
         &mut self,
         root_path: String,
@@ -76,8 +81,7 @@ impl GenericLspClient {
         file_patterns: Vec<String>,
         did_open_config: DidOpenConfiguration,
     ) -> Self {
-        let (_tx, rx) = tokio::sync::broadcast::channel(1);
-
+        let (_, workspace_docs_rx) = tokio::sync::broadcast::channel(1);
         let workspace_documents = WorkspaceDocumentsHandler::new(
             Path::new(&root_path),
             file_patterns,
@@ -85,17 +89,20 @@ impl GenericLspClient {
                 .iter()
                 .map(|&s| s.to_string())
                 .collect(),
-            rx,
+            workspace_docs_rx,
             did_open_config,
         );
 
         let json_rpc_handler = JsonRpcHandler::new();
+
+        let (unexpected_notifications_tx, _) = tokio::sync::broadcast::channel(1);
 
         Self {
             process,
             json_rpc: json_rpc_handler,
             workspace_documents,
             pending_requests: PendingRequests::new(),
+            unexpected_notifications_tx,
             initialization_options: None,
             setup_workspace_method: None,
         }

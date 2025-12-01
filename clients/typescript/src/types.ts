@@ -302,16 +302,9 @@ export type FindReferencesResult = Named<
 
 export interface JsonRpcMessage {
   jsonrpc: "2.0";
-}
-
-export interface JsonRpcRequest extends JsonRpcMessage {
-  id?: string | number;
-  method: string;
+  id?: string | number | null;
+  method?: string;
   params?: any;
-}
-
-export interface JsonRpcResponse extends JsonRpcMessage {
-  id: string | number | null;
   result?: any;
   error?: JsonRpcError;
 }

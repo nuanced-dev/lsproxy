@@ -286,6 +286,11 @@ impl ApiManager {
         Some(())
     }
 
+    /// Get the underlying LSP client for WebSocket connections
+    pub fn get_lsp_client(&self) -> Arc<Mutex<Box<dyn LspClient>>> {
+        self.client.clone()
+    }
+
     /// Forward a raw LSP JSON-RPC request to the LSP server
     ///
     /// This provides lightweight pass-through of JSON-RPC requests with minimal processing.

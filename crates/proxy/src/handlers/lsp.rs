@@ -36,15 +36,11 @@ pub async fn lsp(data: Data<AppState>, request: Json<JsonRpcMessage>) -> HttpRes
 
     // Handle lifecycle requests locally
     if let Some(response) = handle_lifecycle_request(&lsp_req) {
-        return response;
+        return HttpResponse::Ok().json(response);
     }
 
     // For language feature requests, extract document URI and route to appropriate backend
-    let document_uri = match lsp_req
-        .params
-        .as_ref()
-        .and_then(|p| extract_document_uri(p))
-    {
+    let document_uri = match extract_document_uri(&lsp_req) {
         Some(uri) => uri,
         None => {
             warn!(
@@ -153,8 +149,8 @@ pub async fn lsp(data: Data<AppState>, request: Json<JsonRpcMessage>) -> HttpRes
     }
 }
 
-/// Handle lifecycle requests locally
-fn handle_lifecycle_request(request: &JsonRpcMessage) -> Option<HttpResponse> {
+/// Handle lifecycle requests locally, returning a JSON-RPC response if handled
+pub fn handle_lifecycle_request(request: &JsonRpcMessage) -> Option<JsonRpcMessage> {
     let req_id = request.id.clone();
     let Some(method) = request.method.as_ref() else {
         return None;
@@ -183,7 +179,7 @@ fn handle_lifecycle_request(request: &JsonRpcMessage) -> Option<HttpResponse> {
                 .into(),
             );
             capabilities.type_definition_provider = Some(true.into());
-            let response = JsonRpcMessage::new_result_response(
+            Some(JsonRpcMessage::new_result_response(
                 req_id,
                 InitializeResult {
                     capabilities,
@@ -192,33 +188,30 @@ fn handle_lifecycle_request(request: &JsonRpcMessage) -> Option<HttpResponse> {
                         version: Some(env!("CARGO_PKG_VERSION").to_string()),
                     }),
                 },
-            );
-            Some(HttpResponse::Ok().json(response))
+            ))
         }
-        "initialized" | "exit" => Some(HttpResponse::Ok().finish()),
-        "shutdown" => {
-            let response = JsonRpcMessage::new_result_response(req_id, Value::Null);
-            Some(HttpResponse::Ok().json(response))
-        }
+        "initialized" | "exit" => None, // No response for notifications
+        "shutdown" => Some(JsonRpcMessage::new_result_response(req_id, Value::Null)),
         dollar_method if dollar_method.starts_with("$/") => {
             if req_id.is_some() {
-                let response = JsonRpcMessage::new_error_response(
+                Some(JsonRpcMessage::new_error_response(
                     req_id,
-                    JsonRpcErrorCode::MethodNotFound,
-                    "Method not found",
-                );
-                Some(HttpResponse::Ok().json(response))
+                    JsonRpcErrorCode::MethodNotFound as i32,
+                    "Method not found".to_string(),
+                ))
             } else {
-                Some(HttpResponse::Ok().finish())
+                None
             }
         }
         _ => None,
     }
 }
 
-/// Extract document URI from JSON-RPC request parameters
-fn extract_document_uri(params: &Value) -> Option<String> {
-    params
+/// Extract document URI from JSON-RPC request
+pub fn extract_document_uri(request: &JsonRpcMessage) -> Option<String> {
+    request
+        .params
+        .as_ref()?
         .get("textDocument")
         .and_then(|td| td.get("uri"))
         .and_then(|u| u.as_str())
@@ -226,7 +219,7 @@ fn extract_document_uri(params: &Value) -> Option<String> {
 }
 
 /// Recursively convert paths in JSON value from host to container
-fn convert_json_paths_host_to_container<'a>(
+pub fn convert_json_paths_host_to_container<'a>(
     orchestrator: &'a Arc<ContainerOrchestrator>,
     value: &'a mut Value,
 ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<(), String>> + 'a>> {
@@ -262,7 +255,7 @@ fn convert_json_paths_recursive(value: &mut Value, from: &str, to: &str) {
 }
 
 /// Recursively convert paths in JSON value from container to host
-fn convert_json_paths_container_to_host<'a>(
+pub fn convert_json_paths_container_to_host<'a>(
     orchestrator: &'a Arc<ContainerOrchestrator>,
     value: &'a mut Value,
 ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<(), String>> + 'a>> {

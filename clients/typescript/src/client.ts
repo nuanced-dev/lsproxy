@@ -1,3 +1,4 @@
+import type WebSocket from "ws";
 import type {
   DefinitionsInFileResult,
   DockerResult,
@@ -19,8 +20,7 @@ import type {
   StatusResult,
   LogsResult,
   PullResult,
-  JsonRpcRequest,
-  JsonRpcResponse,
+  JsonRpcMessage,
 } from "./types.js";
 
 import {
@@ -37,21 +37,13 @@ import { err, ok } from "./types.js";
 const TRAILING_SLASH_RE = /\/$/;
 
 type HttpModule = typeof import("./http.js");
-let _http: HttpModule | null = null;
 async function http(): Promise<HttpModule> {
-  // Lazy-load only when a data-plane method is called
-  if (_http) return _http;
-  _http = await import("./http.js");
-  return _http!;
+  return import("./http.js");
 }
 
 type ProxyModule = typeof import("./proxy.js");
-let _proxy: ProxyModule | null = null;
 async function proxy(): Promise<ProxyModule> {
-  // Lazy-load only when a docker lifecycle method is called
-  if (_proxy) return _proxy;
-  _proxy = await import("./proxy.js");
-  return _proxy!;
+  return await import("./proxy.js");
 }
 
 export class NuancedLspClient {
@@ -133,6 +125,16 @@ export class NuancedLspClient {
     // Cache the URL for future calls
     this.fullLsProxyUrl = `${this.lsProxyBaseUrl}:${lsProxyPort}`;
     return this.fullLsProxyUrl;
+  }
+
+  /**
+   * Create a WebSocket connection for bidirectional LSP communication
+   */
+  async lsp_ws(): Promise<WebSocket> {
+    const httpUrl = await this.lsProxyUrl();
+    const wsUrl = httpUrl.replace(/^http/, "ws");
+    const WS = (await import("ws")).default;
+    return new WS(`${wsUrl}/lsp/ws`);
   }
 
   // ---- Lifecycle (docker) ---------------------------------------------------
@@ -412,13 +414,13 @@ export class NuancedLspClient {
     const url = await this.lsProxyUrl();
     const { httpRequestWithRetries } = await http();
     const id = this.nextId++;
-    const request: JsonRpcRequest = {
+    const request: JsonRpcMessage = {
       jsonrpc: "2.0",
       id,
       method,
       params,
     };
-    const result = await httpRequestWithRetries<JsonRpcResponse>(
+    const result = await httpRequestWithRetries<JsonRpcMessage>(
       "POST",
       "/lsp",
       url,
@@ -451,7 +453,7 @@ export class NuancedLspClient {
   ): Promise<HttpResult<undefined>> {
     const url = await this.lsProxyUrl();
     const { httpRequestWithRetries } = await http();
-    const request: JsonRpcRequest = {
+    const request: JsonRpcMessage = {
       jsonrpc: "2.0",
       method,
       params,

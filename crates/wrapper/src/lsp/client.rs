@@ -132,6 +132,7 @@ pub trait LspClient: Send {
         let mut process = self.get_process().clone();
         let pending_requests = self.get_pending_requests().clone();
         let json_rpc = self.get_json_rpc().clone();
+        let notification_channel = self.get_unexpected_notifications_tx();
 
         tokio::spawn(async move {
             loop {
@@ -148,23 +149,29 @@ pub trait LspClient: Send {
                                     error!("Failed to send response for request {}", id);
                                 }
                             } else {
-                                debug!(
-                                    "Responding to server message {} - Message: {:?}",
-                                    id, message
-                                );
                                 let response = json_rpc.create_success_response(id);
                                 let _ = process.send(&response).await;
                             }
-                        } else if let Some(params) = message.params.clone() {
-                            let message_key = ExpectedMessageKey {
-                                method: message.method.clone().unwrap(),
-                                params,
-                            };
-                            if let Some(sender) =
-                                pending_requests.remove_notification(message_key).await
-                            {
-                                sender.send(message).unwrap();
+                        } else if let Some(method) = message.method.clone() {
+                            debug!("Received notification");
+                            let mut handled = false;
+                            if let Some(params) = &message.params {
+                                let message_key = ExpectedMessageKey {
+                                    method,
+                                    params: params.clone(),
+                                };
+                                if let Some(sender) =
+                                    pending_requests.remove_notification(message_key).await
+                                {
+                                    handled = true;
+                                    sender.send(message.clone()).unwrap();
+                                }
                             }
+                            if !handled {
+                                let _ = notification_channel.send(message);
+                            }
+                        } else {
+                            debug!("Received unexpected message");
                         }
                     }
                 }
@@ -375,6 +382,16 @@ pub trait LspClient: Send {
     fn get_pending_requests(&mut self) -> &mut PendingRequests;
 
     fn get_workspace_documents(&mut self) -> &mut WorkspaceDocumentsHandler;
+
+    fn get_unexpected_notifications_tx(
+        &self,
+    ) -> tokio::sync::broadcast::Sender<common::api_types::JsonRpcMessage>;
+
+    fn subscribe_to_unexpected_notifications(
+        &self,
+    ) -> tokio::sync::broadcast::Receiver<common::api_types::JsonRpcMessage> {
+        self.get_unexpected_notifications_tx().subscribe()
+    }
 
     /// Sets up the workspace for the language server.
     ///

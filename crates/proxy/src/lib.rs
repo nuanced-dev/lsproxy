@@ -21,7 +21,7 @@ mod handlers;
 
 use crate::handlers::{
     definitions_in_file, find_definition, find_identifier, find_referenced_symbols,
-    find_references, health_check, list_files, lsp, read_source_code,
+    find_references, health_check, list_files, lsp, lsp_ws, read_source_code,
 };
 use common::api_types::{
     get_mount_dir, set_global_mount_dir, CodeContext, DefinitionsInFileRequest, ErrorResponse,
@@ -287,11 +287,13 @@ pub async fn run_server_with_port_and_host(
                 if let Some(ref middleware) = jwt_middleware {
                     cfg
                         .service(api_scope.wrap(middleware.clone()))
-                        .route("/lsp", post().to(lsp).wrap(middleware.clone()));
+                        .route("/lsp", post().to(lsp).wrap(middleware.clone()))
+                        .route("/lsp/ws", get().to(lsp_ws).wrap(middleware.clone()));
                 } else {
                     cfg
                         .service(api_scope)
-                        .route("/lsp", post().to(lsp));
+                        .route("/lsp", post().to(lsp))
+                        .route("/lsp/ws", get().to(lsp_ws));
                 }
             })
             .service(

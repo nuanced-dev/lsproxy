@@ -19,9 +19,20 @@ Do not run tests unless explicitly asked!
 
 ## TypeScript client
 
+All the code is typed. Ensure the generated code is also typed. It should not be necessary to use `any` or `unknown` types.
+
 The code is managed with NPM. A typical workflow:
 
 - Verify code with `npm run build`
 - Once done, format and lint with `npm run lint:fix`
+
+Add new dependencies through NPM.
+
+- Install a runtime dependency with `npm install PKG_NAME`
+- Install a dev dependency with `npm install --save-dev PKG_NAME`
+
+If there are module import errors, ensure all dependencies are installed first, before modifying the code.
+
+- Install all dependencies with `npm install`
 
 Do not run tests unless explicitly asked!

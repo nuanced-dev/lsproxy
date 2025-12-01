@@ -14,6 +14,7 @@ path = "src/main.rs"
 [dependencies]
 common.workspace = true
 actix-web.workspace = true
+actix-ws.workspace = true
 actix-files = "0.6"
 actix-cors = "0.6"
 tokio.workspace = true
@@ -52,6 +53,7 @@ regex = { version = "1.8", features = ["std"] }
 futures = "0.3"
 futures-util = "0.3"
 rand = "0.8"
+tokio-tungstenite = "0.21"
 
 [dev-dependencies]
 tempfile.workspace = true
