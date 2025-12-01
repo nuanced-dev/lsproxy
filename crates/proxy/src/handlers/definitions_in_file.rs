@@ -28,7 +28,7 @@ pub async fn definitions_in_file(
 
     // Get container client for this file's language
     let client =
-        match container_proxy::get_client_for_file(&data.orchestrator, &info.file_path).await {
+        match container_proxy::get_api_client_for_file(&data.orchestrator, &info.file_path).await {
             Ok(client) => client,
             Err(e) => {
                 error!("Failed to get container client: {}", e);

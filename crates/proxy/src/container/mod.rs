@@ -5,7 +5,7 @@ use tokio::sync::Mutex;
 
 use common::api_types::{LanguageVariant, SupportedLanguages};
 
-pub mod http_client;
+pub mod api_client;
 pub mod language_manager;
 pub mod orchestrator;
 
@@ -134,7 +134,7 @@ pub fn language_image_ghcr(language: &SupportedLanguages) -> String {
     )
 }
 
-pub use http_client::ContainerHttpClient;
+pub use api_client::ContainerApiClient;
 
 #[derive(Debug, Clone)]
 pub struct ContainerInfo {

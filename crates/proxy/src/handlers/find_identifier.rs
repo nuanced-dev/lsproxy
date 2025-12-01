@@ -27,15 +27,16 @@ pub async fn find_identifier(
     );
 
     // Get container client for this file's language
-    let client = match container_proxy::get_client_for_file(&data.orchestrator, &info.path).await {
-        Ok(client) => client,
-        Err(e) => {
-            error!("Failed to get container client: {}", e);
-            return HttpResponse::InternalServerError().json(ErrorResponse {
-                error: format!("Failed to get container client: {}", e),
-            });
-        }
-    };
+    let client =
+        match container_proxy::get_api_client_for_file(&data.orchestrator, &info.path).await {
+            Ok(client) => client,
+            Err(e) => {
+                error!("Failed to get container client: {}", e);
+                return HttpResponse::InternalServerError().json(ErrorResponse {
+                    error: format!("Failed to get container client: {}", e),
+                });
+            }
+        };
 
     // Forward request to container
     match client.find_identifier(&info.into_inner()).await {

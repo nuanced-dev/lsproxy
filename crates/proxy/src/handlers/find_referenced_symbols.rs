@@ -31,7 +31,7 @@ pub async fn find_referenced_symbols(
     );
 
     // Get container client for this file's language
-    let client = match container_proxy::get_client_for_file(
+    let client = match container_proxy::get_api_client_for_file(
         &data.orchestrator,
         &info.identifier_position.path,
     )
