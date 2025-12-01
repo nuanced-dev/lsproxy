@@ -1,4 +1,4 @@
-use crate::manager::LspManagerError;
+use crate::managers::api::ApiManagerError;
 use actix_web::HttpResponse;
 use common::api_types::ErrorResponse;
 
@@ -6,7 +6,7 @@ pub trait IntoHttpResponse {
     fn into_http_response(self) -> HttpResponse;
 }
 
-impl IntoHttpResponse for LspManagerError {
+impl IntoHttpResponse for ApiManagerError {
     fn into_http_response(self) -> HttpResponse {
         log::error!("LSP error: {}", self);
         match self {

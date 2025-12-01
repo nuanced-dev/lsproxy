@@ -41,7 +41,11 @@ pub async fn definitions_in_file(
         info.file_path
     );
 
-    match data.manager.get_definitions_in_file(&info.file_path).await {
+    match data
+        .api_manager
+        .get_definitions_in_file(&info.file_path)
+        .await
+    {
         Ok(symbols) => {
             let symbol_response: Vec<Symbol> = symbols
                 .into_iter()

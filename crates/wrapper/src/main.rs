@@ -7,7 +7,7 @@ const DEFAULT_RBENV_ROOT: &str = "/opt/rbenv";
 
 mod handlers;
 mod lsp;
-mod manager;
+mod managers;
 
 use common::utils::workspace_documents::{
     DidOpenConfiguration, CSHARP_FILE_PATTERNS, C_AND_CPP_FILE_PATTERNS, GOLANG_FILE_PATTERNS,
@@ -17,7 +17,7 @@ use common::utils::workspace_documents::{
 use lsp::client::LspClient;
 use lsp::languages::{GenericLspClient, GoplsClient, SorbetClient};
 use lsp::process::ProcessHandler;
-use manager::Manager;
+use managers::api::ApiManager;
 
 /// HTTP wrapper for LSP servers
 /// Provides HTTP endpoints for LSP JSON-RPC communication
@@ -44,7 +44,7 @@ struct Args {
 
 /// Application state shared across handlers
 pub struct AppState {
-    pub manager: Manager,
+    pub api_manager: ApiManager,
 }
 
 /// Health check endpoint - simple version that just returns OK
@@ -292,9 +292,10 @@ async fn main() -> std::io::Result<()> {
 
     info!("LSP server started and initialized successfully");
 
-    let manager = Manager::new(Arc::new(tokio::sync::Mutex::new(client)));
+    let lsp_client = Arc::new(tokio::sync::Mutex::new(client));
+    let api_manager = ApiManager::new(lsp_client);
 
-    let app_state = web::Data::new(AppState { manager });
+    let app_state = web::Data::new(AppState { api_manager });
 
     // Start HTTP server
     HttpServer::new(move || {

@@ -1,5 +1,5 @@
 use crate::handlers::error::IntoHttpResponse;
-use crate::manager::{LspManagerError, Manager};
+use crate::managers::api::{ApiManager, ApiManagerError};
 use actix_web::web::{Data, Json};
 use actix_web::HttpResponse;
 use common::api_types::{CodeContext, FileRange, Position, Range};
@@ -56,7 +56,11 @@ pub async fn find_definition(
         position: info.position.position.clone(),
     };
 
-    let file_identifiers = match data.manager.get_file_identifiers(&file_position.path).await {
+    let file_identifiers = match data
+        .api_manager
+        .get_file_identifiers(&file_position.path)
+        .await
+    {
         Ok(identifiers) => identifiers,
         Err(e) => {
             error!("Failed to get file identifiers: {:?}", e);
@@ -77,7 +81,7 @@ pub async fn find_definition(
 
     // Call LSP directly (no ast-grep for identifier detection)
     let definitions = match data
-        .manager
+        .api_manager
         .find_definition(
             &info.position.path,
             LspPosition {
@@ -94,7 +98,7 @@ pub async fn find_definition(
     };
 
     let source_code_context = if info.include_source_code {
-        match fetch_definition_source_code(&data.manager, &definitions).await {
+        match fetch_definition_source_code(&data.api_manager, &definitions).await {
             Ok(context) => Some(context),
             Err(e) => {
                 error!("Failed to fetch definition source code: {:?}", e);
@@ -134,9 +138,9 @@ pub async fn find_definition(
 }
 
 async fn fetch_definition_source_code(
-    manager: &Manager,
+    manager: &ApiManager,
     definitions_response: &GotoDefinitionResponse,
-) -> Result<Vec<CodeContext>, LspManagerError> {
+) -> Result<Vec<CodeContext>, ApiManagerError> {
     let mut code_contexts = Vec::new();
     let definitions: &Vec<Location> = match definitions_response {
         GotoDefinitionResponse::Scalar(definition) => &vec![definition.clone()],

@@ -1,3 +1,4 @@
+/// Local LSP client. This module is responsible for communication with the local LSP server.
 pub mod client;
 pub mod json_rpc;
 pub mod languages;

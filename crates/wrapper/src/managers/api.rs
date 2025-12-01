@@ -15,7 +15,7 @@ use thiserror::Error;
 use tokio::sync::Mutex;
 
 #[derive(Error, Debug)]
-pub enum LspManagerError {
+pub enum ApiManagerError {
     #[error("File not found: {0}")]
     FileNotFound(String),
 
@@ -38,7 +38,8 @@ pub enum LspManagerError {
     NotImplemented(String),
 }
 
-pub struct Manager {
+/// Threadsafe manager that maps API calls to invocations to the local LSP server.
+pub struct ApiManager {
     // Box<dyn LspClient> for polymorphism - supports any language client
     // Mutex for interior mutability (LSP client needs &mut self)
     // Arc for shared ownership across actix-web handlers
@@ -46,7 +47,7 @@ pub struct Manager {
     ast_grep: AstGrepClient,
 }
 
-impl Manager {
+impl ApiManager {
     pub fn new(client: Arc<Mutex<Box<dyn LspClient>>>) -> Self {
         Self {
             client,
@@ -57,11 +58,11 @@ impl Manager {
     pub async fn get_file_identifiers(
         &self,
         file_path: &str,
-    ) -> Result<Vec<Identifier>, LspManagerError> {
+    ) -> Result<Vec<Identifier>, ApiManagerError> {
         let full_path = get_mount_dir().join(file_path);
 
         if !full_path.exists() {
-            return Err(LspManagerError::FileNotFound(file_path.to_string()));
+            return Err(ApiManagerError::FileNotFound(file_path.to_string()));
         }
 
         let full_path_str = full_path.to_str().unwrap_or_default();
@@ -70,7 +71,7 @@ impl Manager {
             .get_file_identifiers(full_path_str)
             .await
             .map_err(|e| {
-                LspManagerError::InternalError(format!("Symbol retrieval failed: {}", e))
+                ApiManagerError::InternalError(format!("Symbol retrieval failed: {}", e))
             })?;
 
         Ok(ast_grep_result.into_iter().map(|s| s.into()).collect())
@@ -79,11 +80,11 @@ impl Manager {
     pub async fn get_definitions_in_file(
         &self,
         file_path: &str,
-    ) -> Result<Vec<AstGrepMatch>, LspManagerError> {
+    ) -> Result<Vec<AstGrepMatch>, ApiManagerError> {
         let full_path = get_mount_dir().join(file_path);
 
         if !full_path.exists() {
-            return Err(LspManagerError::FileNotFound(file_path.to_string()));
+            return Err(ApiManagerError::FileNotFound(file_path.to_string()));
         }
 
         let full_path_str = full_path.to_str().unwrap_or_default();
@@ -92,7 +93,7 @@ impl Manager {
             .get_definitions_in_file(full_path_str)
             .await
             .map_err(|e| {
-                LspManagerError::InternalError(format!("Symbol retrieval failed: {}", e))
+                ApiManagerError::InternalError(format!("Symbol retrieval failed: {}", e))
             })?;
 
         Ok(ast_grep_result)
@@ -102,7 +103,7 @@ impl Manager {
         &self,
         file_path: &str,
         identifier_position: &lsp_types::Position,
-    ) -> Result<Symbol, LspManagerError> {
+    ) -> Result<Symbol, ApiManagerError> {
         let full_path = get_mount_dir().join(file_path);
         let full_path_str = full_path.to_str().unwrap_or_default();
         match self
@@ -111,7 +112,7 @@ impl Manager {
             .await
         {
             Ok(ast_grep_symbol) => Ok(Symbol::from(ast_grep_symbol)),
-            Err(e) => Err(LspManagerError::InternalError(e.to_string())),
+            Err(e) => Err(ApiManagerError::InternalError(e.to_string())),
         }
     }
 
@@ -119,11 +120,11 @@ impl Manager {
         &self,
         file_path: &str,
         position: Position,
-    ) -> Result<GotoDefinitionResponse, LspManagerError> {
+    ) -> Result<GotoDefinitionResponse, ApiManagerError> {
         let full_path = get_mount_dir().join(file_path);
 
         if !full_path.exists() {
-            return Err(LspManagerError::FileNotFound(file_path.to_string()));
+            return Err(ApiManagerError::FileNotFound(file_path.to_string()));
         }
         let full_path_str = full_path.to_str().unwrap_or_default();
 
@@ -133,7 +134,7 @@ impl Manager {
             .text_document_definition(full_path_str, position)
             .await
             .map_err(|e| {
-                LspManagerError::InternalError(format!("Definition retrieval failed: {}", e))
+                ApiManagerError::InternalError(format!("Definition retrieval failed: {}", e))
             })?;
 
         // Sort the locations if there are multiple
@@ -173,11 +174,11 @@ impl Manager {
         &self,
         file_path: &str,
         position: Position,
-    ) -> Result<Vec<Location>, LspManagerError> {
+    ) -> Result<Vec<Location>, ApiManagerError> {
         let full_path = get_mount_dir().join(file_path);
 
         if !full_path.exists() {
-            return Err(LspManagerError::FileNotFound(file_path.to_string()));
+            return Err(ApiManagerError::FileNotFound(file_path.to_string()));
         }
         let full_path_str = full_path.to_str().unwrap_or_default();
 
@@ -187,7 +188,7 @@ impl Manager {
             .text_document_reference(full_path_str, position)
             .await
             .map_err(|e| {
-                LspManagerError::InternalError(format!("References retrieval failed: {}", e))
+                ApiManagerError::InternalError(format!("References retrieval failed: {}", e))
             })?;
 
         // Sort locations
@@ -208,11 +209,11 @@ impl Manager {
         file_path: &str,
         position: Position,
         full_scan: bool,
-    ) -> Result<Vec<(AstGrepMatch, GotoDefinitionResponse)>, LspManagerError> {
+    ) -> Result<Vec<(AstGrepMatch, GotoDefinitionResponse)>, ApiManagerError> {
         let full_path = get_mount_dir().join(file_path);
 
         if !full_path.exists() {
-            return Err(LspManagerError::FileNotFound(file_path.to_string()));
+            return Err(ApiManagerError::FileNotFound(file_path.to_string()));
         }
         let full_path_str = full_path.to_str().unwrap_or_default();
 
@@ -224,7 +225,7 @@ impl Manager {
         {
             Ok(result) => result,
             Err(e) => {
-                return Err(LspManagerError::InternalError(format!(
+                return Err(ApiManagerError::InternalError(format!(
                     "Failed to find referenced symbols, {}",
                     e
                 )));
@@ -256,7 +257,7 @@ impl Manager {
 
         // Only return an error if we couldn't get any definitions at all
         if definitions.is_empty() && !references_to_symbols.is_empty() {
-            return Err(LspManagerError::InternalError(
+            return Err(ApiManagerError::InternalError(
                 "Failed to retrieve any definitions for the referenced symbols".to_string(),
             ));
         }
@@ -268,7 +269,7 @@ impl Manager {
         &self,
         file_path: &str,
         range: Option<Range>,
-    ) -> Result<String, LspManagerError> {
+    ) -> Result<String, ApiManagerError> {
         let full_path = get_mount_dir().join(file_path);
         let mut locked_client = self.client.lock().await;
         locked_client
@@ -276,7 +277,7 @@ impl Manager {
             .read_text_document(&full_path, range)
             .await
             .map_err(|e| {
-                LspManagerError::InternalError(format!("Source code retrieval failed: {}", e))
+                ApiManagerError::InternalError(format!("Source code retrieval failed: {}", e))
             })
     }
 
@@ -288,10 +289,10 @@ impl Manager {
     /// Forward a raw LSP JSON-RPC request to the LSP server
     ///
     /// This provides lightweight pass-through of JSON-RPC requests with minimal processing.
-    pub async fn lsp(&self, request: JsonRpcMessage) -> Result<JsonRpcMessage, LspManagerError> {
+    pub async fn lsp(&self, request: JsonRpcMessage) -> Result<JsonRpcMessage, ApiManagerError> {
         let req_id = request.id;
         let Some(method) = request.method else {
-            return Err(LspManagerError::BadRequest("missing method".to_string()));
+            return Err(ApiManagerError::BadRequest("missing method".to_string()));
         };
 
         // Forward to LSP server
@@ -301,7 +302,7 @@ impl Manager {
             .await
             .map_err(|e| {
                 error!("Failed to forward LSP request: {}", e);
-                LspManagerError::InternalError(format!("LSP request failed: {}", e))
+                ApiManagerError::InternalError(format!("LSP request failed: {}", e))
             })?;
 
         // Build response
@@ -312,13 +313,13 @@ impl Manager {
 }
 
 // Convert from common LspError to wrapper-specific LspManagerError
-impl From<common::error::LspError> for LspManagerError {
+impl From<common::error::LspError> for ApiManagerError {
     fn from(err: common::error::LspError) -> Self {
         use common::error::LspError as CommonError;
         match &err {
-            CommonError::FileNotFound(s) => LspManagerError::FileNotFound(s.clone()),
-            CommonError::UnsupportedFileType(s) => LspManagerError::UnsupportedFileType(s.clone()),
-            _ => LspManagerError::InternalError(err.to_string()),
+            CommonError::FileNotFound(s) => ApiManagerError::FileNotFound(s.clone()),
+            CommonError::UnsupportedFileType(s) => ApiManagerError::UnsupportedFileType(s.clone()),
+            _ => ApiManagerError::InternalError(err.to_string()),
         }
     }
 }

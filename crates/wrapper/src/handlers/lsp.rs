@@ -31,7 +31,7 @@ pub async fn lsp(
     debug!("LSP request: {:?}", &lsp_req);
 
     // Forward the request to the LSP server
-    match app_state.manager.lsp(lsp_req).await {
+    match app_state.api_manager.lsp(lsp_req).await {
         Ok(response) => {
             info!("Received process response: id={:?}", response.id);
             debug!("Process response: {:?}", response);

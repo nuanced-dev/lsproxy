@@ -47,7 +47,7 @@ pub async fn find_identifier(
         "Received identifier request for file: {}, name: {}, position: {:?}",
         info.path, info.name, info.position
     );
-    let file_identifiers = match data.manager.get_file_identifiers(&info.path).await {
+    let file_identifiers = match data.api_manager.get_file_identifiers(&info.path).await {
         Ok(identifiers) => identifiers,
         Err(e) => {
             error!("Failed to get file identifiers: {:?}", e);

@@ -53,7 +53,7 @@ pub async fn find_referenced_symbols(
     );
 
     let referenecd_ast_symbols = match data
-        .manager
+        .api_manager
         .find_referenced_symbols(
             &info.identifier_position.path,
             LspPosition {
@@ -136,7 +136,7 @@ pub async fn find_referenced_symbols(
                     };
 
                     match data
-                        .manager
+                        .api_manager
                         .get_symbol_from_position(&def.path, &def_position)
                         .await
                     {
@@ -163,7 +163,7 @@ pub async fn find_referenced_symbols(
                             // Solution: Use ast-grep to get all identifiers in the file, find the one
                             // matching by name and line number, then call get_symbol_from_position
                             // using that identifier's position (which aligns with documentSymbol).
-                            match data.manager.get_file_identifiers(&def.path).await {
+                            match data.api_manager.get_file_identifiers(&def.path).await {
                                 Ok(identifiers) => {
                                     // Find the identifier on the same line as the definition with matching name
                                     if let Some(found_identifier) = identifiers.iter().find(|id| {
@@ -181,7 +181,7 @@ pub async fn find_referenced_symbols(
                                         };
 
                                         if let Ok(symbol) = data
-                                            .manager
+                                            .api_manager
                                             .get_symbol_from_position(&def.path, &id_position)
                                             .await
                                         {
