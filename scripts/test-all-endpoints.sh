@@ -71,6 +71,18 @@ case ${#positional_args[@]} in
         ;;
 esac
 
+# Check required tools are installed
+missing_tools=()
+for tool in curl docker websocat; do
+  if ! command -v "$tool" &>/dev/null; then
+    missing_tools+=("$tool")
+  fi
+done
+if [ ${#missing_tools[@]} -gt 0 ]; then
+  echo -e "${RED}Error: The following required tools are not installed: ${missing_tools[*]}${NC}" >&2
+  exit 1
+fi
+
 # Counters
 TOTAL_TESTS=0
 PASSED_TESTS=0

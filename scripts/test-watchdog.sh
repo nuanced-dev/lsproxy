@@ -12,7 +12,19 @@ BLUE='\033[0;34m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
-WORKSPACE_PATH="${1:-sample_project/python}"
+# Check required tools are installed
+missing_tools=()
+for tool in curl docker; do
+  if ! command -v "$tool" &>/dev/null; then
+    missing_tools+=("$tool")
+  fi
+done
+if [ ${#missing_tools[@]} -gt 0 ]; then
+  echo -e "${RED}Error: The following required tools are not installed: ${missing_tools[*]}${NC}" >&2
+  exit 1
+fi
+
+WORKSPACE_PATH="$(realpath "${1:-sample_project/python}")"
 WORKSPACE_PATH="$(cd "$WORKSPACE_PATH" && pwd)"
 
 # Use RUST_IMAGE_VERSION from environment, default to "latest"
