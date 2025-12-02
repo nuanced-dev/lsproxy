@@ -106,7 +106,6 @@ cleanup() {
             echo -e "${GREEN}✓ Orphaned containers cleaned${NC}"
         fi
     elif [ "$CLEANUP_ON_EXIT" = false ]; then
-u       echo
         echo -e "${YELLOW}Skipping cleanup (--no-cleanup specified)${NC}"
         echo -e "${YELLOW}To clean up manually, run: ./scripts/stop-proxy.sh --force${NC}"
     elif [ "$STARTED_SERVICE" = false ]; then
@@ -185,14 +184,14 @@ test_http_endpoint() {
     echo -n "  Testing $test_name... "
 
     # Build curl command with timeout
-    local curl_cmd="curl -s -w '\n%{http_code}' --max-time 30 -X $method"
+    local curl_cmd=("curl" "-s" "-w" '\n%{http_code}' "--max-time" "30" "-X" "$method")
     if [ -n "$data" ]; then
-        curl_cmd="$curl_cmd -H 'Content-Type: application/json' -d '$data'"
+        curl_cmd+=("-H" "Content-Type: application/json" "-d" "$data")
     fi
-    curl_cmd="$curl_cmd '$BASE_URL$endpoint'"
+    curl_cmd+=("$BASE_URL$endpoint")
 
     # Execute request (curl has built-in timeout via --max-time)
-    if response=$(eval "$curl_cmd" 2>&1); then
+    if response=$("${curl_cmd[@]}" 2>&1); then
         # Split response body and status code
         local body=$(echo "$response" | sed '$d')
         local status=$(echo "$response" | tail -n 1)
@@ -251,11 +250,10 @@ test_ws_endpoint() {
     echo -n "  Testing $test_name... "
 
     # Build curl command with timeout
-    local curl_cmd="websocat -q1"
-    curl_cmd="$curl_cmd 'ws${BASE_URL#http}$endpoint'"
+    local curl_cmd=("websocat" "-q1" "ws${BASE_URL#http}$endpoint")
 
     # Execute request (curl has built-in timeout via --max-time)
-    if response=$(timeout 30 $curl_cmd 2>&1); then
+    if response=$(echo "$data" | timeout 30 "${curl_cmd[@]}" 2>&1); then
         local body="$response"
 
         # Validate JSON structure
