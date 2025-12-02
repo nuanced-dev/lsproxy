@@ -107,9 +107,11 @@ async fn handle_client_text_message(
     let json_rpc_msg: JsonRpcMessage = serde_json::from_str(&text)?;
 
     // Handle lifecycle requests locally
-    if let Some(response) = handle_lifecycle_request(&json_rpc_msg) {
-        let response_text = serde_json::to_string(&response)?;
-        client_session.text(response_text).await?;
+    if let Ok(result) = handle_lifecycle_request(&json_rpc_msg) {
+        if let Some(response) = result {
+            let response_text = serde_json::to_string(&response)?;
+            client_session.text(response_text).await?;
+        }
         return Ok(());
     }
 

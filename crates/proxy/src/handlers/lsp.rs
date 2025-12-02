@@ -35,8 +35,12 @@ pub async fn lsp(data: Data<AppState>, request: Json<JsonRpcMessage>) -> HttpRes
     debug!("LSP request: {:?}", &lsp_req);
 
     // Handle lifecycle requests locally
-    if let Some(response) = handle_lifecycle_request(&lsp_req) {
-        return HttpResponse::Ok().json(response);
+    if let Ok(result) = handle_lifecycle_request(&lsp_req) {
+        if let Some(response) = result {
+            return HttpResponse::Ok().json(response);
+        } else {
+            return HttpResponse::Ok().finish();
+        }
     }
 
     // For language feature requests, extract document URI and route to appropriate backend
@@ -150,12 +154,12 @@ pub async fn lsp(data: Data<AppState>, request: Json<JsonRpcMessage>) -> HttpRes
 }
 
 /// Handle lifecycle requests locally, returning a JSON-RPC response if handled
-pub fn handle_lifecycle_request(request: &JsonRpcMessage) -> Option<JsonRpcMessage> {
+pub fn handle_lifecycle_request(request: &JsonRpcMessage) -> Result<Option<JsonRpcMessage>, ()> {
     let req_id = request.id.clone();
     let Some(method) = request.method.as_ref() else {
-        return None;
+        return Err(());
     };
-    match method.as_str() {
+    let response = match method.as_str() {
         "initialize" => {
             let mut capabilities = ServerCapabilities::default();
             capabilities.call_hierarchy_provider = Some(true.into());
@@ -203,8 +207,9 @@ pub fn handle_lifecycle_request(request: &JsonRpcMessage) -> Option<JsonRpcMessa
                 None
             }
         }
-        _ => None,
-    }
+        _ => return Err(()),
+    };
+    Ok(response)
 }
 
 /// Extract document URI from JSON-RPC request
