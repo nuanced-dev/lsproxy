@@ -233,7 +233,7 @@ impl ContainerFixture {
         let image_version_env = format!("RUST_IMAGE_VERSION={TEST_RUST_IMAGE_VERSION}");
         let config: Config<&str> = Config {
             image: Some(&proxy_img),
-            env: Some(vec!["USE_AUTH=false", "RUST_LOG=info", &image_version_env]),
+            env: Some(vec!["USE_AUTH=false", "RUST_LOG=info,nuanced_lsp_proxy=debug,proxy=debug,nuanced_lsp_wrapper=debug,wrapper=debug", &image_version_env]),
             host_config: Some(bollard::models::HostConfig {
                 binds: Some(vec![
                     "/var/run/docker.sock:/var/run/docker.sock".to_string(),

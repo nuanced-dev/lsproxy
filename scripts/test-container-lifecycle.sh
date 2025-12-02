@@ -90,7 +90,7 @@ docker run -d \
     -p 4444:4444 \
     -v /var/run/docker.sock:/var/run/docker.sock \
     -v "$WORKSPACE_PATH:/mnt/workspace" \
-    -e RUST_LOG=info \
+    -e RUST_LOG=info,nuanced_lsp_proxy=debug,proxy=debug,nuanced_lsp_wrapper=debug,wrapper=debug \
     -e USE_AUTH=false \
     -e WRAPPER_IMAGE=nuanced-lsp-wrapper:${RUST_VERSION} \
     -e WATCHDOG_IMAGE=nuanced-lsp-watchdog:${RUST_VERSION} \
