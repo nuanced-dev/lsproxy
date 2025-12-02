@@ -1,0 +1,90 @@
+{
+  "name": "@nuanced-dev/lsp-vscode",
+  "displayName": "Nuanced LSP",
+  "description": "VSCode extension for Nuanced LSP server",
+  "version": "0.1.0",
+  "publisher": "nuanced-dev",
+  "engines": {
+    "vscode": "^1.75.0",
+    "node": ">=18"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "main": "./dist/extension.js",
+  "activationEvents": [
+    "onLanguage:python",
+    "onLanguage:typescript",
+    "onLanguage:javascript",
+    "onLanguage:rust",
+    "onLanguage:cpp",
+    "onLanguage:csharp",
+    "onLanguage:java",
+    "onLanguage:go",
+    "onLanguage:php",
+    "onLanguage:ruby"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "nuancedLsp.restart",
+        "title": "Nuanced LSP: Restart Server"
+      }
+    ],
+    "configuration": {
+      "title": "Nuanced LSP",
+      "properties": {
+        "nuancedLsp.command": {
+          "type": "string",
+          "default": "nuanced-lsp",
+          "description": "Command to run the Nuanced LSP server"
+        },
+        "nuancedLsp.proxyImage": {
+          "type": "string",
+          "default": "",
+          "description": "The LSP proxy image to use (optional)"
+        },
+        "nuancedLsp.wrapperImage": {
+          "type": "string",
+          "default": "",
+          "description": "The LSP wrapper image to use (optional)"
+        },
+        "nuancedLsp.watchdogImage": {
+          "type": "string",
+          "default": "",
+          "description": "The LSP watchdog image to use (optional)"
+        },
+        "nuancedLsp.debug": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable debug mode for the Nuanced LSP server"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "clean": "rm -rf dist nuanced-lsp-vscode-*.vsix",
+    "lint": "eslint",
+    "lint:fix": "eslint --fix",
+    "package": "vsce package",
+    "vscode:prepublish": "bun run build"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.37.0",
+    "@stylistic/eslint-plugin": "^5.4.0",
+    "@types/node": "^20.11.30",
+    "@types/vscode": "^1.75.0",
+    "@vscode/vsce": "^3.2.1",
+    "eslint": "^9.33.0",
+    "eslint-config-prettier": "^10.1.5",
+    "eslint-import-resolver-typescript": "^4.4.4",
+    "eslint-plugin-import": "^2.32.0",
+    "eslint-plugin-prettier": "^5.4.1",
+    "typescript": "^5.5.4",
+    "typescript-eslint": "^8.45.0"
+  }
+}
