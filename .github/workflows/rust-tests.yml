@@ -109,6 +109,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install websocat
+        uses: jaxxstorm/action-install-gh-release@v1.10.0
+        with:
+            repo: vi/websocat
+            tag: v1.14.0
+            rename-to: websocat
+            chmod: 0755
+
       - uses: actions/download-artifact@v4
         with:
           name: built-images
