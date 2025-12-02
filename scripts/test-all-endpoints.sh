@@ -172,8 +172,7 @@ php|AStar.php|26|20|1|addNeighborsToOpenList
 # clangd|astar_search.cpp|??|??|1|??
 #"
 
-# Test function
-test_endpoint() {
+test_http_endpoint() {
     local test_name="$1"
     local method="$2"
     local endpoint="$3"
@@ -241,7 +240,59 @@ test_endpoint() {
     fi
 }
 
-# Enhanced test function for find-referenced-symbols with deep validation
+test_ws_endpoint() {
+    local test_name="$1"
+    local endpoint="$2"
+    local data="$3"
+    local validation_check="$4"
+
+    TOTAL_TESTS=$((TOTAL_TESTS + 1))
+
+    echo -n "  Testing $test_name... "
+
+    # Build curl command with timeout
+    local curl_cmd="websocat -q1"
+    curl_cmd="$curl_cmd 'ws${BASE_URL#http}$endpoint'"
+
+    # Execute request (curl has built-in timeout via --max-time)
+    if response=$(timeout 30 $curl_cmd 2>&1); then
+        local body="$response"
+
+        # Validate JSON structure
+        if ! echo "$body" | jq . > /dev/null 2>&1; then
+            echo -e "${RED}✗ FAIL${NC} - Invalid JSON response"
+            echo "    Response: $body" | head -3
+            FAILED_TESTS=$((FAILED_TESTS + 1))
+            return 1
+        fi
+
+        # Run custom validation if provided
+        if [ -n "$validation_check" ]; then
+            if ! echo "$body" | eval "$validation_check"; then
+                echo -e "${RED}✗ FAIL${NC} - Validation check failed"
+                echo "    Check: $validation_check"
+                echo "    Response: $body" | head -5
+                FAILED_TESTS=$((FAILED_TESTS + 1))
+                return 1
+            fi
+        fi
+
+        echo -e "${GREEN}✓ PASS${NC}"
+        PASSED_TESTS=$((PASSED_TESTS + 1))
+        return 0
+    else
+        local exit_code=$?
+        if [ $exit_code -eq 28 ]; then
+            echo -e "${RED}✗ FAIL${NC} - Timeout (30s)"
+        else
+            echo -e "${RED}✗ FAIL${NC} - Request failed (exit code: $exit_code)"
+            echo "    Error: $response" | head -3
+        fi
+        FAILED_TESTS=$((FAILED_TESTS + 1))
+        return 1
+    fi
+}
+
 test_find_referenced_symbols_enhanced() {
     local lang="$1"
     local file="$2"
@@ -419,7 +470,7 @@ echo
 
 # Test 1: System Health
 echo -e "${YELLOW}1. System Health Check${NC}"
-test_endpoint "Health Check" \
+test_http_endpoint "Health Check" \
     "GET" \
     "/v1/system/health" \
     "" \
@@ -429,7 +480,7 @@ echo
 
 # Test 2: List Files (language-agnostic)
 echo -e "${YELLOW}2. Workspace Endpoints (Language-Agnostic)${NC}"
-test_endpoint "List Files" \
+test_http_endpoint "List Files" \
     "GET" \
     "/v1/workspace/list-files" \
     "" \
@@ -450,10 +501,10 @@ while IFS='|' read -r lang test_file symbol_name symbol_line symbol_char health_
 
     test_uri="$WORKSPACE_URI/$test_file"
 
-    echo -e "${BLUE}Testing language: $(echo $lang | tr '[:lower:]' '[:upper:]')${NC}"
+    echo -e "${BLUE}Testing language: $(echo "$lang" | tr '[:lower:]' '[:upper:]')${NC}"
 
     # Health check for this language
-    test_endpoint "Health ($lang)" \
+    test_http_endpoint "Health ($lang)" \
         "GET" \
         "/v1/system/health" \
         "" \
@@ -461,7 +512,7 @@ while IFS='|' read -r lang test_file symbol_name symbol_line symbol_char health_
         "jq -e '.languages.$health_key == true' > /dev/null"
 
     # Read Source Code
-    test_endpoint "Read Source ($lang)" \
+    test_http_endpoint "Read Source ($lang)" \
         "POST" \
         "/v1/workspace/read-source-code" \
         "{\"path\":\"$test_file\"}" \
@@ -469,7 +520,7 @@ while IFS='|' read -r lang test_file symbol_name symbol_line symbol_char health_
         "jq -e '.source_code | type == \"string\" and length > 0' > /dev/null"
 
     # Read Source Code with Range
-    test_endpoint "Read Source with Range ($lang)" \
+    test_http_endpoint "Read Source with Range ($lang)" \
         "POST" \
         "/v1/workspace/read-source-code" \
         "{\"path\":\"$test_file\",\"range\":{\"start\":{\"line\":0,\"character\":0},\"end\":{\"line\":1,\"character\":0}}}" \
@@ -477,7 +528,7 @@ while IFS='|' read -r lang test_file symbol_name symbol_line symbol_char health_
         "jq -e '.source_code | type == \"string\"' > /dev/null"
 
     # Find Definition (assert selected identifier and at least one definition)
-    test_endpoint "Find Definition ($lang)" \
+    test_http_endpoint "Find Definition ($lang)" \
         "POST" \
         "/v1/symbol/find-definition" \
         "{\"position\":{\"path\":\"$test_file\",\"position\":{\"line\":$symbol_line,\"character\":$symbol_char}},\"include_source_code\":false,\"include_raw_response\":false}" \
@@ -485,7 +536,7 @@ while IFS='|' read -r lang test_file symbol_name symbol_line symbol_char health_
         "jq -e '.selected_identifier.name == \"$symbol_name\" and (.definitions | length) >= 0 and (.selected_identifier.file_range.path == \"$test_file\")' > /dev/null"
 
     # Find References (assert selected identifier matches and references is an array)
-    test_endpoint "Find References ($lang)" \
+    test_http_endpoint "Find References ($lang)" \
         "POST" \
         "/v1/symbol/find-references" \
         "{\"identifier_position\":{\"path\":\"$test_file\",\"position\":{\"line\":$symbol_line,\"character\":$symbol_char}},\"include_code_context_lines\":0}" \
@@ -493,7 +544,7 @@ while IFS='|' read -r lang test_file symbol_name symbol_line symbol_char health_
         "jq -e '.selected_identifier.name == \"$symbol_name\" and .selected_identifier.file_range.path == \"$test_file\" and (.references | type == \"array\")' > /dev/null"
 
     # Find Referenced Symbols
-    test_endpoint "Find Referenced Symbols ($lang)" \
+    test_http_endpoint "Find Referenced Symbols ($lang)" \
         "POST" \
         "/v1/symbol/find-referenced-symbols" \
         "{\"identifier_position\":{\"path\":\"$test_file\",\"position\":{\"line\":$symbol_line,\"character\":$symbol_char}},\"full_scan\":false}" \
@@ -501,7 +552,7 @@ while IFS='|' read -r lang test_file symbol_name symbol_line symbol_char health_
         "jq -e 'type == \"object\"' > /dev/null"
 
     # Definitions in File
-    test_endpoint "Definitions in File ($lang)" \
+    test_http_endpoint "Definitions in File ($lang)" \
         "GET" \
         "/v1/symbol/definitions-in-file?file_path=$test_file" \
         "" \
@@ -509,7 +560,7 @@ while IFS='|' read -r lang test_file symbol_name symbol_line symbol_char health_
         "jq -e 'type == \"array\"' > /dev/null"
 
     # Find Identifier
-    test_endpoint "Find Identifier ($lang)" \
+    test_http_endpoint "Find Identifier ($lang)" \
         "POST" \
         "/v1/symbol/find-identifier" \
         "{\"path\":\"$test_file\",\"name\":\"$symbol_name\"}" \
@@ -517,11 +568,17 @@ while IFS='|' read -r lang test_file symbol_name symbol_line symbol_char health_
         "jq -e 'type == \"object\"' > /dev/null"
 
     # Find Definition (assert selected identifier and at least one definition)
-    test_endpoint "LSP GoTo Definition ($lang)" \
+    test_http_endpoint "LSP GoTo Definition ($lang)" \
         "POST" \
         "/lsp" \
         "{\"jsonrpc\":\"2.0\",\"id\":\"$TOTAL_TESTS\",\"method\":\"textDocument/definition\",\"params\":{\"textDocument\":{\"uri\":\"$test_uri\"},\"position\":{\"line\":$symbol_line,\"character\":$symbol_char}}}" \
         "200" \
+        "jq -e '.result | if type == \"array\" then . else [.] end | length > 0' > /dev/null"
+
+    # Find Definition (assert selected identifier and at least one definition)
+    test_ws_endpoint "LSP-WS GoTo Definition ($lang)" \
+        "/lsp/ws" \
+        "{\"jsonrpc\":\"2.0\",\"id\":\"$TOTAL_TESTS\",\"method\":\"textDocument/definition\",\"params\":{\"textDocument\":{\"uri\":\"$test_uri\"},\"position\":{\"line\":$symbol_line,\"character\":$symbol_char}}}" \
         "jq -e '.result | if type == \"array\" then . else [.] end | length > 0' > /dev/null"
 
     echo
