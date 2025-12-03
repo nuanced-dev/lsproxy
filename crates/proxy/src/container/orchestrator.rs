@@ -338,6 +338,23 @@ impl ContainerOrchestrator {
             endpoint
         );
 
+        match self.check_container_health(&info).await {
+            Ok(_) => {
+                log::info!("{} is now healthy and ready", info.image_name);
+                self.set_container_health(language.clone(), ContainerHealthStatus::Healthy)
+                    .await;
+            }
+            Err(e) => {
+                log::error!("{} health check failed: {}", info.image_name, e);
+                self.set_container_health(language.clone(), ContainerHealthStatus::Unhealthy)
+                    .await;
+                return Err(OrchestratorError::HealthCheck(format!(
+                    "{}: {}",
+                    info.image_name, e
+                )));
+            }
+        }
+
         Ok(info)
     }
 

@@ -489,32 +489,6 @@ impl ContainerOrchestrator {
                         language,
                         info.endpoint
                     );
-
-                    // Spawn health check in background
-                    let orchestrator = self.clone();
-                    let info_clone = info.clone();
-                    tokio::spawn(async move {
-                        match orchestrator.check_container_health(&info_clone).await {
-                            Ok(_) => {
-                                log::info!("{} is now healthy and ready", info_clone.image_name);
-                                orchestrator
-                                    .set_container_health(
-                                        language.clone(),
-                                        ContainerHealthStatus::Healthy,
-                                    )
-                                    .await;
-                            }
-                            Err(e) => {
-                                log::error!("{} health check failed: {}", info_clone.image_name, e);
-                                orchestrator
-                                    .set_container_health(
-                                        language.clone(),
-                                        ContainerHealthStatus::Unhealthy,
-                                    )
-                                    .await;
-                            }
-                        }
-                    });
                 }
                 Err(e) => {
                     log::error!("Failed to spawn container for {:?}: {}", language, e);
