@@ -1,6 +1,7 @@
 use std::fs;
 use std::path::PathBuf;
 
+use crate::lsp::client::CLIENT_CAPABILITES;
 use crate::lsp::{JsonRpcHandler, LspClient, PendingRequests, ProcessHandler};
 
 use async_trait::async_trait;
@@ -61,7 +62,7 @@ impl LspClient for SorbetClient {
         });
 
         Ok(InitializeParams {
-            capabilities: self.get_capabilities(),
+            capabilities: CLIENT_CAPABILITES.clone(),
             workspace_folders: Some(workspace_folders),
             root_uri: None,
             initialization_options: Some(init_options),

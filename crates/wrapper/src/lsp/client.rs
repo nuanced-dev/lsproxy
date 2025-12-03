@@ -1,6 +1,3 @@
-use crate::lsp::json_rpc::JsonRpc;
-use crate::lsp::process::Process;
-use crate::lsp::{ExpectedMessageKey, JsonRpcHandler, ProcessHandler};
 use async_trait::async_trait;
 use common::utils::file_utils::{fix_relative_uris, search_paths, FileType};
 use common::utils::language_utils::detect_language_string;
@@ -15,12 +12,45 @@ use lsp_types::{
 };
 use std::error::Error;
 use std::path::{Path, PathBuf};
+use std::sync::LazyLock;
 
 use common::utils::workspace_documents::{
     DidOpenConfiguration, WorkspaceDocuments, WorkspaceDocumentsHandler, DEFAULT_EXCLUDE_PATTERNS,
 };
 
 use super::PendingRequests;
+use crate::lsp::json_rpc::JsonRpc;
+use crate::lsp::process::Process;
+use crate::lsp::{ExpectedMessageKey, JsonRpcHandler, ProcessHandler};
+
+pub(crate) static CLIENT_CAPABILITES: LazyLock<ClientCapabilities> = LazyLock::new(|| {
+    let mut capabilities = ClientCapabilities::default();
+    capabilities.general = Some(GeneralClientCapabilities {
+        position_encodings: Some(vec![PositionEncodingKind::UTF16]),
+        ..Default::default()
+    });
+    capabilities.text_document = Some(TextDocumentClientCapabilities {
+        document_symbol: Some(DocumentSymbolClientCapabilities {
+            dynamic_registration: Some(false),
+            hierarchical_document_symbol_support: Some(true),
+            ..Default::default()
+        }),
+        // Turn off diagnostics for performance, we don't use them at the moment
+        publish_diagnostics: Some(PublishDiagnosticsClientCapabilities {
+            related_information: Some(false),
+            tag_support: Some(TagSupport { value_set: vec![] }),
+            code_description_support: Some(false),
+            data_support: Some(false),
+            version_support: Some(false),
+        }),
+        ..Default::default()
+    });
+
+    capabilities.experimental = Some(serde_json::json!({
+        "serverStatusNotification": true
+    }));
+    capabilities
+});
 
 #[async_trait]
 pub trait LspClient: Send {
@@ -43,35 +73,6 @@ pub trait LspClient: Send {
         Ok(init_result)
     }
 
-    fn get_capabilities(&mut self) -> ClientCapabilities {
-        let mut capabilities = ClientCapabilities::default();
-        capabilities.general = Some(GeneralClientCapabilities {
-            position_encodings: Some(vec![PositionEncodingKind::UTF16]),
-            ..Default::default()
-        });
-        capabilities.text_document = Some(TextDocumentClientCapabilities {
-            document_symbol: Some(DocumentSymbolClientCapabilities {
-                dynamic_registration: Some(false),
-                hierarchical_document_symbol_support: Some(true),
-                ..Default::default()
-            }),
-            // Turn off diagnostics for performance, we don't use them at the moment
-            publish_diagnostics: Some(PublishDiagnosticsClientCapabilities {
-                related_information: Some(false),
-                tag_support: Some(TagSupport { value_set: vec![] }),
-                code_description_support: Some(false),
-                data_support: Some(false),
-                version_support: Some(false),
-            }),
-            ..Default::default()
-        });
-
-        capabilities.experimental = Some(serde_json::json!({
-            "serverStatusNotification": true
-        }));
-        capabilities
-    }
-
     async fn get_initialize_params(
         &mut self,
         root_path: String,
@@ -79,7 +80,7 @@ pub trait LspClient: Send {
         let workspace_folders = self.find_workspace_folders(root_path.clone()).await?;
         #[allow(deprecated)]
         let params = InitializeParams {
-            capabilities: self.get_capabilities(),
+            capabilities: CLIENT_CAPABILITES.clone(),
             workspace_folders: Some(workspace_folders),
             root_uri: Some(Url::from_file_path(&root_path).unwrap()), // primarily for python
             ..Default::default()

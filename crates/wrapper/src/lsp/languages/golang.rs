@@ -1,5 +1,6 @@
 use std::path::{Path, PathBuf};
 
+use crate::lsp::client::CLIENT_CAPABILITES;
 use crate::lsp::{JsonRpcHandler, LspClient, PendingRequests, ProcessHandler};
 
 use async_trait::async_trait;
@@ -53,7 +54,7 @@ impl LspClient for GoplsClient {
         let workspace_folders = self.find_workspace_folders(root_path.clone()).await?;
 
         Ok(InitializeParams {
-            capabilities: self.get_capabilities(),
+            capabilities: CLIENT_CAPABILITES.clone(),
             // Prefer workspaceFolders; do not also set root_uri to avoid confusion
             workspace_folders: Some(workspace_folders),
             root_uri: None,

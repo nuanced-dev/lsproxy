@@ -1,6 +1,3 @@
-use crate::container::ContainerOrchestrator;
-use crate::handlers::container_proxy;
-use crate::AppState;
 use actix_web::web::{Data, Json};
 use actix_web::HttpResponse;
 use common::api_types::{JsonRpcErrorCode, JsonRpcMessage};
@@ -12,7 +9,36 @@ use lsp_types::{
 };
 use serde_json::Value;
 use std::sync::Arc;
+use std::sync::LazyLock;
 use url::Url;
+
+use crate::container::ContainerOrchestrator;
+use crate::handlers::container_proxy;
+use crate::AppState;
+
+static SERVER_CAPABILITES: LazyLock<ServerCapabilities> = LazyLock::new(|| {
+    let mut capabilities = ServerCapabilities::default();
+    capabilities.call_hierarchy_provider = Some(true.into());
+    capabilities.declaration_provider = Some(DeclarationCapability::Simple(true));
+    capabilities.definition_provider = Some(OneOf::Left(true));
+    capabilities.document_symbol_provider = Some(OneOf::Left(true));
+    capabilities.folding_range_provider = Some(FoldingRangeProviderCapability::Simple(true));
+    capabilities.hover_provider = Some(HoverProviderCapability::Simple(false));
+    capabilities.implementation_provider = Some(ImplementationProviderCapability::Simple(true));
+    capabilities.inline_value_provider = Some(OneOf::Left(true));
+    capabilities.position_encoding = Some(PositionEncodingKind::UTF16);
+    capabilities.references_provider = Some(OneOf::Left(true));
+    capabilities.text_document_sync = Some(
+        TextDocumentSyncOptions {
+            open_close: Some(true),
+            change: Some(TextDocumentSyncKind::FULL),
+            ..Default::default()
+        }
+        .into(),
+    );
+    capabilities.type_definition_provider = Some(true.into());
+    capabilities
+});
 
 /// Forward LSP JSON-RPC requests to language servers
 #[utoipa::path(
@@ -160,40 +186,16 @@ pub fn handle_lifecycle_request(request: &JsonRpcMessage) -> Result<Option<JsonR
         return Err(());
     };
     let response = match method.as_str() {
-        "initialize" => {
-            let mut capabilities = ServerCapabilities::default();
-            capabilities.call_hierarchy_provider = Some(true.into());
-            capabilities.declaration_provider = Some(DeclarationCapability::Simple(true));
-            capabilities.definition_provider = Some(OneOf::Left(true));
-            capabilities.document_symbol_provider = Some(OneOf::Left(true));
-            capabilities.folding_range_provider =
-                Some(FoldingRangeProviderCapability::Simple(true));
-            capabilities.hover_provider = Some(HoverProviderCapability::Simple(false));
-            capabilities.implementation_provider =
-                Some(ImplementationProviderCapability::Simple(true));
-            capabilities.inline_value_provider = Some(OneOf::Left(true));
-            capabilities.position_encoding = Some(PositionEncodingKind::UTF16);
-            capabilities.references_provider = Some(OneOf::Left(true));
-            capabilities.text_document_sync = Some(
-                TextDocumentSyncOptions {
-                    open_close: Some(true),
-                    change: Some(TextDocumentSyncKind::FULL),
-                    ..Default::default()
-                }
-                .into(),
-            );
-            capabilities.type_definition_provider = Some(true.into());
-            Some(JsonRpcMessage::new_result_response(
-                req_id,
-                InitializeResult {
-                    capabilities,
-                    server_info: Some(ServerInfo {
-                        name: "nuanced-lsp".to_string(),
-                        version: Some(env!("CARGO_PKG_VERSION").to_string()),
-                    }),
-                },
-            ))
-        }
+        "initialize" => Some(JsonRpcMessage::new_result_response(
+            req_id,
+            InitializeResult {
+                capabilities: SERVER_CAPABILITES.clone(),
+                server_info: Some(ServerInfo {
+                    name: "nuanced-lsp".to_string(),
+                    version: Some(env!("CARGO_PKG_VERSION").to_string()),
+                }),
+            },
+        )),
         "initialized" | "exit" => None, // No response for notifications
         "shutdown" => Some(JsonRpcMessage::new_result_response(req_id, Value::Null)),
         dollar_method if dollar_method.starts_with("$/") => {

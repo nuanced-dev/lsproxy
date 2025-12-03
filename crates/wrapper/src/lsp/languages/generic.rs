@@ -1,5 +1,6 @@
 use std::path::Path;
 
+use crate::lsp::client::CLIENT_CAPABILITES;
 use crate::lsp::{JsonRpcHandler, LspClient, PendingRequests, ProcessHandler};
 
 use async_trait::async_trait;
@@ -53,7 +54,7 @@ impl LspClient for GenericLspClient {
     ) -> Result<InitializeParams, Box<dyn Error + Send + Sync>> {
         let workspace_folders = self.find_workspace_folders(root_path.clone()).await?;
         Ok(InitializeParams {
-            capabilities: self.get_capabilities(),
+            capabilities: CLIENT_CAPABILITES.clone(),
             workspace_folders: Some(workspace_folders),
             root_uri: Some(lsp_types::Url::from_file_path(&root_path).unwrap()),
             initialization_options: self.initialization_options.clone(),
