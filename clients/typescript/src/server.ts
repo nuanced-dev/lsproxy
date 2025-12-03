@@ -46,11 +46,10 @@ class LspServer {
   }
 
   async run(): Promise<void> {
-    await this.startServer();
-    this.setupSignalHandlers();
-    await this.sendLogMessage(MessageType.Info, "Nuanced LSP started");
-
     try {
+      await this.startServer();
+      this.setupSignalHandlers();
+      await this.sendLogMessage(MessageType.Info, "Nuanced LSP started");
       await this.processMessages();
     } catch (err) {
       await this.sendLogMessage(
@@ -87,8 +86,39 @@ class LspServer {
       throw new Error("Failed to start container");
     }
 
+    await this.waitUntilServerIsHealthy();
+
     this.ws = await this.client.lsp_ws();
     await this.connectWebSocket();
+  }
+
+  private async waitUntilServerIsHealthy(): Promise<void> {
+    const timeoutMs = 60000;
+    const initialDelayMs = 100;
+    const maxDelayMs = 5000;
+    const startTime = Date.now();
+
+    let attempt = 0;
+    while (Date.now() - startTime < timeoutMs) {
+      const result = await this.client.health();
+
+      if (result.ok) {
+        if (result.data.status === "ok") {
+          return;
+        } else if (result.data.status === "not ok") {
+          throw new Error("Server is unhealthy");
+        }
+      }
+
+      const delayMs = Math.min(
+        initialDelayMs * Math.pow(2, attempt),
+        maxDelayMs,
+      );
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+      attempt++;
+    }
+
+    throw new Error("Server health check timed out after 60s");
   }
 
   private async connectWebSocket(): Promise<void> {
