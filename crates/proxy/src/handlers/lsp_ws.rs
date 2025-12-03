@@ -12,9 +12,9 @@ use common::utils::language_utils::detect_language;
 use futures_util::stream::SplitSink;
 use futures_util::{SinkExt, StreamExt};
 use log::{debug, error, info, warn};
+use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::sync::Arc;
-use tokio::sync::Mutex;
 use tokio_tungstenite::tungstenite::Message as TungsteniteMessage;
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
 use url::Url;
@@ -50,8 +50,7 @@ async fn handle_ws_connection(
     debug!("Handling WebSocket connection");
 
     // Cache of container WebSocket sinks by language (for sending messages to containers)
-    let container_sinks: Arc<Mutex<HashMap<SupportedLanguages, ContainerWsSink>>> =
-        Arc::new(Mutex::new(HashMap::new()));
+    let mut container_sinks: HashMap<SupportedLanguages, ContainerWsSink> = HashMap::new();
 
     // Process incoming messages from client
     while let Some(result) = client_stream.next().await {
@@ -61,7 +60,7 @@ async fn handle_ws_connection(
                     text.to_string(),
                     &mut client_session,
                     &data,
-                    &container_sinks,
+                    &mut container_sinks,
                 )
                 .await
                 {
@@ -99,7 +98,7 @@ async fn handle_client_text_message(
     text: String,
     client_session: &mut Session,
     data: &Data<AppState>,
-    container_sinks: &Arc<Mutex<HashMap<SupportedLanguages, ContainerWsSink>>>,
+    container_sinks: &mut HashMap<SupportedLanguages, ContainerWsSink>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     debug!("Client -> Proxy: {}", text);
 
@@ -153,47 +152,46 @@ fn uri_to_file_path(uri: &str) -> Result<String, Box<dyn std::error::Error + Sen
 }
 
 /// Ensure a container connection exists for the given language and return the sink
-async fn ensure_container_connection(
+async fn ensure_container_connection<'a>(
     language: SupportedLanguages,
     data: &Data<AppState>,
     client_session: &Session,
-    container_sinks: &Arc<Mutex<HashMap<SupportedLanguages, ContainerWsSink>>>,
-) -> Result<ContainerWsSink, Box<dyn std::error::Error + Send + Sync>> {
-    let mut sinks = container_sinks.lock().await;
+    container_sinks: &'a mut HashMap<SupportedLanguages, ContainerWsSink>,
+) -> Result<&'a mut ContainerWsSink, Box<dyn std::error::Error + Send + Sync>> {
+    let sink = match container_sinks.entry(language) {
+        Entry::Occupied(o) => o.into_mut(),
+        Entry::Vacant(v) => {
+            let language = v.key();
 
-    // Return existing sink if available
-    if sinks.contains_key(&language) {
-        // We need to remove and return the sink to satisfy borrow checker
-        // It will be re-inserted by the caller
-        return Ok(sinks.remove(&language).unwrap());
-    }
+            // Get container client for this language
+            let container_client =
+                container_proxy::get_container_api_client(&data.orchestrator, language.clone())
+                    .await?;
 
-    // Get container client for this language
-    let container_client =
-        container_proxy::get_container_api_client(&data.orchestrator, language.clone()).await?;
+            // Connect to container's WebSocket endpoint
+            let container_ws_url = format!("{}/lsp/ws", container_client.get_base_url())
+                .replace("http://", "ws://")
+                .replace("https://", "wss://");
 
-    // Connect to container's WebSocket endpoint
-    let container_ws_url = format!("{}/lsp/ws", container_client.get_base_url())
-        .replace("http://", "ws://")
-        .replace("https://", "wss://");
+            debug!("Connecting to container WebSocket: {}", container_ws_url);
 
-    debug!("Connecting to container WebSocket: {}", container_ws_url);
+            let (container_ws, _) = tokio_tungstenite::connect_async(&container_ws_url).await?;
 
-    let (container_ws, _) = tokio_tungstenite::connect_async(&container_ws_url).await?;
+            info!("Connected to container WebSocket for {:?}", language);
 
-    info!("Connected to container WebSocket for {:?}", language);
+            // Split WebSocket into read and write halves
+            let (sink, stream) = container_ws.split();
 
-    // Split WebSocket into read and write halves
-    let (sink, stream) = container_ws.split();
-
-    // Spawn a task to read from this connection and forward to client
-    spawn_container_reader(
-        language.clone(),
-        stream,
-        client_session.clone(),
-        data.orchestrator.clone(),
-    );
-
+            // Spawn a task to read from this connection and forward to client
+            spawn_container_reader(
+                language.clone(),
+                stream,
+                client_session.clone(),
+                data.orchestrator.clone(),
+            );
+            v.insert(sink)
+        }
+    };
     Ok(sink)
 }
 
@@ -276,7 +274,7 @@ async fn send_to_container(
     language: SupportedLanguages,
     data: &Data<AppState>,
     client_session: &Session,
-    container_sinks: &Arc<Mutex<HashMap<SupportedLanguages, ContainerWsSink>>>,
+    container_sinks: &mut HashMap<SupportedLanguages, ContainerWsSink>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // Convert paths in message
     let mut converted_msg = json_rpc_msg;
@@ -288,23 +286,11 @@ async fn send_to_container(
     let converted_text = serde_json::to_string(&converted_msg)?;
 
     // Get or create the sink for this language
-    let mut sink =
-        ensure_container_connection(language.clone(), data, client_session, container_sinks)
-            .await?;
+    let sink = ensure_container_connection(language.clone(), data, client_session, container_sinks)
+        .await?;
 
     // Send message to container
-    let send_result = sink.send(TungsteniteMessage::Text(converted_text)).await;
-
-    // Re-insert sink back into the map if successful, otherwise remove it
-    match send_result {
-        Ok(_) => {
-            let mut sinks = container_sinks.lock().await;
-            sinks.insert(language, sink);
-            Ok(())
-        }
-        Err(e) => {
-            // Don't re-insert the sink on error - it's likely broken
-            Err(e.into())
-        }
-    }
+    sink.send(TungsteniteMessage::Text(converted_text))
+        .await
+        .map_err(|e| e.into())
 }
