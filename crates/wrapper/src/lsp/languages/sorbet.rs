@@ -1,54 +1,20 @@
-use std::fs;
-use std::path::PathBuf;
-
-use crate::lsp::client::CLIENT_CAPABILITES;
-use crate::lsp::{JsonRpcHandler, LspClient, PendingRequests, ProcessHandler};
+use crate::lsp::client::{LspConfig, CLIENT_CAPABILITES};
 
 use async_trait::async_trait;
-use common::api_types::JsonRpcMessage;
+use common::utils::workspace_documents::{DidOpenConfiguration, RUBY_FILE_PATTERNS};
 use log::{info, warn};
 use lsp_types::{InitializeParams, Url, WorkspaceFolder};
 use std::error::Error;
+use std::fs;
+use std::path::PathBuf;
 use tokio::process::Command;
 
 const DEFAULT_RBENV_ROOT: &str = "/opt/rbenv";
 
-pub struct SorbetClient {
-    process: ProcessHandler,
-    json_rpc: JsonRpcHandler,
-    workspace_documents: common::utils::workspace_documents::WorkspaceDocumentsHandler,
-    pending_requests: PendingRequests,
-    unexpected_notifications_tx: tokio::sync::broadcast::Sender<JsonRpcMessage>,
-}
+pub struct SorbetConfig;
 
 #[async_trait]
-impl LspClient for SorbetClient {
-    fn get_process(&mut self) -> &mut ProcessHandler {
-        &mut self.process
-    }
-
-    fn get_json_rpc(&mut self) -> &mut JsonRpcHandler {
-        &mut self.json_rpc
-    }
-
-    fn get_root_files(&mut self) -> Vec<String> {
-        vec![] // Sorbet doesn't use root files in the new architecture
-    }
-
-    fn get_workspace_documents(
-        &mut self,
-    ) -> &mut common::utils::workspace_documents::WorkspaceDocumentsHandler {
-        &mut self.workspace_documents
-    }
-
-    fn get_pending_requests(&mut self) -> &mut PendingRequests {
-        &mut self.pending_requests
-    }
-
-    fn get_unexpected_notifications_tx(&self) -> tokio::sync::broadcast::Sender<JsonRpcMessage> {
-        self.unexpected_notifications_tx.clone()
-    }
-
+impl LspConfig for SorbetConfig {
     #[allow(deprecated)]
     async fn get_initialize_params(
         &mut self,
@@ -56,7 +22,6 @@ impl LspClient for SorbetClient {
     ) -> Result<InitializeParams, Box<dyn Error + Send + Sync>> {
         let workspace_folders = self.find_workspace_folders(root_path.clone()).await?;
 
-        // Sorbet initialization options for lazy indexing
         let init_options = serde_json::json!({
             "sorbet.lsp.lazyIndexing": true
         });
@@ -70,17 +35,41 @@ impl LspClient for SorbetClient {
         })
     }
 
+    fn get_root_files(&mut self) -> Vec<String> {
+        vec![]
+    }
+
+    fn include_patterns(&self) -> Vec<String> {
+        RUBY_FILE_PATTERNS.iter().map(|&s| s.to_string()).collect()
+    }
+
+    fn exclude_patterns(&self) -> Vec<String> {
+        common::utils::workspace_documents::DEFAULT_EXCLUDE_PATTERNS
+            .iter()
+            .map(|&s| s.to_string())
+            .collect()
+    }
+
+    fn did_open_configuration(&self) -> DidOpenConfiguration {
+        DidOpenConfiguration::Lazy
+    }
+}
+
+impl SorbetConfig {
+    pub fn new() -> Self {
+        Self
+    }
+
     async fn find_workspace_folders(
         &mut self,
         root_path: String,
     ) -> Result<Vec<WorkspaceFolder>, Box<dyn Error + Send + Sync>> {
         info!(
-            "SorbetClient::find_workspace_folders called with root_path: {}",
+            "SorbetConfig::find_workspace_folders called with root_path: {}",
             root_path
         );
         let root = PathBuf::from(&root_path);
 
-        // 1) Look for sorbet/config file
         let sorbet_config_path = root.join("sorbet").join("config");
         info!(
             "Looking for sorbet/config at {:?}, exists: {}",
@@ -90,7 +79,6 @@ impl LspClient for SorbetClient {
         if sorbet_config_path.exists() {
             info!("Found sorbet/config at {:?}", sorbet_config_path);
 
-            // Parse the config file to find --dir entries
             match fs::read_to_string(&sorbet_config_path) {
                 Ok(contents) => {
                     let mut workspace_folders = Vec::new();
@@ -99,9 +87,7 @@ impl LspClient for SorbetClient {
                     while let Some(line) = lines.next() {
                         let trimmed = line.trim();
 
-                        // Look for --dir option
                         if trimmed == "--dir" {
-                            // The directory path should be on the next line
                             if let Some(dir_line) = lines.next() {
                                 let dir_path = dir_line.trim();
                                 let full_path = root.join(dir_path);
@@ -146,7 +132,6 @@ impl LspClient for SorbetClient {
             }
         }
 
-        // 2) Fallback: use the provided root_path
         warn!(
             "No sorbet/config found or no valid directories specified. Falling back to root: {}",
             root.display()
@@ -164,28 +149,13 @@ impl LspClient for SorbetClient {
     }
 }
 
-impl SorbetClient {
-    /// Create a new SorbetClient from the existing GenericLspClient components
-    pub fn new(
-        process: ProcessHandler,
-        json_rpc: JsonRpcHandler,
-        workspace_documents: common::utils::workspace_documents::WorkspaceDocumentsHandler,
-        pending_requests: PendingRequests,
-    ) -> Self {
-        let (unexpected_notifications_tx, _) = tokio::sync::broadcast::channel(1);
-        Self {
-            process,
-            json_rpc,
-            workspace_documents,
-            pending_requests,
-            unexpected_notifications_tx,
-        }
+impl Default for SorbetConfig {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
-/// Parse Sorbet version from Gemfile.lock (preferred) or Gemfile
 fn parse_sorbet_version(workspace_path: &str) -> Option<String> {
-    // Prefer Gemfile.lock
     let lock_path = PathBuf::from(workspace_path).join("Gemfile.lock");
     if let Ok(contents) = fs::read_to_string(&lock_path) {
         if let Some(ver) = parse_sorbet_version_from_lock(&contents) {
@@ -193,7 +163,6 @@ fn parse_sorbet_version(workspace_path: &str) -> Option<String> {
         }
     }
 
-    // Fallback to Gemfile
     let gemfile_path = PathBuf::from(workspace_path).join("Gemfile");
     if let Ok(contents) = fs::read_to_string(&gemfile_path) {
         if let Some(ver) = parse_sorbet_version_from_gemfile(&contents) {
@@ -205,7 +174,6 @@ fn parse_sorbet_version(workspace_path: &str) -> Option<String> {
 }
 
 fn parse_sorbet_version_from_lock(lock_contents: &str) -> Option<String> {
-    // Look for lines like "    sorbet (0.5.12414)"
     for line in lock_contents.lines() {
         let trimmed = line.trim();
         if let Some(rest) = trimmed.strip_prefix("sorbet (") {
@@ -221,14 +189,11 @@ fn parse_sorbet_version_from_lock(lock_contents: &str) -> Option<String> {
 }
 
 fn parse_sorbet_version_from_gemfile(gemfile_contents: &str) -> Option<String> {
-    // Look for lines like: gem "sorbet", "0.5.12414"
     for line in gemfile_contents.lines() {
         let trimmed = line.trim();
         if trimmed.starts_with("gem") && trimmed.contains("sorbet") {
-            // Support double or single quotes
             let quote = if trimmed.contains('"') { '"' } else { '\'' };
             let parts: Vec<&str> = trimmed.split(quote).collect();
-            // parts at odd indices are quoted values
             if parts.len() >= 4 && parts[1].contains("sorbet") {
                 let ver = parts[3].trim();
                 if !ver.is_empty() {
@@ -301,7 +266,6 @@ async fn install_sorbet(version: &str) -> Result<(), String> {
         }
     }
 
-    // Refresh shims
     let rehash_status = command_with_rbenv_env(&rbenv_bin)
         .arg("rehash")
         .status()
@@ -315,8 +279,6 @@ async fn install_sorbet(version: &str) -> Result<(), String> {
     Ok(())
 }
 
-/// Ensure the Sorbet gem version requested by the project is available and return it.
-/// Returns Ok(Some(version)) when detected, Ok(None) when unspecified.
 pub async fn ensure_sorbet_version(workspace_path: &str) -> Result<Option<String>, String> {
     let Some(desired_version) = parse_sorbet_version(workspace_path) else {
         info!("No Sorbet version specified in Gemfile.lock or Gemfile; using preinstalled version");

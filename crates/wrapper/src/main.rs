@@ -9,15 +9,16 @@ mod handlers;
 mod lsp;
 mod managers;
 
-use common::utils::workspace_documents::{
-    DidOpenConfiguration, CSHARP_FILE_PATTERNS, C_AND_CPP_FILE_PATTERNS, GOLANG_FILE_PATTERNS,
-    JAVA_FILE_PATTERNS, PHP_FILE_PATTERNS, PYTHON_FILE_PATTERNS, RUBY_FILE_PATTERNS,
-    RUST_FILE_PATTERNS, TYPESCRIPT_AND_JAVASCRIPT_FILE_PATTERNS,
-};
 use lsp::client::LspClient;
-use lsp::languages::{GenericLspClient, GoplsClient, SorbetClient};
-use lsp::process::ProcessHandler;
+use lsp::languages::{GoplsConfig, SorbetConfig};
+use lsp::languages::{
+    CSHARP_CONFIG, C_AND_CPP_CONFIG, JAVA_CONFIG, PHP_CONFIG, PYTHON_CONFIG, RUBY_CONFIG,
+    RUST_CONFIG, TYPESCRIPT_AND_JAVASCRIPT_CONFIG,
+};
+use lsp::ProcessHandler;
 use managers::api::ApiManager;
+
+use crate::lsp::client::LspConfig;
 
 /// HTTP wrapper for LSP servers
 /// Provides HTTP endpoints for LSP JSON-RPC communication
@@ -159,88 +160,51 @@ async fn main() -> std::io::Result<()> {
         std::io::Error::new(std::io::ErrorKind::Other, e)
     })?;
 
-    // Configure based on language
-    let (file_patterns, did_open_config) = match language.as_str() {
-        "php" => (PHP_FILE_PATTERNS.to_vec(), DidOpenConfiguration::Lazy),
-        "python" => (PYTHON_FILE_PATTERNS.to_vec(), DidOpenConfiguration::None),
-        "ruby" => (RUBY_FILE_PATTERNS.to_vec(), DidOpenConfiguration::None),
-        "ruby-sorbet" => {
-            info!("Detected ruby-sorbet language - using Lazy didOpen configuration");
-            (RUBY_FILE_PATTERNS.to_vec(), DidOpenConfiguration::Lazy)
-        }
-        "typescript" | "javascript" => (
-            TYPESCRIPT_AND_JAVASCRIPT_FILE_PATTERNS.to_vec(),
-            DidOpenConfiguration::Lazy,
-        ),
-        "rust" => (RUST_FILE_PATTERNS.to_vec(), DidOpenConfiguration::None),
-        "go" => (GOLANG_FILE_PATTERNS.to_vec(), DidOpenConfiguration::None),
-        "java" => (JAVA_FILE_PATTERNS.to_vec(), DidOpenConfiguration::None),
-        "cpp" | "c" => (C_AND_CPP_FILE_PATTERNS.to_vec(), DidOpenConfiguration::Lazy),
-        "csharp" => (CSHARP_FILE_PATTERNS.to_vec(), DidOpenConfiguration::None),
-        _ => {
-            error!("Unknown language '{}'. Supported languages: php, python, ruby, ruby-sorbet, typescript, javascript, rust, go, java, cpp, c, csharp", language);
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                format!("Unsupported language: {}", language),
-            ));
-        }
-    };
-
-    // Create base client
-    let base_client = GenericLspClient::new(
-        process_handler,
-        args.workspace_path.clone(),
-        file_patterns.iter().map(|&s| s.to_string()).collect(),
-        did_open_config,
-    );
-
-    // Apply language-specific initialization and setup
+    // Apply language-specific configuration
     info!(
         "Checking LSP command for language-specific configuration: '{}'",
         args.lsp_command
     );
-    let mut client: Box<dyn LspClient> = match args.lsp_command.as_str() {
+
+    let config: Box<dyn LspConfig> = match args.lsp_command.as_str() {
         "srb" => {
             info!("Configuring Sorbet with custom workspace folder detection (sorbet/config)");
-            // Convert GenericLspClient components to SorbetClient
-            let (process, json_rpc, workspace_documents, pending_requests) =
-                base_client.into_components();
-            let sorbet_client =
-                SorbetClient::new(process, json_rpc, workspace_documents, pending_requests);
-            Box::new(sorbet_client)
+            Box::new(SorbetConfig::new())
         }
         _ => match language.as_str() {
-            "go" => {
-                info!("Configuring Go with custom workspace folder detection (go.work/go.mod)");
-                // Convert GenericLspClient components to GoplsClient
-                let (process, json_rpc, workspace_documents, pending_requests) =
-                    base_client.into_components();
-                let gopls_client =
-                    GoplsClient::new(process, json_rpc, workspace_documents, pending_requests);
-                Box::new(gopls_client)
+            "php" => Box::new(PHP_CONFIG.clone()),
+            "python" => Box::new(PYTHON_CONFIG.clone()),
+            "ruby" => Box::new(RUBY_CONFIG.clone()),
+            "ruby-sorbet" => {
+                info!("Detected ruby-sorbet language - using Sorbet config");
+                Box::new(SorbetConfig::new())
             }
+            "typescript" | "javascript" => Box::new(TYPESCRIPT_AND_JAVASCRIPT_CONFIG.clone()),
             "rust" => {
                 info!("Configuring Rust with initialization options and setup workspace");
-                let configured_client = base_client
-                    .with_initialization_options(serde_json::json!({
-                        "cargo": {
-                            "sysroot": serde_json::Value::Null
-                        }
-                    }))
-                    .with_setup_workspace_method("rust-analyzer/reloadWorkspace".to_string());
-                Box::new(configured_client)
+                Box::new(RUST_CONFIG.clone())
             }
+            "go" => {
+                info!("Configuring Go with custom workspace folder detection (go.work/go.mod)");
+                Box::new(GoplsConfig::new())
+            }
+            "java" => Box::new(JAVA_CONFIG.clone()),
             "cpp" | "c" => {
                 info!("Configuring C/C++ with clangd initialization options");
-                let configured_client =
-                    base_client.with_initialization_options(serde_json::json!({
-                        "clangdFileStatus": true
-                    }));
-                Box::new(configured_client)
+                Box::new(C_AND_CPP_CONFIG.clone())
             }
-            _ => Box::new(base_client),
+            "csharp" => Box::new(CSHARP_CONFIG.clone()),
+            _ => {
+                error!("Unknown language '{}'. Supported languages: php, python, ruby, ruby-sorbet, typescript, javascript, rust, go, java, cpp, c, csharp", language);
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    format!("Unsupported language: {}", language),
+                ));
+            }
         },
     };
+
+    let mut client = LspClient::new(config, process_handler, &args.workspace_path);
 
     // Initialize the LSP server
     client
@@ -257,8 +221,7 @@ async fn main() -> std::io::Result<()> {
         info!("Java: waiting for ServiceReady notification (no timeout - caller controls overall timeout)...");
 
         let mut notification_rx = client
-            .get_pending_requests()
-            .add_notification(ExpectedMessageKey {
+            .expect_notification(ExpectedMessageKey {
                 method: "language/status".to_string(),
                 params: serde_json::json!({
                     "type": "ServiceReady",

@@ -8,11 +8,11 @@ use tokio::sync::Mutex;
 
 /// Manages WebSocket connections for bidirectional LSP communication
 pub struct WsManager {
-    client: Arc<Mutex<Box<dyn LspClient>>>,
+    client: Arc<Mutex<LspClient>>,
 }
 
 impl WsManager {
-    pub fn new(client: Arc<Mutex<Box<dyn LspClient>>>) -> Self {
+    pub fn new(client: Arc<Mutex<LspClient>>) -> Self {
         Self { client }
     }
 
@@ -62,7 +62,7 @@ impl WsManager {
 }
 
 /// Spawn a task to forward LSP notifications to the WebSocket
-fn spawn_notification_forwarder(client: Arc<Mutex<Box<dyn LspClient>>>, mut session: Session) {
+fn spawn_notification_forwarder(client: Arc<Mutex<LspClient>>, mut session: Session) {
     tokio::spawn(async move {
         let mut notification_rx = {
             let locked_client = client.lock().await;
@@ -97,7 +97,7 @@ fn spawn_notification_forwarder(client: Arc<Mutex<Box<dyn LspClient>>>, mut sess
 /// Handle a text message from the WebSocket
 async fn handle_ws_text_message(
     text: String,
-    client: &Arc<Mutex<Box<dyn LspClient>>>,
+    client: &Arc<Mutex<LspClient>>,
     session: &Session,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     debug!("Received WebSocket message: {}", text);
@@ -122,7 +122,7 @@ async fn handle_ws_text_message(
 fn handle_lsp_request(
     json_rpc_msg: JsonRpcMessage,
     method: String,
-    client: Arc<Mutex<Box<dyn LspClient>>>,
+    client: Arc<Mutex<LspClient>>,
     mut session: Session,
 ) {
     tokio::spawn(async move {
@@ -165,7 +165,7 @@ fn handle_lsp_request(
 async fn handle_lsp_notification(
     method: String,
     params: Option<serde_json::Value>,
-    client: &Arc<Mutex<Box<dyn LspClient>>>,
+    client: &Arc<Mutex<LspClient>>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let mut locked_client = client.lock().await;
     locked_client.send_notification(&method, params).await?;

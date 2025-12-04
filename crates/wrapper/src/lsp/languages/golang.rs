@@ -1,52 +1,17 @@
-use std::path::{Path, PathBuf};
-
-use crate::lsp::client::CLIENT_CAPABILITES;
-use crate::lsp::{JsonRpcHandler, LspClient, PendingRequests, ProcessHandler};
+use crate::lsp::client::{LspConfig, CLIENT_CAPABILITES};
 
 use async_trait::async_trait;
-use common::api_types::JsonRpcMessage;
+use common::utils::workspace_documents::{DidOpenConfiguration, GOLANG_FILE_PATTERNS};
 use log::{info, warn};
 use lsp_types::{InitializeParams, Url, WorkspaceFolder};
 use std::error::Error;
+use std::path::{Path, PathBuf};
 
-pub struct GoplsClient {
-    process: ProcessHandler,
-    json_rpc: JsonRpcHandler,
-    workspace_documents: common::utils::workspace_documents::WorkspaceDocumentsHandler,
-    pending_requests: PendingRequests,
-    unexpected_notifications_tx: tokio::sync::broadcast::Sender<JsonRpcMessage>,
-}
+pub struct GoplsConfig;
 
 #[async_trait]
-impl LspClient for GoplsClient {
-    fn get_process(&mut self) -> &mut ProcessHandler {
-        &mut self.process
-    }
-
-    fn get_json_rpc(&mut self) -> &mut JsonRpcHandler {
-        &mut self.json_rpc
-    }
-
-    fn get_root_files(&mut self) -> Vec<String> {
-        vec![] // Gopls doesn't use root files in the new architecture
-    }
-
-    fn get_workspace_documents(
-        &mut self,
-    ) -> &mut common::utils::workspace_documents::WorkspaceDocumentsHandler {
-        &mut self.workspace_documents
-    }
-
-    fn get_pending_requests(&mut self) -> &mut PendingRequests {
-        &mut self.pending_requests
-    }
-
-    fn get_unexpected_notifications_tx(&self) -> tokio::sync::broadcast::Sender<JsonRpcMessage> {
-        self.unexpected_notifications_tx.clone()
-    }
-
+impl LspConfig for GoplsConfig {
     #[allow(deprecated)]
-
     async fn get_initialize_params(
         &mut self,
         root_path: String,
@@ -55,11 +20,38 @@ impl LspClient for GoplsClient {
 
         Ok(InitializeParams {
             capabilities: CLIENT_CAPABILITES.clone(),
-            // Prefer workspaceFolders; do not also set root_uri to avoid confusion
             workspace_folders: Some(workspace_folders),
             root_uri: None,
             ..Default::default()
         })
+    }
+
+    fn get_root_files(&mut self) -> Vec<String> {
+        vec![]
+    }
+
+    fn include_patterns(&self) -> Vec<String> {
+        GOLANG_FILE_PATTERNS
+            .iter()
+            .map(|&s| s.to_string())
+            .collect()
+    }
+
+    fn exclude_patterns(&self) -> Vec<String> {
+        common::utils::workspace_documents::DEFAULT_EXCLUDE_PATTERNS
+            .iter()
+            .map(|&s| s.to_string())
+            .collect()
+    }
+
+    fn did_open_configuration(&self) -> DidOpenConfiguration {
+        DidOpenConfiguration::None
+    }
+}
+
+impl GoplsConfig {
+    pub fn new() -> Self {
+        Self
     }
 
     async fn find_workspace_folders(
@@ -122,31 +114,15 @@ impl LspClient for GoplsClient {
     }
 }
 
-impl GoplsClient {
-    /// Create a new GoplsClient from the existing GenericLspClient components
-    pub fn new(
-        process: ProcessHandler,
-        json_rpc: JsonRpcHandler,
-        workspace_documents: common::utils::workspace_documents::WorkspaceDocumentsHandler,
-        pending_requests: PendingRequests,
-    ) -> Self {
-        let (unexpected_notifications_tx, _) = tokio::sync::broadcast::channel(1);
-        Self {
-            process,
-            json_rpc,
-            workspace_documents,
-            pending_requests,
-            unexpected_notifications_tx,
-        }
+impl Default for GoplsConfig {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
-/// Walk upward from `start` to filesystem root, returning the first directory
-/// that contains a child named `needle` (e.g., "go.work" or "go.mod").
 fn nearest_ancestor_with(start: &Path, needle: &str) -> Option<PathBuf> {
     let mut cur = start;
 
-    // If `start` is a file path, prefer its parent.
     if cur.is_file() {
         cur = cur.parent()?;
     }
@@ -158,7 +134,6 @@ fn nearest_ancestor_with(start: &Path, needle: &str) -> Option<PathBuf> {
             return Some(dir);
         }
 
-        // Stop at filesystem root
         if let Some(parent) = dir.parent() {
             dir = parent.to_path_buf();
         } else {

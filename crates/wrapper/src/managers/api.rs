@@ -40,15 +40,15 @@ pub enum ApiManagerError {
 
 /// Threadsafe manager that maps API calls to invocations to the local LSP server.
 pub struct ApiManager {
-    // Box<dyn LspClient> for polymorphism - supports any language client
+    // LspClient supports any language client
     // Mutex for interior mutability (LSP client needs &mut self)
     // Arc for shared ownership across actix-web handlers
-    client: Arc<Mutex<Box<dyn LspClient>>>,
+    client: Arc<Mutex<LspClient>>,
     ast_grep: AstGrepClient,
 }
 
 impl ApiManager {
-    pub fn new(client: Arc<Mutex<Box<dyn LspClient>>>) -> Self {
+    pub fn new(client: Arc<Mutex<LspClient>>) -> Self {
         Self {
             client,
             ast_grep: AstGrepClient::new_wrapper(),
@@ -271,7 +271,7 @@ impl ApiManager {
         range: Option<Range>,
     ) -> Result<String, ApiManagerError> {
         let full_path = get_mount_dir().join(file_path);
-        let mut locked_client = self.client.lock().await;
+        let locked_client = self.client.lock().await;
         locked_client
             .get_workspace_documents()
             .read_text_document(&full_path, range)
@@ -287,7 +287,7 @@ impl ApiManager {
     }
 
     /// Get the underlying LSP client for WebSocket connections
-    pub fn get_lsp_client(&self) -> Arc<Mutex<Box<dyn LspClient>>> {
+    pub fn get_lsp_client(&self) -> Arc<Mutex<LspClient>> {
         self.client.clone()
     }
 
