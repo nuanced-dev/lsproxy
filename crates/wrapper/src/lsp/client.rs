@@ -186,9 +186,10 @@ impl LspClient {
                     if let Ok(message) = json_rpc.parse_message(&raw_response) {
                         if let Some(id) = &message.id {
                             // we always use u64 ids here, so the server process should respond with those as well
-                            let id = id.as_u64().unwrap_or_else(|| {
-                                panic!("process responded with invalid id type")
-                            });
+                            let Some(id) = id.as_u64() else {
+                                debug!("Message has invalid id type: {:?}", message.id);
+                                continue;
+                            };
                             debug!("Received response for request {}", id);
                             if let Ok(Some(sender)) = pending_requests.remove_request(id).await {
                                 if sender.send(message.clone()).is_err() {
@@ -199,7 +200,7 @@ impl LspClient {
                                 let _ = process.send(&response).await;
                             }
                         } else if let Some(method) = message.method.clone() {
-                            debug!("Received notification");
+                            debug!("Received notification {}", method);
                             let mut handled = false;
                             if let Some(params) = &message.params {
                                 let message_key = ExpectedMessageKey {
@@ -217,7 +218,7 @@ impl LspClient {
                                 let _ = notification_channel.send(message);
                             }
                         } else {
-                            debug!("Received unexpected message");
+                            debug!("Received unexpected message: {:?}", message);
                         }
                     }
                 }
@@ -228,7 +229,7 @@ impl LspClient {
     }
 
     async fn send_initialized(&mut self) -> Result<(), Box<dyn Error + Send + Sync>> {
-        debug!("Sending 'initialized' notification");
+        info!("Sending initialized");
         self.send_notification("initialized", Some(serde_json::json!({})))
             .await
     }
@@ -352,6 +353,11 @@ impl LspClient {
         file_path: &str,
         position: Position,
     ) -> Result<Vec<Location>, Box<dyn Error + Send + Sync>> {
+        debug!(
+            "Requesting goto references for {}, line {}, character {}",
+            file_path, position.line, position.character
+        );
+
         // Get the configuration and check if document is opened first
         let needs_open = {
             let workspace_documents = &self.workspace_documents;
