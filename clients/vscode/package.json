@@ -35,29 +35,17 @@
       "title": "Nuanced LSP",
       "properties": {
         "nuancedLsp.command": {
-          "type": "string",
-          "default": "nuanced-lsp",
-          "description": "Command to run the Nuanced LSP server"
+          "anyOf": [
+            { "type": "string" },
+            { "type": "array", "items": { "type": "string" } }
+          ],
+          "default": ["nuanced-lsp", "server"],
+          "description": "Command to run the Nuanced LSP server. Can be a string (command only) or an array where the first element is the command and the rest are arguments. Default: [\"nuanced-lsp\", \"server\"]"
         },
-        "nuancedLsp.proxyImage": {
-          "type": "string",
-          "default": "",
-          "description": "The LSP proxy image to use (optional)"
-        },
-        "nuancedLsp.wrapperImage": {
-          "type": "string",
-          "default": "",
-          "description": "The LSP wrapper image to use (optional)"
-        },
-        "nuancedLsp.watchdogImage": {
-          "type": "string",
-          "default": "",
-          "description": "The LSP watchdog image to use (optional)"
-        },
-        "nuancedLsp.debug": {
-          "type": "boolean",
-          "default": false,
-          "description": "Enable debug mode for the Nuanced LSP server"
+        "nuancedLsp.env": {
+          "type": "object",
+          "default": {},
+          "description": "Environment variables to pass to the LSP server command"
         }
       }
     }

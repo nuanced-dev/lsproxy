@@ -9,11 +9,11 @@ let client: LanguageClient | undefined;
 
 function startClient() {
   const config = vscode.workspace.getConfiguration("nuancedLsp");
-  const command = config.get<string>("command", "nuanced-lsp");
-  const proxyImage = config.get<string>("proxyImage", "");
-  const watchdogImage = config.get<string>("watchdogImage", "");
-  const wrapperImage = config.get<string>("wrapperImage", "");
-  const debug = config.get<boolean>("debug", false);
+  const commandConfig = config.get<string | string[]>("command", [
+    "nuanced-lsp",
+    "server",
+  ]);
+  const env = config.get<Record<string, string>>("env", {});
 
   const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
   if (!workspaceFolder) {
@@ -25,24 +25,34 @@ function startClient() {
 
   const workspacePath = workspaceFolder.uri.fsPath;
 
-  const args = ["server", "--host-port", "0"];
-  if (proxyImage) {
-    args.push("--proxy-image", proxyImage);
+  let command: string;
+  let args: string[];
+
+  if (Array.isArray(commandConfig)) {
+    if (commandConfig.length === 0) {
+      command = "nuanced-lsp";
+      args = ["server"];
+    } else {
+      command = commandConfig[0];
+      args = commandConfig.slice(1);
+    }
+  } else if (commandConfig === "") {
+    command = "nuanced-lsp";
+    args = ["server"];
+  } else {
+    command = commandConfig;
+    args = ["server"];
   }
-  if (watchdogImage) {
-    args.push("--watchdog-image", watchdogImage);
-  }
-  if (wrapperImage) {
-    args.push("--wrapper-image", wrapperImage);
-  }
-  if (debug) {
-    args.push("--debug");
-  }
+
+  args.push("--host-port", "0");
   args.push(workspacePath);
 
   const serverOptions: ServerOptions = {
     command,
     args,
+    options: {
+      env: { ...process.env, ...env },
+    },
   };
 
   const clientOptions: LanguageClientOptions = {

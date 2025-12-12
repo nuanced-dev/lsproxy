@@ -71,6 +71,7 @@ class LspServer {
           "Nuanced LSP disconnected (shared container left running)",
         );
       }
+      process.exit(0);
     }
   }
 
@@ -80,7 +81,7 @@ class LspServer {
       if (statusRes.ok) {
         await this.sendLogMessage(
           MessageType.Info,
-          `Existing shared container '${this.client.containerName}'`,
+          `Using existing shared container '${this.client.containerName}'`,
         );
         return;
       }
