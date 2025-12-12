@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { Command } from "commander";
+import { Command, Option } from "commander";
 import { isErr } from "./types.js";
 import type {
   BaseCommandOptions,
@@ -54,6 +54,15 @@ async function generateRandomContainerName(): Promise<string> {
   const { randomUUID } = await import("node:crypto");
   const id = randomUUID().slice(0, 8);
   return `nuanced-lsp-${id}`;
+}
+
+async function generateSharedContainerName(workspace: string): Promise<string> {
+  const { createHash } = await import("node:crypto");
+  const { resolve } = await import("node:path");
+  const absolutePath = resolve(workspace);
+  const hash = createHash("sha256").update(absolutePath).digest("hex");
+  const shortHash = hash.slice(0, 12);
+  return `nuanced-lsp-shared-${shortHash}`;
 }
 
 // Lazy-load client (avoids startup cost if user only runs --help, etc.)
@@ -260,12 +269,23 @@ async function serverCommand(
   workspace: string,
   opts: ServerCommandOptions,
 ): Promise<void> {
-  const containerName = await generateRandomContainerName();
+  let containerName: string;
+  if (opts.shared !== undefined) {
+    containerName = await generateSharedContainerName(workspace);
+  } else {
+    containerName = await generateRandomContainerName();
+  }
+
   const client = await lspClient({
     containerName,
     ...opts,
     lspPort: opts.hostPort,
   });
+
+  if (opts.shared === "down") {
+    await client.down();
+    return;
+  }
 
   try {
     // Run the LSP server stdio loop
@@ -717,6 +737,14 @@ program
     (v: string, prev: string[] | undefined) => (prev ? prev.concat(v) : [v]),
   )
   .option("--env-file <path>", "Path to an env file")
+  .addOption(
+    new Option(
+      "--shared [mode]",
+      "Share container across multiple server instances",
+    )
+      .choices(["up", "down", "use"])
+      .preset("use"),
+  )
   .action(serverCommand);
 
 program

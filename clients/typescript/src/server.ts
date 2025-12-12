@@ -48,6 +48,10 @@ class LspServer {
   async run(): Promise<void> {
     try {
       await this.startServer();
+      if (this.opts.shared === "up") {
+        await this.sendLogMessage(MessageType.Info, "Nuanced LSP started");
+        return;
+      }
       this.setupSignalHandlers();
       await this.sendLogMessage(MessageType.Info, "Nuanced LSP started");
       await this.processMessages();
@@ -59,11 +63,29 @@ class LspServer {
       throw err;
     } finally {
       await this.stopServer();
-      await this.sendLogMessage(MessageType.Info, "Nuanced LSP stopped");
+      if (!this.opts.shared) {
+        await this.sendLogMessage(MessageType.Info, "Nuanced LSP stopped");
+      } else {
+        await this.sendLogMessage(
+          MessageType.Info,
+          "Nuanced LSP disconnected (shared container left running)",
+        );
+      }
     }
   }
 
   private async startServer(): Promise<void> {
+    if (this.opts.shared) {
+      const statusRes = await this.client.status();
+      if (statusRes.ok) {
+        await this.sendLogMessage(
+          MessageType.Info,
+          `Existing shared container '${this.client.containerName}'`,
+        );
+        return;
+      }
+    }
+
     const res = await this.client.up(this.workspace, {
       proxyImage: this.opts.proxyImage,
       watchdogImage: this.opts.watchdogImage,
@@ -178,7 +200,9 @@ class LspServer {
       this.ws = null;
     }
 
-    await this.client.down();
+    if (!this.opts.shared) {
+      await this.client.down();
+    }
   }
 
   private async processMessages(): Promise<void> {

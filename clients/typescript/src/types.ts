@@ -481,6 +481,9 @@ export const ServerCommandOptionsSchema = BaseCommandOptionsSchema.extend({
   debug: z.boolean().optional(),
   env: z.array(z.string()).optional(),
   envFile: z.string().optional(),
+  shared: z
+    .union([z.literal("up"), z.literal("down"), z.literal("use")])
+    .optional(),
 });
 export type ServerCommandOptions = Named<
   typeof ServerCommandOptionsSchema,
