@@ -62,7 +62,7 @@ async function generateSharedContainerName(workspace: string): Promise<string> {
   const absolutePath = resolve(workspace);
   const hash = createHash("sha256").update(absolutePath).digest("hex");
   const shortHash = hash.slice(0, 12);
-  return `nuanced-lsp-shared-${shortHash}`;
+  return `nuanced-lsp-${shortHash}`;
 }
 
 // Lazy-load client (avoids startup cost if user only runs --help, etc.)
@@ -270,7 +270,7 @@ async function serverCommand(
   opts: ServerCommandOptions,
 ): Promise<void> {
   let containerName: string;
-  if (opts.shared !== undefined) {
+  if (opts.shared) {
     containerName = await generateSharedContainerName(workspace);
   } else {
     containerName = await generateRandomContainerName();
@@ -282,7 +282,7 @@ async function serverCommand(
     lspPort: opts.hostPort,
   });
 
-  if (opts.shared === "down") {
+  if (opts.shared && opts.sharedMode === "down") {
     await client.down();
     return;
   }
@@ -737,13 +737,13 @@ program
     (v: string, prev: string[] | undefined) => (prev ? prev.concat(v) : [v]),
   )
   .option("--env-file <path>", "Path to an env file")
+  .option("--shared", "Share container across multiple server instances")
   .addOption(
-    new Option(
-      "--shared [mode]",
-      "Share container across multiple server instances",
-    )
-      .choices(["up", "down", "use"])
-      .preset("use"),
+    new Option("--shared-mode <mode>", "Mode for shared container").choices([
+      "up",
+      "down",
+      "use",
+    ]),
   )
   .action(serverCommand);
 

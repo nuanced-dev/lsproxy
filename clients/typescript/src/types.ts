@@ -481,7 +481,8 @@ export const ServerCommandOptionsSchema = BaseCommandOptionsSchema.extend({
   debug: z.boolean().optional(),
   env: z.array(z.string()).optional(),
   envFile: z.string().optional(),
-  shared: z
+  shared: z.boolean().optional(),
+  sharedMode: z
     .union([z.literal("up"), z.literal("down"), z.literal("use")])
     .optional(),
 });

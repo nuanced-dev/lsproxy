@@ -48,7 +48,7 @@ class LspServer {
   async run(): Promise<void> {
     try {
       await this.startServer();
-      if (this.opts.shared === "up") {
+      if (this.opts.shared && this.opts.sharedMode === "up") {
         await this.sendLogMessage(MessageType.Info, "Nuanced LSP started");
         return;
       }
