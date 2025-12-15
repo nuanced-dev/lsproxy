@@ -5,14 +5,13 @@ import {
   ServerOptions,
 } from "vscode-languageclient/node";
 
+const DEFAULT_COMMAND_CONFIG = ["nuanced-lsp", "server", "--host-port", "0"];
+
 let client: LanguageClient | undefined;
 
 function startClient() {
   const config = vscode.workspace.getConfiguration("nuancedLsp");
-  const commandConfig = config.get<string | string[]>("command", [
-    "nuanced-lsp",
-    "server",
-  ]);
+  const commandConfig = config.get<string | string[] | undefined>("command");
   const env = config.get<Record<string, string>>("env", {});
 
   const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
@@ -29,22 +28,13 @@ function startClient() {
   let args: string[];
 
   if (Array.isArray(commandConfig)) {
-    if (commandConfig.length === 0) {
-      command = "nuanced-lsp";
-      args = ["server"];
-    } else {
-      command = commandConfig[0];
-      args = commandConfig.slice(1);
-    }
-  } else if (commandConfig === "") {
-    command = "nuanced-lsp";
-    args = ["server"];
+    [command, ...args] = commandConfig;
+  } else if (typeof commandConfig === "string") {
+    [command, ...args] = [commandConfig];
   } else {
-    command = commandConfig;
-    args = ["server"];
+    [command, ...args] = DEFAULT_COMMAND_CONFIG;
   }
 
-  args.push("--host-port", "0");
   args.push(workspacePath);
 
   const serverOptions: ServerOptions = {

@@ -76,6 +76,8 @@ class LspServer {
   }
 
   private async startServer(): Promise<void> {
+    let mustStartServer = true;
+
     if (this.opts.shared) {
       const statusRes = await this.client.status();
       if (statusRes.ok) {
@@ -83,30 +85,32 @@ class LspServer {
           MessageType.Info,
           `Using existing shared container '${this.client.containerName}'`,
         );
-        return;
+        mustStartServer = false;
       }
     }
 
-    const res = await this.client.up(this.workspace, {
-      proxyImage: this.opts.proxyImage,
-      watchdogImage: this.opts.watchdogImage,
-      wrapperImage: this.opts.wrapperImage,
-      languageContainerVersion: this.opts.languageContainerVersion,
-      timeout: this.opts.timeout,
-      stream: false,
-      ro: this.opts.ro,
-      bindHost: this.opts.bindHost,
-      debug: this.opts.debug,
-      env: this.opts.env,
-      envFile: this.opts.envFile,
-    });
+    if (mustStartServer) {
+      const res = await this.client.up(this.workspace, {
+        proxyImage: this.opts.proxyImage,
+        watchdogImage: this.opts.watchdogImage,
+        wrapperImage: this.opts.wrapperImage,
+        languageContainerVersion: this.opts.languageContainerVersion,
+        timeout: this.opts.timeout,
+        stream: false,
+        ro: this.opts.ro,
+        bindHost: this.opts.bindHost,
+        debug: this.opts.debug,
+        env: this.opts.env,
+        envFile: this.opts.envFile,
+      });
 
-    if (isErr(res)) {
-      await this.sendLogMessage(
-        MessageType.Error,
-        `Failed to start LSP server container: ${JSON.stringify(res.data)}`,
-      );
-      throw new Error("Failed to start container");
+      if (isErr(res)) {
+        await this.sendLogMessage(
+          MessageType.Error,
+          `Failed to start LSP server container: ${JSON.stringify(res.data)}`,
+        );
+        throw new Error("Failed to start container");
+      }
     }
 
     await this.waitUntilServerIsHealthy();
@@ -159,13 +163,15 @@ class LspServer {
       this.ws.on("error", (err: Error) => {
         this.sendLogMessage(
           MessageType.Error,
-          `WebSocket error: ${err.message}`,
+          `WebSocket error: ${err.name}: ${err.message}`,
         );
-        reject(err);
       });
 
-      this.ws.on("close", () => {
-        this.sendLogMessage(MessageType.Debug, "WebSocket closed");
+      this.ws.on("close", (ev: { reason: string }) => {
+        this.sendLogMessage(
+          MessageType.Debug,
+          `WebSocket closed: ${ev.reason}`,
+        );
       });
 
       this.ws.on("message", (data: Buffer | string) => {
@@ -173,10 +179,11 @@ class LspServer {
           const message = JSON.parse(data.toString()) as JsonRpcMessage;
           // Forward server notifications to stdout
           writeMessage(this.output, message);
-        } catch (err) {
+        } catch (rawErr) {
+          const err = rawErr as Error;
           this.sendLogMessage(
             MessageType.Error,
-            `Failed to parse WebSocket message: ${err}`,
+            `Failed to parse WebSocket message: ${err.name}: ${err.message}`,
           );
         }
       });
