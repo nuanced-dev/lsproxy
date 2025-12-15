@@ -12,7 +12,7 @@ let client: LanguageClient | undefined;
 function startClient() {
   const config = vscode.workspace.getConfiguration("nuancedLsp");
   const commandConfig = config.get<string | string[] | undefined>("command");
-  const env = config.get<Record<string, string>>("env", {});
+  const envConfig = config.get<Record<string, string>>("env", {});
 
   const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
   if (!workspaceFolder) {
@@ -41,7 +41,7 @@ function startClient() {
     command,
     args,
     options: {
-      env: { ...process.env, ...env },
+      env: { ...process.env, ...envConfig },
     },
   };
 

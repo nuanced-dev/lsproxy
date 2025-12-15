@@ -39,7 +39,6 @@
             { "type": "string" },
             { "type": "array", "items": { "type": "string" } }
           ],
-          "default": ["nuanced-lsp", "server"],
           "description": "Command to run the Nuanced LSP server. Can be a string (command only) or an array where the first element is the command and the rest are arguments. Default: [\"nuanced-lsp\", \"server\"]"
         },
         "nuancedLsp.env": {
