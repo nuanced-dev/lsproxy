@@ -1,5 +1,3 @@
-#!/usr/bin/env node
-
 import { MorphCloudClient } from "morphcloud";
 import {
   SERVICE_DIGEST,
@@ -9,14 +7,14 @@ import {
   BASE_DIGEST,
   NUANCED_ROLE_WORKSPACE,
   SOURCE_DIGEST,
-} from "./util/constants";
+} from "../util/constants";
 import {
   findSnapshotByDigest,
   formatInstanceStatus,
   listInstances,
-} from "./util/morphcloud";
+} from "../util/morphcloud";
 
-async function main() {
+export async function serviceStatus() {
   const client = new MorphCloudClient();
   try {
     console.log("System snapshots:");
@@ -41,9 +39,6 @@ async function main() {
       );
     }
   } catch (error) {
-    console.error("Error:", error);
-    process.exit(1);
+    throw new Error(`Service status failed: ${error}`);
   }
 }
-
-main().catch(console.error);

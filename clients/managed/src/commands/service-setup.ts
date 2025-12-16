@@ -1,5 +1,3 @@
-#!/usr/bin/env node
-
 import { Instance, MorphCloudClient, Snapshot } from "morphcloud";
 import { NodeSSH } from "node-ssh";
 import {
@@ -14,12 +12,12 @@ import {
   NUANCED_ROLE_SERVICE,
   SOURCE_ARCHIVE,
   SOURCE_DIR,
-} from "./util/constants";
+} from "../util/constants";
 import {
   execOrThrow,
   findSnapshotByDigest,
   startInstance,
-} from "./util/morphcloud";
+} from "../util/morphcloud";
 
 const VCPU_COUNT = 2;
 const MEM_SIZE_MB = 16384;
@@ -289,18 +287,14 @@ async function ensureService(
   return serviceSnapshot;
 }
 
-async function main() {
+export async function serviceSetup() {
   const client = new MorphCloudClient();
   try {
     const baseSnapshot = await ensureBase(client);
     const builderSnapshot = await ensureBuilder(client, baseSnapshot);
     const sourceSnapshot = await ensureSource(client, builderSnapshot);
     const _serviceSnapshot = await ensureService(client, sourceSnapshot);
-    process.exit(0);
   } catch (error) {
-    console.error("Error:", error);
-    process.exit(1);
+    throw new Error(`Service setup failed: ${error}`);
   }
 }
-
-main().catch(console.error);

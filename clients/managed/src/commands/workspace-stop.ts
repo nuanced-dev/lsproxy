@@ -1,25 +1,19 @@
-#!/usr/bin/env node
-
 import { realpathSync } from "fs";
 import { Instance, MorphCloudClient } from "morphcloud";
 import {
   LABEL_NUANCED_ROLE,
   LABEL_NUANCED_WORKSPACE_DIGEST,
   NUANCED_ROLE_WORKSPACE,
-} from "./util/constants";
-import { findInstance } from "./util/morphcloud";
-import { MutagenClient } from "./util/mutagen";
-import { getGloballyUniqueDigest } from "./util/digest";
+} from "../util/constants";
+import { findInstance } from "../util/morphcloud";
+import { MutagenClient } from "../util/mutagen";
+import { getGloballyUniqueDigest } from "../util/digest";
 
-async function main() {
+export async function workspaceStop(workspaceDir: string) {
   const client = new MorphCloudClient();
 
-  if (process.argv.length !== 3) {
-    console.error(`Usage: ${process.argv[1]} WORKSPACE_DIR`);
-    process.exit(1);
-  }
-  const workspaceDir = realpathSync(process.argv[2]);
-  const workspaceDigest = getGloballyUniqueDigest(workspaceDir);
+  const workspaceRealDir = realpathSync(workspaceDir);
+  const workspaceDigest = getGloballyUniqueDigest(workspaceRealDir);
   const metadata = {
     [LABEL_NUANCED_ROLE]: NUANCED_ROLE_WORKSPACE,
     [LABEL_NUANCED_WORKSPACE_DIGEST]: workspaceDigest,
@@ -41,9 +35,6 @@ async function main() {
       });
     }
   } catch (error) {
-    console.error("Error:", error);
-    process.exitCode = 1;
+    throw new Error(`Workspace stop failed: ${error}`);
   }
 }
-
-main().catch(console.error);

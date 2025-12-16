@@ -1,5 +1,3 @@
-#!/usr/bin/env node
-
 import { realpathSync } from "fs";
 import { Instance, MorphCloudClient } from "morphcloud";
 import {
@@ -7,27 +5,23 @@ import {
   NUANCED_ROLE_WORKSPACE,
   LABEL_NUANCED_ROLE,
   LABEL_NUANCED_WORKSPACE_DIGEST,
-} from "./util/constants";
+} from "../util/constants";
 import {
   findSnapshotByDigest,
   startInstance,
   findInstance,
-} from "./util/morphcloud";
-import { MutagenClient } from "./util/mutagen";
-import { getGloballyUniqueDigest } from "./util/digest";
-import { sshExec } from "./util/ssh";
-import { getWorkspaceProcessRcPath } from "./util/config";
-import { ProcessRc } from "./util/process-rc";
+} from "../util/morphcloud";
+import { MutagenClient } from "../util/mutagen";
+import { getGloballyUniqueDigest } from "../util/digest";
+import { sshExec } from "../util/ssh";
+import { getWorkspaceProcessRcPath } from "../util/config";
+import { ProcessRc } from "../util/process-rc";
 
-async function main() {
+export async function workspaceLsp(workspaceDir: string) {
   const client = new MorphCloudClient();
 
-  if (process.argv.length !== 3) {
-    console.error(`Usage: ${process.argv[1]} WORKSPACE_DIR`);
-    process.exit(1);
-  }
-  const workspaceDir = realpathSync(process.argv[2]);
-  const workspaceDigest = getGloballyUniqueDigest(workspaceDir);
+  const workspaceRealDir = realpathSync(workspaceDir);
+  const workspaceDigest = getGloballyUniqueDigest(workspaceRealDir);
   const metadata = {
     [LABEL_NUANCED_ROLE]: NUANCED_ROLE_WORKSPACE,
     [LABEL_NUANCED_WORKSPACE_DIGEST]: workspaceDigest,
@@ -84,7 +78,7 @@ async function main() {
     } else {
       console.error("Creating file sync...");
       try {
-        await mutagen.createSync(workspaceDir);
+        await mutagen.createSync(workspaceRealDir);
         await mutagen.flushSync();
       } catch (e) {
         throw new Error(`Failed to setup file sync: ${e}`);
@@ -133,20 +127,20 @@ async function main() {
     await processRc.release(async () => {
       if (mutagen) {
         await mutagen.stopSync().catch((e) => {
-          console.error(`Error: Cannot remove sync ${workspaceDigest}: ${e}`);
+          console.error(
+            `Workspace LSP error: Cannot remove sync ${workspaceDigest}: ${e}`,
+          );
         });
       }
       if (workspaceInstance) {
         await workspaceInstance.stop().catch((e) => {
           console.error(
-            `Error: Cannot stop instance ${workspaceInstance!.id}: ${e}`,
+            `Workspace LSP error: Cannot stop instance ${workspaceInstance!.id}: ${e}`,
           );
         });
       }
     });
-    console.error(`Error: ${e}`);
-    process.exitCode = 1;
+    console.error(`Workspace LSP error: ${e}`);
+    process.exit(1);
   }
 }
-
-main().catch(console.error);
