@@ -109,6 +109,7 @@ export default [
       "coverage/",
       "dist/",
       "*.config.js",
+      "*.config.mjs",
       "node_modules/",
       "tests/workspaces/*/",
     ],

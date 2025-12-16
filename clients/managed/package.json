@@ -38,7 +38,9 @@
   "dependencies": {
     "child-process-promise": "^2.2.1",
     "node-machine-id": "^1.1.12",
-    "proper-lockfile": "^4.1.2"
+    "node-ssh": "^13.2.1",
+    "proper-lockfile": "^4.1.2",
+    "ssh2": "^1.17.0"
   },
   "version": "0.3.19"
 }

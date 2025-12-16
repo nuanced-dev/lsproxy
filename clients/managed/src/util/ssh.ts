@@ -1,38 +1,38 @@
 import { rm, writeFile } from "fs/promises";
+import { join } from "path";
+import stream from "stream";
 import { Instance } from "morphcloud";
 import { NodeSSH } from "node-ssh";
-import { join } from "path";
 import { ClientChannel } from "ssh2";
-import stream from 'stream';
 import { ensureInstanceConfigDirectory } from "./config";
 
 const MORPH_SSH_HOST = "ssh.cloud.morph.so";
 
 export interface SshConfig {
-    user: string;
-    host: string;
-    configPath: string;
-};
-
-export async function getSshConfig(instance: Instance): Promise<SshConfig> {
-    const configPath = await writeSshConfig(instance);
-    return {
-        user: instance.id,
-        host: MORPH_SSH_HOST,
-        configPath,
-    };
+  user: string;
+  host: string;
+  configPath: string;
 }
 
-async function writeSshConfig(instance: Instance): Promise <string> {
-    const instanceConfigDir = await ensureInstanceConfigDirectory(instance);
+export async function getSshConfig(instance: Instance): Promise<SshConfig> {
+  const configPath = await writeSshConfig(instance);
+  return {
+    user: instance.id,
+    host: MORPH_SSH_HOST,
+    configPath,
+  };
+}
 
-    const sshKey = await instance.sshKey();
-    const sshKeyPath = join(instanceConfigDir, "ssh_key");
-    await writeFile(sshKeyPath, sshKey.private_key, { mode: 0o600 });
+async function writeSshConfig(instance: Instance): Promise<string> {
+  const instanceConfigDir = await ensureInstanceConfigDirectory(instance);
 
-    const sshConfigPath = join(instanceConfigDir, "ssh_config");
+  const sshKey = await instance.sshKey();
+  const sshKeyPath = join(instanceConfigDir, "ssh_key");
+  await writeFile(sshKeyPath, sshKey.private_key, { mode: 0o600 });
 
-    const sshConfig = `# Generated file
+  const sshConfigPath = join(instanceConfigDir, "ssh_config");
+
+  const sshConfig = `# Generated file
 HostName ${MORPH_SSH_HOST}
 User ${instance.id}
 IdentityFile ${sshKeyPath}
@@ -43,41 +43,44 @@ WarnWeakCrypto no
 UserKnownHostsFile /dev/null
         `;
 
-    await writeFile(sshConfigPath, sshConfig);
-    return sshConfigPath;
+  await writeFile(sshConfigPath, sshConfig);
+  return sshConfigPath;
 }
 
-export async function removeSshConfig(instance: Instance): Promise <void> {
-    const instanceConfigDir = await ensureInstanceConfigDirectory(instance);
-    try {
-        await rm(instanceConfigDir, { recursive: true, force: true });
-    } catch(e) {
-        // Ignore errors during cleanup
-    }
+export async function removeSshConfig(instance: Instance): Promise<void> {
+  const instanceConfigDir = await ensureInstanceConfigDirectory(instance);
+  try {
+    await rm(instanceConfigDir, { recursive: true, force: true });
+  } catch {
+    // Ignore errors during cleanup
+  }
 }
 
-export function sshExec(ssh: NodeSSH, command: string, args: string[], opts?: {
-    stdin?: stream.Readable,
-    stdout?: stream.Writable,
-    stderr?: stream.Writable,
-}): Promise<ClientChannel> {
-    return new Promise(async (resolve, reject) => {
-        try {
-            await ssh.exec(command, args, {
-                stdin: opts?.stdin,
-                stream: "both",
-                onChannel: (stream) => {
-                    if (opts?.stdout) {
-                        stream.stdout.pipe(opts.stdout);
-                    }
-                    if (opts?.stderr) {
-                        stream.stderr.pipe(opts.stderr);
-                    }
-                    resolve(stream);
-                }
-            });
-        } catch (e) {
-            reject(e);
-        }
-    });
+export function sshExec(
+  ssh: NodeSSH,
+  command: string,
+  args: string[],
+  opts?: {
+    stdin?: stream.Readable;
+    stdout?: stream.Writable;
+    stderr?: stream.Writable;
+  },
+): Promise<ClientChannel> {
+  return new Promise((resolve, reject) => {
+    ssh
+      .exec(command, args, {
+        stdin: opts?.stdin,
+        stream: "both",
+        onChannel: (stream) => {
+          if (opts?.stdout) {
+            stream.stdout.pipe(opts.stdout);
+          }
+          if (opts?.stderr) {
+            stream.stderr.pipe(opts.stderr);
+          }
+          resolve(stream);
+        },
+      })
+      .catch(reject);
+  });
 }
