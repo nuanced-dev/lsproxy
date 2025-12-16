@@ -1,0 +1,44 @@
+{
+  "name": "@nuanced-dev/managed-lsp",
+  "description": "",
+  "files": [
+    "bin",
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc && chmod +x dist/*.js",
+    "setup": "tsx src/service-setup.ts",
+    "lsp": "tsx src/workspace-lsp.ts",
+    "lint": "eslint",
+    "lint:fix": "eslint --fix"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "@eslint/js": "^9.37.0",
+    "@stylistic/eslint-plugin": "^5.4.0",
+    "@types/child-process-promise": "^2.2.6",
+    "@types/node": "^24.10.0",
+    "@types/node-ssh": "^7.0.6",
+    "@types/proper-lockfile": "^4.1.4",
+    "@types/ssh2": "^1.15.5",
+    "eslint": "^9.33.0",
+    "eslint-config-prettier": "^10.1.5",
+    "eslint-import-resolver-typescript": "^4.4.4",
+    "eslint-plugin-import": "^2.32.0",
+    "eslint-plugin-prettier": "^5.4.1",
+    "javascript-obfuscator": "^4.0.0",
+    "morphcloud": "^0.0.20",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.45.0"
+  },
+  "dependencies": {
+    "child-process-promise": "^2.2.1",
+    "node-machine-id": "^1.1.12",
+    "proper-lockfile": "^4.1.2"
+  },
+  "version": "0.3.19"
+}
