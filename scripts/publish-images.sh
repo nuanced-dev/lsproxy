@@ -2,8 +2,10 @@
 
 set -e
 
+SCRIPT_DIR="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")" && pwd)"
+
 # Publish Docker images to container registries (ghcr.io and/or Docker Hub)
-# Usage: ./scripts/publish-images.sh <rust-version> [--language-tag=TAG] [--dry-run] [--all-ruby-versions] [--registry=REGISTRY]
+# Usage: ./scripts/publish-images.sh <rust-version> [--language-tag=TAG] [--dry-run] [--registry=REGISTRY]
 #
 # Example: ./scripts/publish-images.sh 0.4.0
 # Example: ./scripts/publish-images.sh 0.4.0 --language-tag=1.0.0
@@ -29,10 +31,11 @@ NC='\033[0m' # No Color
 
 # Default settings
 DRY_RUN=false
-ALL_RUBY_VERSIONS=false
 REGISTRY_TARGET="both"  # Options: ghcr, dockerhub, both
 LANGUAGE_TAG=""  # If not specified, defaults to same as RUST_VERSION
-COMMON_RUBY_VERSIONS=("3.2.2" "3.2.6" "3.3.5" "3.3.6" "3.4.1" "3.4.2" "3.4.4")
+
+# Import SUPPORTED_RUBY_VERSIONS
+. "$SCRIPT_DIR/supported-ruby-versions.sh"
 
 # Parse arguments
 RUST_VERSION=""
@@ -40,9 +43,6 @@ for arg in "$@"; do
     case $arg in
         --dry-run)
             DRY_RUN=true
-            ;;
-        --all-ruby-versions)
-            ALL_RUBY_VERSIONS=true
             ;;
         --language-tag=*)
             LANGUAGE_TAG="${arg#*=}"
@@ -55,7 +55,7 @@ for arg in "$@"; do
             fi
             ;;
         --help|-h)
-            echo "Usage: $0 <rust-version> [--language-tag=TAG] [--dry-run] [--all-ruby-versions] [--registry=REGISTRY]"
+            echo "Usage: $0 <rust-version> [--language-tag=TAG] [--dry-run] [--registry=REGISTRY]"
             echo ""
             echo "Arguments:"
             echo "  <rust-version>        Version tag for Rust containers (e.g., 0.4.0)"
@@ -64,7 +64,6 @@ for arg in "$@"; do
             echo "  --language-tag=TAG    Version tag for language containers (default: same as rust-version)"
             echo "                        Language containers use semver (e.g., 1.0.0) for API compatibility"
             echo "  --dry-run             Show what would be pushed without actually pushing"
-            echo "  --all-ruby-versions   Publish all Ruby versions (default: main versions only)"
             echo "  --registry=REGISTRY   Target registry: ghcr, dockerhub, or both (default: both)"
             echo "  --help, -h            Show this help message"
             echo ""
@@ -79,7 +78,7 @@ for arg in "$@"; do
             ;;
         -*)
             echo -e "${YELLOW}Unknown argument: $arg${NC}"
-            echo "Usage: $0 <rust-version> [--language-tag=TAG] [--dry-run] [--all-ruby-versions] [--registry=REGISTRY]"
+            echo "Usage: $0 <rust-version> [--language-tag=TAG] [--dry-run] [--registry=REGISTRY]"
             exit 1
             ;;
         *)
@@ -87,7 +86,7 @@ for arg in "$@"; do
                 RUST_VERSION="$arg"
             else
                 echo -e "${YELLOW}Unexpected argument: $arg${NC}"
-                echo "Usage: $0 <rust-version> [--language-tag=TAG] [--dry-run] [--all-ruby-versions] [--registry=REGISTRY]"
+                echo "Usage: $0 <rust-version> [--language-tag=TAG] [--dry-run] [--registry=REGISTRY]"
                 exit 1
             fi
             ;;
@@ -97,7 +96,7 @@ done
 # Validate rust version argument
 if [ -z "$RUST_VERSION" ]; then
     echo -e "${RED}Error: Rust version argument is required${NC}"
-    echo "Usage: $0 <rust-version> [--language-tag=TAG] [--dry-run] [--all-ruby-versions] [--registry=REGISTRY]"
+    echo "Usage: $0 <rust-version> [--language-tag=TAG] [--dry-run] [--registry=REGISTRY]"
     exit 1
 fi
 
@@ -291,20 +290,8 @@ echo
 
 # Determine Ruby versions to publish (use LANGUAGE_TAG)
 RUBY_VERSIONS=()
-if [ "$ALL_RUBY_VERSIONS" = true ]; then
-    echo -e "${YELLOW}Step 3: Publishing ALL Ruby versions (version: $LANGUAGE_TAG)${NC}"
-    if [ -d "dockerfiles/ruby" ]; then
-        for dockerfile in dockerfiles/ruby/*.Dockerfile; do
-            if [ -f "$dockerfile" ]; then
-                version=$(basename "$dockerfile" .Dockerfile)
-                RUBY_VERSIONS+=("$version")
-            fi
-        done
-    fi
-else
-    echo -e "${YELLOW}Step 3: Publishing main Ruby versions (version: $LANGUAGE_TAG)${NC}"
-    RUBY_VERSIONS=("${COMMON_RUBY_VERSIONS[@]}")
-fi
+echo -e "${YELLOW}Step 3: Publishing supported Ruby versions (version: $LANGUAGE_TAG)${NC}"
+RUBY_VERSIONS=("${SUPPORTED_RUBY_VERSIONS[@]}")
 echo
 
 failed=0
@@ -321,20 +308,8 @@ echo
 
 # Ruby Sorbet variants (use LANGUAGE_TAG)
 RUBY_SORBET_VERSIONS=()
-if [ "$ALL_RUBY_VERSIONS" = true ]; then
-    echo -e "${YELLOW}Step 4: Publishing ALL Ruby Sorbet versions (version: $LANGUAGE_TAG)${NC}"
-    if [ -d "dockerfiles/ruby-sorbet" ]; then
-        for dockerfile in dockerfiles/ruby-sorbet/*.Dockerfile; do
-            if [ -f "$dockerfile" ]; then
-                version=$(basename "$dockerfile" .Dockerfile)
-                RUBY_SORBET_VERSIONS+=("$version")
-            fi
-        done
-    fi
-else
-    echo -e "${YELLOW}Step 4: Publishing main Ruby Sorbet versions (version: $LANGUAGE_TAG)${NC}"
-    RUBY_SORBET_VERSIONS=("${COMMON_RUBY_VERSIONS[@]}")
-fi
+echo -e "${YELLOW}Step 4: Publishing supported Ruby Sorbet versions (version: $LANGUAGE_TAG)${NC}"
+RUBY_SORBET_VERSIONS=("${SUPPORTED_RUBY_VERSIONS[@]}")
 echo
 
 failed=0

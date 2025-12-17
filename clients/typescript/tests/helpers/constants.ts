@@ -13,24 +13,33 @@ const ROOT = path.resolve(__dirname, "..", "..");
 
 export const CLIENT_COMMAND = [path.join(ROOT, "dist/cli.cjs")];
 
-const COMMON_RUBY_VERSIONS = [
+const SUPPORTED_RUBY_VERSIONS = [
   "3.2.2",
   "3.2.6",
   "3.3.5",
   "3.3.6",
+  "3.3.7",
+  "3.3.8",
+  "3.3.9",
+  "3.3.10",
+  "3.4.0",
   "3.4.1",
   "3.4.2",
+  "3.4.3",
   "3.4.4",
+  "3.4.5",
+  "3.4.6",
+  "3.4.7",
 ] as const;
 
 const RUBY_LANGUAGES: LanguageSpec[] = [
   { key: "ruby", label: "Ruby (ruby-lsp + sorbet)" },
-  ...COMMON_RUBY_VERSIONS.map((version) => ({
+  ...SUPPORTED_RUBY_VERSIONS.map((version) => ({
     key: `ruby-${version}`,
     label: `Ruby ${version} (ruby-lsp + sorbet)`,
   })),
   { key: "ruby-no-sorbet", label: "Ruby (ruby-lsp)" },
-  ...COMMON_RUBY_VERSIONS.map((version) => ({
+  ...SUPPORTED_RUBY_VERSIONS.map((version) => ({
     key: `ruby-no-sorbet-${version}`,
     label: `Ruby ${version} (ruby-lsp)`,
   })),

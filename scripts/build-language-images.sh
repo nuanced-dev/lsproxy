@@ -2,8 +2,10 @@
 
 set -e
 
+SCRIPT_DIR="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")" && pwd)"
+
 # Build language server containers (Python, TypeScript, Rust, Go, Java, C++, C#, PHP, Ruby variants)
-# Usage: ./scripts/build-language-images.sh [--use-cache] [--sequential] [--all-ruby-versions] [--multiarch] [--load] [--tag=TAG] [--registry=REGISTRY] [--language=LANG] [--jobs=N]
+# Usage: ./scripts/build-language-images.sh [--use-cache] [--sequential] [--multiarch] [--load] [--tag=TAG] [--registry=REGISTRY] [--language=LANG] [--jobs=N]
 #
 # By default:
 #   - Builds WITHOUT cache (use --use-cache to enable caching)
@@ -25,7 +27,6 @@ set -e
 #   --sequential          Build sequentially instead of parallel
 #   --parallel            Build in parallel (default)
 #   --jobs=N, -j=N        Max parallel builds (default: 4, prevents Docker daemon overload)
-#   --all-ruby-versions   Build all Ruby versions from dockerfiles (currently 12 versions)
 #   --multiarch           Build for both amd64 and arm64 (default: local platform only)
 #   --load                Also build and load local platform into Docker (use with --multiarch)
 #   --tag=TAG             Tag images with specified semver tag (default: 1.0.0)
@@ -36,7 +37,7 @@ set -e
 # Examples:
 #   ./scripts/build-language-images.sh --tag=1.0.0
 #   ./scripts/build-language-images.sh --multiarch --tag=1.0.0 --registry=ghcr
-#   ./scripts/build-language-images.sh --all-ruby-versions --jobs=8
+#   ./scripts/build-language-images.sh --jobs=8
 #   ./scripts/build-language-images.sh --language=python --multiarch --tag=1.0.0 --registry=ghcr
 #   ./scripts/build-language-images.sh --language=ruby,ruby-sorbet --tag=1.0.0
 #
@@ -53,11 +54,10 @@ BLUE='\033[0;34m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
-# Default: parallel builds without cache, build main Ruby versions by default, single-arch, no load, v1.0.0 tag
+# Default: parallel builds without cache, single-arch, no load, v1.0.0 tag
 # Language containers use semver where major version = API compatibility version
 PARALLEL=true
 USE_CACHE=false
-ALL_RUBY_VERSIONS=false
 MULTIARCH=false
 LOAD_LOCAL=false
 TAG="1.0.0"
@@ -66,23 +66,21 @@ REGISTRY=""  # Options: ghcr, dockerhub, local, or empty for no push
 FILTER_LANGUAGES=""  # Empty = build all, otherwise comma-separated list: python,typescript,ruby,ruby-sorbet
 # Default max parallel jobs (4 is safe for most systems, prevents Docker daemon overload)
 MAX_JOBS=4
-# Ruby versions to build:
-# - Core versions from original support (3.2.2, 3.2.6, 3.3.5)
-# - Last 1 year of releases (Nov 2024 - Nov 2025): 3.3.6-3.3.10, 3.4.0-3.4.7
-COMMON_RUBY_VERSIONS=("3.2.2" "3.2.6" "3.3.5" "3.3.6" "3.3.7" "3.3.8" "3.3.9" "3.3.10" "3.4.0" "3.4.1" "3.4.2" "3.4.3" "3.4.4" "3.4.5" "3.4.6" "3.4.7")
+
+# Import SUPPORTED_RUBY_VERSIONS
+. "$SCRIPT_DIR/supported-ruby-versions.sh"
 
 # Parse arguments
 for arg in "$@"; do
     case $arg in
         --help|-h)
-            echo "Usage: $0 [--use-cache] [--sequential] [--all-ruby-versions] [--multiarch] [--load] [--tag=TAG] [--registry=REGISTRY] [--language=LANG] [--jobs=N]"
+            echo "Usage: $0 [--use-cache] [--sequential] [--multiarch] [--load] [--tag=TAG] [--registry=REGISTRY] [--language=LANG] [--jobs=N]"
             echo ""
             echo "Options:"
             echo "  --use-cache           Enable Docker build cache (default: disabled)"
             echo "  --sequential          Build sequentially instead of parallel"
             echo "  --parallel            Build in parallel (default)"
             echo "  --jobs=N, -j=N        Max parallel builds (default: 4, prevents Docker daemon overload)"
-            echo "  --all-ruby-versions   Build all Ruby versions from dockerfiles (currently 12 versions)"
             echo "  --multiarch           Build for both amd64 and arm64 (default: local platform only)"
             echo "  --load                Also build and load local platform into Docker (use with --multiarch)"
             echo "  --tag=TAG             Tag images with specified semver tag (default: 1.0.0)"
@@ -105,7 +103,6 @@ for arg in "$@"; do
             echo "Examples:"
             echo "  $0 --language=python --multiarch --tag=1.0.0 --registry=ghcr"
             echo "  $0 --language=ruby,ruby-sorbet --tag=1.0.0"
-            echo "  $0 --all-ruby-versions --jobs=8"
             exit 0
             ;;
         --sequential)
@@ -116,9 +113,6 @@ for arg in "$@"; do
             ;;
         --parallel)
             PARALLEL=true
-            ;;
-        --all-ruby-versions)
-            ALL_RUBY_VERSIONS=true
             ;;
         --multiarch)
             MULTIARCH=true
@@ -148,14 +142,13 @@ for arg in "$@"; do
             ;;
         *)
             echo -e "${YELLOW}Unknown argument: $arg${NC}"
-            echo "Usage: $0 [--use-cache] [--sequential] [--all-ruby-versions] [--multiarch] [--load] [--tag=TAG] [--registry=REGISTRY] [--language=LANG] [--jobs=N]"
+            echo "Usage: $0 [--use-cache] [--sequential] [--multiarch] [--load] [--tag=TAG] [--registry=REGISTRY] [--language=LANG] [--jobs=N]"
             echo ""
             echo "Options:"
             echo "  --use-cache           Enable Docker build cache (default: disabled)"
             echo "  --sequential          Build sequentially instead of parallel"
             echo "  --parallel            Build in parallel (default)"
             echo "  --jobs=N, -j=N        Max parallel builds (default: 4, prevents Docker daemon overload)"
-            echo "  --all-ruby-versions   Build all Ruby versions from dockerfiles (currently 12 versions)"
             echo "  --multiarch           Build for both amd64 and arm64 (default: local platform only)"
             echo "  --load                Also build and load local platform into Docker (use with --multiarch)"
             echo "  --tag=TAG             Tag images with specified semver tag (default: 1.0.0)"
@@ -284,41 +277,15 @@ LANGUAGES=(
 
 # Ruby base images (must be built before Sorbet variants)
 RUBY_VERSIONS=()
-if [ "$ALL_RUBY_VERSIONS" = true ]; then
-    # Build all Ruby versions - dynamically discover from dockerfiles/ruby/ directory
-    echo -e "${YELLOW}Building ALL Ruby versions (this will take a long time)${NC}"
-    if [ -d "dockerfiles/ruby" ]; then
-        for dockerfile in dockerfiles/ruby/*.Dockerfile; do
-            if [ -f "$dockerfile" ]; then
-                # Extract version from filename (e.g., 3.4.4 from 3.4.4.Dockerfile)
-                version=$(basename "$dockerfile" .Dockerfile)
-                RUBY_VERSIONS+=("$version")
-            fi
-        done
-    fi
-else
-    # Build commonly used Ruby versions by default
-    echo -e "${YELLOW}Building main Ruby versions: ${COMMON_RUBY_VERSIONS[*]}${NC}"
-    RUBY_VERSIONS=("${COMMON_RUBY_VERSIONS[@]}")
-fi
+# Build commonly used Ruby versions by default
+echo -e "${YELLOW}Building supported Ruby versions: ${SUPPORTED_RUBY_VERSIONS[*]}${NC}"
+RUBY_VERSIONS=("${SUPPORTED_RUBY_VERSIONS[@]}")
 
 # Ruby Sorbet variants (depend on ruby base images)
 RUBY_SORBET_VERSIONS=()
-if [ "$ALL_RUBY_VERSIONS" = true ]; then
-    # Build all Sorbet versions - same versions as Ruby, from ruby-sorbet directory
-    if [ -d "dockerfiles/ruby-sorbet" ]; then
-        for dockerfile in dockerfiles/ruby-sorbet/*.Dockerfile; do
-            if [ -f "$dockerfile" ]; then
-                # Extract version from filename (e.g., 3.4.4 from 3.4.4.Dockerfile)
-                version=$(basename "$dockerfile" .Dockerfile)
-                RUBY_SORBET_VERSIONS+=("$version")
-            fi
-        done
-    fi
-else
-    # Build commonly used Sorbet versions by default (same as main Ruby versions)
-    RUBY_SORBET_VERSIONS=("${COMMON_RUBY_VERSIONS[@]}")
-fi
+# Build commonly used Sorbet versions by default (same as supported Ruby versions)
+echo -e "${YELLOW}Building supported Sorbet versions: ${SUPPORTED_RUBY_VERSIONS[*]}${NC}"
+RUBY_SORBET_VERSIONS=("${SUPPORTED_RUBY_VERSIONS[@]}")
 
 # Filter languages if --language flag was provided
 if [ -n "$FILTER_LANGUAGES" ]; then

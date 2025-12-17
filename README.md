@@ -217,11 +217,8 @@ For local development, you can build images for your native platform:
 # Build Rust containers (wrapper, service, watchdog) without cache
 ./scripts/build-rust-images.sh
 
-# Build main language containers (8 languages + 7 common Ruby versions)
+# Build main language containers (8 languages + 16 supported Ruby versions)
 ./scripts/build-language-images.sh
-
-# Build all Ruby versions (110+ versions, takes hours)
-./scripts/build-language-images.sh --all-ruby-versions
 ```
 
 There are many options you can specify with the image build scripts that help with tagging, caching, running builds sequentially vs. parallel, etc. Please view the scripts to see the full options available.
@@ -234,11 +231,8 @@ For building images that support both amd64 and arm64:
 # Build multi-arch Rust containers
 ./scripts/build-rust-images.sh --multiarch
 
-# Build multi-arch language containers (main Ruby versions)
+# Build multi-arch language containers
 ./scripts/build-language-images.sh --multiarch
-
-# Build multi-arch language containers (all Ruby versions)
-./scripts/build-language-images.sh --multiarch --all-ruby-versions
 ```
 
 **Note:** Multi-arch builds use Docker Buildx and may require QEMU for cross-compilation. The build process will be slower than single-architecture builds (2-3x).
@@ -265,9 +259,9 @@ Example published images:
 ghcr.io/nuanced-dev/nuanced-lsp-proxy:0.4.0
 ghcr.io/nuanced-dev/nuanced-lsp-wrapper:0.4.0
 ghcr.io/nuanced-dev/nuanced-lsp-watchdog:0.4.0
-ghcr.io/nuanced-dev/nuanced-lsp-python:0.4.0
-ghcr.io/nuanced-dev/nuanced-lsp-ruby-3.4.4:0.4.0
-ghcr.io/nuanced-dev/nuanced-lsp-ruby-sorbet-3.4.4:0.4.0
+ghcr.io/nuanced-dev/nuanced-lsp-python:1.0.0
+ghcr.io/nuanced-dev/nuanced-lsp-ruby-3.4.4:1.0.0
+ghcr.io/nuanced-dev/nuanced-lsp-ruby-sorbet-3.4.4:1.0.0
 ```
 
 ### Architecture
