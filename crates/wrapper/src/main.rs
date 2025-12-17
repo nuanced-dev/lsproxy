@@ -9,14 +9,14 @@ mod handlers;
 mod lsp;
 mod manager;
 
-use lsp::client::LspClient;
-use lsp::languages::{GenericLspClient, GoplsClient, SorbetClient};
-use lsp::process::ProcessHandler;
 use common::utils::workspace_documents::{
     DidOpenConfiguration, CSHARP_FILE_PATTERNS, C_AND_CPP_FILE_PATTERNS, GOLANG_FILE_PATTERNS,
     JAVA_FILE_PATTERNS, PHP_FILE_PATTERNS, PYTHON_FILE_PATTERNS, RUBY_FILE_PATTERNS,
     RUST_FILE_PATTERNS, TYPESCRIPT_AND_JAVASCRIPT_FILE_PATTERNS,
 };
+use lsp::client::LspClient;
+use lsp::languages::{GenericLspClient, GoplsClient, SorbetClient};
+use lsp::process::ProcessHandler;
 use manager::Manager;
 
 /// HTTP wrapper for LSP servers

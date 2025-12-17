@@ -1,5 +1,4 @@
 use crate::container::{ContainerHttpClient, ContainerOrchestrator};
-use log::{error, info};
 /// Helper module for routing requests to containerized LSP servers
 ///
 /// This module handles:
@@ -9,6 +8,7 @@ use log::{error, info};
 /// - Returning responses
 use common::api_types::*;
 use common::utils::language_utils::detect_language;
+use log::{error, info};
 use std::sync::Arc;
 
 /// Get or spawn a container for the given language and return an HTTP client

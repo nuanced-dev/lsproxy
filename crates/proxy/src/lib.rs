@@ -4,9 +4,9 @@ use actix_web::{
     web::{get, post, resource, scope, Data},
     App, HttpServer,
 };
+use common::api_types::{FindIdentifierRequest, IdentifierResponse};
 use handlers::{find_identifier, read_source_code};
 use log::{error, info, warn};
-use common::api_types::{FindIdentifierRequest, IdentifierResponse};
 use middleware::JwtMiddleware;
 use std::fs;
 use std::fs::File;

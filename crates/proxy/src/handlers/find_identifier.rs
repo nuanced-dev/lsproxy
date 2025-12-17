@@ -2,8 +2,8 @@ use crate::handlers::container_proxy;
 use crate::AppState;
 use actix_web::web::{Data, Json};
 use actix_web::HttpResponse;
-use log::{error, info};
 use common::api_types::{ErrorResponse, FindIdentifierRequest, IdentifierResponse};
+use log::{error, info};
 
 /// Find an identifier by name
 #[utoipa::path(

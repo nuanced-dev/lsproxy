@@ -257,6 +257,7 @@ impl SupportedLanguages {
     /// - Core versions from original support (3.2.2, 3.2.6, 3.3.5)
     /// - Last 1 year of releases (Nov 2024 - Nov 2025): 3.3.6-3.3.10, 3.4.0-3.4.7
     /// These have dedicated container images with exact version matching.
+    #[rustfmt::skip]
     const SUPPORTED_RUBY_VERSIONS: &'static [&'static str] = &[
         // Core 3.2.x versions
         "3.2.2", "3.2.6",
@@ -296,9 +297,10 @@ impl SupportedLanguages {
         match (self, family) {
             // Exact match for non-versioned languages
             (SupportedLanguages::Python, SupportedLanguages::Python) => true,
-            (SupportedLanguages::TypeScriptJavaScript, SupportedLanguages::TypeScriptJavaScript) => {
-                true
-            }
+            (
+                SupportedLanguages::TypeScriptJavaScript,
+                SupportedLanguages::TypeScriptJavaScript,
+            ) => true,
             (SupportedLanguages::Rust, SupportedLanguages::Rust) => true,
             (SupportedLanguages::CPP, SupportedLanguages::CPP) => true,
             (SupportedLanguages::CSharp, SupportedLanguages::CSharp) => true,
@@ -365,9 +367,10 @@ impl PartialEq for SupportedLanguages {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (SupportedLanguages::Python, SupportedLanguages::Python) => true,
-            (SupportedLanguages::TypeScriptJavaScript, SupportedLanguages::TypeScriptJavaScript) => {
-                true
-            }
+            (
+                SupportedLanguages::TypeScriptJavaScript,
+                SupportedLanguages::TypeScriptJavaScript,
+            ) => true,
             (SupportedLanguages::Rust, SupportedLanguages::Rust) => true,
             (SupportedLanguages::CPP, SupportedLanguages::CPP) => true,
             (SupportedLanguages::CSharp, SupportedLanguages::CSharp) => true,
@@ -405,7 +408,9 @@ impl Hash for SupportedLanguages {
             SupportedLanguages::Java => 5u8.hash(state),
             SupportedLanguages::Golang => 6u8.hash(state),
             SupportedLanguages::PHP => 7u8.hash(state),
-            SupportedLanguages::Ruby { version, variant, .. } => {
+            SupportedLanguages::Ruby {
+                version, variant, ..
+            } => {
                 8u8.hash(state);
                 version.hash(state);
                 variant.hash(state);
@@ -425,7 +430,9 @@ impl fmt::Display for SupportedLanguages {
             SupportedLanguages::Java => write!(f, "java"),
             SupportedLanguages::Golang => write!(f, "golang"),
             SupportedLanguages::PHP => write!(f, "php"),
-            SupportedLanguages::Ruby { version, variant, .. } => match variant {
+            SupportedLanguages::Ruby {
+                version, variant, ..
+            } => match variant {
                 LanguageVariant::Standard => write!(f, "ruby_{}", version.0.replace('.', "_")),
                 LanguageVariant::Sorbet => {
                     write!(f, "ruby_sorbet_{}", version.0.replace('.', "_"))
@@ -451,7 +458,9 @@ impl Serialize for SupportedLanguages {
             SupportedLanguages::Java => "java".to_string(),
             SupportedLanguages::Golang => "golang".to_string(),
             SupportedLanguages::PHP => "php".to_string(),
-            SupportedLanguages::Ruby { version, variant, .. } => match variant {
+            SupportedLanguages::Ruby {
+                version, variant, ..
+            } => match variant {
                 LanguageVariant::Standard => format!("ruby_{}", version.0.replace('.', "_")),
                 LanguageVariant::Sorbet => format!("ruby_sorbet_{}", version.0.replace('.', "_")),
             },
