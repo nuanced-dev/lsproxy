@@ -2,15 +2,15 @@ use crate::handlers::error::IntoHttpResponse;
 use crate::manager::{LspManagerError, Manager};
 use actix_web::web::{Data, Json};
 use actix_web::HttpResponse;
-use log::{error, info, warn};
 use common::api_types::{CodeContext, FileRange, Position, Range};
 use common::utils::file_utils::uri_to_relative_path_string;
+use log::{error, info, warn};
 
-use crate::AppState;
-use lsp_types::{GotoDefinitionResponse, Location, Position as LspPosition, Range as LspRange};
-use common::api_types::{DefinitionResponse, GetDefinitionRequest};
 use crate::handlers::utils;
+use crate::AppState;
+use common::api_types::{DefinitionResponse, GetDefinitionRequest};
 use common::api_types::{ErrorResponse, FilePosition};
+use lsp_types::{GotoDefinitionResponse, Location, Position as LspPosition, Range as LspRange};
 /// Get the definition of a symbol at a specific position in a file
 ///
 /// Returns the location of the definition for the symbol at the given position.

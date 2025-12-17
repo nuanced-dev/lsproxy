@@ -2,8 +2,8 @@ use crate::handlers::container_proxy;
 use crate::AppState;
 use actix_web::web::{Data, Query};
 use actix_web::HttpResponse;
-use log::{error, info};
 use common::api_types::{ErrorResponse, FileSymbolsRequest, Symbol};
+use log::{error, info};
 
 /// Get all symbol definitions in a file
 #[utoipa::path(

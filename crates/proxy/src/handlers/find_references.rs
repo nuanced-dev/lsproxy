@@ -2,8 +2,8 @@ use crate::handlers::container_proxy;
 use crate::AppState;
 use actix_web::web::{Data, Json};
 use actix_web::HttpResponse;
-use log::{error, info};
 use common::api_types::{ErrorResponse, GetReferencesRequest, ReferencesResponse};
+use log::{error, info};
 
 /// Get all references to a symbol
 #[utoipa::path(

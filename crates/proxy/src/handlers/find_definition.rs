@@ -2,8 +2,8 @@ use crate::handlers::container_proxy;
 use crate::AppState;
 use actix_web::web::{Data, Json};
 use actix_web::HttpResponse;
-use log::{error, info};
 use common::api_types::{DefinitionResponse, ErrorResponse, GetDefinitionRequest};
+use log::{error, info};
 
 /// Get the definition of a symbol at a specific position in a file
 #[utoipa::path(

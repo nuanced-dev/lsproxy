@@ -126,10 +126,7 @@ impl LanguageManager for RubyManager {
                 if let Some(config_dir) = find_sorbet_config_dir(file_path) {
                     // Store the first sorbet config dir found (they should all be the same for a project)
                     if self.sorbet_config_dir.is_none() {
-                        log::debug!(
-                            "Found Sorbet config dir: {}",
-                            config_dir.display()
-                        );
+                        log::debug!("Found Sorbet config dir: {}", config_dir.display());
                         self.sorbet_config_dir = Some(config_dir);
                     }
                     self.sorbet_files.push(file_path.to_owned());
