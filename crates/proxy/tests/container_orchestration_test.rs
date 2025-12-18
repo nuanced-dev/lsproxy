@@ -22,7 +22,7 @@ use tokio::sync::Mutex;
 use tokio::time::sleep;
 
 use common::api_types::SupportedLanguages;
-use proxy::container::{language_image, PROXY_IMAGE_BASE, WRAPPER_IMAGE_BASE};
+use proxy::container::{language_image, language_image_ghcr, PROXY_IMAGE_BASE, WRAPPER_IMAGE_BASE};
 
 const SERVICE_PORT: u16 = 14444; // Use non-standard port to avoid conflicts
 const CONTAINER_PORT: u16 = 4444; // Port the service listens on inside container
@@ -36,7 +36,7 @@ fn test_proxy_image() -> String {
     format!("{PROXY_IMAGE_BASE}:{TEST_RUST_IMAGE_VERSION}")
 }
 fn test_python_image() -> String {
-    language_image(&SupportedLanguages::Python)
+    language_image_ghcr(&SupportedLanguages::Python)
 }
 
 /// Shared test fixture that lives for the entire test suite
