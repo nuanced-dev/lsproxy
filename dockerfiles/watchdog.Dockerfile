@@ -7,8 +7,8 @@ FROM alpine:3.19
 RUN apk add --no-cache docker-cli
 
 # Copy watchdog script
-COPY scripts/watchdog.sh /usr/local/bin/watchdog.sh
-RUN chmod +x /usr/local/bin/watchdog.sh
+COPY dockerfiles/entrypoints/watchdog-entrypoint.sh /usr/local/bin/watchdog-entrypoint.sh
+RUN chmod +x /usr/local/bin/watchdog-entrypoint.sh
 
 # Run watchdog
-ENTRYPOINT ["/usr/local/bin/watchdog.sh"]
+ENTRYPOINT ["/usr/local/bin/watchdog-entrypoint.sh"]
