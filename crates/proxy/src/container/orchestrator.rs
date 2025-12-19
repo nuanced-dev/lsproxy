@@ -572,10 +572,8 @@ mod tests {
         );
     }
 
-    // Integration tests - these require Docker to be running
-    // Run with: cargo test --test container_tests -- --ignored
-
     #[tokio::test]
+    #[cfg_attr(not(feature = "docker-tests"), ignore)]
     async fn test_store_and_get_container() -> Result<(), OrchestratorError> {
         let orchestrator = ContainerOrchestrator::new().await?;
 
@@ -608,6 +606,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[cfg_attr(not(feature = "docker-tests"), ignore)]
     async fn test_remove_container_from_map() -> Result<(), OrchestratorError> {
         let orchestrator = ContainerOrchestrator::new().await?;
 
@@ -643,6 +642,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[cfg_attr(not(feature = "docker-tests"), ignore)]
     async fn test_all_containers() -> Result<(), OrchestratorError> {
         let orchestrator = ContainerOrchestrator::new().await?;
 
@@ -677,7 +677,7 @@ mod tests {
     }
 
     #[tokio::test]
-    #[ignore] // Requires Docker and images to be built
+    #[cfg_attr(not(feature = "docker-tests"), ignore)]
     async fn test_spawn_container_returns_existing() -> Result<(), OrchestratorError> {
         let orchestrator = ContainerOrchestrator::new().await?;
 

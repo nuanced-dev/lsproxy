@@ -11,6 +11,9 @@ path = "src/lib.rs"
 name = "nuanced-lsp-proxy"
 path = "src/main.rs"
 
+[features]
+docker-tests = []
+
 [dependencies]
 common.workspace = true
 actix-web.workspace = true

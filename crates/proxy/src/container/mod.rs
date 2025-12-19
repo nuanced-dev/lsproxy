@@ -914,6 +914,7 @@ mod tests {
     use serial_test::serial;
 
     #[tokio::test]
+    #[cfg_attr(not(feature = "docker-tests"), ignore)]
     async fn test_docker_connection() -> Result<(), OrchestratorError> {
         // This test requires Docker to be running
         let orchestrator = ContainerOrchestrator::new().await?;

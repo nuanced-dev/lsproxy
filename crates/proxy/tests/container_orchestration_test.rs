@@ -368,6 +368,7 @@ async fn cleanup_fixture() -> Result<(), Box<dyn std::error::Error>> {
 
 #[tokio::test]
 #[serial]
+#[cfg_attr(not(feature = "docker-tests"), ignore)]
 async fn test_service_health() -> Result<(), Box<dyn std::error::Error>> {
     get_fixture().await?;
 
@@ -394,6 +395,7 @@ async fn test_service_health() -> Result<(), Box<dyn std::error::Error>> {
 
 #[tokio::test]
 #[serial]
+#[cfg_attr(not(feature = "docker-tests"), ignore)]
 async fn test_container_spawn_on_request() -> Result<(), Box<dyn std::error::Error>> {
     get_fixture().await?;
 
@@ -468,6 +470,7 @@ async fn test_container_spawn_on_request() -> Result<(), Box<dyn std::error::Err
 
 #[tokio::test]
 #[serial]
+#[cfg_attr(not(feature = "docker-tests"), ignore)]
 async fn test_request_forwarding() -> Result<(), Box<dyn std::error::Error>> {
     get_fixture().await?;
 
@@ -503,6 +506,7 @@ async fn test_request_forwarding() -> Result<(), Box<dyn std::error::Error>> {
 
 #[tokio::test]
 #[serial]
+#[cfg_attr(not(feature = "docker-tests"), ignore)]
 async fn test_multiple_requests_same_container() -> Result<(), Box<dyn std::error::Error>> {
     get_fixture().await?;
 
@@ -581,6 +585,7 @@ async fn test_multiple_requests_same_container() -> Result<(), Box<dyn std::erro
 
 #[tokio::test]
 #[serial]
+#[cfg_attr(not(feature = "docker-tests"), ignore)]
 async fn test_list_files() -> Result<(), Box<dyn std::error::Error>> {
     get_fixture().await?;
 
@@ -606,6 +611,7 @@ async fn test_list_files() -> Result<(), Box<dyn std::error::Error>> {
 
 #[tokio::test]
 #[serial]
+#[cfg_attr(not(feature = "docker-tests"), ignore)]
 async fn test_find_references() -> Result<(), Box<dyn std::error::Error>> {
     get_fixture().await?;
 
@@ -641,6 +647,7 @@ async fn test_find_references() -> Result<(), Box<dyn std::error::Error>> {
 
 #[tokio::test]
 #[serial]
+#[cfg_attr(not(feature = "docker-tests"), ignore)]
 async fn test_find_references_with_context_lines() -> Result<(), Box<dyn std::error::Error>> {
     get_fixture().await?;
 
@@ -736,6 +743,7 @@ async fn test_find_references_with_context_lines() -> Result<(), Box<dyn std::er
 /// Named with zzz prefix to run last (tests run alphabetically within serial group)
 #[tokio::test]
 #[serial]
+#[cfg_attr(not(feature = "docker-tests"), ignore)]
 async fn test_zzz_cleanup() -> Result<(), Box<dyn std::error::Error>> {
     cleanup_fixture().await?;
     Ok(())
