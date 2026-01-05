@@ -12,7 +12,7 @@ source "$SCRIPT_DIR/include/colors.sh"
 DEFAULT_RUST_TAG="$("$SCRIPT_DIR/util/rust-image-version.sh")"
 
 # Default values
-RUST_TAG="${RUST_IMAGE_VERSION:-$DEFAULT_RUST_TAG}"
+RUST_TAG="$DEFAULT_RUST_TAG"
 WORKSPACE_PATH="${1:-sample_project/all}"
 USE_AUTH=false
 PORT=4444

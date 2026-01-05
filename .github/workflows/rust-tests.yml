@@ -9,6 +9,10 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+    RUST_IMAGE_VERSION: ${{ github.run_id }}
+    LANGUAGE_IMAGE_VERSION: "1.0.0"
+
 jobs:
   build-images:
     runs-on: ubuntu-latest
@@ -27,7 +31,9 @@ jobs:
             --cache-from type=gha,scope=proxy \
             --cache-to type=gha,mode=max,scope=proxy \
             --load \
-            -t nuanced-lsp-proxy:latest \
+            --build-arg RUST_IMAGE_VERSION=${{ env.RUST_IMAGE_VERSION }} \
+            --build-arg LANGUAGE_IMAGE_VERSION=${{ env.LANGUAGE_IMAGE_VERSION }} \
+            -t nuanced-lsp-proxy:${{ env.RUST_IMAGE_VERSION }} \
             -f dockerfiles/proxy.Dockerfile .
 
       - name: Build wrapper image
@@ -37,19 +43,25 @@ jobs:
             --cache-from type=gha,scope=wrapper \
             --cache-to type=gha,mode=max,scope=wrapper \
             --load \
-            -t nuanced-lsp-wrapper:latest \
+            --build-arg RUST_IMAGE_VERSION=${{ env.RUST_IMAGE_VERSION }} \
+            --build-arg LANGUAGE_IMAGE_VERSION=${{ env.LANGUAGE_IMAGE_VERSION }} \
+            -t nuanced-lsp-wrapper:${{ env.RUST_IMAGE_VERSION.run_id }} \
             -f dockerfiles/wrapper.Dockerfile .
 
       - name: Build watchdog image
-        run: docker build --no-cache -t nuanced-lsp-watchdog:latest -f dockerfiles/watchdog.Dockerfile .
+        run: |
+            docker build \
+            --no-cache \
+            -t nuanced-lsp-watchdog:${{ env.RUST_IMAGE_VERSION }} \
+            -f dockerfiles/watchdog.Dockerfile .
 
       - name: Export images
         run: |
           mkdir -p build-artifacts
           docker save \
-            nuanced-lsp-proxy:latest \
-            nuanced-lsp-wrapper:latest \
-            nuanced-lsp-watchdog:latest \
+            nuanced-lsp-proxy:${{ env.RUST_IMAGE_VERSION }} \
+            nuanced-lsp-wrapper:${{ env.RUST_IMAGE_VERSION }} \
+            nuanced-lsp-watchdog:${{ env.RUST_IMAGE_VERSION }} \
             -o build-artifacts/images.tar
 
       - uses: actions/upload-artifact@v6

@@ -11,7 +11,7 @@ source "$SCRIPT_DIR/include/colors.sh"
 
 DEFAULT_RUST_TAG="$("$SCRIPT_DIR/util/rust-image-version.sh")"
 
-RUST_TAG="${RUST_IMAGE_VERSION:-$DEFAULT_RUST_TAG}"
+RUST_TAG="$DEFAULT_RUST_TAG"
 WORKSPACE_PATH="${1:-sample_project/python}"
 WORKSPACE_PATH="$(cd "$WORKSPACE_PATH" && pwd)"
 SERVICE_NAME="nuanced-lsp-proxy-$(uuidgen | tr 'A-Z' 'a-z' | cut -c1-12)"
