@@ -15,7 +15,7 @@ usage() {
 }
 
 help() {
-    usage_short
+    usage
     echo ""
     echo "Options:"
     echo "  --cache=MODE          Docker build cache mode: none, docker, gha (default: none)"
