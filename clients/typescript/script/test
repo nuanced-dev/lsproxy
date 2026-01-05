@@ -1,32 +1,37 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Test runner for the Vitest test suite.
-# Requirements:
-#   - Node.js 18+
-#
-# Options:
-#   --workers N              Number of parallel workers (default: use all CPU cores)
-#   --fail-fast              Stop on first failure
-#   --record-fixtures        Record fixtures
-#   --proxy-image <name:tag>       Docker image override (sets PROXY_IMAGE)
-#   --watchdog-image <name:tag>    Docker image override for watchdog (sets WATCHDOG_IMAGE)
-#   --wrapper-image <name:tag>     Docker image override for wrapper (sets WRAPPER_IMAGE)
-#   --symbol-delay <secs>    Delay before symbol scenario tests (sets SYMBOL_SCENARIO_DELAY; default: 0)
-#   --workspace-delay <secs> Delay before workspace scenario tests (sets WORKSPACE_SCENARIO_DELAY; default: 0)
-#   --timeout <secs>         Per-command timeout (sets NUANCED_LSP_TIMEOUT; default: 120)
-#
-# Any additional args are passed through to Vitest.
-#
-# Examples:
-#   script/test
-#   script/test --workers 8
-#   script/test --fail-fast
-#   script/test --record-fixtures
-#   script/test --proxy-image ghcr.io/nuanced-dev/nuanced-lsp-proxy:latest
-#   script/test --timeout 300
-#   script/test tests/specs/workspace-symbols.spec.ts
-#   script/test --testNamePattern "find definitions"
+help() {
+  cat <<EOF
+Test runner for the Vitest test suite.
+Requirements:
+  - Node.js 18+
+
+Options:
+  --workers N                    Number of parallel workers (default: use all CPU cores)
+  --fail-fast                    Stop on first failure
+  --record-fixtures              Record fixtures
+  --proxy-image <name:tag>       Docker image override (sets PROXY_IMAGE)
+  --watchdog-image <name:tag>    Docker image override for watchdog (sets WATCHDOG_IMAGE)
+  --wrapper-image <name:tag>     Docker image override for wrapper (sets WRAPPER_IMAGE)
+  --symbol-delay <secs>          Delay before symbol scenario tests (sets SYMBOL_SCENARIO_DELAY; default: 0)
+  --workspace-delay <secs>       Delay before workspace scenario tests (sets WORKSPACE_SCENARIO_DELAY; default: 0)
+  --timeout <secs>               Per-command timeout (sets NUANCED_LSP_TIMEOUT; default: 120)
+  -h, --help                     Show this help message
+
+Any additional args are passed through to Vitest.
+
+Examples:
+  script/test
+  script/test --workers 8
+  script/test --fail-fast
+  script/test --record-fixtures
+  script/test --proxy-image ghcr.io/nuanced-dev/nuanced-lsp-proxy:latest
+  script/test --timeout 300
+  script/test tests/specs/workspace-symbols.spec.ts
+  script/test --testNamePattern "find definitions"
+EOF
+}
 
 WORKERS=                     # if empty, vitest uses all CPU cores.
 FAIL_FAST=                   # if true, stop on first failure.
@@ -121,6 +126,10 @@ while [[ $# -gt 0 ]]; do
         echo "Error: --languages requires a comma-seprated list of languages" >&2
         exit 2
       fi
+      ;;
+    -h|--help)
+      help
+      exit 0
       ;;
     *)
       VITEST_PASSTHRU+=("$1")
