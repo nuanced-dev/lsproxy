@@ -89,7 +89,7 @@ nuanced-lsp up /path/to/workspace \
   --proxy-image ghcr.io/nuanced-dev/nuanced-lsp-proxy:0.4.8 \
   --wrapper-image ghcr.io/nuanced-dev/nuanced-lsp-wrapper:0.4.8 \
   --watchdog-image ghcr.io/nuanced-dev/nuanced-lsp-watchdog:0.4.8 \
-  --language-container-version 1.0.0
+  --language-image-version 1.0.0
 ```
 
 **Environment variables** (when used via Nuanced MCP):
@@ -99,6 +99,6 @@ When Nuanced LSP is run through the Nuanced MCP server, you can override images 
 - `PROXY_IMAGE` - Override the LSP proxy container image
 - `WRAPPER_IMAGE` - Override the LSP wrapper container image
 - `WATCHDOG_IMAGE` - Override the LSP watchdog container image
-- `LANGUAGE_IMAGE_VERSION` - Override the language container version
+- `LANGUAGE_IMAGE_VERSION` - Override the language container image version
 
 These are useful for testing development builds or using custom container images.

@@ -182,7 +182,7 @@ export async function up(
   opts: {
     hostPort?: number;
     containerName?: string;
-    languageContainerVersion?: string;
+    languageImageVersion?: string;
     proxyImage?: string;
     watchdogImage?: string;
     wrapperImage?: string;
@@ -198,7 +198,7 @@ export async function up(
 ): Promise<DockerResult<UpResult>> {
   const {
     containerName = DEFAULT_CONTAINER_NAME,
-    languageContainerVersion = LANGUAGE_IMAGE_VERSION,
+    languageImageVersion = LANGUAGE_IMAGE_VERSION,
     proxyImage: proxyImage = DEFAULT_PROXY_IMAGE,
     watchdogImage: watchdogImage = DEFAULT_WATCHDOG_IMAGE,
     wrapperImage: wrapperImage = DEFAULT_WRAPPER_IMAGE,
@@ -260,7 +260,7 @@ export async function up(
     "-e",
     `WRAPPER_IMAGE=${wrapperImage}`,
     "-e",
-    `LANGUAGE_IMAGE_VERSION=${languageContainerVersion}`,
+    `LANGUAGE_IMAGE_VERSION=${languageImageVersion}`,
     // env flags inserted below
   ];
 

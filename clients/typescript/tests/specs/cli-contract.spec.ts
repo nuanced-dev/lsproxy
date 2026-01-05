@@ -25,7 +25,7 @@ const HELP_PATTERNS: Record<string, RegExp[]> = {
     /workspace\b/i,
     /--host-port\b/i,
     /--bind-host\b/i,
-    /--language-container-version\b/i,
+    /--language-image-version\b/i,
     /--proxy-image\b/i,
     /--watchdog-image\b/i,
     /--wrapper-image\b/i,

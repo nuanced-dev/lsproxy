@@ -22,27 +22,55 @@ SCRIPT_DIR="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")" && pwd)"
 #   - Images must already be built (use scripts/build-rust-images.sh and scripts/build-language-images.sh)
 #   - Images must be multi-arch builds (built with --multiarch flag)
 
-# Colors
-GREEN='\033[0;32m'
-RED='\033[0;31m'
-BLUE='\033[0;34m'
-YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
+SCRIPT_DIR="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")" && pwd)"
+
+source "$SCRIPT_DIR/include/colors.sh"
+source "$SCRIPT_DIR/include/supported-ruby-versions.sh"
+
+DEFAULT_RUST_TAG="$("$SCRIPT_DIR/util/rust-image-version.sh")"
+DEFAULT_LANGUAGE_TAG="$("$SCRIPT_DIR/util/language-image-version.sh")"
+
+usage() {
+    echo "Usage: $0 <rust-version> [--language-tag=TAG] [--dry-run] [--registry=REGISTRY]"
+}
+
+help() {
+    usage
+    echo ""
+    echo "Arguments:"
+    echo "  <rust-version>        Version tag for Rust containers (e.g., 0.4.0)"
+    echo ""
+    echo "Options:"
+    echo "  --tag=TAG             Tag images with specified tag (default: $DEFAULT_RUST_TAG)"
+    echo "  --language-tag=TAG    Tag of language images to use (default: $DEFAULT_LANGUAGE_TAG)"
+    echo "                        Language containers use semver (e.g., 1.0.0) for API compatibility"
+    echo "  --dry-run             Show what would be pushed without actually pushing"
+    echo "  --registry=REGISTRY   Target registry: ghcr, dockerhub, or both (default: both)"
+    echo "  --help, -h            Show this help message"
+    echo ""
+    echo "Versioning:"
+    echo "  Rust containers (wrapper, proxy, watchdog) version with release tags"
+    echo "  Language containers use independent semver for API/protocol compatibility"
+    echo ""
+    echo "Environment:"
+    echo "  GITHUB_TOKEN          Required for authentication to ghcr.io (if using ghcr or both)"
+    echo "  DOCKER_HUB_TOKEN      Required for authentication to Docker Hub (if using dockerhub or both)"
+}
 
 # Default settings
 DRY_RUN=false
 REGISTRY_TARGET="both"  # Options: ghcr, dockerhub, both
-LANGUAGE_TAG=""  # If not specified, defaults to same as RUST_VERSION
-
-# Import SUPPORTED_RUBY_VERSIONS
-. "$SCRIPT_DIR/supported-ruby-versions.sh"
+RUST_TAG="$DEFAULT_RUST_TAG"
+LANGUAGE_TAG="$DEFAULT_LANGUAGE_TAG"
 
 # Parse arguments
-RUST_VERSION=""
 for arg in "$@"; do
     case $arg in
         --dry-run)
             DRY_RUN=true
+            ;;
+        --tag=*)
+            RUST_TAG="${arg#*=}"
             ;;
         --language-tag=*)
             LANGUAGE_TAG="${arg#*=}"
@@ -55,68 +83,16 @@ for arg in "$@"; do
             fi
             ;;
         --help|-h)
-            echo "Usage: $0 <rust-version> [--language-tag=TAG] [--dry-run] [--registry=REGISTRY]"
-            echo ""
-            echo "Arguments:"
-            echo "  <rust-version>        Version tag for Rust containers (e.g., 0.4.0)"
-            echo ""
-            echo "Options:"
-            echo "  --language-tag=TAG    Version tag for language containers (default: same as rust-version)"
-            echo "                        Language containers use semver (e.g., 1.0.0) for API compatibility"
-            echo "  --dry-run             Show what would be pushed without actually pushing"
-            echo "  --registry=REGISTRY   Target registry: ghcr, dockerhub, or both (default: both)"
-            echo "  --help, -h            Show this help message"
-            echo ""
-            echo "Versioning:"
-            echo "  Rust containers (wrapper, proxy, watchdog) version with release tags"
-            echo "  Language containers use independent semver for API/protocol compatibility"
-            echo ""
-            echo "Environment:"
-            echo "  GITHUB_TOKEN          Required for authentication to ghcr.io (if using ghcr or both)"
-            echo "  DOCKER_HUB_TOKEN      Required for authentication to Docker Hub (if using dockerhub or both)"
+            help
             exit 0
             ;;
-        -*)
-            echo -e "${YELLOW}Unknown argument: $arg${NC}"
-            echo "Usage: $0 <rust-version> [--language-tag=TAG] [--dry-run] [--registry=REGISTRY]"
-            exit 1
-            ;;
         *)
-            if [ -z "$RUST_VERSION" ]; then
-                RUST_VERSION="$arg"
-            else
-                echo -e "${YELLOW}Unexpected argument: $arg${NC}"
-                echo "Usage: $0 <rust-version> [--language-tag=TAG] [--dry-run] [--registry=REGISTRY]"
-                exit 1
-            fi
+            echo -e "${YELLOW}Unknown argument: $arg${NC}"
+            usage
+            exit 1
             ;;
     esac
 done
-
-# Validate rust version argument
-if [ -z "$RUST_VERSION" ]; then
-    echo -e "${RED}Error: Rust version argument is required${NC}"
-    echo "Usage: $0 <rust-version> [--language-tag=TAG] [--dry-run] [--registry=REGISTRY]"
-    exit 1
-fi
-
-# If language tag not specified, use same as Rust version
-if [ -z "$LANGUAGE_TAG" ]; then
-    LANGUAGE_TAG="$RUST_VERSION"
-    echo -e "${YELLOW}Note: Using same version tag for language containers: $LANGUAGE_TAG${NC}"
-    echo -e "${YELLOW}      Consider using --language-tag=1.0.0 for independent semver${NC}"
-    echo
-fi
-
-# Validate rust version format (should be semver: X.Y.Z)
-if ! [[ "$RUST_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-    echo -e "${YELLOW}Warning: Rust version '$RUST_VERSION' does not follow semver format (X.Y.Z)${NC}"
-    read -p "Continue anyway? (y/N) " -n 1 -r
-    echo
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-        exit 1
-    fi
-fi
 
 # Check for required tokens
 if [ "$DRY_RUN" = false ]; then
@@ -148,7 +124,7 @@ fi
 
 echo -e "${BLUE}=========================================${NC}"
 echo -e "${BLUE}  Publishing Images${NC}"
-echo -e "${BLUE}  Rust containers: $RUST_VERSION${NC}"
+echo -e "${BLUE}  Rust containers: $RUST_TAG${NC}"
 echo -e "${BLUE}  Language containers: $LANGUAGE_TAG${NC}"
 if [ "$PUBLISH_TO_GHCR" = true ]; then
     echo -e "${BLUE}  GHCR: $GHCR_REGISTRY${NC}"
@@ -239,8 +215,8 @@ publish_image() {
     return 0
 }
 
-# Core Rust containers (use RUST_VERSION)
-echo -e "${YELLOW}Step 1: Publishing Rust containers (version: $RUST_VERSION)${NC}"
+# Core Rust containers (use RUST_TAG)
+echo -e "${YELLOW}Step 1: Publishing Rust containers (version: $RUST_TAG)${NC}"
 echo
 
 RUST_CONTAINERS=(
@@ -251,7 +227,7 @@ RUST_CONTAINERS=(
 
 failed=0
 for container in "${RUST_CONTAINERS[@]}"; do
-    publish_image "$container" "$container" "$RUST_VERSION" || failed=$((failed + 1))
+    publish_image "$container" "$container" "$RUST_TAG" || failed=$((failed + 1))
 done
 
 if [ $failed -gt 0 ]; then
@@ -329,7 +305,7 @@ if [ "$DRY_RUN" = true ]; then
     echo -e "${GREEN}  No images were actually pushed${NC}"
 else
     echo -e "${GREEN}  All Images Published Successfully${NC}"
-    echo -e "${GREEN}  Rust containers: $RUST_VERSION${NC}"
+    echo -e "${GREEN}  Rust containers: $RUST_TAG${NC}"
     echo -e "${GREEN}  Language containers: $LANGUAGE_TAG${NC}"
 fi
 echo -e "${GREEN}=========================================${NC}"
@@ -342,9 +318,9 @@ if [ "$DRY_RUN" = false ]; then
     for registry in $([ "$PUBLISH_TO_GHCR" = true ] && echo "$GHCR_REGISTRY") $([ "$PUBLISH_TO_DOCKERHUB" = true ] && echo "$DOCKERHUB_REGISTRY"); do
         if [ -n "$registry" ]; then
             echo -e "${YELLOW}$registry:${NC}"
-            echo -e "  ${registry}/nuanced-lsp-wrapper:${RUST_VERSION}"
-            echo -e "  ${registry}/nuanced-lsp-proxy:${RUST_VERSION}"
-            echo -e "  ${registry}/nuanced-lsp-watchdog:${RUST_VERSION}"
+            echo -e "  ${registry}/nuanced-lsp-wrapper:${RUST_TAG}"
+            echo -e "  ${registry}/nuanced-lsp-proxy:${RUST_TAG}"
+            echo -e "  ${registry}/nuanced-lsp-watchdog:${RUST_TAG}"
             for lang in "${LANGUAGES[@]}"; do
                 echo -e "  ${registry}/nuanced-lsp-${lang}:${LANGUAGE_TAG}"
             done

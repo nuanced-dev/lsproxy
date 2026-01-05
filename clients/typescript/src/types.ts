@@ -310,7 +310,7 @@ export type BaseCommandOptions = Named<
 export const UpCommandOptionsSchema = BaseCommandOptionsSchema.extend({
   containerName: z.string().optional(),
   hostPort: z.number().int().min(0).optional(),
-  languageContainerVersion: z.string().optional(),
+  languageImageVersion: z.string().optional(),
   proxyImage: z.string().optional(),
   wrapperImage: z.string().optional(),
   watchdogImage: z.string().optional(),

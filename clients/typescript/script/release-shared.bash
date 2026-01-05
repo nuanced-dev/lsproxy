@@ -55,20 +55,20 @@ read_lsp_version() {
   read_version_field "lsp-version"
 }
 
-read_lsp_proxy_version() {
-  read_version_field "lsp-proxy-version"
+read_proxy_image_version() {
+  read_version_field "proxy-image-version"
 }
 
-read_lsp_wrapper_version() {
-  read_version_field "lsp-wrapper-version"
+read_wrapper_image_version() {
+  read_version_field "wrapper-image-version"
 }
 
-read_lsp_watchdog_version() {
-  read_version_field "lsp-watchdog-version"
+read_watchdog_image_version() {
+  read_version_field "watchdog-image-version"
 }
 
-read_language_container_version() {
-  read_version_field "language-container-version"
+read_language_image_version() {
+  read_version_field "language-image-version"
 }
 
 # Validates all 5 required versions are present and valid semver
@@ -76,10 +76,10 @@ validate_all_versions() {
   local missing=()
 
   LSP_VERSION="$(read_lsp_version)"
-  LSP_PROXY_VERSION="$(read_lsp_proxy_version)"
-  LSP_WRAPPER_VERSION="$(read_lsp_wrapper_version)"
-  LSP_WATCHDOG_VERSION="$(read_lsp_watchdog_version)"
-  LANGUAGE_IMAGE_VERSION="$(read_language_container_version)"
+  PROXY_IMAGE_VERSION="$(read_proxy_image_version)"
+  WRAPPER_IMAGE_VERSION="$(read_wrapper_image_version)"
+  WATCHDOG_IMAGE_VERSION="$(read_watchdog_image_version)"
+  LANGUAGE_IMAGE_VERSION="$(read_language_image_version)"
 
   if [[ -z "$LSP_VERSION" ]]; then
     missing+=("lsp-version")
@@ -87,28 +87,28 @@ validate_all_versions() {
     die "lsp-version must be in x.y.z form (got: '$LSP_VERSION')"
   fi
 
-  if [[ -z "$LSP_PROXY_VERSION" ]]; then
-    missing+=("lsp-proxy-version")
-  elif ! is_semver "$LSP_PROXY_VERSION"; then
-    die "lsp-proxy-version must be in x.y.z form (got: '$LSP_PROXY_VERSION')"
+  if [[ -z "$PROXY_IMAGE_VERSION" ]]; then
+    missing+=("proxy-image-version")
+  elif ! is_semver "$PROXY_IMAGE_VERSION"; then
+    die "proxy-image-version must be in x.y.z form (got: '$PROXY_IMAGE_VERSION')"
   fi
 
-  if [[ -z "$LSP_WRAPPER_VERSION" ]]; then
-    missing+=("lsp-wrapper-version")
-  elif ! is_semver "$LSP_WRAPPER_VERSION"; then
-    die "lsp-wrapper-version must be in x.y.z form (got: '$LSP_WRAPPER_VERSION')"
+  if [[ -z "$WRAPPER_IMAGE_VERSION" ]]; then
+    missing+=("wrapper-image-version")
+  elif ! is_semver "$WRAPPER_IMAGE_VERSION"; then
+    die "wrapper-image-version must be in x.y.z form (got: '$WRAPPER_IMAGE_VERSION')"
   fi
 
-  if [[ -z "$LSP_WATCHDOG_VERSION" ]]; then
-    missing+=("lsp-watchdog-version")
-  elif ! is_semver "$LSP_WATCHDOG_VERSION"; then
-    die "lsp-watchdog-version must be in x.y.z form (got: '$LSP_WATCHDOG_VERSION')"
+  if [[ -z "$WATCHDOG_IMAGE_VERSION" ]]; then
+    missing+=("watchdog-image-version")
+  elif ! is_semver "$WATCHDOG_IMAGE_VERSION"; then
+    die "watchdog-image-version must be in x.y.z form (got: '$WATCHDOG_IMAGE_VERSION')"
   fi
 
   if [[ -z "$LANGUAGE_IMAGE_VERSION" ]]; then
-    missing+=("language-container-version")
+    missing+=("language-image-version")
   elif ! is_semver "$LANGUAGE_IMAGE_VERSION"; then
-    die "language-container-version must be in x.y.z form (got: '$LANGUAGE_IMAGE_VERSION')"
+    die "language-image-version must be in x.y.z form (got: '$LANGUAGE_IMAGE_VERSION')"
   fi
 
   if [[ ${#missing[@]} -gt 0 ]]; then

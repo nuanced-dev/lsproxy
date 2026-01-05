@@ -267,7 +267,7 @@ impl SupportedLanguages {
         "3.4.0", "3.4.1", "3.4.2", "3.4.3", "3.4.4", "3.4.5", "3.4.6", "3.4.7",
     ];
 
-    /// Resolve a Ruby version string to a supported container version
+    /// Resolve a Ruby version string to a supported image version
     ///
     /// Strategy:
     /// 1. Supported versions (last 1 year of releases) are used as-is

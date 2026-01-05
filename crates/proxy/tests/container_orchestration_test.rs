@@ -22,18 +22,20 @@ use tokio::sync::Mutex;
 use tokio::time::sleep;
 
 use common::api_types::SupportedLanguages;
-use proxy::container::{language_image, language_image_ghcr, PROXY_IMAGE_BASE, WRAPPER_IMAGE_BASE};
+use proxy::container::{
+    language_image_base, language_image_ghcr, proxy_image, WATCHDOG_IMAGE_BASE, WRAPPER_IMAGE_BASE,
+};
 
+const TEST_PROXY_CONTAINER_NAME: &str = "nuanced-lsp-test-service";
 const SERVICE_PORT: u16 = 14444; // Use non-standard port to avoid conflicts
 const CONTAINER_PORT: u16 = 4444; // Port the service listens on inside container
 const BASE_URL: &str = "http://localhost:14444";
 const MAX_RETRIES: u32 = 30;
 const RETRY_DELAY: Duration = Duration::from_secs(1);
-const TEST_RUST_IMAGE_VERSION: &str = "latest";
 
 // Helper functions for test images
 fn test_proxy_image() -> String {
-    format!("{PROXY_IMAGE_BASE}:{TEST_RUST_IMAGE_VERSION}")
+    proxy_image()
 }
 fn test_python_image() -> String {
     language_image_ghcr(&SupportedLanguages::Python)
@@ -54,6 +56,37 @@ struct ContainerFixture {
 }
 
 impl ContainerFixture {
+    async fn cleanup_all_containers_by_name(
+        docker: &Docker,
+        name: String,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let mut filters = HashMap::new();
+        filters.insert("name".to_string(), vec![name]);
+
+        let options = ListContainersOptions {
+            all: true,
+            filters,
+            ..Default::default()
+        };
+
+        let containers = docker.list_containers(Some(options)).await?;
+        for container in containers {
+            if let Some(id) = container.id {
+                let _ = docker
+                    .remove_container(
+                        &id,
+                        Some(RemoveContainerOptions {
+                            force: true,
+                            ..Default::default()
+                        }),
+                    )
+                    .await;
+            }
+        }
+
+        Ok(())
+    }
+
     /// Comprehensive cleanup of all test-related containers
     /// Removes orphaned containers from previous failed test runs
     async fn cleanup_all_test_containers(
@@ -61,74 +94,18 @@ impl ContainerFixture {
     ) -> Result<(), Box<dyn std::error::Error>> {
         println!("Cleaning up all test-related containers...");
 
-        // Clean up all nuanced-lsp-python-* containers (test language containers)
-        let mut filters = HashMap::new();
-        filters.insert("name".to_string(), vec!["nuanced-lsp-python-".to_string()]);
-
-        let options = ListContainersOptions {
-            all: true,
-            filters,
-            ..Default::default()
-        };
-
-        let python_containers = docker.list_containers(Some(options)).await?;
-        for container in python_containers {
-            if let Some(id) = container.id {
-                let _ = docker
-                    .remove_container(
-                        &id,
-                        Some(RemoveContainerOptions {
-                            force: true,
-                            ..Default::default()
-                        }),
-                    )
-                    .await;
-            }
-        }
-
-        // Clean up test watchdog containers
-        let mut filters = HashMap::new();
-        filters.insert(
-            "name".to_string(),
-            vec!["nuanced-lsp-watchdog-".to_string()],
-        );
-
-        let options = ListContainersOptions {
-            all: true,
-            filters,
-            ..Default::default()
-        };
-
-        let watchdog_containers = docker.list_containers(Some(options)).await?;
-        for container in watchdog_containers {
-            if let Some(id) = container.id {
-                let _ = docker
-                    .remove_container(
-                        &id,
-                        Some(RemoveContainerOptions {
-                            force: true,
-                            ..Default::default()
-                        }),
-                    )
-                    .await;
-            }
-        }
-
-        // Clean up wrapper container
-        let _ = docker
-            .remove_container(
-                WRAPPER_IMAGE_BASE,
-                Some(RemoveContainerOptions {
-                    force: true,
-                    ..Default::default()
-                }),
-            )
-            .await;
+        Self::cleanup_all_containers_by_name(
+            docker,
+            format!("{}-", language_image_base(&SupportedLanguages::Python)),
+        )
+        .await?;
+        Self::cleanup_all_containers_by_name(docker, format!("{WATCHDOG_IMAGE_BASE}-")).await?;
+        Self::cleanup_all_containers_by_name(docker, format!("{WRAPPER_IMAGE_BASE}-")).await?;
 
         // Clean up test service container
         let _ = docker
             .remove_container(
-                "nuanced-lsp-test-service",
+                TEST_PROXY_CONTAINER_NAME,
                 Some(RemoveContainerOptions {
                     force: true,
                     ..Default::default()
@@ -230,10 +207,9 @@ impl ContainerFixture {
             .ok_or("Invalid workspace path")?;
 
         let proxy_img = test_proxy_image();
-        let image_version_env = format!("RUST_IMAGE_VERSION={TEST_RUST_IMAGE_VERSION}");
         let config: Config<&str> = Config {
             image: Some(&proxy_img),
-            env: Some(vec!["USE_AUTH=false", "RUST_LOG=info,nuanced_lsp_proxy=debug,proxy=debug,nuanced_lsp_wrapper=debug,wrapper=debug", &image_version_env]),
+            env: Some(vec!["USE_AUTH=false", "RUST_LOG=info,nuanced_lsp_proxy=debug,proxy=debug,nuanced_lsp_wrapper=debug,wrapper=debug"]),
             host_config: Some(bollard::models::HostConfig {
                 binds: Some(vec![
                     "/var/run/docker.sock:/var/run/docker.sock".to_string(),
@@ -258,7 +234,7 @@ impl ContainerFixture {
         };
 
         let options = CreateContainerOptions {
-            name: "nuanced-lsp-test-service",
+            name: TEST_PROXY_CONTAINER_NAME,
             ..Default::default()
         };
 

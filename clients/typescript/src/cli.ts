@@ -225,7 +225,7 @@ async function upCommand(
     log.info(`Starting Nuanced LSP container '${client.containerName}'...`);
 
   const res = await client.up(workspace, {
-    languageContainerVersion: opts.languageContainerVersion,
+    languageImageVersion: opts.languageImageVersion,
     proxyImage: opts.proxyImage,
     watchdogImage: opts.watchdogImage,
     wrapperImage: opts.wrapperImage,
@@ -619,8 +619,8 @@ program
     `Nuanced LSP wrapper image (default: ${DEFAULT_WRAPPER_IMAGE})`,
   )
   .option(
-    "--language-container-version <version>",
-    `Nuanced LSP language container version (default: ${LANGUAGE_IMAGE_VERSION})`,
+    "--language-image-version <version>",
+    `Nuanced LSP language image version (default: ${LANGUAGE_IMAGE_VERSION})`,
   )
   .option(
     "--container-name <name>",

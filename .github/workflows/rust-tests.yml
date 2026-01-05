@@ -141,7 +141,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: build-images
     env:
-      # Match the image tags used in build-images job
+      # Match the image versions used in build-images job
       RUST_IMAGE_VERSION: "latest"
       LANGUAGE_IMAGE_VERSION: "1.0.0"
     steps:

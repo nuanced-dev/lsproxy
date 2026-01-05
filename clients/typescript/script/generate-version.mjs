@@ -44,40 +44,37 @@ if (!lspVersion || typeof lspVersion !== "string") {
   process.exit(1);
 }
 
-const nuancedLSPProxyVersion = data["lsp-proxy-version"];
-if (!nuancedLSPProxyVersion || typeof nuancedLSPProxyVersion !== "string") {
+const proxyImageVersion = data["proxy-image-version"];
+if (!proxyImageVersion || typeof proxyImageVersion !== "string") {
   console.error(
-    `Expected "lsp-proxy-version" in ${versionConfig}, got: ` +
+    `Expected "proxy-image-version" in ${versionConfig}, got: ` +
       JSON.stringify(data),
   );
   process.exit(1);
 }
 
-const nuancedLSPWrapperVersion = data["lsp-wrapper-version"];
-if (!nuancedLSPWrapperVersion || typeof nuancedLSPWrapperVersion !== "string") {
+const wrapperImageVersion = data["wrapper-image-version"];
+if (!wrapperImageVersion || typeof wrapperImageVersion !== "string") {
   console.error(
-    `Expected "lsp-wrapper-version" in ${versionConfig}, got: ` +
+    `Expected "wrapper-image-version" in ${versionConfig}, got: ` +
       JSON.stringify(data),
   );
   process.exit(1);
 }
 
-const nuancedLSPWatchdogVersion = data["lsp-watchdog-version"];
-if (
-  !nuancedLSPWatchdogVersion ||
-  typeof nuancedLSPWatchdogVersion !== "string"
-) {
+const watchdogImageVersion = data["watchdog-image-version"];
+if (!watchdogImageVersion || typeof watchdogImageVersion !== "string") {
   console.error(
-    `Expected "lsp-watchdog-version" in ${versionConfig}, got: ` +
+    `Expected "watchdog-image-version" in ${versionConfig}, got: ` +
       JSON.stringify(data),
   );
   process.exit(1);
 }
 
-const languageContainerVersion = data["language-container-version"];
-if (!languageContainerVersion || typeof languageContainerVersion !== "string") {
+const languageImageVersion = data["language-image-version"];
+if (!languageImageVersion || typeof languageImageVersion !== "string") {
   console.error(
-    `Expected "language-container-version" in ${versionConfig}, got: ` +
+    `Expected "language-image-version" in ${versionConfig}, got: ` +
       JSON.stringify(data),
   );
   process.exit(1);
@@ -85,13 +82,13 @@ if (!languageContainerVersion || typeof languageContainerVersion !== "string") {
 
 // Image base is fixed per your requirement
 const PROXY_IMAGE_BASE = "ghcr.io/nuanced-dev/nuanced-lsp-proxy";
-const DEFAULT_PROXY_IMAGE = `${PROXY_IMAGE_BASE}:${nuancedLSPProxyVersion}`;
+const DEFAULT_PROXY_IMAGE = `${PROXY_IMAGE_BASE}:${proxyImageVersion}`;
 
 const WRAPPER_IMAGE_BASE = "ghcr.io/nuanced-dev/nuanced-lsp-wrapper";
-const DEFAULT_WRAPPER_IMAGE = `${WRAPPER_IMAGE_BASE}:${nuancedLSPProxyVersion}`;
+const DEFAULT_WRAPPER_IMAGE = `${WRAPPER_IMAGE_BASE}:${proxyImageVersion}`;
 
 const WATCHDOG_IMAGE_BASE = "ghcr.io/nuanced-dev/nuanced-lsp-watchdog";
-const DEFAULT_WATCHDOG_IMAGE = `${WATCHDOG_IMAGE_BASE}:${nuancedLSPWatchdogVersion}`;
+const DEFAULT_WATCHDOG_IMAGE = `${WATCHDOG_IMAGE_BASE}:${watchdogImageVersion}`;
 
 // Ensure output dir exists
 fs.mkdirSync(outDir, { recursive: true });
@@ -106,7 +103,7 @@ export const DEFAULT_WRAPPER_IMAGE =
 export const DEFAULT_WATCHDOG_IMAGE =
   ${JSON.stringify(DEFAULT_WATCHDOG_IMAGE)};
 export const VERSION = ${JSON.stringify(lspVersion)};
-export const LANGUAGE_IMAGE_VERSION = ${JSON.stringify(languageContainerVersion)};
+export const LANGUAGE_IMAGE_VERSION = ${JSON.stringify(languageImageVersion)};
 `;
 fs.writeFileSync(outFile, contents, "utf8");
 

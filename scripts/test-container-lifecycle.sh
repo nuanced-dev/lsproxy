@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
 
-set -e
+set -eu
 
 # Test container lifecycle: build, run, health check, cleanup
 # Usage: ./scripts/test-container-lifecycle.sh [workspace_path]
 
-# Colors
-GREEN='\033[0;32m'
-RED='\033[0;31m'
-BLUE='\033[0;34m'
-YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
+SCRIPT_DIR="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")" && pwd)"
 
+source "$SCRIPT_DIR/include/colors.sh"
+
+DEFAULT_RUST_TAG="$("$SCRIPT_DIR/util/rust-image-version.sh")"
+
+RUST_TAG="${RUST_IMAGE_VERSION:-$DEFAULT_RUST_TAG}"
 WORKSPACE_PATH="${1:-sample_project/python}"
 WORKSPACE_PATH="$(cd "$WORKSPACE_PATH" && pwd)"
 SERVICE_NAME="nuanced-lsp-proxy-$(uuidgen | tr 'A-Z' 'a-z' | cut -c1-12)"
@@ -75,12 +75,9 @@ cleanup() {
 # Register cleanup on exit (success, failure, or Ctrl+C)
 trap cleanup EXIT INT TERM
 
-# Use RUST_IMAGE_VERSION from environment, default to "latest"
-RUST_VERSION="${RUST_IMAGE_VERSION:-latest}"
-
 # Test 1: Service image exists
 test_step "Service image exists" \
-    "docker images nuanced-lsp-proxy:${RUST_VERSION} --format '{{.Repository}}' | grep -q nuanced-lsp-proxy"
+    "docker images nuanced-lsp-proxy:${RUST_TAG} --format '{{.Repository}}' | grep -q nuanced-lsp-proxy"
 
 # Test 2: Start service container
 echo
@@ -92,9 +89,9 @@ docker run -d \
     -v "$WORKSPACE_PATH:/mnt/workspace" \
     -e RUST_LOG=info,nuanced_lsp_proxy=debug,proxy=debug,nuanced_lsp_wrapper=debug,wrapper=debug \
     -e USE_AUTH=false \
-    -e WRAPPER_IMAGE=nuanced-lsp-wrapper:${RUST_VERSION} \
-    -e WATCHDOG_IMAGE=nuanced-lsp-watchdog:${RUST_VERSION} \
-    nuanced-lsp-proxy:${RUST_VERSION}
+    -e WRAPPER_IMAGE=nuanced-lsp-wrapper:${RUST_TAG} \
+    -e WATCHDOG_IMAGE=nuanced-lsp-watchdog:${RUST_TAG} \
+    nuanced-lsp-proxy:${RUST_TAG}
 
 SERVICE_ID=$(docker inspect --format '{{.Id}}' "${SERVICE_NAME}" 2>/dev/null || echo "")
 # Language containers label their parent with the orchestrator instance ID, which is the

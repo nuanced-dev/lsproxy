@@ -14,12 +14,20 @@ pub mod orchestrator;
 // and scripts/build-language-images.sh
 
 /// Default version tag for Rust containers (wrapper, proxy, watchdog)
-/// Can be overridden with RUST_IMAGE_VERSION environment variable
-pub const DEFAULT_RUST_IMAGE_VERSION: &str = "0.4.8";
+/// Can be overridden with RUST_IMAGE_VERSION environment variable at
+/// build or runtime.
+const DEFAULT_RUST_IMAGE_VERSION: &str = env!("CARGO_PKG_VERSION");
+
+/// Override version tag for Rust containers specified at runtime.
+const BUILD_RUST_IMAGE_VERSION: Option<&'static str> = option_env!("RUST_IMAGE_VERSION");
 
 /// Default version tag for language containers (python, ruby, typescript, etc.)
-/// Can be overridden with LANGUAGE_IMAGE_VERSION environment variable
-pub const DEFAULT_LANGUAGE_IMAGE_VERSION: &str = "1.0.0";
+/// Can be overridden with LANGUAGE_IMAGE_VERSION environment variable at build
+/// or runtime.
+const DEFAULT_LANGUAGE_IMAGE_VERSION: &str = include_str!("../../../../language-image-version");
+
+/// Override version tag for Rust containers specified at runtime.
+const BUILD_LANGUAGE_IMAGE_VERSION: Option<&'static str> = option_env!("LANGUAGE_IMAGE_VERSION");
 
 /// Base image names (without version tags)
 pub const PROXY_IMAGE_BASE: &str = "nuanced-lsp-proxy";
@@ -27,7 +35,7 @@ pub const WRAPPER_IMAGE_BASE: &str = "nuanced-lsp-wrapper";
 pub const WATCHDOG_IMAGE_BASE: &str = "nuanced-lsp-watchdog";
 
 /// Container registry for published images
-pub const CONTAINER_REGISTRY: &str = "ghcr.io/nuanced-dev";
+const CONTAINER_REGISTRY: &str = "ghcr.io/nuanced-dev";
 
 /// Get language image base name
 ///
@@ -65,13 +73,26 @@ pub fn language_image_base(language: &SupportedLanguages) -> String {
 
 /// Get Rust image version from environment or use default
 pub fn rust_image_version() -> String {
-    std::env::var("RUST_IMAGE_VERSION").unwrap_or_else(|_| DEFAULT_RUST_IMAGE_VERSION.to_string())
+    // Tags are trimmed in case they end in newlines from files or tool output
+    if let Ok(tag) = std::env::var("RUST_IMAGE_VERSION") {
+        tag.trim().to_string()
+    } else if let Some(tag) = BUILD_RUST_IMAGE_VERSION {
+        tag.trim().to_string()
+    } else {
+        DEFAULT_RUST_IMAGE_VERSION.trim().to_string()
+    }
 }
 
 /// Get language image version from environment or use default
 pub fn language_image_version() -> String {
-    std::env::var("LANGUAGE_IMAGE_VERSION")
-        .unwrap_or_else(|_| DEFAULT_LANGUAGE_IMAGE_VERSION.to_string())
+    // Tags are trimmed in case they end in newlines from files or tool output
+    if let Ok(tag) = std::env::var("LANGUAGE_IMAGE_VERSION") {
+        tag.trim().to_string()
+    } else if let Some(tag) = BUILD_LANGUAGE_IMAGE_VERSION {
+        tag.trim().to_string()
+    } else {
+        DEFAULT_LANGUAGE_IMAGE_VERSION.trim().to_string()
+    }
 }
 
 /// Helper functions to get full image names with version tags

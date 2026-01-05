@@ -5,18 +5,15 @@ set -e
 # Test watchdog container functionality
 # Tests: watchdog spawning, clean shutdown, SIGKILL cleanup, multiple instances
 
-# Colors
-GREEN='\033[0;32m'
-RED='\033[0;31m'
-BLUE='\033[0;34m'
-YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
+SCRIPT_DIR="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")" && pwd)"
 
+source "$SCRIPT_DIR/include/colors.sh"
+
+DEFAULT_RUST_TAG="$("$SCRIPT_DIR/util/rust-image-version.sh")"
+
+RUST_TAG="${RUST_IMAGE_VERSION:-$DEFAULT_RUST_TAG}"
 WORKSPACE_PATH="${1:-sample_project/python}"
 WORKSPACE_PATH="$(cd "$WORKSPACE_PATH" && pwd)"
-
-# Use RUST_IMAGE_VERSION from environment, default to "latest"
-RUST_VERSION="${RUST_IMAGE_VERSION:-latest}"
 
 echo -e "${BLUE}=========================================${NC}"
 echo -e "${BLUE}  Watchdog Functionality Tests${NC}"
@@ -194,9 +191,9 @@ docker run -d \
     -v "$WORKSPACE_PATH:/mnt/workspace" \
     -e RUST_LOG=info,nuanced_lsp_proxy=debug,proxy=debug,nuanced_lsp_wrapper=debug,wrapper=debug \
     -e USE_AUTH=false \
-    -e WRAPPER_IMAGE=nuanced-lsp-wrapper:${RUST_VERSION} \
-    -e WATCHDOG_IMAGE=nuanced-lsp-watchdog:${RUST_VERSION} \
-    nuanced-lsp-proxy:${RUST_VERSION} > /dev/null
+    -e WRAPPER_IMAGE=nuanced-lsp-wrapper:${RUST_TAG} \
+    -e WATCHDOG_IMAGE=nuanced-lsp-watchdog:${RUST_TAG} \
+    nuanced-lsp-proxy:${RUST_TAG} > /dev/null
 
 wait_for_service_ready 4455
 
@@ -264,9 +261,9 @@ docker run -d \
     -v "$WORKSPACE_PATH:/mnt/workspace" \
     -e RUST_LOG=info,nuanced_lsp_proxy=debug,proxy=debug,nuanced_lsp_wrapper=debug,wrapper=debug \
     -e USE_AUTH=false \
-    -e WRAPPER_IMAGE=nuanced-lsp-wrapper:${RUST_VERSION} \
-    -e WATCHDOG_IMAGE=nuanced-lsp-watchdog:${RUST_VERSION} \
-    nuanced-lsp-proxy:${RUST_VERSION} > /dev/null
+    -e WRAPPER_IMAGE=nuanced-lsp-wrapper:${RUST_TAG} \
+    -e WATCHDOG_IMAGE=nuanced-lsp-watchdog:${RUST_TAG} \
+    nuanced-lsp-proxy:${RUST_TAG} > /dev/null
 
 wait_for_service_ready 4456
 
@@ -315,9 +312,9 @@ docker run -d \
     -v "$WORKSPACE_PATH:/mnt/workspace" \
     -e RUST_LOG=info,nuanced_lsp_proxy=debug,proxy=debug,nuanced_lsp_wrapper=debug,wrapper=debug \
     -e USE_AUTH=false \
-    -e WRAPPER_IMAGE=nuanced-lsp-wrapper:${RUST_VERSION} \
-    -e WATCHDOG_IMAGE=nuanced-lsp-watchdog:${RUST_VERSION} \
-    nuanced-lsp-proxy:${RUST_VERSION} > /dev/null
+    -e WRAPPER_IMAGE=nuanced-lsp-wrapper:${RUST_TAG} \
+    -e WATCHDOG_IMAGE=nuanced-lsp-watchdog:${RUST_TAG} \
+    nuanced-lsp-proxy:${RUST_TAG} > /dev/null
 
 docker run -d \
     --name test-watchdog-multi2 \
@@ -326,9 +323,9 @@ docker run -d \
     -v "$WORKSPACE_PATH:/mnt/workspace" \
     -e RUST_LOG=info,nuanced_lsp_proxy=debug,proxy=debug,nuanced_lsp_wrapper=debug,wrapper=debug \
     -e USE_AUTH=false \
-    -e WRAPPER_IMAGE=nuanced-lsp-wrapper:${RUST_VERSION} \
-    -e WATCHDOG_IMAGE=nuanced-lsp-watchdog:${RUST_VERSION} \
-    nuanced-lsp-proxy:${RUST_VERSION} > /dev/null
+    -e WRAPPER_IMAGE=nuanced-lsp-wrapper:${RUST_TAG} \
+    -e WATCHDOG_IMAGE=nuanced-lsp-watchdog:${RUST_TAG} \
+    nuanced-lsp-proxy:${RUST_TAG} > /dev/null
 
 wait_for_service_ready 4457 120
 wait_for_service_ready 4458 120

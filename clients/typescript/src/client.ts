@@ -135,7 +135,7 @@ export class NuancedLspClient {
   async up(
     workspace: string,
     opts: {
-      languageContainerVersion?: string;
+      languageImageVersion?: string;
       proxyImage?: string;
       watchdogImage?: string;
       wrapperImage?: string;
@@ -152,7 +152,7 @@ export class NuancedLspClient {
     const result = await up(workspace, {
       containerName: this.containerName,
       hostPort: this.lsProxyPort,
-      languageContainerVersion: opts.languageContainerVersion,
+      languageImageVersion: opts.languageImageVersion,
       proxyImage: opts.proxyImage,
       watchdogImage: opts.watchdogImage,
       wrapperImage: opts.wrapperImage,

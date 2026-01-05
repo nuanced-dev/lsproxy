@@ -2,25 +2,12 @@
 
 # GitHub Container Registry (GHCR) utility script
 # Provides functions for managing container images in ghcr.io
-#
-# Usage:
-#   ./scripts/ghcr-utils.sh list-packages
-#   ./scripts/ghcr-utils.sh list-versions <package-name>
-#   ./scripts/ghcr-utils.sh delete-version <package-name> <version-id>
-#   ./scripts/ghcr-utils.sh delete-package <package-name>
-#   ./scripts/ghcr-utils.sh delete-all-ruby-images [--confirm]
-#
-# Environment:
-#   GITHUB_TOKEN - Required for authentication to ghcr.io
 
-set -e
+set -eu
 
-# Colors
-GREEN='\033[0;32m'
-RED='\033[0;31m'
-BLUE='\033[0;34m'
-YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
+SCRIPT_DIR="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")" && pwd)"
+
+source "$SCRIPT_DIR/include/colors.sh"
 
 # Configuration
 ORG_NAME="nuanced-dev"

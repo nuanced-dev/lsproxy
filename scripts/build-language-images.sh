@@ -1,108 +1,71 @@
 #!/usr/bin/env bash
+# Build language server containers (Python, TypeScript, Rust, Go, Java, C++, C#, PHP, Ruby variants)
 
-set -e
+set -eu
 
 SCRIPT_DIR="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")" && pwd)"
 
-# Build language server containers (Python, TypeScript, Rust, Go, Java, C++, C#, PHP, Ruby variants)
-# Usage: ./scripts/build-language-images.sh [--use-cache] [--sequential] [--multiarch] [--load] [--tag=TAG] [--registry=REGISTRY] [--language=LANG] [--jobs=N]
-#
-# By default:
-#   - Builds WITHOUT cache (use --use-cache to enable caching)
-#   - Builds in PARALLEL with max 4 concurrent jobs (use --jobs=N to adjust)
-#   - Builds all 12 Ruby versions (5 minor + 7 core patch versions)
-#   - Builds for local platform only (use --multiarch for amd64+arm64)
-#   - Tags images as :1.0.0 (use --tag=1.1.0 for custom version)
-#   - Does NOT push (use --registry to push to ghcr/dockerhub/local)
-#   - Builds ALL languages (use --language to build specific languages)
-#
-# Versioning:
-#   Language containers use semantic versioning (MAJOR.MINOR.PATCH):
-#   - MAJOR: API/protocol compatibility version (increment for breaking changes)
-#   - MINOR: New LSP features, language server version updates
-#   - PATCH: Bug fixes, dependency updates
-#
-# Options:
-#   --use-cache           Enable Docker build cache (default: disabled)
-#   --sequential          Build sequentially instead of parallel
-#   --parallel            Build in parallel (default)
-#   --jobs=N, -j=N        Max parallel builds (default: 4, prevents Docker daemon overload)
-#   --multiarch           Build for both amd64 and arm64 (default: local platform only)
-#   --load                Also build and load local platform into Docker (use with --multiarch)
-#   --tag=TAG             Tag images with specified semver tag (default: 1.0.0)
-#   --registry=REGISTRY   Push to registry: ghcr, dockerhub, or local (requires authentication)
-#   --language=LANG       Build specific language(s) (comma-separated: python,typescript,ruby,ruby-sorbet)
-#   --help, -h            Show help message
-#
-# Examples:
-#   ./scripts/build-language-images.sh --tag=1.0.0
-#   ./scripts/build-language-images.sh --multiarch --tag=1.0.0 --registry=ghcr
-#   ./scripts/build-language-images.sh --jobs=8
-#   ./scripts/build-language-images.sh --language=python --multiarch --tag=1.0.0 --registry=ghcr
-#   ./scripts/build-language-images.sh --language=ruby,ruby-sorbet --tag=1.0.0
-#
-# Note: Multi-arch Sorbet builds require --registry because Ruby Sorbet images depend on
-# Ruby base images which must be available in a registry for multi-platform builds.
-#
-# Note: Language containers use binary injection at runtime via --volumes-from
-# They only need to be rebuilt when language server versions change or when base dependencies change
+source "$SCRIPT_DIR/include/colors.sh"
+source "$SCRIPT_DIR/include/supported-ruby-versions.sh"
 
-# Colors
-GREEN='\033[0;32m'
-RED='\033[0;31m'
-BLUE='\033[0;34m'
-YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
+DEFAULT_LANGUAGE_TAG="$("$SCRIPT_DIR/util/language-image-version.sh")"
 
-# Default: parallel builds without cache, single-arch, no load, v1.0.0 tag
-# Language containers use semver where major version = API compatibility version
+usage() {
+    echo "Usage: $0 [--use-cache] [--sequential] [--multiarch] [--load] [--tag=TAG] [--registry=REGISTRY] [--language=LANG] [--jobs=N]"
+}
+
+help() {
+    usage
+    echo ""
+    echo "Options:"
+    echo "  --use-cache           Enable Docker build cache (default: disabled)"
+    echo "  --sequential          Build sequentially instead of parallel (default: parallel)"
+    echo "  --jobs=N, -j=N        Max parallel builds (default: 4, prevents Docker daemon overload)"
+    echo "  --multiarch           Build for both amd64 and arm64 (default: local platform only)"
+    echo "  --load                Also build and load local platform into Docker (use with --multiarch)"
+    echo "  --tag=TAG             Tag images with specified semver tag (default: $DEFAULT_LANGUAGE_TAG)"
+    echo "                        Language containers use semver (e.g., 1.0.0) for API compatibility"
+    echo "  --registry=REGISTRY   Push to registry: ghcr, dockerhub, local (required for multi-arch Sorbet) (default: no push)"
+    echo "  --language=LANG       Build specific language(s) - comma-separated (python,typescript,ruby,ruby-sorbet)"
+    echo "  --help, -h            Show this help message"
+    echo ""
+    echo "Versioning: Language containers use semver (MAJOR.MINOR.PATCH)"
+    echo "  MAJOR = API/protocol compatibility version"
+    echo "  MINOR = New LSP features, language server updates"
+    echo "  PATCH = Bug fixes, dependency updates"
+    echo ""
+    echo "Note: Multi-arch Sorbet builds require --registry because Ruby Sorbet images depend"
+    echo "on Ruby base images which must be available in a registry for multi-platform builds."
+    echo ""
+    echo "Note: Language containers use binary injection at runtime via --volumes-from. They only"
+    echo "need to be rebuilt when language server versions change or when base dependencies change."
+    echo ""
+    echo "Available languages: python, typescript, rust, golang, java, clangd, csharp, php, ruby, ruby-sorbet"
+    echo ""
+    echo "Examples:"
+    echo "  $0 --tag=1.0.0"
+    echo "  $0 --multiarch --tag=1.0.0 --registry=ghcr"
+    echo "  $0 --jobs=8"
+    echo "  $0 --language=python --multiarch --tag=1.0.0 --registry=ghcr"
+    echo "  $0 --language=ruby,ruby-sorbet --tag=1.0.0"
+}
+
+# Defaults
 PARALLEL=true
 USE_CACHE=false
 MULTIARCH=false
 LOAD_LOCAL=false
-TAG="1.0.0"
-DEFAULT_RUBY_VERSION="3.4.7"
-REGISTRY=""  # Options: ghcr, dockerhub, local, or empty for no push
-FILTER_LANGUAGES=""  # Empty = build all, otherwise comma-separated list: python,typescript,ruby,ruby-sorbet
-# Default max parallel jobs (4 is safe for most systems, prevents Docker daemon overload)
+LANGUAGE_TAG="$DEFAULT_LANGUAGE_TAG"
+REGISTRY=""         # Options: ghcr, dockerhub, local, or empty for no push
+FILTER_LANGUAGES=   # Empty = build all, otherwise comma-separated list: python,typescript,ruby,ruby-sorbet
 MAX_JOBS=4
 
-# Import SUPPORTED_RUBY_VERSIONS
-. "$SCRIPT_DIR/supported-ruby-versions.sh"
 
 # Parse arguments
 for arg in "$@"; do
     case $arg in
         --help|-h)
-            echo "Usage: $0 [--use-cache] [--sequential] [--multiarch] [--load] [--tag=TAG] [--registry=REGISTRY] [--language=LANG] [--jobs=N]"
-            echo ""
-            echo "Options:"
-            echo "  --use-cache           Enable Docker build cache (default: disabled)"
-            echo "  --sequential          Build sequentially instead of parallel"
-            echo "  --parallel            Build in parallel (default)"
-            echo "  --jobs=N, -j=N        Max parallel builds (default: 4, prevents Docker daemon overload)"
-            echo "  --multiarch           Build for both amd64 and arm64 (default: local platform only)"
-            echo "  --load                Also build and load local platform into Docker (use with --multiarch)"
-            echo "  --tag=TAG             Tag images with specified semver tag (default: 1.0.0)"
-            echo "  --registry=REGISTRY   Push to registry: ghcr, dockerhub, local (required for multi-arch Sorbet)"
-            echo "  --language=LANG       Build specific language(s) - comma-separated (python,typescript,ruby,ruby-sorbet)"
-            echo "  --help, -h            Show this help message"
-            echo ""
-            echo "Versioning: Language containers use semver (MAJOR.MINOR.PATCH)"
-            echo "  MAJOR = API/protocol compatibility version"
-            echo "  MINOR = New LSP features, language server updates"
-            echo "  PATCH = Bug fixes, dependency updates"
-            echo ""
-            echo "Multi-arch Sorbet builds require --registry because Ruby Sorbet images depend on"
-            echo "Ruby base images which must be available in a registry for multi-platform builds."
-            echo ""
-            echo "Ruby versions built (last 1 year): 3.3.6-3.3.10, 3.4.0-3.4.7 (13 versions)"
-            echo ""
-            echo "Available languages: python, typescript, rust, golang, java, clangd, csharp, php, ruby, ruby-sorbet"
-            echo ""
-            echo "Examples:"
-            echo "  $0 --language=python --multiarch --tag=1.0.0 --registry=ghcr"
-            echo "  $0 --language=ruby,ruby-sorbet --tag=1.0.0"
+            help
             exit 0
             ;;
         --sequential)
@@ -111,9 +74,6 @@ for arg in "$@"; do
         --use-cache)
             USE_CACHE=true
             ;;
-        --parallel)
-            PARALLEL=true
-            ;;
         --multiarch)
             MULTIARCH=true
             ;;
@@ -121,7 +81,7 @@ for arg in "$@"; do
             LOAD_LOCAL=true
             ;;
         --tag=*)
-            TAG="${arg#*=}"
+            LANGUAGE_TAG="${arg#*=}"
             ;;
         --registry=*)
             REGISTRY="${arg#*=}"
@@ -142,21 +102,7 @@ for arg in "$@"; do
             ;;
         *)
             echo -e "${YELLOW}Unknown argument: $arg${NC}"
-            echo "Usage: $0 [--use-cache] [--sequential] [--multiarch] [--load] [--tag=TAG] [--registry=REGISTRY] [--language=LANG] [--jobs=N]"
-            echo ""
-            echo "Options:"
-            echo "  --use-cache           Enable Docker build cache (default: disabled)"
-            echo "  --sequential          Build sequentially instead of parallel"
-            echo "  --parallel            Build in parallel (default)"
-            echo "  --jobs=N, -j=N        Max parallel builds (default: 4, prevents Docker daemon overload)"
-            echo "  --multiarch           Build for both amd64 and arm64 (default: local platform only)"
-            echo "  --load                Also build and load local platform into Docker (use with --multiarch)"
-            echo "  --tag=TAG             Tag images with specified semver tag (default: 1.0.0)"
-            echo "  --registry=REGISTRY   Push to registry: ghcr, dockerhub, local"
-            echo "  --language=LANG       Build specific language(s) - comma-separated"
-            echo "  --help, -h            Show this help message"
-            echo ""
-            echo "Available languages: python, typescript, rust, golang, java, clangd, csharp, php, ruby, ruby-sorbet"
+            usage
             exit 1
             ;;
     esac
@@ -382,12 +328,12 @@ build_container() {
         local image_name="nuanced-lsp-${lang}"
     fi
 
-    # Determine the full image tag (with or without registry prefix)
+    # Determine the full image version (with or without registry prefix)
     local full_image_tag
     if [ "$use_registry" = "true" ] && [ -n "$REGISTRY_PREFIX" ]; then
-        full_image_tag="${REGISTRY_PREFIX}${image_name}:${TAG}"
+        full_image_tag="${REGISTRY_PREFIX}${image_name}:${LANGUAGE_TAG}"
     else
-        full_image_tag="${image_name}:${TAG}"
+        full_image_tag="${image_name}:${LANGUAGE_TAG}"
     fi
 
     echo -e "${BLUE}Building ${full_image_tag}...${NC}"
@@ -401,7 +347,7 @@ build_container() {
     # For Sorbet builds, pass Ruby base image from registry as build arg
     local build_args=""
     if [ "$subdir" = "ruby-sorbet" ] && [ "$use_registry" = "true" ] && [ -n "$REGISTRY_PREFIX" ]; then
-        local ruby_base_image="${REGISTRY_PREFIX}nuanced-lsp-ruby-${lang}:${TAG}"
+        local ruby_base_image="${REGISTRY_PREFIX}nuanced-lsp-ruby-${lang}:${LANGUAGE_TAG}"
         build_args="--build-arg RUBY_BASE_IMAGE=${ruby_base_image}"
     fi
 
@@ -411,7 +357,7 @@ build_container() {
         elif [ "$MULTIARCH" = true ]; then
             echo -e "${GREEN}✓ ${full_image_tag} built successfully (multi-arch)${NC}"
         else
-            local size=$(docker images "${image_name}:${TAG}" --format "{{.Size}}")
+            local size=$(docker images "${image_name}:${LANGUAGE_TAG}" --format "{{.Size}}")
             echo -e "${GREEN}✓ ${full_image_tag} built successfully ($size)${NC}"
         fi
         return 0
@@ -590,9 +536,9 @@ if [ -n "$PUSH_FLAG" ]; then
     echo -e "  • ${#RUBY_SORBET_VERSIONS[@]} Ruby Sorbet images"
     echo
     echo -e "${YELLOW}To verify pushed images:${NC}"
-    echo -e "  docker pull ${REGISTRY_PREFIX}nuanced-lsp-python:${TAG}"
-    echo -e "  docker pull ${REGISTRY_PREFIX}nuanced-lsp-ruby-3.4.4:${TAG}"
-    echo -e "  docker pull ${REGISTRY_PREFIX}nuanced-lsp-ruby-sorbet-3.4.4:${TAG}"
+    echo -e "  docker pull ${REGISTRY_PREFIX}nuanced-lsp-python:${LANGUAGE_TAG}"
+    echo -e "  docker pull ${REGISTRY_PREFIX}nuanced-lsp-ruby-3.4.4:${LANGUAGE_TAG}"
+    echo -e "  docker pull ${REGISTRY_PREFIX}nuanced-lsp-ruby-sorbet-3.4.4:${LANGUAGE_TAG}"
     echo
     echo -e "${YELLOW}To list all packages in ${REGISTRY}:${NC}"
     if [ "$REGISTRY" = "ghcr" ]; then
@@ -611,8 +557,8 @@ elif [ "$MULTIARCH" = true ]; then
         for lang in "${LANGUAGES[@]}"; do
             dockerfile="dockerfiles/${lang}.Dockerfile"
             if [ -f "$dockerfile" ]; then
-                echo -e "${BLUE}Loading nuanced-lsp-${lang}:${TAG} (local platform)...${NC}"
-                docker buildx build --load $CACHE_FLAG -f "$dockerfile" -t "nuanced-lsp-${lang}:${TAG}" . > /tmp/build-${lang}-local.log 2>&1
+                echo -e "${BLUE}Loading nuanced-lsp-${lang}:${LANGUAGE_TAG} (local platform)...${NC}"
+                docker buildx build --load $CACHE_FLAG -f "$dockerfile" -t "nuanced-lsp-${lang}:${LANGUAGE_TAG}" . > "/tmp/build-${lang}-local.log" 2>&1
             fi
         done
 
@@ -620,8 +566,8 @@ elif [ "$MULTIARCH" = true ]; then
         for version in "${RUBY_VERSIONS[@]}"; do
             dockerfile="dockerfiles/ruby/${version}.Dockerfile"
             if [ -f "$dockerfile" ]; then
-                echo -e "${BLUE}Loading nuanced-lsp-ruby-${version}:${TAG} (local platform)...${NC}"
-                docker buildx build --load $CACHE_FLAG -f "$dockerfile" -t "nuanced-lsp-ruby-${version}:${TAG}" . > /tmp/build-ruby-${version}-local.log 2>&1
+                echo -e "${BLUE}Loading nuanced-lsp-ruby-${version}:${LANGUAGE_TAG} (local platform)...${NC}"
+                docker buildx build --load $CACHE_FLAG -f "$dockerfile" -t "nuanced-lsp-ruby-${version}:${LANGUAGE_TAG}" . > "/tmp/build-ruby-${version}-local.log" 2>&1
             fi
         done
 
@@ -629,8 +575,8 @@ elif [ "$MULTIARCH" = true ]; then
         for version in "${RUBY_SORBET_VERSIONS[@]}"; do
             dockerfile="dockerfiles/ruby-sorbet/${version}.Dockerfile"
             if [ -f "$dockerfile" ]; then
-                echo -e "${BLUE}Loading nuanced-lsp-ruby-sorbet-${version}:${TAG} (local platform)...${NC}"
-                docker buildx build --load $CACHE_FLAG -f "$dockerfile" -t "nuanced-lsp-ruby-sorbet-${version}:${TAG}" . > /tmp/build-ruby-sorbet-${version}-local.log 2>&1
+                echo -e "${BLUE}Loading nuanced-lsp-ruby-sorbet-${version}:${LANGUAGE_TAG} (local platform)...${NC}"
+                docker buildx build --load $CACHE_FLAG -f "$dockerfile" -t "nuanced-lsp-ruby-sorbet-${version}:${LANGUAGE_TAG}" . > "/tmp/build-ruby-sorbet-${version}-local.log" 2>&1
             fi
         done
 
@@ -642,11 +588,11 @@ elif [ "$MULTIARCH" = true ]; then
     fi
 
     echo -e "${YELLOW}To verify multi-arch builds, use:${NC}"
-    echo -e "  docker buildx imagetools inspect nuanced-lsp-<language>:${TAG}"
+    echo -e "  docker buildx imagetools inspect nuanced-lsp-<language>:${LANGUAGE_TAG}"
     echo
     echo -e "${YELLOW}To publish to registry:${NC}"
-    echo -e "  $0 --multiarch --tag=${TAG} --registry=ghcr"
-    echo -e "  $0 --multiarch --tag=${TAG} --registry=dockerhub"
+    echo -e "  $0 --multiarch --tag=${LANGUAGE_TAG} --registry=ghcr"
+    echo -e "  $0 --multiarch --tag=${LANGUAGE_TAG} --registry=dockerhub"
 else
     echo -e "${BLUE}Container Images (Local):${NC}"
     docker images | grep "nuanced-lsp-" | grep -v -E "(wrapper|proxy|watchdog)" | awk '{printf "  %-40s %10s\n", $1":"$2, $7}'

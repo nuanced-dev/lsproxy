@@ -5,22 +5,19 @@ set -e
 # Start Nuanced LSP proxy with container orchestration
 # Usage: ./scripts/start-proxy.sh [workspace_path] [options]
 
-# Colors
-GREEN='\033[0;32m'
-RED='\033[0;31m'
-BLUE='\033[0;34m'
-YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
+SCRIPT_DIR="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")" && pwd)"
+
+source "$SCRIPT_DIR/include/colors.sh"
+
+DEFAULT_RUST_TAG="$("$SCRIPT_DIR/util/rust-image-version.sh")"
 
 # Default values
+RUST_TAG="${RUST_IMAGE_VERSION:-$DEFAULT_RUST_TAG}"
 WORKSPACE_PATH="${1:-sample_project/all}"
 USE_AUTH=false
 PORT=4444
 DETACHED=true
 TAIL_LOGS=false
-
-# Use RUST_IMAGE_VERSION from environment, default to "latest"
-RUST_VERSION="${RUST_IMAGE_VERSION:-latest}"
 
 # Parse options
 shift || true
@@ -116,8 +113,8 @@ DOCKER_RUN_CMD="$DOCKER_RUN_CMD \
     -v /var/run/docker.sock:/var/run/docker.sock \
     -v \"${WORKSPACE_PATH}:/mnt/workspace\" \
     -e RUST_LOG=info,nuanced_lsp_proxy=debug,proxy=debug,nuanced_lsp_wrapper=debug,wrapper=debug \
-    -e WRAPPER_IMAGE=nuanced-lsp-wrapper:${RUST_VERSION} \
-    -e WATCHDOG_IMAGE=nuanced-lsp-watchdog:${RUST_VERSION} \
+    -e WRAPPER_IMAGE=nuanced-lsp-wrapper:${RUST_TAG} \
+    -e WATCHDOG_IMAGE=nuanced-lsp-watchdog:${RUST_TAG} \
     -e NUANCED_LSP_MAX_MEMORY=8192"
 
 if [ "$USE_AUTH" = false ]; then
@@ -129,7 +126,7 @@ if [ -n "$ENABLED_LANGUAGES" ]; then
     DOCKER_RUN_CMD="$DOCKER_RUN_CMD -e ENABLED_LANGUAGES=\"${ENABLED_LANGUAGES}\""
 fi
 
-DOCKER_RUN_CMD="$DOCKER_RUN_CMD nuanced-lsp-proxy:${RUST_VERSION}"
+DOCKER_RUN_CMD="$DOCKER_RUN_CMD nuanced-lsp-proxy:${RUST_TAG}"
 
 # Start the service
 echo -e "${BLUE}Starting service container...${NC}"

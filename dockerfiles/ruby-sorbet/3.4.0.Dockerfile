@@ -1,8 +1,8 @@
 # Ruby Sorbet 3.4.0 LSP server container
 # Builds on top of the Ruby 3.4.0 image and adds sorbet gem
 
-ARG RUBY_BASE_IMAGE=nuanced-lsp-ruby-3.4.0:1.0.0
-FROM ${RUBY_BASE_IMAGE}
+ARG LANGUAGE_IMAGE_VERSION="missing-build-arg-LANGUAGE_IMAGE_VERSION"
+FROM nuanced-lsp-ruby-3.4.0:${LANGUAGE_IMAGE_VERSION}
 
 ENV DEBIAN_FRONTEND=noninteractive
 

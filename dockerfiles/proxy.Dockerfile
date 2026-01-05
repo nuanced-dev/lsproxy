@@ -8,6 +8,11 @@ ARG BUILDARCH
 ARG TARGETPLATFORM
 ARG TARGETARCH
 
+ARG RUST_IMAGE_VERSION
+RUN test -n "$RUST_IMAGE_VERSION" || (echo "Missing required build argument RUST_IMAGE_VERSION" ; false)
+ARG LANGUAGE_IMAGE_VERSION
+RUN test -n "$LANGUAGE_IMAGE_VERSION" || (echo "Missing required build argument LANGUAGE_IMAGE_VERSION" ; false)
+
 # Set up cross-compilation tools and target based on build/target platform
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \

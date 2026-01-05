@@ -35,11 +35,11 @@ CONFIG_JSON="$ROOT_DIR/config/version.json"
 validate_all_versions
 
 echo "📌 Release versions:"
-echo "   lsp-version:                $LSP_VERSION"
-echo "   lsp-proxy-version:          $LSP_PROXY_VERSION"
-echo "   lsp-wrapper-version:        $LSP_WRAPPER_VERSION"
-echo "   lsp-watchdog-version:       $LSP_WATCHDOG_VERSION"
-echo "   language-container-version: $LANGUAGE_IMAGE_VERSION"
+echo "   lsp-version:            $LSP_VERSION"
+echo "   proxy-image-version:    $PROXY_IMAGE_VERSION"
+echo "   wrapper-image-version:  $WRAPPER_IMAGE_VERSION"
+echo "   watchdog-image-version: $WATCHDOG_IMAGE_VERSION"
+echo "   language-image-version: $LANGUAGE_IMAGE_VERSION"
 
 # Build (this updates package.json version and generates version.ts)
 echo "🔨 Running build..."

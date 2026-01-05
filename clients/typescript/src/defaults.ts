@@ -1,7 +1,7 @@
 import {
-  DEFAULT_PROXY_IMAGE as GENERATED_PROXY_IMAGE,
-  DEFAULT_WATCHDOG_IMAGE as GENERATED_WATCHDOG_IMAGE,
-  DEFAULT_WRAPPER_IMAGE as GENERATED_WRAPPER_IMAGE,
+  DEFAULT_PROXY_IMAGE,
+  DEFAULT_WATCHDOG_IMAGE,
+  DEFAULT_WRAPPER_IMAGE,
 } from "./__generated/version.js";
 
 // DEFAULT_BIND_HOST is the default host address to which the LSProxy container binds.
@@ -27,7 +27,7 @@ export const DEFAULT_HOST_URL = "http://127.0.0.1";
 export const DEFAULT_MOUNT_DIR = "/mnt/workspace";
 
 // DEFAULT_PROXY_IMAGE is the nuanced-lsp-proxy image computed from the package version.
-export const DEFAULT_PROXY_IMAGE = GENERATED_PROXY_IMAGE;
+export { DEFAULT_PROXY_IMAGE };
 
 // DEFAULT_RETRIES is the number of retries a client will attempt HTTP requests to the LSProxy container before returning a result or error.
 export const DEFAULT_RETRIES = 5;
@@ -36,7 +36,7 @@ export const DEFAULT_RETRIES = 5;
 export const DEFAULT_TIMEOUT_SECS = 120;
 
 // DEFAULT_WATCHDOG_IMAGE is the nuanced-lsp-watchdog image computed from the package version.
-export const DEFAULT_WATCHDOG_IMAGE = GENERATED_WATCHDOG_IMAGE;
+export { DEFAULT_WATCHDOG_IMAGE };
 
 // DEFAULT_WRAPPER_IMAGE is the nuanced-lsp-wrapper image computed from the package version.
-export const DEFAULT_WRAPPER_IMAGE = GENERATED_WRAPPER_IMAGE;
+export { DEFAULT_WRAPPER_IMAGE };
