@@ -19,9 +19,12 @@ help() {
     echo ""
     echo "Options:"
     echo "  --cache=MODE          Docker build cache mode: none, docker, gha (default: none)"
-    echo "                        - none: disable all caching (--no-cache)"
+    echo "                        - none: disable all caching"
     echo "                        - docker: use default Docker layer caching"
-    echo "                        - gha: use GitHub Actions cache backend"
+    echo "                        - gha: build without Docker cache to ensure fresh Docker layers,"
+    echo "                               but use GitHub Actions cache backend for BuildKit cache"
+    echo "                               mounts (Cargo registry and build artifacts). This gives us"
+    echo "                               reproducible builds while still caching Rust compilation."
     echo "  --multiarch           Build for both linux/amd64 and linux/arm64 (default: local platform only)"
     echo "  --load                Load local platform into Docker (use with --multiarch)"
     echo "  --tag=TAG             Tag images with specified tag (default: $DEFAULT_RUST_TAG)"
@@ -190,18 +193,6 @@ else
     echo -e "${BLUE}  Building Rust Containers (Local Platform)${NC}"
     echo -e "${BLUE}  Cache: $CACHE_MODE | Parallel: $PARALLEL${NC}"
     echo -e "${BLUE}=========================================${NC}"
-    echo
-
-    # Step 0: Build Rust binaries first (only for single-arch local builds)
-    echo -e "${YELLOW}Step 0: Building Rust binaries${NC}"
-    echo -e "${BLUE}Running cargo build --release...${NC}"
-    if cargo build --release 2>&1 | tee /tmp/cargo-build.log | tail -5; then
-        echo -e "${GREEN}✓ Rust binaries built successfully${NC}"
-    else
-        echo -e "${RED}✗ Failed to build Rust binaries${NC}"
-        tail -20 /tmp/cargo-build.log
-        exit 1
-    fi
     echo
 fi
 

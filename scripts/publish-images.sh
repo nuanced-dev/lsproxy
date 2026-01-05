@@ -159,56 +159,43 @@ publish_image() {
 
     echo -e "${BLUE}Publishing ${local_image}...${NC}"
 
-    # Check if local image exists with the version tag first, then try :latest
     local source_tag=""
     if docker image inspect "${local_image}:${version}" > /dev/null 2>&1; then
         source_tag="${local_image}:${version}"
-    elif docker image inspect "${local_image}:latest" > /dev/null 2>&1; then
-        source_tag="${local_image}:latest"
     else
-        echo -e "${RED}✗ Local image ${local_image} not found with :${version} or :latest tag. Please build it first.${NC}"
+        echo -e "${RED}✗ Local image ${local_image} not found with :${version} tag. Please build it first.${NC}"
         return 1
     fi
 
     # Publish to GHCR if enabled
     if [ "$PUBLISH_TO_GHCR" = true ]; then
         local ghcr_version_tag="${GHCR_REGISTRY}/${remote_base}:${version}"
-        local ghcr_latest_tag="${GHCR_REGISTRY}/${remote_base}:latest"
 
         if [ "$DRY_RUN" = true ]; then
             echo -e "${YELLOW}[DRY RUN] Would tag: ${source_tag} → ${ghcr_version_tag}${NC}"
-            echo -e "${YELLOW}[DRY RUN] Would tag: ${source_tag} → ${ghcr_latest_tag}${NC}"
             echo -e "${YELLOW}[DRY RUN] Would push: ${ghcr_version_tag}${NC}"
-            echo -e "${YELLOW}[DRY RUN] Would push: ${ghcr_latest_tag}${NC}"
         else
             docker tag "$source_tag" "$ghcr_version_tag"
-            docker tag "$source_tag" "$ghcr_latest_tag"
 
             docker push "$ghcr_version_tag"
-            docker push "$ghcr_latest_tag"
 
-            echo -e "${GREEN}✓ Published to GHCR: ${remote_base}:${version} and :latest${NC}"
+            echo -e "${GREEN}✓ Published to GHCR: ${remote_base}:${version}${NC}"
         fi
     fi
 
     # Publish to Docker Hub if enabled
     if [ "$PUBLISH_TO_DOCKERHUB" = true ]; then
         local dockerhub_version_tag="${DOCKERHUB_REGISTRY}/${remote_base}:${version}"
-        local dockerhub_latest_tag="${DOCKERHUB_REGISTRY}/${remote_base}:latest"
 
         if [ "$DRY_RUN" = true ]; then
             echo -e "${YELLOW}[DRY RUN] Would tag: ${source_tag} → ${dockerhub_version_tag}${NC}"
-            echo -e "${YELLOW}[DRY RUN] Would tag: ${source_tag} → ${dockerhub_latest_tag}${NC}"
             echo -e "${YELLOW}[DRY RUN] Would push: ${dockerhub_version_tag}${NC}"
-            echo -e "${YELLOW}[DRY RUN] Would push: ${dockerhub_latest_tag}${NC}"
         else
             docker tag "$source_tag" "$dockerhub_version_tag"
-            docker tag "$source_tag" "$dockerhub_latest_tag"
 
             docker push "$dockerhub_version_tag"
-            docker push "$dockerhub_latest_tag"
 
-            echo -e "${GREEN}✓ Published to Docker Hub: ${remote_base}:${version} and :latest${NC}"
+            echo -e "${GREEN}✓ Published to Docker Hub: ${remote_base}:${version}${NC}"
         fi
     fi
 
