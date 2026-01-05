@@ -387,6 +387,28 @@ impl ContainerOrchestrator {
         const MAX_BACKOFF_SECS: u64 = 15;
 
         loop {
+            // Check container status before attempting health check
+            match self.docker.inspect_container(&info.container_id, None).await {
+                Ok(details) => {
+                    if let Some(state) = &details.state {
+                        if !state.running.unwrap_or(false) {
+                            let exit_code = state.exit_code.unwrap_or(-1);
+                            let error_msg = state.error.as_deref().unwrap_or("");
+                            return Err(OrchestratorError::HealthCheck(format!(
+                                "Container {} exited with code {}: {}",
+                                info.image_name, exit_code, error_msg
+                            )));
+                        }
+                    }
+                }
+                Err(e) => {
+                    return Err(OrchestratorError::HealthCheck(format!(
+                        "Failed to inspect container {}: {}",
+                        info.image_name, e
+                    )));
+                }
+            }
+
             match client
                 .get(&health_url)
                 .timeout(Duration::from_secs(2))
