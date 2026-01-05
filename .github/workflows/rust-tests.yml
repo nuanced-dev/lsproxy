@@ -22,7 +22,7 @@ jobs:
       - uses: docker/setup-buildx-action@v3
 
       - name: Build Rust images
-        run: ./scripts/build-rust-images.sh --cache=gha
+        run: ./scripts/build-rust-images.sh --cache=gha --sequential
 
       - name: Export images
         run: |
