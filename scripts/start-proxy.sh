@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
 
-set -e
+set -eu
 
 # Start Nuanced LSP proxy with container orchestration
-# Usage: ./scripts/start-proxy.sh [workspace_path] [options]
 
 SCRIPT_DIR="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")" && pwd)"
 
@@ -13,14 +12,33 @@ DEFAULT_RUST_TAG="$("$SCRIPT_DIR/util/rust-image-version.sh")"
 
 # Default values
 RUST_TAG="$DEFAULT_RUST_TAG"
-WORKSPACE_PATH="${1:-sample_project/all}"
+WORKSPACE_PATH=
 USE_AUTH=false
 PORT=4444
 DETACHED=true
 TAIL_LOGS=false
 
+usage() {
+    echo "Usage: $0 [options] <workspace_path>"
+}
+
+help() {
+    usage
+    echo ""
+    echo "Options:"
+    echo "  --auth              Enable JWT authentication"
+    echo "  --port PORT         Use custom port (default: 4444)"
+    echo "  --foreground, -f    Run in foreground (not detached)"
+    echo "  --logs, -l          Tail logs after starting"
+    echo "  --help, -h          Show this help"
+    echo ""
+    echo "Examples:"
+    echo "  $0 sample_project/python              # Start with Python workspace"
+    echo "  $0 sample_project/all --logs          # Start and tail logs"
+    echo "  $0 /path/to/workspace --port 5000     # Custom port"
+}
+
 # Parse options
-shift || true
 while [[ $# -gt 0 ]]; do
     case $1 in
         --auth)
@@ -40,30 +58,26 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
         --help|-h)
-            echo "Usage: $0 [workspace_path] [options]"
-            echo ""
-            echo "Options:"
-            echo "  --auth              Enable JWT authentication"
-            echo "  --port PORT         Use custom port (default: 4444)"
-            echo "  --foreground, -f    Run in foreground (not detached)"
-            echo "  --logs, -l          Tail logs after starting"
-            echo "  --help, -h          Show this help"
-            echo ""
-            echo "Examples:"
-            echo "  $0                                    # Start with default workspace"
-            echo "  $0 sample_project/python              # Start with Python workspace"
-            echo "  $0 sample_project/all --logs          # Start and tail logs"
-            echo "  $0 /path/to/workspace --port 5000     # Custom port"
+            help
             exit 0
             ;;
-        *)
+        -*)
             echo -e "${RED}Unknown option: $1${NC}"
             exit 1
+            ;;
+        *)
+            WORKSPACE_PATH="$1"
+            shift
             ;;
     esac
 done
 
-# Verify workspace exists
+# Verify workspace argument
+if [ -z "$WORKSPACE_PATH" ]; then
+    echo -e "${RED}Error: Workspace directory missing${NC}"
+    usage
+    exit 1
+fi
 if [ ! -d "$WORKSPACE_PATH" ]; then
     echo -e "${RED}Error: Workspace directory not found: $WORKSPACE_PATH${NC}"
     exit 1

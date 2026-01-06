@@ -1,16 +1,15 @@
 #!/usr/bin/env bash
 
-set -e
+set -eu
 
 # Comprehensive Nuanced LSP test script that validates all endpoints for all languages
 #
 # This script automatically starts Nuanced LSP if it's not already running.
 # If the service is already running, it uses the existing containers.
 #
-# Usage: ./scripts/test-all-endpoints.sh [workspace_path] [--no-cleanup]
+# Usage: ./scripts/test-all-endpoints.sh [--no-cleanup]
 #
 # Arguments:
-#   workspace_path  Path to workspace (default: sample_project/all)
 #   --no-cleanup    Don't stop containers after tests (useful for debugging)
 #
 # Behavior:
@@ -24,14 +23,22 @@ source "$SCRIPT_DIR/include/colors.sh"
 
 # Configuration
 BASE_URL="${BASE_URL:-http://localhost:4444/v1}"
-WORKSPACE_PATH="${1:-sample_project/all}"
+WORKSPACE_PATH="$(cd "$SCRIPTDIR/../sample_project/all" && pwd)"
 CLEANUP_ON_EXIT=true
 
 # Parse options
-if [ "$2" = "--no-cleanup" ] || [ "$1" = "--no-cleanup" ]; then
-    CLEANUP_ON_EXIT=false
-    WORKSPACE_PATH="${WORKSPACE_PATH:-sample_project/all}"
-fi
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --no-cleanup)
+            CLEANUP_ON_EXIT=false
+            shift
+            ;;
+        *)
+            echo -e "${RED}Unknown option: $1${NC}"
+            exit 1
+            ;;
+    esac
+done
 
 # Counters
 TOTAL_TESTS=0

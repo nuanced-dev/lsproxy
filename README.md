@@ -443,28 +443,28 @@ docker rm -f nuanced-lsp-proxy
 **Examples:**
 ```bash
 # Only spawn Python and TypeScript containers
-ENABLED_LANGUAGES="python,typescript" ./scripts/start-proxy.sh
+ENABLED_LANGUAGES="python,typescript" ./scripts/start-proxy.sh sample_project/all
 
 # Using language aliases
-ENABLED_LANGUAGES="go,cpp" ./scripts/start-proxy.sh
+ENABLED_LANGUAGES="go,cpp" ./scripts/start-proxy.sh sample_project/all
 
 # Case-insensitive with spaces
-ENABLED_LANGUAGES="Python, TypeScript, Rust" ./scripts/start-proxy.sh
+ENABLED_LANGUAGES="Python, TypeScript, Rust" ./scripts/start-proxy.sh sample_project/all
 
 # Set memory limit to 8GB per container
-NUANCED_LSP_MAX_MEMORY=8192 ./scripts/start-proxy.sh
+NUANCED_LSP_MAX_MEMORY=8192 ./scripts/start-proxy.sh sample_project/all
 
 # Combine environment variables
-ENABLED_LANGUAGES="go" NUANCED_LSP_MAX_MEMORY=16384 ./scripts/start-proxy.sh
+ENABLED_LANGUAGES="go" NUANCED_LSP_MAX_MEMORY=16384 ./scripts/start-proxy.sh sample_project/all
 
 # Without ENABLED_LANGUAGES, all detected languages spawn (default)
-./scripts/start-proxy.sh
+./scripts/start-proxy.sh sample_project/all
 
 # Use specific Docker image versions (for testing or CI/CD)
-RUST_IMAGE_VERSION=dev LANGUAGE_IMAGE_VERSION=1.0.0 ./scripts/test.sh
+RUST_IMAGE_VERSION=dev LANGUAGE_IMAGE_VERSION=1.0.0 ./scripts/test.sh sample_project/all
 
 # Test with production versions
-RUST_IMAGE_VERSION=0.4.9 LANGUAGE_IMAGE_VERSION=1.0.0 ./scripts/test.sh
+RUST_IMAGE_VERSION=0.4.9 LANGUAGE_IMAGE_VERSION=1.0.0 ./scripts/test.sh sample_project/all
 ```
 
 ### Supported languages and LSP image sizes

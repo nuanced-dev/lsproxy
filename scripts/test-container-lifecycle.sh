@@ -3,7 +3,7 @@
 set -eu
 
 # Test container lifecycle: build, run, health check, cleanup
-# Usage: ./scripts/test-container-lifecycle.sh [workspace_path]
+# Usage: ./scripts/test-container-lifecycle.sh
 
 SCRIPT_DIR="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")" && pwd)"
 
@@ -12,8 +12,7 @@ source "$SCRIPT_DIR/include/colors.sh"
 DEFAULT_RUST_TAG="$("$SCRIPT_DIR/util/rust-image-version.sh")"
 
 RUST_TAG="$DEFAULT_RUST_TAG"
-WORKSPACE_PATH="${1:-sample_project/python}"
-WORKSPACE_PATH="$(cd "$WORKSPACE_PATH" && pwd)"
+WORKSPACE_PATH="$(cd "$SCRIPTDIR/../sample_project/python" && pwd)"
 SERVICE_NAME="nuanced-lsp-proxy-$(uuidgen | tr 'A-Z' 'a-z' | cut -c1-12)"
 
 # Flag to track if we started containers
