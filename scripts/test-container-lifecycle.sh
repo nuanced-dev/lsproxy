@@ -12,7 +12,7 @@ source "$SCRIPT_DIR/include/colors.sh"
 DEFAULT_RUST_TAG="$("$SCRIPT_DIR/util/rust-image-version.sh")"
 
 RUST_TAG="$DEFAULT_RUST_TAG"
-WORKSPACE_PATH="$(cd "$SCRIPTDIR/../sample_project/python" && pwd)"
+WORKSPACE_PATH="$(cd "$SCRIPT_DIR/../sample_project/python" && pwd)"
 SERVICE_NAME="nuanced-lsp-proxy-$(uuidgen | tr 'A-Z' 'a-z' | cut -c1-12)"
 
 # Flag to track if we started containers

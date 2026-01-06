@@ -12,7 +12,7 @@ source "$SCRIPT_DIR/include/colors.sh"
 DEFAULT_RUST_TAG="$("$SCRIPT_DIR/util/rust-image-version.sh")"
 
 RUST_TAG="$DEFAULT_RUST_TAG"
-WORKSPACE_PATH="$(cd "$SCRIPTDIR/../sample_project/python" && pwd)"
+WORKSPACE_PATH="$(cd "$SCRIPT_DIR/../sample_project/python" && pwd)"
 
 echo -e "${BLUE}=========================================${NC}"
 echo -e "${BLUE}  Watchdog Functionality Tests${NC}"

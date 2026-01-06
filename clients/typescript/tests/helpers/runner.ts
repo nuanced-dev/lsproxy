@@ -334,15 +334,35 @@ export class ClientRunner {
     }
   }
 
-  private pendingLanguages(
+  private checkLanguages(
+    languageStatus: Record<string, unknown> | undefined,
     languages: Record<string, unknown> | undefined,
-  ): string[] {
-    if (!languages || typeof languages !== "object") {
-      return ["<languages-unreported>"];
+  ): [pending: string[], failed: string[]] {
+    if (languageStatus && typeof languageStatus === "object") {
+      const pending: string[] = [];
+      const failed: string[] = [];
+      for (const [key, value] of Object.entries(languageStatus)) {
+        if (value === "unhealthy") {
+          failed.push(key);
+        } else if (value !== "healthy") {
+          pending.push(key);
+        }
+      }
+      return [pending, failed];
     }
-    return Object.entries(languages)
-      .filter(([, value]) => value !== true)
-      .map(([key]) => key);
+
+    // Fall back to legacy languages boolean field
+    if (languages && typeof languages === "object") {
+      const pending: string[] = [];
+      for (const [key, value] of Object.entries(languages)) {
+        if (value !== true) {
+          pending.push(key);
+        }
+      }
+      return [pending, []];
+    }
+
+    return [["<languages-unreported>"], []];
   }
 
   private checkHealthOnce(): Record<string, unknown> | null {
@@ -373,13 +393,26 @@ export class ClientRunner {
         lastHealth && typeof lastHealth === "object"
           ? (lastHealth as any).status
           : undefined;
+      const languageStatus =
+        lastHealth &&
+        typeof lastHealth === "object" &&
+        "language_status" in lastHealth
+          ? (lastHealth as any).language_status
+          : undefined;
       const languages =
         lastHealth &&
         typeof lastHealth === "object" &&
         "languages" in lastHealth
           ? (lastHealth as any).languages
           : undefined;
-      const pending = this.pendingLanguages(languages);
+
+      const [pending, failed] = this.checkLanguages(languageStatus, languages);
+
+      if (failed.length > 0) {
+        throw new Error(
+          `Language containers failed to start (unhealthy): ${failed.join(", ")}`,
+        );
+      }
 
       if (status === "ok" && pending.length === 0) {
         this.healthReady = true;
@@ -389,10 +422,14 @@ export class ClientRunner {
       this.sleepSync(1000);
     }
 
-    const pending =
+    const [pending] = this.checkLanguages(
       lastHealth && typeof lastHealth === "object"
-        ? this.pendingLanguages((lastHealth as any).languages)
-        : [];
+        ? (lastHealth as any).language_status
+        : undefined,
+      lastHealth && typeof lastHealth === "object"
+        ? (lastHealth as any).languages
+        : undefined,
+    );
     const pendingList = pending.length > 0 ? pending.join(", ") : "unknown";
     throw new Error(
       `Service did not become healthy within ${this.timeoutSeconds}s (pending languages: ${pendingList})`,

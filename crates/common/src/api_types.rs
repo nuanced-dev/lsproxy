@@ -58,8 +58,38 @@ pub struct HealthResponse {
     pub status: String,
     /// Version of the service
     pub version: String,
-    /// Map of supported languages and whether they are currently available
+    /// Map of supported languages and whether they are currently available (healthy)
     pub languages: HashMap<SupportedLanguages, bool>,
+    /// Map of supported languages and their detailed health status
+    pub language_status: HashMap<SupportedLanguages, HealthStatus>,
+}
+
+/// Health status of a language container
+///
+/// Represents the current state of a language server container:
+/// - Pending: Container started but not yet responsive
+/// - Healthy: Container is responsive and ready to handle requests
+/// - Unhealthy: Container failed to start or crashed
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum HealthStatus {
+    /// Container started but health check not yet passed
+    #[default]
+    Pending,
+    /// Container is responsive and ready
+    Healthy,
+    /// Container failed health check or exited
+    Unhealthy,
+}
+
+impl fmt::Display for HealthStatus {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            HealthStatus::Pending => write!(f, "pending"),
+            HealthStatus::Healthy => write!(f, "healthy"),
+            HealthStatus::Unhealthy => write!(f, "unhealthy"),
+        }
+    }
 }
 
 /// Language version string (e.g., "3.4.4" for Ruby, "3.12" for Python)

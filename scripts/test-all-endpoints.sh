@@ -23,7 +23,7 @@ source "$SCRIPT_DIR/include/colors.sh"
 
 # Configuration
 BASE_URL="${BASE_URL:-http://localhost:4444/v1}"
-WORKSPACE_PATH="$(cd "$SCRIPTDIR/../sample_project/all" && pwd)"
+WORKSPACE_PATH="$(cd "$SCRIPT_DIR/../sample_project/all" && pwd)"
 CLEANUP_ON_EXIT=true
 
 # Parse options

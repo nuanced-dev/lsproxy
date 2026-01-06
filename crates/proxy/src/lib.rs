@@ -42,7 +42,7 @@ pub fn check_mount_dir() -> std::io::Result<()> {
 #[openapi(
     info(
         title = "nuanced-lsp",
-        version = "0.2.1",
+        version = env!("CARGO_PKG_VERSION"),
         license(
             name = "Apache-2.0",
             url = "https://www.apache.org/licenses/LICENSE-2.0"

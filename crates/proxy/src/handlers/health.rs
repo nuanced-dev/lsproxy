@@ -1,7 +1,7 @@
 use crate::AppState;
 use actix_web::web::Data;
 use actix_web::HttpResponse;
-use common::api_types::HealthResponse;
+use common::api_types::{HealthResponse, HealthStatus};
 use std::collections::HashMap;
 
 use crate::container::ContainerHealthStatus;
@@ -29,6 +29,7 @@ pub async fn health_check(data: Data<AppState>) -> HttpResponse {
             status: "initializing".to_string(),
             version: VERSION.to_string(),
             languages: HashMap::new(),
+            language_status: HashMap::new(),
         });
     }
 
@@ -36,18 +37,24 @@ pub async fn health_check(data: Data<AppState>) -> HttpResponse {
     let running_containers = data.orchestrator.all_containers().await;
 
     let mut languages = HashMap::new();
+    let mut language_status = HashMap::new();
     for (lang, _info) in running_containers {
-        let healthy = match data.orchestrator.get_container_health(&lang).await {
-            Some(ContainerHealthStatus::Healthy) => true,
-            // Treat pending/unhealthy/unknown as not ready yet
-            _ => false,
+        let status = match data.orchestrator.get_container_health(&lang).await {
+            Some(ContainerHealthStatus::Healthy) => HealthStatus::Healthy,
+            Some(ContainerHealthStatus::Pending) => HealthStatus::Pending,
+            Some(ContainerHealthStatus::Unhealthy) => HealthStatus::Unhealthy,
+            None => HealthStatus::Pending,
         };
-        languages.insert(lang, healthy);
+        // Backward compatible bool: true only if healthy
+        let available = status == HealthStatus::Healthy;
+        languages.insert(lang.clone(), available);
+        language_status.insert(lang, status);
     }
 
     HttpResponse::Ok().json(HealthResponse {
         status: "ok".to_string(),
         version: VERSION.to_string(),
         languages,
+        language_status,
     })
 }
