@@ -213,7 +213,7 @@ impl ContainerOrchestrator {
     }
 
     /// Mark health status for a container
-    pub async fn set_container_health(
+    async fn set_language_health(
         &self,
         language: SupportedLanguages,
         status: ContainerHealthStatus,
@@ -222,17 +222,11 @@ impl ContainerOrchestrator {
         guard.insert(language, status);
     }
 
-    /// Get health status for a container if known
-    pub async fn get_container_health(
+    /// Get all languages with tracked health status
+    pub async fn get_all_languages_health(
         &self,
-        language: &SupportedLanguages,
-    ) -> Option<ContainerHealthStatus> {
-        self.container_health.lock().await.get(language).copied()
-    }
-
-    /// Remove health tracking for a container
-    pub async fn remove_container_health(&self, language: &SupportedLanguages) {
-        self.container_health.lock().await.remove(language);
+    ) -> HashMap<SupportedLanguages, ContainerHealthStatus> {
+        self.container_health.lock().await.clone()
     }
 
     /// Get the short-form identifier used for labels/names (12 chars)
@@ -500,8 +494,8 @@ impl ContainerOrchestrator {
         // Wait for all spawns to complete
         let results = futures::future::join_all(spawn_futures).await;
 
-        // Check results and spawn background health checks
-        let mut any_errors = false;
+        // Check results - log successes and failures but always complete initialization
+        // Individual container failures are tracked in health status and reported via health endpoint
         for (language, result) in results {
             match result {
                 Ok(info) => {
@@ -513,17 +507,12 @@ impl ContainerOrchestrator {
                 }
                 Err(e) => {
                     log::error!("Failed to spawn container for {:?}: {}", language, e);
-                    any_errors = true;
                 }
             }
         }
 
-        if any_errors {
-            return Err(OrchestratorError::Configuration(
-                "One or more language containers failed to spawn".to_string(),
-            ));
-        }
-
+        // Always complete initialization successfully
+        // Clients can check individual language health via the health endpoint's language_status field
         Ok(())
     }
 

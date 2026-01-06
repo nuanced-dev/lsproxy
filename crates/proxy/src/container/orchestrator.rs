@@ -62,6 +62,27 @@ impl ContainerOrchestrator {
             }
         }
 
+        // Set health status to Pending at the start of spawn attempt
+        self.set_language_health(language.clone(), ContainerHealthStatus::Pending)
+            .await;
+
+        // Call implementation and handle health status updates
+        match self.spawn_container_impl(language.clone()).await {
+            Ok(info) => Ok(info),
+            Err(e) => {
+                self.set_language_health(language, ContainerHealthStatus::Unhealthy)
+                    .await;
+                Err(e)
+            }
+        }
+    }
+
+    /// Internal implementation of container spawning
+    /// All errors are handled by the wrapper `spawn_container` method
+    async fn spawn_container_impl(
+        &self,
+        language: SupportedLanguages,
+    ) -> Result<ContainerInfo, OrchestratorError> {
         // Ensure wrapper container is running before spawning language containers
         let wrapper_container_id = self.ensure_wrapper_container().await?;
         log::debug!("Using wrapper container: {}", wrapper_container_id);
@@ -241,12 +262,9 @@ impl ContainerOrchestrator {
 
                         let mut stream = self.docker.create_image(Some(create_options), None, None);
                         while let Some(info) = stream.next().await {
-                            match info {
-                                Ok(_) => {}
-                                Err(e) => {
-                                    log::error!("Failed to pull language image from GHCR: {}", e);
-                                    return Err(e.into());
-                                }
+                            if let Err(e) = info {
+                                log::error!("Failed to pull language image from GHCR: {}", e);
+                                return Err(e.into());
                             }
                         }
 
@@ -328,9 +346,6 @@ impl ContainerOrchestrator {
             let mut containers_guard = self.containers.lock().await;
             containers_guard.insert(language.clone(), info.clone());
         }
-        // Track health as pending until background checks complete
-        self.set_container_health(language.clone(), ContainerHealthStatus::Pending)
-            .await;
         log::info!(
             "Container {} for {:?} started at {}, health checks will run in background",
             container_id,
@@ -341,12 +356,12 @@ impl ContainerOrchestrator {
         match self.check_container_health(&info).await {
             Ok(_) => {
                 log::info!("{} is now healthy and ready", info.image_name);
-                self.set_container_health(language.clone(), ContainerHealthStatus::Healthy)
+                self.set_language_health(language.clone(), ContainerHealthStatus::Healthy)
                     .await;
             }
             Err(e) => {
                 log::error!("{} health check failed: {}", info.image_name, e);
-                self.set_container_health(language.clone(), ContainerHealthStatus::Unhealthy)
+                self.set_language_health(language.clone(), ContainerHealthStatus::Unhealthy)
                     .await;
                 return Err(OrchestratorError::HealthCheck(format!(
                     "{}: {}",
@@ -388,7 +403,11 @@ impl ContainerOrchestrator {
 
         loop {
             // Check container status before attempting health check
-            match self.docker.inspect_container(&info.container_id, None).await {
+            match self
+                .docker
+                .inspect_container(&info.container_id, None)
+                .await
+            {
                 Ok(details) => {
                     if let Some(state) = &details.state {
                         if !state.running.unwrap_or(false) {

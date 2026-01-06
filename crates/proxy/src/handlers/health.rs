@@ -33,17 +33,17 @@ pub async fn health_check(data: Data<AppState>) -> HttpResponse {
         });
     }
 
-    // Get all currently running containers from the orchestrator
-    let running_containers = data.orchestrator.all_containers().await;
+    // Get all languages with tracked health status
+    // This includes both successfully spawned containers and those that failed to spawn
+    let all_health_statuses = data.orchestrator.get_all_languages_health().await;
 
     let mut languages = HashMap::new();
     let mut language_status = HashMap::new();
-    for (lang, _info) in running_containers {
-        let status = match data.orchestrator.get_container_health(&lang).await {
-            Some(ContainerHealthStatus::Healthy) => HealthStatus::Healthy,
-            Some(ContainerHealthStatus::Pending) => HealthStatus::Pending,
-            Some(ContainerHealthStatus::Unhealthy) => HealthStatus::Unhealthy,
-            None => HealthStatus::Pending,
+    for (lang, health_status) in all_health_statuses {
+        let status = match health_status {
+            ContainerHealthStatus::Healthy => HealthStatus::Healthy,
+            ContainerHealthStatus::Pending => HealthStatus::Pending,
+            ContainerHealthStatus::Unhealthy => HealthStatus::Unhealthy,
         };
         // Backward compatible bool: true only if healthy
         let available = status == HealthStatus::Healthy;

@@ -15,7 +15,9 @@ usage() {
 }
 
 help() {
-    usage
+    echo "Build language server containers (Python, TypeScript, Rust, Go, Java, C++, C#, PHP, Ruby variants)"
+    echo ""
+    echo "Usage: $0 [options]"
     echo ""
     echo "Options:"
     echo "  --use-cache           Enable Docker build cache (default: disabled)"
@@ -23,7 +25,7 @@ help() {
     echo "  --jobs=N, -j=N        Max parallel builds (default: 4, prevents Docker daemon overload)"
     echo "  --multiarch           Build for both amd64 and arm64 (default: local platform only)"
     echo "  --load                Also build and load local platform into Docker (use with --multiarch)"
-    echo "  --tag=TAG             Tag images with specified semver tag (default: $DEFAULT_LANGUAGE_TAG)"
+    echo "  --language-tag=TAG    Tag images with specified semver tag (default: $DEFAULT_LANGUAGE_TAG)"
     echo "                        Language containers use semver (e.g., 1.0.0) for API compatibility"
     echo "  --registry=REGISTRY   Push to registry: ghcr, dockerhub, local (required for multi-arch Sorbet) (default: no push)"
     echo "  --language=LANG       Build specific language(s) - comma-separated (python,typescript,ruby,ruby-sorbet)"
@@ -43,11 +45,11 @@ help() {
     echo "Available languages: python, typescript, rust, golang, java, clangd, csharp, php, ruby, ruby-sorbet"
     echo ""
     echo "Examples:"
-    echo "  $0 --tag=1.0.0"
-    echo "  $0 --multiarch --tag=1.0.0 --registry=ghcr"
+    echo "  $0 --language-tag=1.0.0"
+    echo "  $0 --multiarch --language-tag=1.0.0 --registry=ghcr"
     echo "  $0 --jobs=8"
-    echo "  $0 --language=python --multiarch --tag=1.0.0 --registry=ghcr"
-    echo "  $0 --language=ruby,ruby-sorbet --tag=1.0.0"
+    echo "  $0 --language=python --multiarch --language-tag=1.0.0 --registry=ghcr"
+    echo "  $0 --language=ruby,ruby-sorbet --language-tag=1.0.0"
 }
 
 # Defaults
@@ -55,11 +57,10 @@ PARALLEL=true
 USE_CACHE=false
 MULTIARCH=false
 LOAD_LOCAL=false
-LANGUAGE_TAG="$DEFAULT_LANGUAGE_TAG"
+LANGUAGE_TAG=""
 REGISTRY=""         # Options: ghcr, dockerhub, local, or empty for no push
 FILTER_LANGUAGES=   # Empty = build all, otherwise comma-separated list: python,typescript,ruby,ruby-sorbet
 MAX_JOBS=4
-
 
 # Parse arguments
 for arg in "$@"; do
@@ -80,7 +81,7 @@ for arg in "$@"; do
         --load)
             LOAD_LOCAL=true
             ;;
-        --tag=*)
+        --language-tag=*)
             LANGUAGE_TAG="${arg#*=}"
             ;;
         --registry=*)
@@ -107,6 +108,9 @@ for arg in "$@"; do
             ;;
     esac
 done
+
+# Fall back to default tags
+LANGUAGE_TAG="${LANGUAGE_TAG:-$DEFAULT_LANGUAGE_TAG}"
 
 # Set cache flag for docker builds
 CACHE_FLAG=""
@@ -143,8 +147,8 @@ if [ -n "$REGISTRY" ]; then
             fi
             # Authenticate to GHCR
             echo -e "${BLUE}Authenticating to ghcr.io...${NC}"
-            echo "$GITHUB_TOKEN" | docker login ghcr.io -u nuanced-dev --password-stdin > /dev/null 2>&1
-            if [ $? -eq 0 ]; then
+            
+            if echo "$GITHUB_TOKEN" | docker login ghcr.io -u nuanced-dev --password-stdin > /dev/null 2>&1; then
                 echo -e "${GREEN}✓ Successfully authenticated to GHCR${NC}"
             else
                 echo -e "${RED}✗ Failed to authenticate to GHCR${NC}"
@@ -164,8 +168,7 @@ if [ -n "$REGISTRY" ]; then
             fi
             # Authenticate to Docker Hub
             echo -e "${BLUE}Authenticating to Docker Hub...${NC}"
-            echo "$DOCKER_HUB_TOKEN" | docker login -u "$DOCKER_HUB_USERNAME" --password-stdin > /dev/null 2>&1
-            if [ $? -eq 0 ]; then
+            if echo "$DOCKER_HUB_TOKEN" | docker login -u "$DOCKER_HUB_USERNAME" --password-stdin > /dev/null 2>&1; then
                 echo -e "${GREEN}✓ Successfully authenticated to Docker Hub${NC}"
             else
                 echo -e "${RED}✗ Failed to authenticate to Docker Hub${NC}"
@@ -221,16 +224,8 @@ LANGUAGES=(
     "php"
 )
 
-# Ruby base images (must be built before Sorbet variants)
-RUBY_VERSIONS=()
 # Build commonly used Ruby versions by default
-echo -e "${YELLOW}Building supported Ruby versions: ${SUPPORTED_RUBY_VERSIONS[*]}${NC}"
 RUBY_VERSIONS=("${SUPPORTED_RUBY_VERSIONS[@]}")
-
-# Ruby Sorbet variants (depend on ruby base images)
-RUBY_SORBET_VERSIONS=()
-# Build commonly used Sorbet versions by default (same as supported Ruby versions)
-echo -e "${YELLOW}Building supported Sorbet versions: ${SUPPORTED_RUBY_VERSIONS[*]}${NC}"
 RUBY_SORBET_VERSIONS=("${SUPPORTED_RUBY_VERSIONS[@]}")
 
 # Filter languages if --language flag was provided
@@ -290,6 +285,10 @@ if [ -n "$FILTER_LANGUAGES" ]; then
         RUBY_SORBET_VERSIONS=()
     fi
 fi
+
+echo -e "${YELLOW}Building languages: ${LANGUAGES[*]}${NC}"
+echo -e "${YELLOW}Building Ruby versions: ${RUBY_VERSIONS[*]}${NC}"
+echo -e "${YELLOW}Building Sorbet versions: ${RUBY_SORBET_VERSIONS[*]}${NC}"
 
 echo -e "${BLUE}=========================================${NC}"
 if [ "$MULTIARCH" = true ]; then
@@ -357,7 +356,8 @@ build_container() {
         elif [ "$MULTIARCH" = true ]; then
             echo -e "${GREEN}✓ ${full_image_tag} built successfully (multi-arch)${NC}"
         else
-            local size=$(docker images "${image_name}:${LANGUAGE_TAG}" --format "{{.Size}}")
+            local size
+            size=$(docker images "${image_name}:${LANGUAGE_TAG}" --format "{{.Size}}")
             echo -e "${GREEN}✓ ${full_image_tag} built successfully ($size)${NC}"
         fi
         return 0
@@ -387,7 +387,7 @@ build_parallel_throttled() {
 
     for item in "${items[@]}"; do
         # Wait if we've hit the max concurrent jobs
-        while [ $running -ge $MAX_JOBS ]; do
+        while [ $running -ge "$MAX_JOBS" ]; do
             # Wait for any job to finish
             for i in "${!pids[@]}"; do
                 if ! kill -0 "${pids[$i]}" 2>/dev/null; then
@@ -583,7 +583,7 @@ elif [ "$MULTIARCH" = true ]; then
         echo -e "${GREEN}✓ Local platform images loaded into Docker${NC}"
         echo
         echo -e "${BLUE}Container Images (Local):${NC}"
-        docker images | grep "nuanced-lsp-" | grep -v -E "(wrapper|proxy|watchdog)" | awk '{printf "  %-40s %10s\n", $1":"$2, $7}'
+        docker images | grep "nuanced-lsp-" | grep -v -E "(wrapper|proxy|watchdog)" | grep -F "$LANGUAGE_TAG" | awk '{printf "  %-40s %10s\n", $1":"$2, $7}'
         echo
     fi
 
@@ -595,8 +595,8 @@ elif [ "$MULTIARCH" = true ]; then
     echo -e "  $0 --multiarch --tag=${LANGUAGE_TAG} --registry=dockerhub"
 else
     echo -e "${BLUE}Container Images (Local):${NC}"
-    docker images | grep "nuanced-lsp-" | grep -v -E "(wrapper|proxy|watchdog)" | awk '{printf "  %-40s %10s\n", $1":"$2, $7}'
+    docker images | grep "nuanced-lsp-" | grep -v -E "(wrapper|proxy|watchdog)" | grep -F "$LANGUAGE_TAG" | awk '{printf "  %-40s %10s\n", $1":"$2, $7}'
     echo
     echo -e "${BLUE}Total size:${NC}"
-    docker images | grep "nuanced-lsp-" | grep -v -E "(wrapper|proxy|watchdog)" | awk '{size+=$7} END {print "  ~" size " (approximate)"}'
+    docker images | grep "nuanced-lsp-" | grep -v -E "(wrapper|proxy|watchdog)" | grep -F "$LANGUAGE_TAG" | awk '{size+=$7} END {print "  ~" size " (approximate)"}'
 fi

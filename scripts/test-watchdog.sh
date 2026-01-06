@@ -2,16 +2,59 @@
 
 set -eu
 
-# Test watchdog container functionality
-# Tests: watchdog spawning, clean shutdown, SIGKILL cleanup, multiple instances
-
 SCRIPT_DIR="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")" && pwd)"
 
 source "$SCRIPT_DIR/include/colors.sh"
 
 DEFAULT_RUST_TAG="$("$SCRIPT_DIR/util/rust-image-version.sh")"
+DEFAULT_LANGUAGE_TAG="$("$SCRIPT_DIR/util/language-image-version.sh")"
 
-RUST_TAG="$DEFAULT_RUST_TAG"
+help() {
+    echo "Test watchdog container functionality"
+    echo ""
+    echo "Usage: $0 [options]"
+    echo ""
+    echo "Options:"
+    echo "  --tag=TAG             Tag of Rust images to use (default: $DEFAULT_RUST_TAG)"
+    echo "  --language-tag=TAG    Tag of language images to use (default: $DEFAULT_LANGUAGE_TAG)"
+    echo "  --help, -h            Show this help"
+    echo ""
+    echo "Tests: watchdog spawning, clean shutdown, SIGKILL cleanup, multiple instances"
+}
+
+# Default values
+RUST_TAG=""
+LANGUAGE_TAG=""
+
+# Parse options
+for arg in "$@"; do
+    case $arg in
+        --tag=*)
+            RUST_TAG="${arg#*=}"
+            ;;
+        --language-tag=*)
+            LANGUAGE_TAG="${arg#*=}"
+            ;;
+        --help|-h)
+            help
+            exit 0
+            ;;
+        *)
+            echo -e "${RED}Unknown option: $arg${NC}"
+            exit 1
+            ;;
+    esac
+done
+
+# Fall back to default tags
+RUST_TAG="${RUST_TAG:-$DEFAULT_RUST_TAG}"
+
+DOCKER_ARGS=()
+if [ -n "$LANGUAGE_TAG" ]; then
+    DOCKER_ARGS+=("-e" "LANGUAGE_IMAGE_VERSION=${LANGUAGE_TAG}")
+fi
+
+# Configuration
 WORKSPACE_PATH="$(cd "$SCRIPT_DIR/../sample_project/python" && pwd)"
 
 echo -e "${BLUE}=========================================${NC}"
@@ -170,7 +213,7 @@ cleanup() {
     fi
 
     echo -e "${GREEN}Cleanup complete${NC}"
-    exit $exit_code
+    exit "$exit_code"
 }
 
 # Register cleanup on exit
@@ -183,6 +226,7 @@ echo
 
 # Start service
 echo -e "${BLUE}Starting service container...${NC}"
+
 docker run -d \
     --name test-watchdog-svc \
     -p 4455:4444 \
@@ -190,9 +234,10 @@ docker run -d \
     -v "$WORKSPACE_PATH:/mnt/workspace" \
     -e RUST_LOG=info,nuanced_lsp_proxy=debug,proxy=debug,nuanced_lsp_wrapper=debug,wrapper=debug \
     -e USE_AUTH=false \
-    -e WRAPPER_IMAGE=nuanced-lsp-wrapper:${RUST_TAG} \
-    -e WATCHDOG_IMAGE=nuanced-lsp-watchdog:${RUST_TAG} \
-    nuanced-lsp-proxy:${RUST_TAG} > /dev/null
+    -e "WRAPPER_IMAGE=nuanced-lsp-wrapper:${RUST_TAG}" \
+    -e "WATCHDOG_IMAGE=nuanced-lsp-watchdog:${RUST_TAG}" \
+    "${DOCKER_ARGS[@]}" \
+    "nuanced-lsp-proxy:${RUST_TAG}" > /dev/null
 
 wait_for_service_ready 4455
 
@@ -260,9 +305,10 @@ docker run -d \
     -v "$WORKSPACE_PATH:/mnt/workspace" \
     -e RUST_LOG=info,nuanced_lsp_proxy=debug,proxy=debug,nuanced_lsp_wrapper=debug,wrapper=debug \
     -e USE_AUTH=false \
-    -e WRAPPER_IMAGE=nuanced-lsp-wrapper:${RUST_TAG} \
-    -e WATCHDOG_IMAGE=nuanced-lsp-watchdog:${RUST_TAG} \
-    nuanced-lsp-proxy:${RUST_TAG} > /dev/null
+    -e "WRAPPER_IMAGE=nuanced-lsp-wrapper:${RUST_TAG}" \
+    -e "WATCHDOG_IMAGE=nuanced-lsp-watchdog:${RUST_TAG}" \
+    "${DOCKER_ARGS[@]}" \
+    "nuanced-lsp-proxy:${RUST_TAG}" > /dev/null
 
 wait_for_service_ready 4456
 
@@ -311,9 +357,10 @@ docker run -d \
     -v "$WORKSPACE_PATH:/mnt/workspace" \
     -e RUST_LOG=info,nuanced_lsp_proxy=debug,proxy=debug,nuanced_lsp_wrapper=debug,wrapper=debug \
     -e USE_AUTH=false \
-    -e WRAPPER_IMAGE=nuanced-lsp-wrapper:${RUST_TAG} \
-    -e WATCHDOG_IMAGE=nuanced-lsp-watchdog:${RUST_TAG} \
-    nuanced-lsp-proxy:${RUST_TAG} > /dev/null
+    -e "WRAPPER_IMAGE=nuanced-lsp-wrapper:${RUST_TAG}" \
+    -e "WATCHDOG_IMAGE=nuanced-lsp-watchdog:${RUST_TAG}" \
+    "${DOCKER_ARGS[@]}" \
+    "nuanced-lsp-proxy:${RUST_TAG}" > /dev/null
 
 docker run -d \
     --name test-watchdog-multi2 \
@@ -322,9 +369,10 @@ docker run -d \
     -v "$WORKSPACE_PATH:/mnt/workspace" \
     -e RUST_LOG=info,nuanced_lsp_proxy=debug,proxy=debug,nuanced_lsp_wrapper=debug,wrapper=debug \
     -e USE_AUTH=false \
-    -e WRAPPER_IMAGE=nuanced-lsp-wrapper:${RUST_TAG} \
-    -e WATCHDOG_IMAGE=nuanced-lsp-watchdog:${RUST_TAG} \
-    nuanced-lsp-proxy:${RUST_TAG} > /dev/null
+    -e "WRAPPER_IMAGE=nuanced-lsp-wrapper:${RUST_TAG}" \
+    -e "WATCHDOG_IMAGE=nuanced-lsp-watchdog:${RUST_TAG}" \
+    "${DOCKER_ARGS[@]}" \
+    "nuanced-lsp-proxy:${RUST_TAG}" > /dev/null
 
 wait_for_service_ready 4457 120
 wait_for_service_ready 4458 120

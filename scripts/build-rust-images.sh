@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# Build Rust-based containers (wrapper, proxy, watchdog)
 
 set -eu
 
@@ -15,6 +14,8 @@ usage() {
 }
 
 help() {
+    echo "Build Rust-based containers (wrapper, proxy, watchdog)"
+    echo ""
     usage
     echo ""
     echo "Options:"
@@ -44,8 +45,8 @@ help() {
 CACHE_MODE=none
 MULTIARCH=false
 LOAD_LOCAL=false
-RUST_TAG="$DEFAULT_RUST_TAG"
-LANGUAGE_TAG="$DEFAULT_LANGUAGE_TAG"
+RUST_TAG=""
+LANGUAGE_TAG=""
 REGISTRY= # Options: ghcr, dockerhub, local, or empty for no push
 PARALLEL=true
 
@@ -93,6 +94,10 @@ for arg in "$@"; do
     esac
 done
 
+# Fall back to default tags
+RUST_TAG="${RUST_TAG:-$DEFAULT_RUST_TAG}"
+LANGUAGE_TAG="${LANGUAGE_TAG:-$DEFAULT_LANGUAGE_TAG}"
+
 # Set up registry configuration and authentication
 REGISTRY_PREFIX=""
 PUSH_FLAG=""
@@ -114,8 +119,7 @@ if [ -n "$REGISTRY" ]; then
             fi
             # Authenticate to GHCR
             echo -e "${BLUE}Authenticating to ghcr.io...${NC}"
-            echo "$GITHUB_TOKEN" | docker login ghcr.io -u nuanced-dev --password-stdin > /dev/null 2>&1
-            if [ $? -eq 0 ]; then
+            if echo "$GITHUB_TOKEN" | docker login ghcr.io -u nuanced-dev --password-stdin > /dev/null 2>&1; then
                 echo -e "${GREEN}✓ Successfully authenticated to GHCR${NC}"
             else
                 echo -e "${RED}✗ Failed to authenticate to GHCR${NC}"
@@ -135,8 +139,7 @@ if [ -n "$REGISTRY" ]; then
             fi
             # Authenticate to Docker Hub
             echo -e "${BLUE}Authenticating to Docker Hub...${NC}"
-            echo "$DOCKER_HUB_TOKEN" | docker login -u "$DOCKER_HUB_USERNAME" --password-stdin > /dev/null 2>&1
-            if [ $? -eq 0 ]; then
+            if echo "$DOCKER_HUB_TOKEN" | docker login -u "$DOCKER_HUB_USERNAME" --password-stdin > /dev/null 2>&1; then
                 echo -e "${GREEN}✓ Successfully authenticated to Docker Hub${NC}"
             else
                 echo -e "${RED}✗ Failed to authenticate to Docker Hub${NC}"
@@ -327,7 +330,7 @@ if [ -n "$PUSH_FLAG" ]; then
 elif [ "$MULTIARCH" = true ]; then
     if [ "$LOAD_LOCAL" = true ]; then
         echo -e "${BLUE}Container Images (Local):${NC}"
-        docker images | grep -E "nuanced-lsp-(proxy|watchdog|wrapper)" | awk '{printf "  %-30s %10s\n", $1":"$2, $7}'
+        docker images | grep -E "nuanced-lsp-(proxy|watchdog|wrapper)" | grep -F "$RUST_TAG" | awk '{printf "  %-30s %10s\n", $1":"$2, $7}'
         echo
     fi
 
@@ -340,6 +343,6 @@ elif [ "$MULTIARCH" = true ]; then
     echo -e "  $0 --multiarch --tag=${RUST_TAG} --registry=ghcr"
 else
     echo -e "${BLUE}Container Images (Local):${NC}"
-    docker images | grep -E "nuanced-lsp-(proxy|watchdog|wrapper)" | awk '{printf "  %-30s %10s\n", $1":"$2, $7}'
+    docker images | grep -E "nuanced-lsp-(proxy|watchdog|wrapper)" | grep -F "$RUST_TAG" | awk '{printf "  %-30s %10s\n", $1":"$2, $7}'
 fi
 echo

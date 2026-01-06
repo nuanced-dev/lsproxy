@@ -2,23 +2,26 @@
 
 set -e
 
-# Stop Nuanced LSP proxy and clean up all containers
-# Usage: ./scripts/stop-proxy.sh [--force]
-
 SCRIPT_DIR="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")" && pwd)"
 
 source "$SCRIPT_DIR/include/colors.sh"
+
+help() {
+    echo "Stop Nuanced LSP proxy and clean up all containers"
+    echo ""
+    echo "Usage: $0"
+    echo ""
+    echo "This script stops and removes all Nuanced LSP containers:"
+    echo "  - Proxy container"
+    echo "  - Watchdog container"
+    echo "  - All language containers"
+}
 
 # Parse options
 while [[ $# -gt 0 ]]; do
     case $1 in
         --help|-h)
-            echo "Usage: $0"
-            echo ""
-            echo "This script stops and removes all Nuanced LSP containers:"
-            echo "  - Proxy container"
-            echo "  - Watchdog container"
-            echo "  - All language containers"
+            help
             exit 0
             ;;
         *)

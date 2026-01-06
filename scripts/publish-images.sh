@@ -4,26 +4,6 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")" && pwd)"
 
-# Publish Docker images to container registries (ghcr.io and/or Docker Hub)
-# Usage: ./scripts/publish-images.sh <rust-version> [--language-tag=TAG] [--dry-run] [--registry=REGISTRY]
-#
-# Example: ./scripts/publish-images.sh 0.4.0
-# Example: ./scripts/publish-images.sh 0.4.0 --language-tag=1.0.0
-# Example: ./scripts/publish-images.sh 0.4.0 --language-tag=1.0.0 --registry=both
-#
-# Versioning:
-#   Rust containers (wrapper, proxy, watchdog) use release version tags (e.g., 0.4.0)
-#   Language containers use independent semver tags (e.g., 1.0.0)
-#   This allows language containers to guarantee API compatibility with Rust containers
-#
-# Requirements:
-#   - GITHUB_TOKEN environment variable must be set with ghcr.io push permissions (if publishing to ghcr)
-#   - DOCKER_HUB_TOKEN environment variable must be set (if publishing to dockerhub)
-#   - Images must already be built (use scripts/build-rust-images.sh and scripts/build-language-images.sh)
-#   - Images must be multi-arch builds (built with --multiarch flag)
-
-SCRIPT_DIR="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")" && pwd)"
-
 source "$SCRIPT_DIR/include/colors.sh"
 source "$SCRIPT_DIR/include/supported-ruby-versions.sh"
 
@@ -31,49 +11,57 @@ DEFAULT_RUST_TAG="$("$SCRIPT_DIR/util/rust-image-version.sh")"
 DEFAULT_LANGUAGE_TAG="$("$SCRIPT_DIR/util/language-image-version.sh")"
 
 usage() {
-    echo "Usage: $0 <rust-version> [--language-tag=TAG] [--dry-run] [--registry=REGISTRY]"
+    echo "Usage: $0 [--tag=TAG] [--language-tag=TAG] [--dry-run] [--registry=REGISTRY]"
 }
 
 help() {
+    echo "Publish Docker images to container registries (ghcr.io and/or Docker Hub)"
+    echo ""
     usage
     echo ""
-    echo "Arguments:"
-    echo "  <rust-version>        Version tag for Rust containers (e.g., 0.4.0)"
-    echo ""
     echo "Options:"
-    echo "  --tag=TAG             Tag images with specified tag (default: $DEFAULT_RUST_TAG)"
+    echo "  --tag=TAG             Tag of Rust images to use (default: $DEFAULT_RUST_TAG)"
     echo "  --language-tag=TAG    Tag of language images to use (default: $DEFAULT_LANGUAGE_TAG)"
-    echo "                        Language containers use semver (e.g., 1.0.0) for API compatibility"
     echo "  --dry-run             Show what would be pushed without actually pushing"
     echo "  --registry=REGISTRY   Target registry: ghcr, dockerhub, or both (default: both)"
     echo "  --help, -h            Show this help message"
     echo ""
+    echo "Images:"
+    echo "  - Images must already be built (use scripts/build-rust-images.sh and scripts/build-language-images.sh)"
+    echo "  - Images must be multi-arch builds (built with --multiarch flag)"
+    echo ""
     echo "Versioning:"
-    echo "  Rust containers (wrapper, proxy, watchdog) version with release tags"
-    echo "  Language containers use independent semver for API/protocol compatibility"
+    echo "  Rust containers (wrapper, proxy, watchdog) use release version tags (e.g. 0.4.0)"
+    echo "  Language containers use independent semver for API/protocol compatibility (e.g. 1.0.0)"
+    echo "  This allows language containers to guarantee API compatibility with Rust containers"
     echo ""
     echo "Environment:"
     echo "  GITHUB_TOKEN          Required for authentication to ghcr.io (if using ghcr or both)"
     echo "  DOCKER_HUB_TOKEN      Required for authentication to Docker Hub (if using dockerhub or both)"
+    echo ""
+    echo "Examples:"
+    echo "  $0"
+    echo "  $0 --language-tag=1.0.0"
+    echo "  $0 --language-tag=1.0.0 --registry=both"
 }
 
 # Default settings
+RUST_TAG=""
+LANGUAGE_TAG=""
 DRY_RUN=false
 REGISTRY_TARGET="both"  # Options: ghcr, dockerhub, both
-RUST_TAG="$DEFAULT_RUST_TAG"
-LANGUAGE_TAG="$DEFAULT_LANGUAGE_TAG"
 
 # Parse arguments
 for arg in "$@"; do
     case $arg in
-        --dry-run)
-            DRY_RUN=true
-            ;;
         --tag=*)
             RUST_TAG="${arg#*=}"
             ;;
         --language-tag=*)
             LANGUAGE_TAG="${arg#*=}"
+            ;;
+        --dry-run)
+            DRY_RUN=true
             ;;
         --registry=*)
             REGISTRY_TARGET="${arg#*=}"
@@ -107,6 +95,10 @@ if [ "$DRY_RUN" = false ]; then
         exit 1
     fi
 fi
+
+# Fall back to default tags
+RUST_TAG="${RUST_TAG:-$DEFAULT_RUST_TAG}"
+LANGUAGE_TAG="${LANGUAGE_TAG:-$DEFAULT_LANGUAGE_TAG}"
 
 # Registry configuration
 GHCR_REGISTRY="ghcr.io/nuanced-dev"

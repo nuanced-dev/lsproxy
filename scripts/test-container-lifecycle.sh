@@ -2,18 +2,55 @@
 
 set -eu
 
-# Test container lifecycle: build, run, health check, cleanup
-# Usage: ./scripts/test-container-lifecycle.sh
-
 SCRIPT_DIR="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")" && pwd)"
 
 source "$SCRIPT_DIR/include/colors.sh"
 
 DEFAULT_RUST_TAG="$("$SCRIPT_DIR/util/rust-image-version.sh")"
+DEFAULT_LANGUAGE_TAG="$("$SCRIPT_DIR/util/language-image-version.sh")"
 
-RUST_TAG="$DEFAULT_RUST_TAG"
+help() {
+    echo "Test container lifecycle: build, run, health check, cleanup"
+    echo ""
+    echo "Usage: $0 [options]"
+    echo ""
+    echo "Options:"
+    echo "  --tag=TAG             Tag of Rust images to use (default: $DEFAULT_RUST_TAG)"
+    echo "  --language-tag=TAG    Tag of language images to use (default: $DEFAULT_LANGUAGE_TAG)"
+    echo "  --help, -h            Show this help"
+    echo ""
+    echo "Usage: $0"
+}
+
+# Default values
+RUST_TAG=""
+LANGUAGE_TAG=""
+
+# Parse options
+for arg in "$@"; do
+    case $arg in
+        --tag=*)
+            RUST_TAG="${arg#*=}"
+            ;;
+        --language-tag=*)
+            LANGUAGE_TAG="${arg#*=}"
+            ;;
+        --help|-h)
+            help
+            exit 0
+            ;;
+        *)
+            echo -e "${RED}Unknown option: $arg${NC}"
+            exit 1
+            ;;
+    esac
+done
+
+# Fall back to default tags
+RUST_TAG="${RUST_TAG:-$DEFAULT_RUST_TAG}"
+
 WORKSPACE_PATH="$(cd "$SCRIPT_DIR/../sample_project/python" && pwd)"
-SERVICE_NAME="nuanced-lsp-proxy-$(uuidgen | tr 'A-Z' 'a-z' | cut -c1-12)"
+SERVICE_NAME="nuanced-lsp-proxy-$(uuidgen | tr '[:upper:]' '[:lower:]' | cut -c1-12)"
 
 # Flag to track if we started containers
 CONTAINERS_STARTED=false
@@ -68,7 +105,7 @@ cleanup() {
         echo -e "${GREEN}Cleanup complete${NC}"
     fi
 
-    exit $exit_code
+    exit "$exit_code"
 }
 
 # Register cleanup on exit (success, failure, or Ctrl+C)
@@ -81,6 +118,12 @@ test_step "Service image exists" \
 # Test 2: Start service container
 echo
 echo -e "${BLUE}Starting service container (${SERVICE_NAME})...${NC}"
+
+DOCKER_ARGS=()
+if [ -n "$LANGUAGE_TAG" ]; then
+    DOCKER_ARGS+=("-e" "LANGUAGE_IMAGE_VERSION=${LANGUAGE_TAG}")
+fi
+
 docker run -d \
     --name "${SERVICE_NAME}" \
     -p 4444:4444 \
@@ -88,9 +131,10 @@ docker run -d \
     -v "$WORKSPACE_PATH:/mnt/workspace" \
     -e RUST_LOG=info,nuanced_lsp_proxy=debug,proxy=debug,nuanced_lsp_wrapper=debug,wrapper=debug \
     -e USE_AUTH=false \
-    -e WRAPPER_IMAGE=nuanced-lsp-wrapper:${RUST_TAG} \
-    -e WATCHDOG_IMAGE=nuanced-lsp-watchdog:${RUST_TAG} \
-    nuanced-lsp-proxy:${RUST_TAG}
+    -e "WRAPPER_IMAGE=nuanced-lsp-wrapper:${RUST_TAG}" \
+    -e "WATCHDOG_IMAGE=nuanced-lsp-watchdog:${RUST_TAG}" \
+    "${DOCKER_ARGS[@]}" \
+    "nuanced-lsp-proxy:${RUST_TAG}"
 
 SERVICE_ID=$(docker inspect --format '{{.Id}}' "${SERVICE_NAME}" 2>/dev/null || echo "")
 # Language containers label their parent with the orchestrator instance ID, which is the
@@ -143,7 +187,7 @@ echo -e "${BLUE}Checking language containers...${NC}"
 CONTAINER_COUNT=$(docker ps --filter "label=nuanced.parent=${PARENT_LABEL_ID}" --filter "label=nuanced.role=language-server" --format '{{.Names}}' | wc -l | tr -d ' ')
 echo "Language containers running: $CONTAINER_COUNT"
 
-if [ $CONTAINER_COUNT -ge 1 ]; then
+if [ "$CONTAINER_COUNT" -ge 1 ]; then
     echo -e "${GREEN}✓ Language containers spawned${NC}"
     TESTS_PASSED=$((TESTS_PASSED + 1))
     docker ps --filter "label=nuanced.parent=${PARENT_LABEL_ID}" --filter "label=nuanced.role=language-server" --format "  - {{.Names}} ({{.Status}})"

@@ -2,75 +2,79 @@
 
 set -eu
 
-# Start Nuanced LSP proxy with container orchestration
-
 SCRIPT_DIR="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")" && pwd)"
 
 source "$SCRIPT_DIR/include/colors.sh"
 
 DEFAULT_RUST_TAG="$("$SCRIPT_DIR/util/rust-image-version.sh")"
-
-# Default values
-RUST_TAG="$DEFAULT_RUST_TAG"
-WORKSPACE_PATH=
-USE_AUTH=false
-PORT=4444
-DETACHED=true
-TAIL_LOGS=false
-
-usage() {
-    echo "Usage: $0 [options] <workspace_path>"
-}
+DEFAULT_LANGUAGE_TAG="$("$SCRIPT_DIR/util/language-image-version.sh")"
 
 help() {
-    usage
+    echo "Start Nuanced LSP proxy with container orchestration"
+    echo ""
+    echo "Usage: $0 [--tag=TAG] [--language-tag=TAG]"
     echo ""
     echo "Options:"
-    echo "  --auth              Enable JWT authentication"
-    echo "  --port PORT         Use custom port (default: 4444)"
-    echo "  --foreground, -f    Run in foreground (not detached)"
-    echo "  --logs, -l          Tail logs after starting"
-    echo "  --help, -h          Show this help"
+    echo "  --tag=TAG             Tag images with specified tag (default: $DEFAULT_RUST_TAG)"
+    echo "  --language-tag=TAG    Tag of language images to use (default: $DEFAULT_LANGUAGE_TAG)"
+    echo "  --auth                Enable JWT authentication"
+    echo "  --port=PORT           Use custom port (default: 4444)"
+    echo "  --foreground, -f      Run in foreground (not detached)"
+    echo "  --logs, -l            Tail logs after starting"
+    echo "  --help, -h            Show this help"
     echo ""
     echo "Examples:"
     echo "  $0 sample_project/python              # Start with Python workspace"
     echo "  $0 sample_project/all --logs          # Start and tail logs"
-    echo "  $0 /path/to/workspace --port 5000     # Custom port"
+    echo "  $0 /path/to/workspace --port=5000     # Custom port"
 }
 
+# Default values
+RUST_TAG=""
+LANGUAGE_TAG=""
+USE_AUTH=false
+PORT=4444
+DETACHED=true
+TAIL_LOGS=false
+WORKSPACE_PATH=
+
 # Parse options
-while [[ $# -gt 0 ]]; do
-    case $1 in
+for arg in "$@"; do
+    case $arg in
+        --tag=*)
+            RUST_TAG="${arg#*=}"
+            ;;
+        --language-tag=*)
+            LANGUAGE_TAG="${arg#*=}"
+            ;;
         --auth)
             USE_AUTH=true
-            shift
             ;;
-        --port)
-            PORT="$2"
-            shift 2
+        --port=*)
+            PORT="${arg#*=}"
             ;;
         --foreground|-f)
             DETACHED=false
-            shift
             ;;
         --logs|-l)
             TAIL_LOGS=true
-            shift
             ;;
         --help|-h)
             help
             exit 0
             ;;
         -*)
-            echo -e "${RED}Unknown option: $1${NC}"
+            echo -e "${RED}Unknown option: $arg${NC}"
             exit 1
             ;;
         *)
-            WORKSPACE_PATH="$1"
-            shift
+            WORKSPACE_PATH="$arg"
             ;;
     esac
 done
+
+# Fall back to default tags
+RUST_TAG="${RUST_TAG:-$DEFAULT_RUST_TAG}"
 
 # Verify workspace argument
 if [ -z "$WORKSPACE_PATH" ]; then
@@ -112,39 +116,37 @@ if docker ps --filter "name=nuanced-lsp-proxy" --format "{{.Names}}" | grep -q "
     fi
 fi
 
-# Build docker run command
-DOCKER_RUN_CMD="docker run"
-
-if [ "$DETACHED" = true ]; then
-    DOCKER_RUN_CMD="$DOCKER_RUN_CMD -d"
-else
-    DOCKER_RUN_CMD="$DOCKER_RUN_CMD -it"
-fi
-
-DOCKER_RUN_CMD="$DOCKER_RUN_CMD \
-    --name nuanced-lsp-proxy \
-    -p ${PORT}:4444 \
-    -v /var/run/docker.sock:/var/run/docker.sock \
-    -v \"${WORKSPACE_PATH}:/mnt/workspace\" \
-    -e RUST_LOG=info,nuanced_lsp_proxy=debug,proxy=debug,nuanced_lsp_wrapper=debug,wrapper=debug \
-    -e WRAPPER_IMAGE=nuanced-lsp-wrapper:${RUST_TAG} \
-    -e WATCHDOG_IMAGE=nuanced-lsp-watchdog:${RUST_TAG} \
-    -e NUANCED_LSP_MAX_MEMORY=8192"
-
-if [ "$USE_AUTH" = false ]; then
-    DOCKER_RUN_CMD="$DOCKER_RUN_CMD -e USE_AUTH=false"
-fi
-
-# Pass through ENABLED_LANGUAGES if set
-if [ -n "$ENABLED_LANGUAGES" ]; then
-    DOCKER_RUN_CMD="$DOCKER_RUN_CMD -e ENABLED_LANGUAGES=\"${ENABLED_LANGUAGES}\""
-fi
-
-DOCKER_RUN_CMD="$DOCKER_RUN_CMD nuanced-lsp-proxy:${RUST_TAG}"
-
 # Start the service
 echo -e "${BLUE}Starting service container...${NC}"
-eval $DOCKER_RUN_CMD
+
+DOCKER_ARGS=()
+if [ "$DETACHED" = true ]; then
+    DOCKER_ARGS+=("-d")
+else
+    DOCKER_ARGS+=("-it")
+fi
+if [ "$USE_AUTH" = false ]; then
+    DOCKER_ARGS+=("-e" "USE_AUTH=false")
+fi
+if [ -n "$LANGUAGE_TAG" ]; then
+    DOCKER_ARGS+=("-e" "LANGUAGE_IMAGE_VERSION=${LANGUAGE_TAG}")
+fi
+
+if [ -n "${ENABLED_LANGUAGES:+x}" ]; then
+    DOCKER_ARGS+=("-e" "ENABLED_LANGUAGES=${ENABLED_LANGUAGES}")
+fi
+
+docker run \
+    --name nuanced-lsp-proxy \
+    -p "${PORT}:4444" \
+    -v /var/run/docker.sock:/var/run/docker.sock \
+    -v "${WORKSPACE_PATH}:/mnt/workspace" \
+    -e RUST_LOG=info,nuanced_lsp_proxy=debug,proxy=debug,nuanced_lsp_wrapper=debug,wrapper=debug \
+    -e "WRAPPER_IMAGE=nuanced-lsp-wrapper:${RUST_TAG}" \
+    -e "WATCHDOG_IMAGE=nuanced-lsp-watchdog:${RUST_TAG}" \
+    -e NUANCED_LSP_MAX_MEMORY=8192 \
+    "${DOCKER_ARGS[@]}" \
+    "nuanced-lsp-proxy:${RUST_TAG}"
 
 if [ "$DETACHED" = true ]; then
     echo -e "${GREEN}✓ Service container started${NC}"

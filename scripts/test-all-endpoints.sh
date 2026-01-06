@@ -2,43 +2,64 @@
 
 set -eu
 
-# Comprehensive Nuanced LSP test script that validates all endpoints for all languages
-#
-# This script automatically starts Nuanced LSP if it's not already running.
-# If the service is already running, it uses the existing containers.
-#
-# Usage: ./scripts/test-all-endpoints.sh [--no-cleanup]
-#
-# Arguments:
-#   --no-cleanup    Don't stop containers after tests (useful for debugging)
-#
-# Behavior:
-#   - If service is NOT running: Starts containers, runs tests, stops containers
-#   - If service IS running: Runs tests, leaves containers running
-#   - With --no-cleanup: Runs tests, always leaves containers running
-
 SCRIPT_DIR="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")" && pwd)"
 
 source "$SCRIPT_DIR/include/colors.sh"
 
-# Configuration
-BASE_URL="${BASE_URL:-http://localhost:4444/v1}"
-WORKSPACE_PATH="$(cd "$SCRIPT_DIR/../sample_project/all" && pwd)"
+DEFAULT_RUST_TAG="$("$SCRIPT_DIR/util/rust-image-version.sh")"
+DEFAULT_LANGUAGE_TAG="$("$SCRIPT_DIR/util/language-image-version.sh")"
+
+help() {
+    echo "Comprehensive Nuanced LSP test script that validates all endpoints for all languages"
+    echo ""
+    echo "Usage: $0 [options]"
+    echo ""
+    echo "This script automatically starts Nuanced LSP if it's not already running."
+    echo "If the service is already running, it uses the existing containers."
+    echo ""
+    echo "Options:"
+    echo "  --tag=TAG             Tag images with specified tag (default: $DEFAULT_RUST_TAG)"
+    echo "  --language-tag=TAG    Tag of language images to use (default: $DEFAULT_LANGUAGE_TAG)"
+    echo "  --no-cleanup          Don't stop containers after tests (useful for debugging)"
+    echo "  --help, -h            Show this help"
+    echo ""
+    echo "Behavior:"
+    echo "  - If service is NOT running: Starts containers, runs tests, stops containers"
+    echo "  - If service IS running: Runs tests, leaves containers running"
+    echo "  - With --no-cleanup: Runs tests, always leaves containers running"
+}
+
+# Default values
+RUST_TAG=""
+LANGUAGE_TAG=""
 CLEANUP_ON_EXIT=true
 
 # Parse options
-while [[ $# -gt 0 ]]; do
-    case $1 in
+for arg in "$@"; do
+    case $arg in
+        --tag=*)
+            RUST_TAG="${arg#*=}"
+            ;;
+        --language-tag=*)
+            LANGUAGE_TAG="${arg#*=}"
+            ;;
         --no-cleanup)
             CLEANUP_ON_EXIT=false
-            shift
+            ;;
+        -h|--help)
+            help
+            exit 0
             ;;
         *)
-            echo -e "${RED}Unknown option: $1${NC}"
+            echo -e "${RED}Unknown option: $arg${NC}"
             exit 1
             ;;
     esac
 done
+
+# Configuration
+BASE_URL="${BASE_URL:-http://localhost:4444/v1}"
+WORKSPACE_PATH="$(cd "$SCRIPT_DIR/../sample_project/all" && pwd)"
 
 # Counters
 TOTAL_TESTS=0
@@ -80,7 +101,7 @@ u       echo
         echo -e "${YELLOW}Leaving existing containers running (tests used pre-existing service)${NC}"
     fi
 
-    exit $exit_code
+    exit "$exit_code"
 }
 
 # Register cleanup on exit (success, failure, or Ctrl+C)
@@ -161,8 +182,9 @@ test_endpoint() {
     # Execute request (curl has built-in timeout via --max-time)
     if response=$(eval "$curl_cmd" 2>&1); then
         # Split response body and status code
-        local body=$(echo "$response" | sed '$d')
-        local status=$(echo "$response" | tail -n 1)
+        local body status
+        body=$(echo "$response" | sed '$d')
+        status=$(echo "$response" | tail -n 1)
 
         # Validate HTTP status code
         if [ "$status" != "$expected_status" ]; then
@@ -227,8 +249,9 @@ test_find_referenced_symbols_enhanced() {
 
     if response=$(eval "$curl_cmd" 2>&1); then
         # Split response body and status code
-        local body=$(echo "$response" | sed '$d')
-        local status=$(echo "$response" | tail -n 1)
+        local body status
+        body=$(echo "$response" | sed '$d')
+        status=$(echo "$response" | tail -n 1)
 
         # Validate HTTP status code
         if [ "$status" != "200" ]; then
@@ -266,7 +289,8 @@ test_find_referenced_symbols_enhanced() {
         fi
 
         # Check workspace_symbols count
-        local workspace_count=$(echo "$body" | jq '.workspace_symbols | length')
+        local workspace_count
+        workspace_count=$(echo "$body" | jq '.workspace_symbols | length')
         if [ "$workspace_count" -lt "$min_workspace" ]; then
             echo -e "${RED}✗ FAIL${NC} - Expected ≥${min_workspace} workspace symbols, got $workspace_count"
             FAILED_TESTS=$((FAILED_TESTS + 1))
@@ -276,7 +300,8 @@ test_find_referenced_symbols_enhanced() {
         # Check expected symbol names (if provided)
         if [ -n "$expected_names" ]; then
             IFS=',' read -ra EXPECTED <<< "$expected_names"
-            local all_names=$(echo "$body" | jq -r '.workspace_symbols[].reference.name' | tr '\n' ' ')
+            local all_names
+            all_names=$(echo "$body" | jq -r '.workspace_symbols[].reference.name' | tr '\n' ' ')
 
             for name in "${EXPECTED[@]}"; do
                 if ! echo "$all_names" | grep -qw "$name"; then
@@ -289,9 +314,11 @@ test_find_referenced_symbols_enhanced() {
         fi
 
         # Verify workspace symbols have definitions
-        local first_ws=$(echo "$body" | jq '.workspace_symbols[0]')
+        local first_ws
+        first_ws=$(echo "$body" | jq '.workspace_symbols[0]')
         if [ "$first_ws" != "null" ]; then
-            local def_count=$(echo "$first_ws" | jq '.definitions | length' 2>/dev/null)
+            local def_count
+            def_count=$(echo "$first_ws" | jq '.definitions | length' 2>/dev/null)
             if [ "$def_count" = "null" ] || [ "$def_count" = "0" ]; then
                 echo -e "${RED}✗ FAIL${NC} - Workspace symbol missing definitions"
                 FAILED_TESTS=$((FAILED_TESTS + 1))
@@ -335,7 +362,14 @@ else
     fi
 
     # Start the service using start-proxy.sh
-    if ! ./scripts/start-proxy.sh "$WORKSPACE_PATH" > /tmp/test-proxy-startup.log 2>&1; then
+    PROXY_ARGS=()
+    if [ -n "$RUST_TAG" ]; then
+        PROXY_ARGS+=("--tag=${RUST_TAG}")
+    fi
+    if [ -n "$LANGUAGE_TAG" ]; then
+        PROXY_ARGS+=("--language-tag=${LANGUAGE_TAG}")
+    fi
+    if ! ./scripts/start-proxy.sh "${PROXY_ARGS[@]}" "$WORKSPACE_PATH" > /tmp/test-proxy-startup.log 2>&1; then
         echo -e "${RED}✗ ERROR: Failed to start service${NC}"
         echo -e "${YELLOW}  Check logs: tail -50 /tmp/test-proxy-startup.log${NC}"
         exit 1
@@ -350,7 +384,14 @@ else
     for i in $(seq 1 100); do
         HEALTH=$(curl -sf "${BASE_URL}/system/health" || true)
         STATUS=$(echo "$HEALTH" | jq -r '.status' 2>/dev/null || echo "")
-        LANG_PENDING=$(echo "$HEALTH" | jq -r '.languages | to_entries[]? | select(.value != true) | .key' 2>/dev/null || true)
+        LANG_FAILED=$(echo "$HEALTH" | jq -r '.language_status | to_entries[]? | select(.value == "unhealthy") | .key' 2>/dev/null || true)
+        LANG_PENDING=$(echo "$HEALTH" | jq -r '.language_status | to_entries[]? | select(.value != "unhealthy" and .value != "healthy") | .key' 2>/dev/null || true)
+
+        if [ "$STATUS" = "ok" ] && [ -n "$LANG_FAILED" ]; then
+            failed_list=$(IFS=', '; echo "${LANG_FAILED}")
+            echo -e "${RED}✗ ERROR: Service failed to start languages: ${failed_list}${NC}"
+            exit 1
+        fi
 
         if [ "$STATUS" = "ok" ] && [ -z "$LANG_PENDING" ]; then
             echo -e "${GREEN}✓ Service and languages healthy after ${i}s${NC}"
@@ -414,7 +455,7 @@ while IFS='|' read -r lang test_file symbol_name symbol_line symbol_char health_
     # Skip empty lines
     [ -z "$lang" ] && continue
 
-    echo -e "${BLUE}Testing language: $(echo $lang | tr '[:lower:]' '[:upper:]')${NC}"
+    echo -e "${BLUE}Testing language: $(echo "$lang" | tr '[:lower:]' '[:upper:]')${NC}"
 
     # Health check for this language
     test_endpoint "Health ($lang)" \
