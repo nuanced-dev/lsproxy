@@ -1,12 +1,12 @@
 name: TypeScript Tests
 
 on:
+  pull_request:
+    paths:
+    - 'clients/typescript/**'
   push:
     branches:
     - main
-    paths:
-    - 'clients/typescript/**'
-  pull_request:
     paths:
     - 'clients/typescript/**'
 
