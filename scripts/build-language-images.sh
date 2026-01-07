@@ -6,29 +6,35 @@ set -eu
 SCRIPT_DIR="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")" && pwd)"
 
 source "$SCRIPT_DIR/include/colors.sh"
+source "$SCRIPT_DIR/include/supported-languages.sh"
 source "$SCRIPT_DIR/include/supported-ruby-versions.sh"
 
 DEFAULT_LANGUAGE_TAG="$("$SCRIPT_DIR/util/language-image-version.sh")"
 
 usage() {
-    echo "Usage: $0 [--use-cache] [--sequential] [--multiarch] [--load] [--tag=TAG] [--registry=REGISTRY] [--language=LANG] [--jobs=N]"
+    echo "Usage: $0 [--cache=MODE] [--jobs=N] [--language-tag=TAG] [--languages=LANG...] [--multiarch] [--registry=REGISTRY] [--sequential]"
 }
 
 help() {
     echo "Build language server containers (Python, TypeScript, Rust, Go, Java, C++, C#, PHP, Ruby variants)"
     echo ""
-    echo "Usage: $0 [options]"
+    echo "Usage: $0 [OPTIONS...]"
     echo ""
     echo "Options:"
-    echo "  --use-cache           Enable Docker build cache (default: disabled)"
-    echo "  --sequential          Build sequentially instead of parallel (default: parallel)"
+    echo "  --cache=MODE          Docker build cache mode: none, docker, gha (default: none)"
+    echo "                        - none: disable all caching"
+    echo "                        - docker: use default Docker layer caching"
+    echo "                        - gha: build without Docker cache to ensure fresh Docker layers,"
+    echo "                               but use GitHub Actions cache backend for BuildKit cache"
+    echo "                               mounts (Cargo registry and build artifacts). This gives us"
+    echo "                               reproducible builds while still caching Rust compilation."
     echo "  --jobs=N, -j=N        Max parallel builds (default: 4, prevents Docker daemon overload)"
-    echo "  --multiarch           Build for both amd64 and arm64 (default: local platform only)"
-    echo "  --load                Also build and load local platform into Docker (use with --multiarch)"
     echo "  --language-tag=TAG    Tag images with specified semver tag (default: $DEFAULT_LANGUAGE_TAG)"
     echo "                        Language containers use semver (e.g., 1.0.0) for API compatibility"
+    echo "  --languages=LANG...   Build specific language(s) - comma-separated (python,typescript,ruby,ruby-sorbet)"
+    echo "  --multiarch           Build for both amd64 and arm64 (default: local platform only)"
     echo "  --registry=REGISTRY   Push to registry: ghcr, dockerhub, local (required for multi-arch Sorbet) (default: no push)"
-    echo "  --language=LANG       Build specific language(s) - comma-separated (python,typescript,ruby,ruby-sorbet)"
+    echo "  --sequential          Build sequentially instead of parallel (default: parallel)"
     echo "  --help, -h            Show this help message"
     echo ""
     echo "Versioning: Language containers use semver (MAJOR.MINOR.PATCH)"
@@ -48,19 +54,18 @@ help() {
     echo "  $0 --language-tag=1.0.0"
     echo "  $0 --multiarch --language-tag=1.0.0 --registry=ghcr"
     echo "  $0 --jobs=8"
-    echo "  $0 --language=python --multiarch --language-tag=1.0.0 --registry=ghcr"
-    echo "  $0 --language=ruby,ruby-sorbet --language-tag=1.0.0"
+    echo "  $0 --languages=python --multiarch --language-tag=1.0.0 --registry=ghcr"
+    echo "  $0 --languages=ruby,ruby-sorbet --language-tag=1.0.0"
 }
 
 # Defaults
-PARALLEL=true
-USE_CACHE=false
-MULTIARCH=false
-LOAD_LOCAL=false
+CACHE_MODE=none
+FILTER_LANGUAGES=all
 LANGUAGE_TAG=""
-REGISTRY=""         # Options: ghcr, dockerhub, local, or empty for no push
-FILTER_LANGUAGES=   # Empty = build all, otherwise comma-separated list: python,typescript,ruby,ruby-sorbet
 MAX_JOBS=4
+MULTIARCH=false
+PARALLEL=true
+REGISTRY=""          # Options: ghcr, dockerhub, local, or empty for no push
 
 # Parse arguments
 for arg in "$@"; do
@@ -69,20 +74,28 @@ for arg in "$@"; do
             help
             exit 0
             ;;
-        --sequential)
-            PARALLEL=false
+        --cache=*)
+            CACHE_MODE="${arg#*=}"
+            if [[ ! "$CACHE_MODE" =~ ^(none|docker|gha)$ ]]; then
+                echo -e "${RED}Invalid cache mode: $CACHE_MODE. Must be none, docker, or gha${NC}"
+                exit 1
+            fi
             ;;
-        --use-cache)
-            USE_CACHE=true
-            ;;
-        --multiarch)
-            MULTIARCH=true
-            ;;
-        --load)
-            LOAD_LOCAL=true
+        --jobs=*|-j=*)
+            MAX_JOBS="${arg#*=}"
+            if ! [[ "$MAX_JOBS" =~ ^[0-9]+$ ]] || [ "$MAX_JOBS" -lt 1 ]; then
+                echo -e "${RED}Invalid jobs value: $MAX_JOBS. Must be a positive integer${NC}"
+                exit 1
+            fi
             ;;
         --language-tag=*)
             LANGUAGE_TAG="${arg#*=}"
+            ;;
+        --languages=*)
+            FILTER_LANGUAGES="${arg#*=}"
+            ;;
+        --multiarch)
+            MULTIARCH=true
             ;;
         --registry=*)
             REGISTRY="${arg#*=}"
@@ -91,15 +104,8 @@ for arg in "$@"; do
                 exit 1
             fi
             ;;
-        --language=*|--languages=*)
-            FILTER_LANGUAGES="${arg#*=}"
-            ;;
-        --jobs=*|-j=*)
-            MAX_JOBS="${arg#*=}"
-            if ! [[ "$MAX_JOBS" =~ ^[0-9]+$ ]] || [ "$MAX_JOBS" -lt 1 ]; then
-                echo -e "${RED}Invalid jobs value: $MAX_JOBS. Must be a positive integer${NC}"
-                exit 1
-            fi
+        --sequential)
+            PARALLEL=false
             ;;
         *)
             echo -e "${YELLOW}Unknown argument: $arg${NC}"
@@ -109,14 +115,16 @@ for arg in "$@"; do
     esac
 done
 
+# Build languages array based on filter
+LANGUAGES=()
+if [ "$FILTER_LANGUAGES" = "all" ]; then
+    LANGUAGES=("${SUPPORTED_LANGUAGES[@]}")
+else
+    IFS=',' read -ra LANGUAGES <<< "$FILTER_LANGUAGES"
+fi
+
 # Fall back to default tags
 LANGUAGE_TAG="${LANGUAGE_TAG:-$DEFAULT_LANGUAGE_TAG}"
-
-# Set cache flag for docker builds
-CACHE_FLAG=""
-if [ "$USE_CACHE" = false ]; then
-    CACHE_FLAG="--no-cache"
-fi
 
 # Set up build command based on multiarch flag
 BUILD_CMD="docker build"
@@ -134,7 +142,7 @@ if [ -n "$REGISTRY" ]; then
         ghcr)
             REGISTRY_PREFIX="ghcr.io/nuanced-dev/"
             # Check for GITHUB_TOKEN
-            if [ -z "$GITHUB_TOKEN" ]; then
+            if [ -z "${GITHUB_TOKEN:+x}" ]; then
                 echo -e "${RED}Error: GITHUB_TOKEN environment variable is required for GHCR${NC}"
                 echo "Please set GITHUB_TOKEN with write:packages permission"
                 echo ""
@@ -147,7 +155,7 @@ if [ -n "$REGISTRY" ]; then
             fi
             # Authenticate to GHCR
             echo -e "${BLUE}Authenticating to ghcr.io...${NC}"
-            
+
             if echo "$GITHUB_TOKEN" | docker login ghcr.io -u nuanced-dev --password-stdin > /dev/null 2>&1; then
                 echo -e "${GREEN}✓ Successfully authenticated to GHCR${NC}"
             else
@@ -159,16 +167,15 @@ if [ -n "$REGISTRY" ]; then
         dockerhub)
             REGISTRY_PREFIX="nuanced/"
             # Check for Docker Hub credentials
-            if [ -z "$DOCKER_HUB_USERNAME" ] || [ -z "$DOCKER_HUB_TOKEN" ]; then
-                echo -e "${RED}Error: DOCKER_HUB_USERNAME and DOCKER_HUB_TOKEN required for Docker Hub${NC}"
+            if [ -z "${DOCKER_HUB_TOKEN:+x}" ]; then
+                echo -e "${RED}Error: DOCKER_HUB_TOKEN required for Docker Hub${NC}"
                 echo "Please set:"
-                echo "  export DOCKER_HUB_USERNAME=your_username"
                 echo "  export DOCKER_HUB_TOKEN=your_token_or_password"
                 exit 1
             fi
             # Authenticate to Docker Hub
             echo -e "${BLUE}Authenticating to Docker Hub...${NC}"
-            if echo "$DOCKER_HUB_TOKEN" | docker login -u "$DOCKER_HUB_USERNAME" --password-stdin > /dev/null 2>&1; then
+            if echo "$DOCKER_HUB_TOKEN" | docker login -u nuanced --password-stdin > /dev/null 2>&1; then
                 echo -e "${GREEN}✓ Successfully authenticated to Docker Hub${NC}"
             else
                 echo -e "${RED}✗ Failed to authenticate to Docker Hub${NC}"
@@ -212,83 +219,22 @@ if [ "$MULTIARCH" = true ] && [ -z "$REGISTRY" ]; then
     exit 1
 fi
 
-# Language Dockerfiles (non-Ruby, non-base)
-LANGUAGES=(
-    "python"
-    "typescript"
-    "rust"
-    "golang"
-    "java"
-    "clangd"
-    "csharp"
-    "php"
-)
-
-# Build commonly used Ruby versions by default
-RUBY_VERSIONS=("${SUPPORTED_RUBY_VERSIONS[@]}")
-RUBY_SORBET_VERSIONS=("${SUPPORTED_RUBY_VERSIONS[@]}")
-
-# Filter languages if --language flag was provided
-if [ -n "$FILTER_LANGUAGES" ]; then
-    # Convert comma-separated list to array
-    IFS=',' read -ra FILTER_ARRAY <<< "$FILTER_LANGUAGES"
-
-    # Check which language categories to build
-    BUILD_REGULAR_LANGUAGES=false
-    BUILD_RUBY=false
-    BUILD_RUBY_SORBET=false
-
-    for filter in "${FILTER_ARRAY[@]}"; do
-        filter=$(echo "$filter" | xargs)  # Trim whitespace
-        case "$filter" in
-            ruby)
-                BUILD_RUBY=true
-                ;;
-            ruby-sorbet)
-                BUILD_RUBY_SORBET=true
-                ;;
-            python|typescript|rust|golang|java|clangd|csharp|php)
-                BUILD_REGULAR_LANGUAGES=true
-                ;;
-            *)
-                echo -e "${RED}Invalid language: $filter${NC}"
-                echo -e "${YELLOW}Available languages: python, typescript, rust, golang, java, clangd, csharp, php, ruby, ruby-sorbet${NC}"
-                exit 1
-                ;;
-        esac
-    done
-
-    # Filter the LANGUAGES array if building specific regular languages
-    if [ "$BUILD_REGULAR_LANGUAGES" = true ]; then
-        FILTERED_LANGUAGES=()
-        for lang in "${LANGUAGES[@]}"; do
-            for filter in "${FILTER_ARRAY[@]}"; do
-                filter=$(echo "$filter" | xargs)
-                if [ "$lang" = "$filter" ]; then
-                    FILTERED_LANGUAGES+=("$lang")
-                    break
-                fi
-            done
-        done
-        LANGUAGES=("${FILTERED_LANGUAGES[@]}")
-    else
-        # Not building any regular languages, clear the array
-        LANGUAGES=()
-    fi
-
-    # Clear Ruby arrays if not requested
-    if [ "$BUILD_RUBY" = false ]; then
-        RUBY_VERSIONS=()
-    fi
-
-    if [ "$BUILD_RUBY_SORBET" = false ]; then
-        RUBY_SORBET_VERSIONS=()
-    fi
-fi
+compute_cache_flags() {
+    local name="$1"
+    case "$CACHE_MODE" in
+        none)
+            echo "--no-cache"
+            ;;
+        docker)
+            echo ""
+            ;;
+        gha)
+            echo "--no-cache --cache-from type=gha,scope=$name --cache-to type=gha,mode=max,scope=$name"
+            ;;
+    esac
+}
 
 echo -e "${YELLOW}Building languages: ${LANGUAGES[*]}${NC}"
-echo -e "${YELLOW}Building Ruby versions: ${RUBY_VERSIONS[*]}${NC}"
-echo -e "${YELLOW}Building Sorbet versions: ${RUBY_SORBET_VERSIONS[*]}${NC}"
 
 echo -e "${BLUE}=========================================${NC}"
 if [ "$MULTIARCH" = true ]; then
@@ -298,14 +244,14 @@ else
     echo -e "${BLUE}  Building Language Server Containers (Local Platform)${NC}"
 fi
 echo -e "${BLUE}  Parallel: $PARALLEL (max $MAX_JOBS jobs)${NC}"
-echo -e "${BLUE}  Cache: $USE_CACHE${NC}"
+echo -e "${BLUE}  Cache: $CACHE_MODE${NC}"
 echo -e "${BLUE}=========================================${NC}"
 echo
 
-build_container() {
-    local lang="$1"
+build_image() {
+    local use_registry="${1:-false}"  # Whether to push to registry
     local subdir="$2"  # Optional subdirectory (ruby or ruby-sorbet)
-    local use_registry="${3:-false}"  # Whether to push to registry
+    local lang="$3"
     local dockerfile
 
     if [ -n "$subdir" ]; then
@@ -337,18 +283,24 @@ build_container() {
 
     echo -e "${BLUE}Building ${full_image_tag}...${NC}"
 
+    # Compute cache flags based on image name
+    local cache_name
+    if [ -n "$subdir" ]; then
+        cache_name="${subdir}-${lang}"
+    else
+        cache_name="${lang}"
+    fi
+    local CACHE_FLAGS
+    CACHE_FLAGS="$(compute_cache_flags "$cache_name")"
+
     # Build with or without push depending on use_registry flag
-    local build_flags="$PLATFORM_FLAG $CACHE_FLAG"
+    local build_flags="$PLATFORM_FLAG $CACHE_FLAGS"
     if [ "$use_registry" = "true" ] && [ -n "$PUSH_FLAG" ]; then
         build_flags="$build_flags $PUSH_FLAG"
     fi
 
-    # For Sorbet builds, pass Ruby base image from registry as build arg
-    local build_args=""
-    if [ "$subdir" = "ruby-sorbet" ] && [ "$use_registry" = "true" ] && [ -n "$REGISTRY_PREFIX" ]; then
-        local ruby_base_image="${REGISTRY_PREFIX}nuanced-lsp-ruby-${lang}:${LANGUAGE_TAG}"
-        build_args="--build-arg RUBY_BASE_IMAGE=${ruby_base_image}"
-    fi
+    # For Sorbet builds, pass language tag to identify Ruby base image
+    local build_args="--build-arg LANGUAGE_IMAGE_VERSION=$LANGUAGE_TAG"
 
     if $BUILD_CMD $build_flags $build_args -f "$dockerfile" -t "${full_image_tag}" . > "/tmp/build-${subdir}-${lang}.log" 2>&1; then
         if [ "$use_registry" = "true" ] && [ -n "$PUSH_FLAG" ]; then
@@ -375,9 +327,11 @@ build_container() {
 #   $1 - subdir (empty string, "ruby", or "ruby-sorbet")
 #   $2 - push flag ("true" or "false")
 #   $3... - items to build
+# If subdir is empty, the items are language names. Otherwise,
+# the subdir is the base and the items are language versions.
 build_parallel_throttled() {
-    local subdir="$1"
-    local push_flag="$2"
+    local push_flag="$1"
+    local subdir="$2"
     shift 2
     local items=("$@")
 
@@ -405,7 +359,7 @@ build_parallel_throttled() {
         done
 
         # Start new build
-        build_container "$item" "$subdir" "$push_flag" &
+        build_image "$push_flag" "$subdir" "$item" &
         pids+=($!)
         running=$((running + 1))
     done
@@ -422,53 +376,63 @@ build_parallel_throttled() {
     return $failed
 }
 
-# Build non-Ruby language images
-echo -e "${YELLOW}Step 1: Building non-Ruby language containers${NC}"
-
-# Determine if we should push language images to registry
-push_languages="false"
+# Determine if we should push images to registry
+push_images="false"
 if [ -n "$REGISTRY" ]; then
-    push_languages="true"
+    push_images="true"
 fi
 
-if [ "$PARALLEL" = true ]; then
-    echo -e "${BLUE}Building in parallel (max $MAX_JOBS concurrent, see /tmp/build-*.log for progress)${NC}"
+# Separate languages into categories (ruby-sorbet must be built after ruby)
+REGULAR_LANGUAGES=()
+RUBY_VERSIONS=()
+RUBY_SORBET_VERSIONS=()
 
-    if ! build_parallel_throttled "" "$push_languages" "${LANGUAGES[@]}"; then
-        failed=$?
+for lang in "${LANGUAGES[@]}"; do
+    if [[ "$lang" == "ruby" ]]; then
+        RUBY_VERSIONS=("${SUPPORTED_RUBY_VERSIONS[@]}")
+    elif [[ "$lang" == "ruby-sorbet" ]]; then
+        RUBY_SORBET_VERSIONS=("${SUPPORTED_RUBY_VERSIONS[@]}")
     else
-        failed=0
+        REGULAR_LANGUAGES+=("$lang")
+    fi
+done
+
+# Build regular (non-Ruby) languages
+if [ ${#REGULAR_LANGUAGES[@]} -gt 0 ]; then
+    echo -e "${YELLOW}Building ${#REGULAR_LANGUAGES[@]} language containers${NC}"
+
+    if [ "$PARALLEL" = true ]; then
+        echo -e "${BLUE}Building in parallel (max $MAX_JOBS concurrent, see /tmp/build-*.log for progress)${NC}"
+
+        if ! build_parallel_throttled "$push_images" "" "${REGULAR_LANGUAGES[@]}"; then
+            failed=$?
+        else
+            failed=0
+        fi
+
+        if [ $failed -gt 0 ]; then
+            echo -e "${RED}$failed language containers failed to build${NC}"
+            exit 1
+        fi
+    else
+        for lang in "${REGULAR_LANGUAGES[@]}"; do
+            build_image "$push_images" "" "$lang" || exit 1
+        done
     fi
 
-    if [ $failed -gt 0 ]; then
-        echo -e "${RED}$failed language containers failed to build${NC}"
-        exit 1
-    fi
-else
-    # Build sequentially
-    for lang in "${LANGUAGES[@]}"; do
-        build_container "$lang" "" "$push_languages" || exit 1
-    done
+    echo
 fi
-
-echo
 
 # Build Ruby base images (must complete before Sorbet variants)
-echo -e "${YELLOW}Step 2: Building Ruby base images (${#RUBY_VERSIONS[@]} versions)${NC}"
-
 if [ ${#RUBY_VERSIONS[@]} -eq 0 ]; then
-    echo -e "${YELLOW}No Ruby versions found in dockerfiles/ruby/, skipping${NC}"
+    echo -e "${YELLOW}Skipping Ruby base images${NC}"
 else
-    # Determine if we should push Ruby images to registry
-    push_ruby="false"
-    if [ -n "$REGISTRY" ]; then
-        push_ruby="true"
-    fi
+    echo -e "${YELLOW}Building Ruby base images (${#RUBY_VERSIONS[@]} versions)${NC}"
 
     if [ "$PARALLEL" = true ]; then
         echo -e "${BLUE}Building in parallel (max $MAX_JOBS concurrent, see /tmp/build-ruby-*.log for progress)${NC}"
 
-        if ! build_parallel_throttled "ruby" "$push_ruby" "${RUBY_VERSIONS[@]}"; then
+        if ! build_parallel_throttled "$push_images" "ruby" "${RUBY_VERSIONS[@]}"; then
             failed=$?
         else
             failed=0
@@ -479,32 +443,24 @@ else
             exit 1
         fi
     else
-        # Build sequentially
         for version in "${RUBY_VERSIONS[@]}"; do
-            build_container "$version" "ruby" "$push_ruby" || exit 1
+            build_image "$push_images" "ruby" "$version" || exit 1
         done
     fi
 
+    echo
 fi
 
-echo
-
 # Build Ruby Sorbet variants (depends on Ruby base images)
-echo -e "${YELLOW}Step 3: Building Ruby Sorbet variants (${#RUBY_SORBET_VERSIONS[@]} versions)${NC}"
-
 if [ ${#RUBY_SORBET_VERSIONS[@]} -eq 0 ]; then
-    echo -e "${YELLOW}No Ruby Sorbet versions found in dockerfiles/ruby-sorbet/, skipping${NC}"
+    echo -e "${YELLOW}Skipping Ruby Sorbet images${NC}"
 else
-    # Determine if we should push Sorbet images to registry
-    push_sorbet="false"
-    if [ -n "$REGISTRY" ]; then
-        push_sorbet="true"
-    fi
+    echo -e "${YELLOW}Building Ruby Sorbet images (${#RUBY_SORBET_VERSIONS[@]} versions)${NC}"
 
     if [ "$PARALLEL" = true ]; then
         echo -e "${BLUE}Building in parallel (max $MAX_JOBS concurrent, see /tmp/build-ruby-sorbet-*.log for progress)${NC}"
 
-        if ! build_parallel_throttled "ruby-sorbet" "$push_sorbet" "${RUBY_SORBET_VERSIONS[@]}"; then
+        if ! build_parallel_throttled "$push_images" "ruby-sorbet" "${RUBY_SORBET_VERSIONS[@]}"; then
             failed=$?
         else
             failed=0
@@ -515,11 +471,12 @@ else
             exit 1
         fi
     else
-        # Build sequentially
         for version in "${RUBY_SORBET_VERSIONS[@]}"; do
-            build_container "$version" "ruby-sorbet" "$push_sorbet" || exit 1
+            build_image "$push_images" "ruby-sorbet" "$version" || exit 1
         done
     fi
+
+    echo
 fi
 
 echo
@@ -531,7 +488,7 @@ echo
 if [ -n "$PUSH_FLAG" ]; then
     # Images were pushed to registry
     echo -e "${GREEN}Images pushed to ${REGISTRY} (${REGISTRY_PREFIX}):${NC}"
-    echo -e "  • $(echo "${LANGUAGES[@]}" | wc -w) language containers"
+    echo -e "  • ${#REGULAR_LANGUAGES[@]} language containers"
     echo -e "  • ${#RUBY_VERSIONS[@]} Ruby base images"
     echo -e "  • ${#RUBY_SORBET_VERSIONS[@]} Ruby Sorbet images"
     echo
@@ -547,52 +504,14 @@ if [ -n "$PUSH_FLAG" ]; then
 elif [ "$MULTIARCH" = true ]; then
     echo -e "${BLUE}Multi-arch images built and cached (not loaded into local Docker)${NC}"
     echo
-
-    # If --load was specified, also build local platform and load it
-    if [ "$LOAD_LOCAL" = true ]; then
-        echo -e "${YELLOW}Also building and loading local platform images...${NC}"
-        echo
-
-        # Load non-Ruby languages
-        for lang in "${LANGUAGES[@]}"; do
-            dockerfile="dockerfiles/${lang}.Dockerfile"
-            if [ -f "$dockerfile" ]; then
-                echo -e "${BLUE}Loading nuanced-lsp-${lang}:${LANGUAGE_TAG} (local platform)...${NC}"
-                docker buildx build --load $CACHE_FLAG -f "$dockerfile" -t "nuanced-lsp-${lang}:${LANGUAGE_TAG}" . > "/tmp/build-${lang}-local.log" 2>&1
-            fi
-        done
-
-        # Load Ruby base images
-        for version in "${RUBY_VERSIONS[@]}"; do
-            dockerfile="dockerfiles/ruby/${version}.Dockerfile"
-            if [ -f "$dockerfile" ]; then
-                echo -e "${BLUE}Loading nuanced-lsp-ruby-${version}:${LANGUAGE_TAG} (local platform)...${NC}"
-                docker buildx build --load $CACHE_FLAG -f "$dockerfile" -t "nuanced-lsp-ruby-${version}:${LANGUAGE_TAG}" . > "/tmp/build-ruby-${version}-local.log" 2>&1
-            fi
-        done
-
-        # Load Ruby Sorbet variants
-        for version in "${RUBY_SORBET_VERSIONS[@]}"; do
-            dockerfile="dockerfiles/ruby-sorbet/${version}.Dockerfile"
-            if [ -f "$dockerfile" ]; then
-                echo -e "${BLUE}Loading nuanced-lsp-ruby-sorbet-${version}:${LANGUAGE_TAG} (local platform)...${NC}"
-                docker buildx build --load $CACHE_FLAG -f "$dockerfile" -t "nuanced-lsp-ruby-sorbet-${version}:${LANGUAGE_TAG}" . > "/tmp/build-ruby-sorbet-${version}-local.log" 2>&1
-            fi
-        done
-
-        echo -e "${GREEN}✓ Local platform images loaded into Docker${NC}"
-        echo
-        echo -e "${BLUE}Container Images (Local):${NC}"
-        docker images | grep "nuanced-lsp-" | grep -v -E "(wrapper|proxy|watchdog)" | grep -F "$LANGUAGE_TAG" | awk '{printf "  %-40s %10s\n", $1":"$2, $7}'
-        echo
-    fi
-
     echo -e "${YELLOW}To verify multi-arch builds, use:${NC}"
     echo -e "  docker buildx imagetools inspect nuanced-lsp-<language>:${LANGUAGE_TAG}"
     echo
+    echo -e "${YELLOW}To load local platform images, run without --multiarch${NC}"
+    echo
     echo -e "${YELLOW}To publish to registry:${NC}"
-    echo -e "  $0 --multiarch --tag=${LANGUAGE_TAG} --registry=ghcr"
-    echo -e "  $0 --multiarch --tag=${LANGUAGE_TAG} --registry=dockerhub"
+    echo -e "  $0 --multiarch --language-tag=${LANGUAGE_TAG} --registry=ghcr"
+    echo -e "  $0 --multiarch --language-tag=${LANGUAGE_TAG} --registry=dockerhub"
 else
     echo -e "${BLUE}Container Images (Local):${NC}"
     docker images | grep "nuanced-lsp-" | grep -v -E "(wrapper|proxy|watchdog)" | grep -F "$LANGUAGE_TAG" | awk '{printf "  %-40s %10s\n", $1":"$2, $7}'

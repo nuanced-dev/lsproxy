@@ -12,28 +12,28 @@ DEFAULT_LANGUAGE_TAG="$("$SCRIPT_DIR/util/language-image-version.sh")"
 help() {
     echo "Comprehensive test suite for Nuanced LSP"
     echo ""
-    echo "Usage: $0 [options]"
+    echo "Usage: $0 [OPTIONS...]"
     echo ""
     echo "Options:"
-    echo "  --tag=TAG             Tag of Rust images to use (default: $DEFAULT_RUST_TAG)"
     echo "  --language-tag=TAG    Tag of language images to use (default: $DEFAULT_LANGUAGE_TAG)"
+    echo "  --rust-tag=TAG        Tag of Rust images to use (default: $DEFAULT_RUST_TAG)"
     echo "  --help, -h            Show this help"
     echo ""
     echo "Runs all test suites: Rust unit/integration tests and shell-based endpoint tests."
 }
 
 # Default values
-RUST_TAG=""
 LANGUAGE_TAG=""
+RUST_TAG=""
 
 # Parse options
 for arg in "$@"; do
     case $arg in
-        --tag=*)
-            RUST_TAG="${arg#*=}"
-            ;;
         --language-tag=*)
             LANGUAGE_TAG="${arg#*=}"
+            ;;
+        --rust-tag=*)
+            RUST_TAG="${arg#*=}"
             ;;
         --help|-h)
             help
@@ -51,7 +51,7 @@ TAG_FLAGS=()
 TAG_ENV=()
 if [ -n "$RUST_TAG" ]; then
     echo "Using Rust image version: ${RUST_TAG}"
-    TAG_FLAGS+=("--tag=$RUST_TAG")
+    TAG_FLAGS+=("--rust-tag=$RUST_TAG")
     TAG_ENV+=("RUST_IMAGE_VERSION=$RUST_TAG")
 fi
 if [ -n "$LANGUAGE_TAG" ]; then

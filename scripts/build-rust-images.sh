@@ -10,13 +10,13 @@ DEFAULT_RUST_TAG="$("$SCRIPT_DIR/util/rust-image-version.sh")"
 DEFAULT_LANGUAGE_TAG="$("$SCRIPT_DIR/util/language-image-version.sh")"
 
 usage() {
-    echo "Usage: $0 [--cache=MODE] [--multiarch] [--load] [--tag=TAG] [--language-tag=TAG] [--registry=REGISTRY] [--sequential]"
+    echo "Usage: $0 [--cache=MODE] [--language-tag=TAG] [--multiarch] [--registry=REGISTRY] [--rust-tag=TAG] [--sequential]"
 }
 
 help() {
     echo "Build Rust-based containers (wrapper, proxy, watchdog)"
     echo ""
-    usage
+    echo "Usage: $0 [OPTIONS...]"
     echo ""
     echo "Options:"
     echo "  --cache=MODE          Docker build cache mode: none, docker, gha (default: none)"
@@ -26,33 +26,35 @@ help() {
     echo "                               but use GitHub Actions cache backend for BuildKit cache"
     echo "                               mounts (Cargo registry and build artifacts). This gives us"
     echo "                               reproducible builds while still caching Rust compilation."
-    echo "  --multiarch           Build for both linux/amd64 and linux/arm64 (default: local platform only)"
-    echo "  --load                Load local platform into Docker (use with --multiarch)"
-    echo "  --tag=TAG             Tag images with specified tag (default: $DEFAULT_RUST_TAG)"
     echo "  --language-tag=TAG    Tag of language images to use (default: $DEFAULT_LANGUAGE_TAG)"
     echo "                        Language containers use semver (e.g., 1.0.0) for API compatibility"
+    echo "  --multiarch           Build for both linux/amd64 and linux/arm64 (default: local platform only)"
     echo "  --registry=REG        Push to registry: ghcr, dockerhub, or local (default: no push)"
+    echo "  --rust-tag=TAG        Tag Rust images with specified tag (default: $DEFAULT_RUST_TAG)"
     echo "  --sequential          Build images sequentially (default: parallel)"
     echo "  --help, -h            Show this help message"
     echo ""
     echo "Examples:"
-    echo "  $0 --tag=0.4.8 --language-tag=1.1.0"
-    echo "  $0 --multiarch --tag=0.4.8 --registry=ghcr"
-    echo "  $0 --cache=gha --tag=0.4.8"
+    echo "  $0 --rust-tag=0.4.8 --language-tag=1.1.0"
+    echo "  $0 --multiarch --rust-tag=0.4.8 --registry=ghcr"
+    echo "  $0 --cache=gha --rust-tag=0.4.8"
 }
 
 # Defaults
 CACHE_MODE=none
-MULTIARCH=false
-LOAD_LOCAL=false
-RUST_TAG=""
 LANGUAGE_TAG=""
-REGISTRY= # Options: ghcr, dockerhub, local, or empty for no push
+MULTIARCH=false
 PARALLEL=true
+REGISTRY="" # Options: ghcr, dockerhub, local, or empty for no push
+RUST_TAG=""
 
 # Parse arguments
 for arg in "$@"; do
     case $arg in
+        --help|-h)
+            help
+            exit 0
+            ;;
         --cache=*)
             CACHE_MODE="${arg#*=}"
             if [[ ! "$CACHE_MODE" =~ ^(none|docker|gha)$ ]]; then
@@ -60,17 +62,11 @@ for arg in "$@"; do
                 exit 1
             fi
             ;;
-        --multiarch)
-            MULTIARCH=true
-            ;;
-        --load)
-            LOAD_LOCAL=true
-            ;;
-        --tag=*)
-            RUST_TAG="${arg#*=}"
-            ;;
         --language-tag=*)
             LANGUAGE_TAG="${arg#*=}"
+            ;;
+        --multiarch)
+            MULTIARCH=true
             ;;
         --registry=*)
             REGISTRY="${arg#*=}"
@@ -79,12 +75,11 @@ for arg in "$@"; do
                 exit 1
             fi
             ;;
+        --rust-tag=*)
+            RUST_TAG="${arg#*=}"
+            ;;
         --sequential)
             PARALLEL=false
-            ;;
-        --help|-h)
-            help
-            exit 0
             ;;
         *)
             echo -e "${YELLOW}Unknown argument: $arg${NC}"
@@ -106,7 +101,7 @@ if [ -n "$REGISTRY" ]; then
         ghcr)
             REGISTRY_PREFIX="ghcr.io/nuanced-dev/"
             # Check for GITHUB_TOKEN
-            if [ -z "$GITHUB_TOKEN" ]; then
+            if [ -z "${GITHUB_TOKEN:+x}" ]; then
                 echo -e "${RED}Error: GITHUB_TOKEN environment variable is required for GHCR${NC}"
                 echo "Please set GITHUB_TOKEN with write:packages permission"
                 echo ""
@@ -130,16 +125,15 @@ if [ -n "$REGISTRY" ]; then
         dockerhub)
             REGISTRY_PREFIX="nuanced/"
             # Check for Docker Hub credentials
-            if [ -z "$DOCKER_HUB_USERNAME" ] || [ -z "$DOCKER_HUB_TOKEN" ]; then
-                echo -e "${RED}Error: DOCKER_HUB_USERNAME and DOCKER_HUB_TOKEN required for Docker Hub${NC}"
+            if [ -z "${DOCKER_HUB_TOKEN:+x}" ]; then
+                echo -e "${RED}Error: DOCKER_HUB_TOKEN required for Docker Hub${NC}"
                 echo "Please set:"
-                echo "  export DOCKER_HUB_USERNAME=your_username"
                 echo "  export DOCKER_HUB_TOKEN=your_token_or_password"
                 exit 1
             fi
             # Authenticate to Docker Hub
             echo -e "${BLUE}Authenticating to Docker Hub...${NC}"
-            if echo "$DOCKER_HUB_TOKEN" | docker login -u "$DOCKER_HUB_USERNAME" --password-stdin > /dev/null 2>&1; then
+            if echo "$DOCKER_HUB_TOKEN" | docker login -u nuanced --password-stdin > /dev/null 2>&1; then
                 echo -e "${GREEN}✓ Successfully authenticated to Docker Hub${NC}"
             else
                 echo -e "${RED}✗ Failed to authenticate to Docker Hub${NC}"
@@ -288,27 +282,6 @@ echo
 if [ "$MULTIARCH" = true ]; then
     echo -e "${BLUE}Multi-arch images built and cached (not loaded into local Docker)${NC}"
     echo
-
-    # If --load was specified, also build local platform and load it
-    if [ "$LOAD_LOCAL" = true ]; then
-        echo -e "${YELLOW}Also building and loading local platform images...${NC}"
-        echo
-
-        # Build proxy for local platform with --load
-        echo -e "${BLUE}Loading nuanced-lsp-proxy:${RUST_TAG} (local platform)...${NC}"
-        docker buildx build --load $(compute_cache_flags "proxy") -f dockerfiles/proxy.Dockerfile -t "nuanced-lsp-proxy:${RUST_TAG}" "${BUILD_ARGS[@]}" . > /tmp/build-proxy-local.log 2>&1
-
-        # Build watchdog for local platform with --load
-        echo -e "${BLUE}Loading nuanced-lsp-watchdog:${RUST_TAG} (local platform)...${NC}"
-        docker buildx build --load $(compute_cache_flags "watchdog") -f dockerfiles/watchdog.Dockerfile -t "nuanced-lsp-watchdog:${RUST_TAG}" "${BUILD_ARGS[@]}" . > /tmp/build-watchdog-local.log 2>&1
-
-        # Build wrapper for local platform with --load
-        echo -e "${BLUE}Loading nuanced-lsp-wrapper:${RUST_TAG} (local platform)...${NC}"
-        docker buildx build --load $(compute_cache_flags "wrapper") -f dockerfiles/wrapper.Dockerfile -t "nuanced-lsp-wrapper:${RUST_TAG}" "${BUILD_ARGS[@]}" . > /tmp/build-wrapper-local.log 2>&1
-
-        echo -e "${GREEN}✓ Local platform images loaded into Docker${NC}"
-        echo
-    fi
 fi
 
 echo -e "${GREEN}=========================================${NC}"
@@ -328,19 +301,15 @@ if [ -n "$PUSH_FLAG" ]; then
     echo -e "  docker pull ${WATCHDOG_IMAGE_TAG}"
     echo -e "  docker pull ${WRAPPER_IMAGE_TAG}"
 elif [ "$MULTIARCH" = true ]; then
-    if [ "$LOAD_LOCAL" = true ]; then
-        echo -e "${BLUE}Container Images (Local):${NC}"
-        docker images | grep -E "nuanced-lsp-(proxy|watchdog|wrapper)" | grep -F "$RUST_TAG" | awk '{printf "  %-30s %10s\n", $1":"$2, $7}'
-        echo
-    fi
-
     echo -e "${YELLOW}To verify multi-arch builds:${NC}"
     echo -e "  docker buildx imagetools inspect nuanced-lsp-proxy:${RUST_TAG}"
     echo -e "  docker buildx imagetools inspect nuanced-lsp-watchdog:${RUST_TAG}"
     echo -e "  docker buildx imagetools inspect nuanced-lsp-wrapper:${RUST_TAG}"
     echo
+    echo -e "${YELLOW}To load local platform images, run without --multiarch${NC}"
+    echo
     echo -e "${YELLOW}To publish:${NC}"
-    echo -e "  $0 --multiarch --tag=${RUST_TAG} --registry=ghcr"
+    echo -e "  $0 --multiarch --rust-tag=${RUST_TAG} --registry=ghcr"
 else
     echo -e "${BLUE}Container Images (Local):${NC}"
     docker images | grep -E "nuanced-lsp-(proxy|watchdog|wrapper)" | grep -F "$RUST_TAG" | awk '{printf "  %-30s %10s\n", $1":"$2, $7}'

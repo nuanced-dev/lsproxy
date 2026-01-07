@@ -12,28 +12,28 @@ DEFAULT_LANGUAGE_TAG="$("$SCRIPT_DIR/util/language-image-version.sh")"
 help() {
     echo "Test watchdog container functionality"
     echo ""
-    echo "Usage: $0 [options]"
+    echo "Usage: $0 [OPTIONS...]"
     echo ""
     echo "Options:"
-    echo "  --tag=TAG             Tag of Rust images to use (default: $DEFAULT_RUST_TAG)"
     echo "  --language-tag=TAG    Tag of language images to use (default: $DEFAULT_LANGUAGE_TAG)"
+    echo "  --rust-tag=TAG        Tag of Rust images to use (default: $DEFAULT_RUST_TAG)"
     echo "  --help, -h            Show this help"
     echo ""
     echo "Tests: watchdog spawning, clean shutdown, SIGKILL cleanup, multiple instances"
 }
 
 # Default values
-RUST_TAG=""
 LANGUAGE_TAG=""
+RUST_TAG=""
 
 # Parse options
 for arg in "$@"; do
     case $arg in
-        --tag=*)
-            RUST_TAG="${arg#*=}"
-            ;;
         --language-tag=*)
             LANGUAGE_TAG="${arg#*=}"
+            ;;
+        --rust-tag=*)
+            RUST_TAG="${arg#*=}"
             ;;
         --help|-h)
             help

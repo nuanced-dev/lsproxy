@@ -33,7 +33,7 @@ jobs:
       # cache backend for BuildKit cache mounts (Cargo registry and build artifacts).
       # This gives us reproducible builds while still caching Rust compilation.
       - name: Build Rust images
-        run: ./scripts/build-rust-images.sh --tag=${{ env.RUST_TAG }} --language-tag=${{ env.LANGUAGE_TAG }} --cache=gha --sequential
+        run: ./scripts/build-rust-images.sh --rust-tag=${{ env.RUST_TAG }} --language-tag=${{ env.LANGUAGE_TAG }} --cache=gha --sequential
 
       - name: Export images
         run: |
@@ -100,7 +100,7 @@ jobs:
         run: docker pull ghcr.io/nuanced-dev/nuanced-lsp-python:${{ env.LANGUAGE_TAG }}
 
       - name: Run container lifecycle tests
-        run: ./scripts/test-container-lifecycle.sh --tag=${{ env.RUST_TAG }} --language-tag=${{ env.LANGUAGE_TAG }}
+        run: ./scripts/test-container-lifecycle.sh --rust-tag=${{ env.RUST_TAG }} --language-tag=${{ env.LANGUAGE_TAG }}
 
   test-watchdog:
     runs-on: ubuntu-latest
@@ -122,7 +122,7 @@ jobs:
         run: docker pull ghcr.io/nuanced-dev/nuanced-lsp-python:${{ env.LANGUAGE_TAG }}
 
       - name: Run watchdog tests
-        run: ./scripts/test-watchdog.sh --tag=${{ env.RUST_TAG }} --language-tag=${{ env.LANGUAGE_TAG }}
+        run: ./scripts/test-watchdog.sh --rust-tag=${{ env.RUST_TAG }} --language-tag=${{ env.LANGUAGE_TAG }}
 
   test-all-endpoints:
     runs-on: ubuntu-latest
@@ -158,4 +158,4 @@ jobs:
           echo "All language images pulled successfully"
 
       - name: Run all-endpoints tests
-        run: ./scripts/test-all-endpoints.sh --tag=${{ env.RUST_TAG }} --language-tag=${{ env.LANGUAGE_TAG }}
+        run: ./scripts/test-all-endpoints.sh --rust-tag=${{ env.RUST_TAG }} --language-tag=${{ env.LANGUAGE_TAG }}

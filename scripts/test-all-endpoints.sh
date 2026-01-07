@@ -9,18 +9,22 @@ source "$SCRIPT_DIR/include/colors.sh"
 DEFAULT_RUST_TAG="$("$SCRIPT_DIR/util/rust-image-version.sh")"
 DEFAULT_LANGUAGE_TAG="$("$SCRIPT_DIR/util/language-image-version.sh")"
 
+usage() {
+    echo "Usage: $0 [--language-tag=TAG] [--no-cleanup] [--rust-tag=TAG]"
+}
+
 help() {
     echo "Comprehensive Nuanced LSP test script that validates all endpoints for all languages"
     echo ""
-    echo "Usage: $0 [options]"
+    echo "Usage: $0 [OPTIONS...]"
     echo ""
     echo "This script automatically starts Nuanced LSP if it's not already running."
     echo "If the service is already running, it uses the existing containers."
     echo ""
     echo "Options:"
-    echo "  --tag=TAG             Tag images with specified tag (default: $DEFAULT_RUST_TAG)"
     echo "  --language-tag=TAG    Tag of language images to use (default: $DEFAULT_LANGUAGE_TAG)"
     echo "  --no-cleanup          Don't stop containers after tests (useful for debugging)"
+    echo "  --rust-tag=TAG        Tag images with specified tag (default: $DEFAULT_RUST_TAG)"
     echo "  --help, -h            Show this help"
     echo ""
     echo "Behavior:"
@@ -30,21 +34,21 @@ help() {
 }
 
 # Default values
-RUST_TAG=""
 LANGUAGE_TAG=""
 CLEANUP_ON_EXIT=true
+RUST_TAG=""
 
 # Parse options
 for arg in "$@"; do
     case $arg in
-        --tag=*)
-            RUST_TAG="${arg#*=}"
-            ;;
         --language-tag=*)
             LANGUAGE_TAG="${arg#*=}"
             ;;
         --no-cleanup)
             CLEANUP_ON_EXIT=false
+            ;;
+        --rust-tag=*)
+            RUST_TAG="${arg#*=}"
             ;;
         -h|--help)
             help
@@ -357,14 +361,14 @@ else
     # Check if workspace exists
     if [ ! -d "$WORKSPACE_PATH" ]; then
         echo -e "${RED}✗ ERROR: Workspace not found: $WORKSPACE_PATH${NC}"
-        echo -e "${YELLOW}  Usage: $0 [workspace_path] [--no-cleanup]${NC}"
+        usage
         exit 1
     fi
 
     # Start the service using start-proxy.sh
     PROXY_ARGS=()
     if [ -n "$RUST_TAG" ]; then
-        PROXY_ARGS+=("--tag=${RUST_TAG}")
+        PROXY_ARGS+=("--rust-tag=${RUST_TAG}")
     fi
     if [ -n "$LANGUAGE_TAG" ]; then
         PROXY_ARGS+=("--language-tag=${LANGUAGE_TAG}")

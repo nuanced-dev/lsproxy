@@ -9,18 +9,22 @@ source "$SCRIPT_DIR/include/colors.sh"
 DEFAULT_RUST_TAG="$("$SCRIPT_DIR/util/rust-image-version.sh")"
 DEFAULT_LANGUAGE_TAG="$("$SCRIPT_DIR/util/language-image-version.sh")"
 
+usage() {
+    echo "Usage: $0 [--auth] [--foreground] [--language-tag=TAG] [--logs] [--port=PORT] [--rust-tag=TAG] WORKSPACE_DIR"
+}
+
 help() {
     echo "Start Nuanced LSP proxy with container orchestration"
     echo ""
-    echo "Usage: $0 [--tag=TAG] [--language-tag=TAG]"
+    echo "Usage: $0 [OPTIONS...] WORKSPACE_DIR"
     echo ""
     echo "Options:"
-    echo "  --tag=TAG             Tag images with specified tag (default: $DEFAULT_RUST_TAG)"
-    echo "  --language-tag=TAG    Tag of language images to use (default: $DEFAULT_LANGUAGE_TAG)"
     echo "  --auth                Enable JWT authentication"
-    echo "  --port=PORT           Use custom port (default: 4444)"
     echo "  --foreground, -f      Run in foreground (not detached)"
+    echo "  --language-tag=TAG    Tag of language images to use (default: $DEFAULT_LANGUAGE_TAG)"
     echo "  --logs, -l            Tail logs after starting"
+    echo "  --port=PORT           Use custom port (default: 4444)"
+    echo "  --rust-tag=TAG        Tag images with specified tag (default: $DEFAULT_RUST_TAG)"
     echo "  --help, -h            Show this help"
     echo ""
     echo "Examples:"
@@ -30,34 +34,34 @@ help() {
 }
 
 # Default values
-RUST_TAG=""
-LANGUAGE_TAG=""
 USE_AUTH=false
-PORT=4444
 DETACHED=true
+LANGUAGE_TAG=""
 TAIL_LOGS=false
+PORT=4444
+RUST_TAG=""
 WORKSPACE_PATH=
 
 # Parse options
 for arg in "$@"; do
     case $arg in
-        --tag=*)
-            RUST_TAG="${arg#*=}"
-            ;;
-        --language-tag=*)
-            LANGUAGE_TAG="${arg#*=}"
-            ;;
         --auth)
             USE_AUTH=true
-            ;;
-        --port=*)
-            PORT="${arg#*=}"
             ;;
         --foreground|-f)
             DETACHED=false
             ;;
+        --language-tag=*)
+            LANGUAGE_TAG="${arg#*=}"
+            ;;
         --logs|-l)
             TAIL_LOGS=true
+            ;;
+        --port=*)
+            PORT="${arg#*=}"
+            ;;
+        --rust-tag=*)
+            RUST_TAG="${arg#*=}"
             ;;
         --help|-h)
             help

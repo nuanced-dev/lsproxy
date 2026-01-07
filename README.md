@@ -243,9 +243,9 @@ Images can be published to GitHub Container Registry (ghcr.io) and/or Docker Hub
 
 ```bash
 # Publish to GHCR
-./scripts/build-rust-images.sh --multiarch --registry=ghcr --tag X.Y.Z
+./scripts/build-rust-images.sh --multiarch --registry=ghcr --rust-tag=X.Y.Z
 
-./scripts/build-language-images.sh --multiarch --registry=ghcr -- tag X.Y.Z
+./scripts/build-language-images.sh --multiarch --registry=ghcr --rust-tag=X.Y.Z
 ```
 
 **Environment Variables for Publishing:**
