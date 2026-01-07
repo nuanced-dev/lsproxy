@@ -167,10 +167,10 @@ impl ContainerOrchestrator {
             self.instance_id_short().clone(),
         );
 
-        // Build CMD override for Sorbet containers with a config directory
+        // Compute working directory for Sorbet containers with a config directory
         // Sorbet reads sorbet/config which contains "--dir ." (current directory).
         // We need to change the working directory so "." resolves to the right place.
-        let cmd = if let Some(sorbet_dir) = language.sorbet_config_dir() {
+        let working_dir = if let Some(sorbet_dir) = language.sorbet_config_dir() {
             // The sorbet_dir could be either:
             // 1. A container path (starts with /mnt/workspace) - use directly
             // 2. A host path - strip mount_source prefix and prepend /mnt/workspace
@@ -192,24 +192,19 @@ impl ContainerOrchestrator {
                 mount_source
             );
 
-            // Use shell to cd to the correct directory before running srb
-            // This ensures sorbet/config's "--dir ." resolves correctly
-            Some(vec![
-                "--lsp-command".to_string(),
-                "sh".to_string(),
-                "--lsp-arg=-c".to_string(),
-                format!(
-                    "--lsp-arg=cd {} && exec srb tc --lsp --disable-watchman",
-                    container_sorbet_path
-                ),
-            ])
+            // Only set working_dir if it differs from the default
+            if container_sorbet_path != "/mnt/workspace" {
+                Some(container_sorbet_path)
+            } else {
+                None
+            }
         } else {
             None
         };
 
         let config = Config {
             image: Some(image_name.clone()),
-            cmd,
+            working_dir,
             env: Some(env),
             host_config: Some(host_config),
             labels: Some(labels),
