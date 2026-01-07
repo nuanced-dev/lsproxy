@@ -93,7 +93,7 @@ cleanup() {
             echo -e "${GREEN}✓ Orphaned containers cleaned${NC}"
         fi
     elif [ "$CLEANUP_ON_EXIT" = false ]; then
-u       echo
+        echo
         echo -e "${YELLOW}Skipping cleanup (--no-cleanup specified)${NC}"
         echo -e "${YELLOW}To clean up manually, run: ./scripts/stop-proxy.sh --force${NC}"
     elif [ "$STARTED_SERVICE" = false ]; then
