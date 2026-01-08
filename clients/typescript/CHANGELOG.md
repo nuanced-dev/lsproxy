@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Renames the `languageContainerVersion` API argument and `--language-container-version` CLI flag to the `up` command to `languageImageVersion` and `--language-image-version`, respectively.
+- Updates `nuanced-lsp-proxy`, `nuanced-lsp-watchdog`, and `nuanced-lsp-wrapper` image versions to 0.4.8.
 
 ## [0.3.18] - 2025-11-25
 

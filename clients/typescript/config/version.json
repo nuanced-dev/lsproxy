@@ -1,7 +1,7 @@
 {
-  "lsp-version": "0.3.18",
-  "proxy-image-version": "0.4.8",
-  "wrapper-image-version": "0.4.8",
-  "watchdog-image-version": "0.4.8",
+  "lsp-version": "0.4.0",
+  "proxy-image-version": "0.4.9",
+  "wrapper-image-version": "0.4.9",
+  "watchdog-image-version": "0.4.9",
   "language-image-version": "1.0.0"
 }
