@@ -20,8 +20,8 @@
   ],
   "scripts": {
     "build": "npm run typecheck && npm run build:cli && npm run build:lib && npm run build:cjs",
-    "build:cjs": "script/build-cjs.mjs",
-    "build:cli": "script/build-esbuild.mjs",
+    "build:cjs": "scripts/build-cjs.mjs",
+    "build:cli": "scripts/build-esbuild.mjs",
     "build:lib": "tsc -p tsconfig.build.json",
     "clean": "rm -rf dist obfuscated nuanced-dev-*.tgz",
     "dev": "tsx src/cli.ts",
@@ -29,7 +29,7 @@
     "lint:fix": "eslint --fix",
     "obfuscate": "javascript-obfuscator dist --output dist --config obfuscator-config.json",
     "postbuild": "cp src/languages.json dist/languages.json && chmod +x dist/cli.cjs",
-    "prebuild": "cp config/languages.json src/languages.json && script/generate-version.mjs",
+    "prebuild": "cp config/languages.json src/languages.json && scripts/generate-version.mjs",
     "prepublishOnly": "npm run clean && npm run build && npm run obfuscate",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit"

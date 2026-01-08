@@ -1,26 +1,45 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Usage: script/release
-#
-# This script creates a release for the lsp package. Before running:
-# 1. Edit config/version.json with the desired versions
-# 2. Commit your changes
-# 3. Run this script to build, tag, publish, and release
-#
-# The script will:
-# - Validate all 5 required versions are present in config/version.json
-# - Run the build (which updates package.json and generates version.ts)
-# - Commit any generated file changes
-# - Create and push the git tag (lsp-v<version>)
-# - Publish the package to npm
-# - Create a GitHub release with the package archive
-#
-# Required environment variables for publishing:
-# - NODE_AUTH_TOKEN: npm token for publishing (or be logged in via `npm login`)
-# - GITHUB_TOKEN: for creating the GitHub release (or be logged in via `gh auth`)
-
 . "$(dirname "$0")/release-shared.bash"
+
+usage() {
+    echo "Create a release for the lsp package"
+    echo ""
+    echo "Usage: $0"
+    echo ""
+    echo "Before running:"
+    echo "1. Edit config/version.json with the desired versions"
+    echo "2. Commit your changes"
+    echo "3. Run this script to build, tag, publish, and release"
+    echo ""
+    echo "The script will:"
+    echo "- Validate all 5 required versions are present in config/version.json"
+    echo "- Run the build (which updates package.json and generates version.ts)"
+    echo "- Commit any generated file changes"
+    echo "- Create and push the git tag (lsp-v<version>)"
+    echo "- Publish the package to npm"
+    echo "- Create a GitHub release with the package archive"
+    echo ""
+    echo "Required environment variables for publishing:"
+    echo "- NODE_AUTH_TOKEN: npm token for publishing (or be logged in via `npm login`)"
+    echo "- GITHUB_TOKEN: for creating the GitHub release (or be logged in via `gh auth`)"
+}
+
+# Parse arguments
+for arg in "$@"; do
+    case $arg in
+        --help|-h)
+            help
+            exit 0
+            ;;
+        *)
+            echo -e "Unknown argument: $arg"
+            usage
+            exit 1
+            ;;
+    esac
+done
 
 echo "Starting release process..."
 

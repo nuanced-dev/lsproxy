@@ -13,7 +13,7 @@ Key points of difference between Nuanced LSP and the upstream LSProxy:
 |-------------------|----------------------------------------------|
 | `bin/nuanced-lsp` | Built CLI binary (output of `npm run build`) |
 | `src/`            | TypeScript client (CLI + library)            |
-| `script/`         | Project-level scripts                        |
+| `scripts/`        | Project-level scripts                        |
 | `tests/`          | Unified test suite                           |
 
 ---
@@ -42,22 +42,22 @@ The tests can be run in two ways
   ```bash
   npm run test
   ```
-- Run with possible custom falgs using `script/test`
+- Run with possible custom falgs using `scripts/test.sh`
   ```bash
-  script/test [...flags]
+  scripts/test.sh [...flags]
   ```
 
-#### Common `script/test` usage
+#### Common `scripts/test.sh` usage
 
 - **Fail fast:** stop on first failure
   ```bash
-  script/test --fail-fast
+  scripts/test.sh --fail-fast
   ```
 
 - **Concurrency:** run with multiple Vitest workers
   ```bash
-  script/test --workers 8
-  script/test --workers auto
+  scripts/test.sh --workers 8
+  scripts/test.sh --workers auto
   ```
 
   By default tests execute sequentially (`--workers auto`) to avoid Docker port
@@ -66,24 +66,24 @@ The tests can be run in two ways
 - **Run specific tests:** pass Vitest filters/paths
   ```bash
   # a single spec file
-  script/test tests/specs/workspace.spec.ts
+  scripts/test.sh tests/specs/workspace.spec.ts
 
   # pattern match by test name
-  script/test --testNamePattern "find definitions"
+  scripts/test.sh --testNamePattern "find definitions"
   ```
 
 - **Limit languages under test:** Provide a comma-separated list to expand coverage.
 
   ```bash
-  NUANCED_LANGUAGES=php script/test
-  NUANCED_LANGUAGES=php,ts script/test
+  scripts/test.sh --languages php
+  scripts/test.sh --languages php,ts
   ```
 
-For additional options (fixtures, image overrides, timeouts, etc.), see [`script/test`](script/test).
+For additional options (fixtures, image overrides, timeouts, etc.), see [`scripts/test.sh`](scripts/test.sh).
 
 ## Fixtures
 
-All API tests are based on fixtures. These can be re-recorded easily using the `script/test --record-fixtures` flag.
+All API tests are based on fixtures. These can be re-recorded easily using the `scripts/test.sh --record-fixtures` flag.
 
 ---
 
@@ -92,10 +92,10 @@ All API tests are based on fixtures. These can be re-recorded easily using the `
 The release process is automated and initiated via:
 
 ```bash
-script/release
+scripts/release.sh
 ```
 
 - You may pass a single version (`X.Y.Z`). If passed, this overwrites the `lsp-version` in `config/version.json`. The `lsp-version` value in `config/version.json` is the package version set in `package.json`.
 - You may also pass a second version (`X.Y.Z`). If passed, this overwrites the `lsproxy-version` in `config/version.json`. This version is used to determined the default `nuanced-lsproxy` image tag version.
 
-After tagging, both the **branch and tag** are pushed to GitHub. The workflow [`.github/release.yml`](.github/release.yml) performs a checkout of the project, builds the TypeScript package, and invokes `script/ci-release` to complete the release automation and publish the bundle to npmjs.
+After tagging, both the **branch and tag** are pushed to GitHub. The workflow [`.github/release.yml`](.github/release.yml) performs a checkout of the project, builds the TypeScript package, and invokes `scripts/ci-release.sh` to complete the release automation and publish the bundle to npmjs.
