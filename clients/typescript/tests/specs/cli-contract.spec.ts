@@ -124,8 +124,8 @@ function runHelp(command: string, args: string[]): string {
   return result.stdout || "";
 }
 
-describe("CLI contract", () => {
-  describe("TypeScript client", () => {
+describe("TypeScript client", () => {
+  describe("CLI contract", () => {
     const [cmd, ...baseArgs] = CLIENT_COMMAND;
 
     it("includes required subcommands in top-level help", () => {

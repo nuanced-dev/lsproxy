@@ -39,66 +39,68 @@ function createSemaphore(limit: number): {
 
 const lifecycleSemaphore = createSemaphore(MAX_LIFECYCLE_CONCURRENCY);
 
-describeDocker("TypeScript lifecycle", () => {
-  for (const language of LANGUAGES) {
-    describe(language.label, () => {
-      it.concurrent(
-        "manages container lifecycle: up, status, run scripts, logs, down",
-        async () => {
-          const release = await lifecycleSemaphore.acquire();
+describe("TypeScript client", () => {
+  describeDocker("lifecycle", () => {
+    for (const language of LANGUAGES) {
+      describe(language.label, () => {
+        it.concurrent(
+          "manages container lifecycle: up, status, run scripts, logs, down",
+          async () => {
+            const release = await lifecycleSemaphore.acquire();
 
-          console.info(
-            `[lifecycle] starting ${language.key} (${language.label})`,
-          );
-          const runner: ClientRunner = createRunner({ language });
-
-          try {
-            // Test: bring container up
-            runner.up();
-
-            // Test: status
-            const status = runner.statusJson();
-            expect(status?.container_name).toEqual(runner.containerName);
-            const containerStatus = status?.container_status;
-            expect(typeof containerStatus).toBe("string");
-            expect(String(containerStatus).startsWith("Up")).toBeTruthy();
-
-            // Test: run custom script
-            const sid = runner.containerName.replace(/\//g, "_");
-            const scriptName = `.nuanced_test_boot_${sid}.sh`;
-            const probeName = `.nuanced_probe_${sid}.txt`;
-            const scriptPath = path.join(runner.workspace, scriptName);
-            const probePath = path.join(runner.workspace, probeName);
+            console.info(
+              `[lifecycle] starting ${language.key} (${language.label})`,
+            );
+            const runner: ClientRunner = createRunner({ language });
 
             try {
-              fs.writeFileSync(
-                scriptPath,
-                `#!/bin/sh\necho "hello-from-container" > /mnt/workspace/${probeName}\n`,
-                { encoding: "utf8" },
-              );
+              // Test: bring container up
+              runner.up();
 
-              runner.runScript(scriptPath);
+              // Test: status
+              const status = runner.statusJson();
+              expect(status?.container_name).toEqual(runner.containerName);
+              const containerStatus = status?.container_status;
+              expect(typeof containerStatus).toBe("string");
+              expect(String(containerStatus).startsWith("Up")).toBeTruthy();
 
-              expect(fs.existsSync(probePath)).toBeTruthy();
-              const contents = fs.readFileSync(probePath, "utf8").trim();
-              expect(contents).toBe("hello-from-container");
+              // Test: run custom script
+              const sid = runner.containerName.replace(/\//g, "_");
+              const scriptName = `.nuanced_test_boot_${sid}.sh`;
+              const probeName = `.nuanced_probe_${sid}.txt`;
+              const scriptPath = path.join(runner.workspace, scriptName);
+              const probePath = path.join(runner.workspace, probeName);
+
+              try {
+                fs.writeFileSync(
+                  scriptPath,
+                  `#!/bin/sh\necho "hello-from-container" > /mnt/workspace/${probeName}\n`,
+                  { encoding: "utf8" },
+                );
+
+                runner.runScript(scriptPath);
+
+                expect(fs.existsSync(probePath)).toBeTruthy();
+                const contents = fs.readFileSync(probePath, "utf8").trim();
+                expect(contents).toBe("hello-from-container");
+              } finally {
+                fs.rmSync(scriptPath, { force: true });
+                fs.rmSync(probePath, { force: true });
+              }
+
+              // Test: logs
+              const logs = runner.logs();
+              expect(typeof logs).toBe("string");
             } finally {
-              fs.rmSync(scriptPath, { force: true });
-              fs.rmSync(probePath, { force: true });
+              // Test: tear down
+              if (runner) {
+                await runner.down();
+              }
+              release();
             }
-
-            // Test: logs
-            const logs = runner.logs();
-            expect(typeof logs).toBe("string");
-          } finally {
-            // Test: tear down
-            if (runner) {
-              await runner.down();
-            }
-            release();
-          }
-        },
-      );
-    });
-  }
+          },
+        );
+      });
+    }
+  });
 });
