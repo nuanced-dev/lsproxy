@@ -63,18 +63,37 @@ impl ContainerOrchestrator {
         }
 
         // Set health status to Pending at the start of spawn attempt
-        self.set_language_health(language.clone(), ContainerHealthStatus::Pending)
+        self.set_container_health(language.clone(), ContainerHealthStatus::Pending)
             .await;
 
         // Call implementation and handle health status updates
-        match self.spawn_container_impl(language.clone()).await {
-            Ok(info) => Ok(info),
+        let info = match self.spawn_container_impl(language.clone()).await {
+            Ok(info) => info,
             Err(e) => {
-                self.set_language_health(language, ContainerHealthStatus::Unhealthy)
+                self.set_container_health(language, ContainerHealthStatus::Unhealthy)
                     .await;
-                Err(e)
+                return Err(e);
+            }
+        };
+
+        match self.check_container_health(&info).await {
+            Ok(_) => {
+                log::info!("{} is now healthy and ready", info.image_name);
+                self.set_container_health(language.clone(), ContainerHealthStatus::Healthy)
+                    .await;
+            }
+            Err(e) => {
+                log::error!("{} health check failed: {}", info.image_name, e);
+                self.set_container_health(language.clone(), ContainerHealthStatus::Unhealthy)
+                    .await;
+                return Err(OrchestratorError::HealthCheck(format!(
+                    "{}: {}",
+                    info.image_name, e
+                )));
             }
         }
+
+        Ok(info)
     }
 
     /// Internal implementation of container spawning
@@ -347,23 +366,6 @@ impl ContainerOrchestrator {
             language,
             endpoint
         );
-
-        match self.check_container_health(&info).await {
-            Ok(_) => {
-                log::info!("{} is now healthy and ready", info.image_name);
-                self.set_language_health(language.clone(), ContainerHealthStatus::Healthy)
-                    .await;
-            }
-            Err(e) => {
-                log::error!("{} health check failed: {}", info.image_name, e);
-                self.set_language_health(language.clone(), ContainerHealthStatus::Unhealthy)
-                    .await;
-                return Err(OrchestratorError::HealthCheck(format!(
-                    "{}: {}",
-                    info.image_name, e
-                )));
-            }
-        }
 
         Ok(info)
     }

@@ -1,6 +1,7 @@
 use bollard::Docker;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::sync::Mutex;
 
 use common::api_types::{LanguageVariant, SupportedLanguages};
@@ -213,7 +214,7 @@ impl ContainerOrchestrator {
     }
 
     /// Mark health status for a container
-    async fn set_language_health(
+    async fn set_container_health(
         &self,
         language: SupportedLanguages,
         status: ContainerHealthStatus,
@@ -223,7 +224,7 @@ impl ContainerOrchestrator {
     }
 
     /// Get all languages with tracked health status
-    pub async fn get_all_languages_health(
+    pub async fn get_all_containers_health(
         &self,
     ) -> HashMap<SupportedLanguages, ContainerHealthStatus> {
         self.container_health.lock().await.clone()
@@ -480,7 +481,8 @@ impl ContainerOrchestrator {
 
         // Spawn all containers in parallel
         let spawn_futures: Vec<_> = languages_needing_spawn
-            .into_iter()
+            .iter()
+            .cloned()
             .map(|language| {
                 let orchestrator = self.clone();
                 async move {
@@ -494,13 +496,12 @@ impl ContainerOrchestrator {
         // Wait for all spawns to complete
         let results = futures::future::join_all(spawn_futures).await;
 
-        // Check results - log successes and failures but always complete initialization
-        // Individual container failures are tracked in health status and reported via health endpoint
+        // Check results - log successes and failures
         for (language, result) in results {
             match result {
                 Ok(info) => {
                     log::info!(
-                        "Container for {:?} created at {}, starting health checks in background",
+                        "Container for {:?} created at {}, health checks running",
                         language,
                         info.endpoint
                     );
@@ -511,8 +512,26 @@ impl ContainerOrchestrator {
             }
         }
 
-        // Always complete initialization successfully
-        // Clients can check individual language health via the health endpoint's language_status field
+        // Wait for all initialization containers to report non-Pending status
+        log::info!("Waiting for all language containers to report their status...");
+        loop {
+            let all_ready;
+            {
+                let health_statuses = self.container_health.lock().await;
+                all_ready = health_statuses
+                    .values()
+                    .all(|status| *status != ContainerHealthStatus::Pending);
+                // lock is released
+            }
+
+            if all_ready {
+                log::info!("All language containers have reported their status");
+                break;
+            }
+
+            tokio::time::sleep(Duration::from_millis(100)).await;
+        }
+
         Ok(())
     }
 

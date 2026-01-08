@@ -1,7 +1,7 @@
 use crate::AppState;
 use actix_web::web::Data;
 use actix_web::HttpResponse;
-use common::api_types::{HealthResponse, HealthStatus};
+use common::api_types::HealthResponse;
 use std::collections::HashMap;
 
 use crate::container::ContainerHealthStatus;
@@ -29,32 +29,31 @@ pub async fn health_check(data: Data<AppState>) -> HttpResponse {
             status: "initializing".to_string(),
             version: VERSION.to_string(),
             languages: HashMap::new(),
-            language_status: HashMap::new(),
         });
     }
 
     // Get all languages with tracked health status
     // This includes both successfully spawned containers and those that failed to spawn
-    let all_health_statuses = data.orchestrator.get_all_languages_health().await;
+    let all_containers_health = data.orchestrator.get_all_containers_health().await;
 
     let mut languages = HashMap::new();
-    let mut language_status = HashMap::new();
-    for (lang, health_status) in all_health_statuses {
-        let status = match health_status {
-            ContainerHealthStatus::Healthy => HealthStatus::Healthy,
-            ContainerHealthStatus::Pending => HealthStatus::Pending,
-            ContainerHealthStatus::Unhealthy => HealthStatus::Unhealthy,
-        };
-        // Backward compatible bool: true only if healthy
-        let available = status == HealthStatus::Healthy;
-        languages.insert(lang.clone(), available);
-        language_status.insert(lang, status);
+    for (lang, health_status) in all_containers_health {
+        match health_status {
+            ContainerHealthStatus::Healthy => {
+                languages.insert(lang, true);
+            }
+            ContainerHealthStatus::Unhealthy => {
+                languages.insert(lang, false);
+            }
+            ContainerHealthStatus::Pending => {
+                // Don't include pending languages in the response
+            }
+        }
     }
 
     HttpResponse::Ok().json(HealthResponse {
         status: "ok".to_string(),
         version: VERSION.to_string(),
         languages,
-        language_status,
     })
 }
