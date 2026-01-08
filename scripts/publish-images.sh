@@ -12,7 +12,7 @@ DEFAULT_RUST_TAG="$("$SCRIPT_DIR/util/rust-image-version.sh")"
 DEFAULT_LANGUAGE_TAG="$("$SCRIPT_DIR/util/language-image-version.sh")"
 
 usage() {
-    echo "Usage: $0 [--dry-run] [--language-tag=TAG] [--languages=LANG...] [--registry=REGISTRY] [--rust-tag=TAG]"
+    echo "Usage: $0 [--dry-run] [--language-tag=TAG] [--languages=LANG...] [--registry=REGISTRY] [--rust=IMAGE...] [--rust-tag=TAG]"
 }
 
 help() {
@@ -27,6 +27,9 @@ help() {
     echo "                        Use empty value (--languages=) for no languages"
     echo "                        Supports versioned Ruby: ruby-3.2.2, ruby-sorbet-3.2.2"
     echo "  --registry=REGISTRY   Target registry: ghcr, dockerhub, or both (default: both)"
+    echo "  --rust=IMAGE...       Comma-separated list of Rust images: proxy, watchdog, wrapper"
+    echo "                        (default: all Rust images)"
+    echo "                        Use empty value (--rust=) for no Rust images"
     echo "  --rust-tag=TAG        Tag of Rust images to use (default: $DEFAULT_RUST_TAG)"
     echo "  --help, -h            Show this help message"
     echo ""
@@ -48,6 +51,8 @@ help() {
     echo "  $0 --languages=python,typescript,ruby"
     echo "  $0 --languages=ruby-3.2.2,ruby-sorbet-3.2.2"
     echo "  $0 --language-tag=1.0.0 --registry=both"
+    echo "  $0 --rust= --languages=python"
+    echo "  $0 --rust=proxy,watchdog"
 }
 
 # Default settings
@@ -55,6 +60,7 @@ DRY_RUN=false
 LANGUAGE_TAG=""
 LANGUAGES=("${SUPPORTED_LANGUAGES[@]}")
 REGISTRY_TARGET="both"  # Options: ghcr, dockerhub, both
+RUST_IMAGES=(wrapper proxy watchdog)
 RUST_TAG=""
 
 # Parse arguments
@@ -79,6 +85,9 @@ for arg in "$@"; do
                 echo -e "${YELLOW}Invalid registry: $REGISTRY_TARGET. Must be ghcr, dockerhub, or both${NC}"
                 exit 1
             fi
+            ;;
+        --rust=*)
+            IFS=',' read -ra RUST_IMAGES <<< "${arg#*=}"
             ;;
         --rust-tag=*)
             RUST_TAG="${arg#*=}"
@@ -111,8 +120,12 @@ fi
 
 echo -e "${BLUE}=========================================${NC}"
 echo -e "${BLUE}  Publishing Images${NC}"
-echo -e "${BLUE}  Rust images: $RUST_TAG${NC}"
-echo -e "${BLUE}  Language images: $LANGUAGE_TAG${NC}"
+if [ ${#RUST_IMAGES[@]} -gt 0 ]; then
+    echo -e "${BLUE}  Rust images: $RUST_TAG${NC}"
+fi
+if [ ${#LANGUAGES[@]} -gt 0 ]; then
+    echo -e "${BLUE}  Language images: $LANGUAGE_TAG${NC}"
+fi
 if [ "$PUBLISH_TO_GHCR" = true ]; then
     echo -e "${BLUE}  GHCR: $GHCR_REGISTRY${NC}"
 fi
@@ -202,30 +215,27 @@ publish_image() {
 }
 
 # Core Rust images
-echo -e "${YELLOW}Step 1: Publishing Rust images (version: $RUST_TAG)${NC}"
-echo
+if [ ${#RUST_IMAGES[@]} -eq 0 ]; then
+    echo -e "${YELLOW}No Rust images to publish${NC}"
+else
+    echo -e "${YELLOW}Publishing ${#RUST_IMAGES[@]} Rust images (version: $RUST_TAG)${NC}"
+    echo
 
-RUST_IMAGE_NAMES=(
-    "nuanced-lsp-wrapper"
-    "nuanced-lsp-proxy"
-    "nuanced-lsp-watchdog"
-)
+    failed=0
+    for image_name in "${RUST_IMAGES[@]}"; do
+        publish_image "nuanced-lsp-${image_name}:$RUST_TAG" || failed=$((failed + 1))
+    done
 
-failed=0
-for image_name in "${RUST_IMAGE_NAMES[@]}"; do
-    publish_image "$image_name:$RUST_TAG" || failed=$((failed + 1))
-done
+    if [ $failed -gt 0 ]; then
+        echo -e "${RED}$failed Rust images failed to publish${NC}"
+        exit 1
+    fi
 
-if [ $failed -gt 0 ]; then
-    echo -e "${RED}$failed Rust images failed to publish${NC}"
-    exit 1
+    echo
 fi
 
-echo
-
 # Language images
-echo -e "${YELLOW}Step 2: Publishing images for ${#LANGUAGES[@]} languages (version: $LANGUAGE_TAG)${NC}"
-echo
+echo -e "${YELLOW}Publishing images for ${#LANGUAGES[@]} languages (version: $LANGUAGE_TAG)${NC}"
 
 # Separate languages into categories (ruby-sorbet must be built after ruby)
 REGULAR_LANGUAGES=()
@@ -288,16 +298,22 @@ if [ "$DRY_RUN" = true ]; then
     echo -e "${GREEN}  No images were actually pushed${NC}"
 else
     echo -e "${GREEN}  All Images Published Successfully${NC}"
-    echo -e "${GREEN}  Rust images: $RUST_TAG${NC}"
-    echo -e "${GREEN}  Language images: $LANGUAGE_TAG${NC}"
-fi
-echo -e "${GREEN}=========================================${NC}"
-echo
-
-if [ "$DRY_RUN" = false ]; then
+    if [ ${#RUST_IMAGES[@]} -gt 0 ]; then
+        echo -e "${GREEN}  Rust images: $RUST_TAG${NC}"
+    fi
+    if [ ${#LANGUAGES[@]} -gt 0 ]; then
+        echo -e "${GREEN}  Language images: $LANGUAGE_TAG${NC}"
+    fi
     echo -e "${BLUE}Published images:${NC}"
     for image in "${PUBLISHED_IMAGES[@]}"; do
         echo -e "  ${image}"
     done
     echo
+    if [ "$PUBLISH_TO_GHCR" = true ]; then
+        echo -e "${YELLOW}To list all GHCR packages:${NC}"
+        echo -e "  ./scripts/ghcr-utils.sh list-packages"
+        echo
+    fi
 fi
+echo -e "${GREEN}=========================================${NC}"
+echo

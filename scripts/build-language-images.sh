@@ -12,7 +12,7 @@ source "$SCRIPT_DIR/include/supported-ruby-versions.sh"
 DEFAULT_LANGUAGE_TAG="$("$SCRIPT_DIR/util/language-image-version.sh")"
 
 usage() {
-    echo "Usage: $0 [--cache=MODE] [--jobs=N] [--language-tag=TAG] [--languages=LANG...] [--multi-platform] [--registry=REGISTRY] [--sequential]"
+    echo "Usage: $0 [--cache=MODE] [--jobs=N] [--language-tag=TAG] [--languages=LANG...] [--multi-platform] [--sequential]"
 }
 
 help() {
@@ -35,7 +35,6 @@ help() {
     echo "                        Use empty value (--languages=) for no languages"
     echo "                        Supports versioned Ruby: ruby-3.2.2, ruby-sorbet-3.2.2"
     echo "  --multi-platform      Build for both amd64 and arm64 (default: local platform only)"
-    echo "  --registry=REGISTRY   Push to registry: ghcr, dockerhub, local (default: no push)"
     echo "  --sequential          Build sequentially instead of parallel (default: parallel)"
     echo "  --help, -h            Show this help message"
     echo ""
@@ -44,8 +43,8 @@ help() {
     echo "  MINOR = New LSP features, language server updates"
     echo "  PATCH = Bug fixes, dependency updates"
     echo ""
-    echo "Note: Multi-arch Sorbet builds require --registry because Ruby Sorbet images depend"
-    echo "on Ruby base images which must be available in a registry for multi-platform builds."
+    echo "Note: Multi-arch Sorbet builds require Ruby base images to be available in a"
+    echo "registry. Push Ruby images first using publish-images.sh before building Sorbet."
     echo ""
     echo "Note: Language images use binary injection at runtime via --volumes-from. They only"
     echo "need to be rebuilt when language server versions change or when base dependencies change."
@@ -54,9 +53,9 @@ help() {
     echo ""
     echo "Examples:"
     echo "  $0 --language-tag=1.0.0"
-    echo "  $0 --multi-platform --language-tag=1.0.0 --registry=ghcr"
+    echo "  $0 --multi-platform --language-tag=1.0.0"
     echo "  $0 --jobs=8"
-    echo "  $0 --languages=python --multi-platform --language-tag=1.0.0 --registry=ghcr"
+    echo "  $0 --languages=python --multi-platform --language-tag=1.0.0"
     echo "  $0 --languages=ruby,ruby-sorbet --language-tag=1.0.0"
     echo "  $0 --languages=ruby-3.2.2,ruby-sorbet-3.2.2 --language-tag=1.0.0"
 }
@@ -68,7 +67,6 @@ LANGUAGES=("${SUPPORTED_LANGUAGES[@]}")
 MAX_JOBS=4
 MULTIARCH=false
 PARALLEL=true
-REGISTRY=""          # Options: ghcr, dockerhub, local, or empty for no push
 
 # Parse arguments
 for arg in "$@"; do
@@ -99,13 +97,6 @@ for arg in "$@"; do
             ;;
         --multi-platform)
             MULTIARCH=true
-            ;;
-        --registry=*)
-            REGISTRY="${arg#*=}"
-            if [[ ! "$REGISTRY" =~ ^(ghcr|dockerhub|local)$ ]]; then
-                echo -e "${RED}Invalid registry: $REGISTRY. Must be ghcr, dockerhub, or local${NC}"
-                exit 1
-            fi
             ;;
         --sequential)
             PARALLEL=false
@@ -154,75 +145,6 @@ BUILD_CMD+=(
     "--build-arg" "LANGUAGE_IMAGE_VERSION=$LANGUAGE_TAG"
 )
 
-# Set up registry configuration and authentication
-REGISTRY_PREFIX=""
-if [ -n "$REGISTRY" ]; then
-    case "$REGISTRY" in
-        ghcr)
-            REGISTRY_PREFIX="ghcr.io/nuanced-dev/"
-            # Check for GITHUB_TOKEN
-            if [ -z "${GITHUB_TOKEN:+x}" ]; then
-                echo -e "${RED}Error: GITHUB_TOKEN environment variable is required for GHCR${NC}"
-                echo "Please set GITHUB_TOKEN with write:packages permission"
-                echo ""
-                echo "To create a token:"
-                echo "  1. Go to https://github.com/settings/tokens"
-                echo "  2. Generate new token (classic)"
-                echo "  3. Select scopes: write:packages, read:packages, delete:packages"
-                echo "  4. export GITHUB_TOKEN=your_token_here"
-                exit 1
-            fi
-            # Authenticate to GHCR
-            echo -e "${BLUE}Authenticating to ghcr.io...${NC}"
-
-            if echo "$GITHUB_TOKEN" | docker login ghcr.io -u nuanced-dev --password-stdin > /dev/null 2>&1; then
-                echo -e "${GREEN}✓ Successfully authenticated to GHCR${NC}"
-            else
-                echo -e "${RED}✗ Failed to authenticate to GHCR${NC}"
-                echo "Please check your GITHUB_TOKEN has the correct permissions"
-                exit 1
-            fi
-            ;;
-        dockerhub)
-            REGISTRY_PREFIX="nuanced/"
-            # Check for Docker Hub credentials
-            if [ -z "${DOCKER_HUB_TOKEN:+x}" ]; then
-                echo -e "${RED}Error: DOCKER_HUB_TOKEN required for Docker Hub${NC}"
-                echo "Please set:"
-                echo "  export DOCKER_HUB_TOKEN=your_token_or_password"
-                exit 1
-            fi
-            # Authenticate to Docker Hub
-            echo -e "${BLUE}Authenticating to Docker Hub...${NC}"
-            if echo "$DOCKER_HUB_TOKEN" | docker login -u nuanced --password-stdin > /dev/null 2>&1; then
-                echo -e "${GREEN}✓ Successfully authenticated to Docker Hub${NC}"
-            else
-                echo -e "${RED}✗ Failed to authenticate to Docker Hub${NC}"
-                exit 1
-            fi
-            ;;
-        local)
-            REGISTRY_PREFIX="localhost:5000/"
-            # Check if local registry is running
-            if ! docker ps | grep -q "registry:2"; then
-                echo -e "${YELLOW}Warning: Local registry not detected${NC}"
-                echo "To start a local registry:"
-                echo "  docker run -d -p 5000:5000 --restart=always --name registry registry:2"
-                echo ""
-                read -p "Continue anyway? (y/N) " -n 1 -r
-                echo
-                if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-                    exit 1
-                fi
-            else
-                echo -e "${GREEN}✓ Local registry detected at localhost:5000${NC}"
-            fi
-            ;;
-    esac
-    BUILD_CMD+=("--push")
-    echo
-fi
-
 compute_cache_flags() {
     local name="$1"
     case "$CACHE_MODE" in
@@ -263,10 +185,9 @@ build_image() {
         image_name="nuanced-lsp-${lang}"
     fi
 
-    # Determine the full image version (with or without registry prefix)
-    local full_image_tag="${REGISTRY_PREFIX}${image_name}:${LANGUAGE_TAG}"
+    local image_tag="${image_name}:${LANGUAGE_TAG}"
 
-    echo -e "${BLUE}Building ${full_image_tag}...${NC}"
+    echo -e "${BLUE}Building ${image_tag}...${NC}"
 
     # Compute cache flags based on image name
     local cache_name
@@ -280,17 +201,17 @@ build_image() {
 
     local log_file="/tmp/build-${cache_name}.log"
 
-    if "${BUILD_CMD[@]}" $CACHE_FLAGS -f "$dockerfile" -t "$full_image_tag" . > "$log_file" 2>&1; then
+    if "${BUILD_CMD[@]}" $CACHE_FLAGS -f "$dockerfile" -t "$image_tag" . > "$log_file" 2>&1; then
         if [ "$MULTIARCH" = true ]; then
-            echo -e "${GREEN}✓ ${full_image_tag} built successfully (multi-platform)${NC}"
+            echo -e "${GREEN}✓ ${image_tag} built successfully (multi-platform)${NC}"
         else
             local size
-            size=$(docker images "${image_name}:${LANGUAGE_TAG}" --format "{{.Size}}")
-            echo -e "${GREEN}✓ ${full_image_tag} built successfully ($size)${NC}"
+            size=$(docker images "${image_tag}" --format "{{.Size}}")
+            echo -e "${GREEN}✓ ${image_tag} built successfully ($size)${NC}"
         fi
         return 0
     else
-        echo -e "${RED}✗ ${image_name} failed to build${NC}"
+        echo -e "${RED}✗ ${image_tag} failed to build${NC}"
         echo -e "${YELLOW}See ${log_file} for details${NC}"
         tail -20 "$log_file" || true
         return 1
@@ -465,28 +386,12 @@ echo
 echo -e "${BLUE}Total size:${NC}"
 docker images | grep "nuanced-lsp-" | grep -v -E "(proxy|watchdog|wrapper)" | grep -F "$LANGUAGE_TAG" | awk '{size+=$7} END {print "  ~" size " (approximate)"}'
 echo
-if [ -n "$REGISTRY" ]; then
-    # Images were pushed to registry
-    echo -e "${GREEN}Images pushed to ${REGISTRY}:${NC}"
-    echo -e "  • ${#REGULAR_LANGUAGES[@]} language images"
-    echo -e "  • ${#RUBY_VERSIONS[@]} Ruby base images"
-    echo -e "  • ${#RUBY_SORBET_VERSIONS[@]} Ruby Sorbet images"
-    echo
-    echo -e "${YELLOW}To verify pushed images:${NC}"
-    echo -e "  docker pull ${REGISTRY_PREFIX}nuanced-lsp-<language>:${LANGUAGE_TAG}"
-    if [ "$REGISTRY" = "ghcr" ]; then
-        echo
-        echo -e "${YELLOW}To list all packages in ${REGISTRY}:${NC}"
-        echo -e "  ./scripts/ghcr-utils.sh list-packages"
-    fi
-    echo
-fi
+echo -e "${YELLOW}To publish images to registries:${NC}"
+echo -e "  $(dirname "$0")/publish-images.sh"
 if [ "$MULTIARCH" = true ]; then
+    echo
     echo -e "${BLUE}Multi-arch images built and cached${NC}"
     echo
     echo -e "${YELLOW}To verify multi-platform builds:${NC}"
     echo -e "  docker buildx imagetools inspect nuanced-lsp-<language>:${LANGUAGE_TAG}"
-    echo
-    echo -e "${YELLOW}To publish to registry:${NC}"
-    echo -e "  $(dirname "$0")/publish-images.sh --registry=ghcr"
 fi

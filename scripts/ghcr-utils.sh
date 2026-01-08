@@ -15,7 +15,7 @@ API_BASE="https://api.github.com/orgs/${ORG_NAME}"
 
 # Check for required environment variables
 check_token() {
-    if [ -z "$GITHUB_TOKEN" ]; then
+    if [ -z "${GITHUB_TOKEN:+x}" ]; then
         echo -e "${RED}Error: GITHUB_TOKEN environment variable is not set${NC}"
         echo "Please set GITHUB_TOKEN with appropriate permissions"
         exit 1
