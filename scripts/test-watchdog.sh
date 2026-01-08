@@ -99,8 +99,8 @@ wait_for_service_ready() {
         LANG_FAILED=$(echo "$HEALTH" | jq -r '.languages | to_entries[]? | select(.value == false) | .key' 2>/dev/null || true)
 
         if [ "$STATUS" = "ok" ] && [ -n "$LANG_FAILED" ]; then
-            failed_list=$(IFS=', '; echo "${LANG_FAILED}")
-            echo -e "${RED}✗ ERROR: Service failed to start languages: ${failed_list}${NC}"
+            echo -e "${RED}✗ ERROR: Service failed to start languages:${NC}"
+            echo -e "${RED}${LANG_FAILED}${NC}"
             exit 1
         fi
 
