@@ -23,7 +23,9 @@ help() {
     echo "Options:"
     echo "  --dry-run, -N         Show what would be pushed without actually pushing"
     echo "  --language-tag=TAG    Tag of language images to use (default: $DEFAULT_LANGUAGE_TAG)"
-    echo "  --languages=LANG...   Comma-separated list of languages, 'all', or 'none' (default: none)"
+    echo "  --languages=LANG...   Comma-separated list of languages (default: all languages)"
+    echo "                        Use empty value (--languages=) for no languages"
+    echo "                        Supports versioned Ruby: ruby-3.2.2, ruby-sorbet-3.2.2"
     echo "  --registry=REGISTRY   Target registry: ghcr, dockerhub, or both (default: both)"
     echo "  --rust-tag=TAG        Tag of Rust images to use (default: $DEFAULT_RUST_TAG)"
     echo "  --help, -h            Show this help message"
@@ -43,15 +45,15 @@ help() {
     echo ""
     echo "Examples:"
     echo "  $0"
-    echo "  $0 --languages=all"
     echo "  $0 --languages=python,typescript,ruby"
-    echo "  $0 --language-tag=1.0.0 --languages=all --registry=both"
+    echo "  $0 --languages=ruby-3.2.2,ruby-sorbet-3.2.2"
+    echo "  $0 --language-tag=1.0.0 --registry=both"
 }
 
 # Default settings
 DRY_RUN=false
-FILTER_LANGUAGES="none"
 LANGUAGE_TAG=""
+LANGUAGES=("${SUPPORTED_LANGUAGES[@]}")
 REGISTRY_TARGET="both"  # Options: ghcr, dockerhub, both
 RUST_TAG=""
 
@@ -69,7 +71,7 @@ for arg in "$@"; do
             LANGUAGE_TAG="${arg#*=}"
             ;;
         --languages=*)
-            FILTER_LANGUAGES="${arg#*=}"
+            IFS=',' read -ra LANGUAGES <<< "${arg#*=}"
             ;;
         --registry=*)
             REGISTRY_TARGET="${arg#*=}"
@@ -88,14 +90,6 @@ for arg in "$@"; do
             ;;
     esac
 done
-
-# Build languages array based on filter
-LANGUAGES=()
-if [ "$FILTER_LANGUAGES" = "all" ]; then
-    LANGUAGES=("${SUPPORTED_LANGUAGES[@]}")
-elif [ "$FILTER_LANGUAGES" != "none" ]; then
-    IFS=',' read -ra LANGUAGES <<< "$FILTER_LANGUAGES"
-fi
 
 # Check for required tokens
 if [ "$DRY_RUN" = false ]; then
@@ -237,20 +231,54 @@ echo
 echo -e "${YELLOW}Step 2: Publishing images for ${#LANGUAGES[@]} languages (version: $LANGUAGE_TAG)${NC}"
 echo
 
-failed=0
+# Separate languages into categories (ruby-sorbet must be built after ruby)
+REGULAR_LANGUAGES=()
+RUBY_VERSIONS=()
+RUBY_SORBET_VERSIONS=()
+
 for lang in "${LANGUAGES[@]}"; do
-    if [ "$lang" = "ruby" ]; then
-        for ruby_version in "${SUPPORTED_RUBY_VERSIONS[@]}"; do
-            publish_image "nuanced-lsp-ruby-${ruby_version}:$LANGUAGE_TAG" || failed=$((failed + 1))
-        done
-    elif [ "$lang" = "ruby-sorbet" ]; then
-        for ruby_version in "${SUPPORTED_RUBY_VERSIONS[@]}"; do
-            publish_image "nuanced-lsp-ruby-sorbet-${ruby_version}:$LANGUAGE_TAG" || failed=$((failed + 1))
-        done
+    if [[ "$lang" == "ruby" ]]; then
+        RUBY_VERSIONS+=("${SUPPORTED_RUBY_VERSIONS[@]}")
+    elif [[ "$lang" =~ ^ruby-[0-9] ]]; then
+        version="${lang#ruby-}"
+        RUBY_VERSIONS+=("$version")
+    elif [[ "$lang" == "ruby-sorbet" ]]; then
+        RUBY_SORBET_VERSIONS+=("${SUPPORTED_RUBY_VERSIONS[@]}")
+    elif [[ "$lang" =~ ^ruby-sorbet-[0-9] ]]; then
+        version="${lang#ruby-sorbet-}"
+        RUBY_SORBET_VERSIONS+=("$version")
     else
-        publish_image "nuanced-lsp-${lang}:$LANGUAGE_TAG" || failed=$((failed + 1))
+        REGULAR_LANGUAGES+=("$lang")
     fi
 done
+
+failed=0
+if [ ${#REGULAR_LANGUAGES[@]} -eq 0 ]; then
+    echo -e "${YELLOW}No regular language images to publish${NC}"
+else
+    echo -e "${YELLOW}Publishing ${#REGULAR_LANGUAGES[@]} language images${NC}"
+    for lang in "${REGULAR_LANGUAGES[@]}"; do
+        publish_image "nuanced-lsp-${lang}:$LANGUAGE_TAG" || failed=$((failed + 1))
+    done
+fi
+
+if [ ${#RUBY_VERSIONS[@]} -eq 0 ]; then
+    echo -e "${YELLOW}No Ruby images to publish${NC}"
+else
+    echo -e "${YELLOW}Publishing Ruby images (${#RUBY_VERSIONS[@]} versions)${NC}"
+    for ruby_version in "${RUBY_VERSIONS[@]}"; do
+        publish_image "nuanced-lsp-ruby-${ruby_version}:$LANGUAGE_TAG" || failed=$((failed + 1))
+    done
+fi
+
+if [ ${#RUBY_SORBET_VERSIONS[@]} -eq 0 ]; then
+    echo -e "${YELLOW}No Ruby Sorbet images to publish${NC}"
+else
+    echo -e "${YELLOW}Publishing Ruby Sorbet images (${#RUBY_SORBET_VERSIONS[@]} versions)${NC}"
+    for ruby_version in "${RUBY_SORBET_VERSIONS[@]}"; do
+        publish_image "nuanced-lsp-ruby-sorbet-${ruby_version}:$LANGUAGE_TAG" || failed=$((failed + 1))
+    done
+fi
 
 if [ $failed -gt 0 ]; then
     echo -e "${RED}$failed language images failed to publish${NC}"

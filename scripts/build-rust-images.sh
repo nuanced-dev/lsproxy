@@ -14,7 +14,7 @@ usage() {
 }
 
 help() {
-    echo "Build Rust-based containers (wrapper, proxy, watchdog)"
+    echo "Build Rust-based images (wrapper, proxy, watchdog)"
     echo ""
     echo "Usage: $0 [OPTIONS...]"
     echo ""
@@ -27,7 +27,7 @@ help() {
     echo "                               mounts (Cargo registry and build artifacts). This gives us"
     echo "                               reproducible builds while still caching Rust compilation."
     echo "  --language-tag=TAG    Tag of language images to use (default: $DEFAULT_LANGUAGE_TAG)"
-    echo "                        Language containers use semver (e.g., 1.0.0) for API compatibility"
+    echo "                        Language images use semver (e.g., 1.0.0) for API compatibility"
     echo "  --multiarch           Build for both linux/amd64 and linux/arm64 (default: local platform only)"
     echo "  --registry=REG        Push to registry: ghcr, dockerhub, or local (default: no push)"
     echo "  --rust-tag=TAG        Tag Rust images with specified tag (default: $DEFAULT_RUST_TAG)"
@@ -174,7 +174,7 @@ if [ "$MULTIARCH" = true ]; then
     # Note: Multi-arch builds are NOT loaded into local Docker daemon
     # They are built and cached, ready for pushing to a registry
     echo -e "${BLUE}=========================================${NC}"
-    echo -e "${BLUE}  Building Multi-Arch Rust Containers${NC}"
+    echo -e "${BLUE}  Building Multi-Arch Rust Images${NC}"
     echo -e "${BLUE}  Platforms: linux/amd64, linux/arm64${NC}"
     echo -e "${BLUE}  Cache: $CACHE_MODE | Parallel: $PARALLEL${NC}"
     echo -e "${BLUE}=========================================${NC}"
@@ -187,7 +187,7 @@ if [ "$MULTIARCH" = true ]; then
 else
     BUILD_CMD="docker build"
     echo -e "${BLUE}=========================================${NC}"
-    echo -e "${BLUE}  Building Rust Containers (Local Platform)${NC}"
+    echo -e "${BLUE}  Building Rust Images (Local Platform)${NC}"
     echo -e "${BLUE}  Cache: $CACHE_MODE | Parallel: $PARALLEL${NC}"
     echo -e "${BLUE}=========================================${NC}"
     echo
@@ -285,7 +285,7 @@ if [ "$MULTIARCH" = true ]; then
 fi
 
 echo -e "${GREEN}=========================================${NC}"
-echo -e "${GREEN}  Rust Containers Built Successfully${NC}"
+echo -e "${GREEN}  Rust Images Built Successfully${NC}"
 echo -e "${GREEN}=========================================${NC}"
 echo
 
@@ -309,9 +309,9 @@ elif [ "$MULTIARCH" = true ]; then
     echo -e "${YELLOW}To load local platform images, run without --multiarch${NC}"
     echo
     echo -e "${YELLOW}To publish:${NC}"
-    echo -e "  $0 --multiarch --rust-tag=${RUST_TAG} --registry=ghcr"
+    echo -e "  $(dirname "$0")/publish-images.sh --rust-tag=${RUST_TAG} --registry=ghcr"
 else
-    echo -e "${BLUE}Container Images (Local):${NC}"
+    echo -e "${BLUE}Images (Local):${NC}"
     docker images | grep -E "nuanced-lsp-(proxy|watchdog|wrapper)" | grep -F "$RUST_TAG" | awk '{printf "  %-30s %10s\n", $1":"$2, $7}'
 fi
 echo

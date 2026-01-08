@@ -16,7 +16,7 @@ usage() {
 }
 
 help() {
-    echo "Build language server containers (Python, TypeScript, Rust, Go, Java, C++, C#, PHP, Ruby variants)"
+    echo "Build language server images (Python, TypeScript, Rust, Go, Java, C++, C#, PHP, Ruby variants)"
     echo ""
     echo "Usage: $0 [OPTIONS...]"
     echo ""
@@ -30,14 +30,16 @@ help() {
     echo "                               reproducible builds while still caching Rust compilation."
     echo "  --jobs=N, -j=N        Max parallel builds (default: 4, prevents Docker daemon overload)"
     echo "  --language-tag=TAG    Tag images with specified semver tag (default: $DEFAULT_LANGUAGE_TAG)"
-    echo "                        Language containers use semver (e.g., 1.0.0) for API compatibility"
-    echo "  --languages=LANG...   Build specific language(s) - comma-separated (python,typescript,ruby,ruby-sorbet)"
+    echo "                        Language images use semver (e.g., 1.0.0) for API compatibility"
+    echo "  --languages=LANG...   Build specific language(s) - comma-separated (default: all languages)"
+    echo "                        Use empty value (--languages=) for no languages"
+    echo "                        Supports versioned Ruby: ruby-3.2.2, ruby-sorbet-3.2.2"
     echo "  --multiarch           Build for both amd64 and arm64 (default: local platform only)"
     echo "  --registry=REGISTRY   Push to registry: ghcr, dockerhub, local (required for multi-arch Sorbet) (default: no push)"
     echo "  --sequential          Build sequentially instead of parallel (default: parallel)"
     echo "  --help, -h            Show this help message"
     echo ""
-    echo "Versioning: Language containers use semver (MAJOR.MINOR.PATCH)"
+    echo "Versioning: Language images use semver (MAJOR.MINOR.PATCH)"
     echo "  MAJOR = API/protocol compatibility version"
     echo "  MINOR = New LSP features, language server updates"
     echo "  PATCH = Bug fixes, dependency updates"
@@ -45,7 +47,7 @@ help() {
     echo "Note: Multi-arch Sorbet builds require --registry because Ruby Sorbet images depend"
     echo "on Ruby base images which must be available in a registry for multi-platform builds."
     echo ""
-    echo "Note: Language containers use binary injection at runtime via --volumes-from. They only"
+    echo "Note: Language images use binary injection at runtime via --volumes-from. They only"
     echo "need to be rebuilt when language server versions change or when base dependencies change."
     echo ""
     echo "Available languages: python, typescript, rust, golang, java, clangd, csharp, php, ruby, ruby-sorbet"
@@ -56,12 +58,13 @@ help() {
     echo "  $0 --jobs=8"
     echo "  $0 --languages=python --multiarch --language-tag=1.0.0 --registry=ghcr"
     echo "  $0 --languages=ruby,ruby-sorbet --language-tag=1.0.0"
+    echo "  $0 --languages=ruby-3.2.2,ruby-sorbet-3.2.2 --language-tag=1.0.0"
 }
 
 # Defaults
 CACHE_MODE=none
-FILTER_LANGUAGES=all
 LANGUAGE_TAG=""
+LANGUAGES=("${SUPPORTED_LANGUAGES[@]}")
 MAX_JOBS=4
 MULTIARCH=false
 PARALLEL=true
@@ -92,7 +95,7 @@ for arg in "$@"; do
             LANGUAGE_TAG="${arg#*=}"
             ;;
         --languages=*)
-            FILTER_LANGUAGES="${arg#*=}"
+            IFS=',' read -ra LANGUAGES <<< "${arg#*=}"
             ;;
         --multiarch)
             MULTIARCH=true
@@ -114,14 +117,6 @@ for arg in "$@"; do
             ;;
     esac
 done
-
-# Build languages array based on filter
-LANGUAGES=()
-if [ "$FILTER_LANGUAGES" = "all" ]; then
-    LANGUAGES=("${SUPPORTED_LANGUAGES[@]}")
-else
-    IFS=',' read -ra LANGUAGES <<< "$FILTER_LANGUAGES"
-fi
 
 # Fall back to default tags
 LANGUAGE_TAG="${LANGUAGE_TAG:-$DEFAULT_LANGUAGE_TAG}"
@@ -238,10 +233,10 @@ echo -e "${YELLOW}Building languages: ${LANGUAGES[*]}${NC}"
 
 echo -e "${BLUE}=========================================${NC}"
 if [ "$MULTIARCH" = true ]; then
-    echo -e "${BLUE}  Building Multi-Arch Language Containers${NC}"
+    echo -e "${BLUE}  Building Multi-Arch Language Images${NC}"
     echo -e "${BLUE}  Platforms: linux/amd64, linux/arm64${NC}"
 else
-    echo -e "${BLUE}  Building Language Server Containers (Local Platform)${NC}"
+    echo -e "${BLUE}  Building Language Server images (Local Platform)${NC}"
 fi
 echo -e "${BLUE}  Parallel: $PARALLEL (max $MAX_JOBS jobs)${NC}"
 echo -e "${BLUE}  Cache: $CACHE_MODE${NC}"
@@ -389,17 +384,25 @@ RUBY_SORBET_VERSIONS=()
 
 for lang in "${LANGUAGES[@]}"; do
     if [[ "$lang" == "ruby" ]]; then
-        RUBY_VERSIONS=("${SUPPORTED_RUBY_VERSIONS[@]}")
+        RUBY_VERSIONS+=("${SUPPORTED_RUBY_VERSIONS[@]}")
+    elif [[ "$lang" =~ ^ruby-[0-9] ]]; then
+        version="${lang#ruby-}"
+        RUBY_VERSIONS+=("$version")
     elif [[ "$lang" == "ruby-sorbet" ]]; then
-        RUBY_SORBET_VERSIONS=("${SUPPORTED_RUBY_VERSIONS[@]}")
+        RUBY_SORBET_VERSIONS+=("${SUPPORTED_RUBY_VERSIONS[@]}")
+    elif [[ "$lang" =~ ^ruby-sorbet-[0-9] ]]; then
+        version="${lang#ruby-sorbet-}"
+        RUBY_SORBET_VERSIONS+=("$version")
     else
         REGULAR_LANGUAGES+=("$lang")
     fi
 done
 
 # Build regular (non-Ruby) languages
-if [ ${#REGULAR_LANGUAGES[@]} -gt 0 ]; then
-    echo -e "${YELLOW}Building ${#REGULAR_LANGUAGES[@]} language containers${NC}"
+if [ ${#REGULAR_LANGUAGES[@]} -eq 0 ]; then
+    echo -e "${YELLOW}No regular language images to build${NC}"
+else
+    echo -e "${YELLOW}Building ${#REGULAR_LANGUAGES[@]} language images${NC}"
 
     if [ "$PARALLEL" = true ]; then
         echo -e "${BLUE}Building in parallel (max $MAX_JOBS concurrent, see /tmp/build-*.log for progress)${NC}"
@@ -411,7 +414,7 @@ if [ ${#REGULAR_LANGUAGES[@]} -gt 0 ]; then
         fi
 
         if [ $failed -gt 0 ]; then
-            echo -e "${RED}$failed language containers failed to build${NC}"
+            echo -e "${RED}$failed language images failed to build${NC}"
             exit 1
         fi
     else
@@ -423,11 +426,11 @@ if [ ${#REGULAR_LANGUAGES[@]} -gt 0 ]; then
     echo
 fi
 
-# Build Ruby base images (must complete before Sorbet variants)
+# Build Ruby images (must complete before Sorbet images)
 if [ ${#RUBY_VERSIONS[@]} -eq 0 ]; then
-    echo -e "${YELLOW}Skipping Ruby base images${NC}"
+    echo -e "${YELLOW}No Ruby images to build${NC}"
 else
-    echo -e "${YELLOW}Building Ruby base images (${#RUBY_VERSIONS[@]} versions)${NC}"
+    echo -e "${YELLOW}Building Ruby images (${#RUBY_VERSIONS[@]} versions)${NC}"
 
     if [ "$PARALLEL" = true ]; then
         echo -e "${BLUE}Building in parallel (max $MAX_JOBS concurrent, see /tmp/build-ruby-*.log for progress)${NC}"
@@ -439,7 +442,7 @@ else
         fi
 
         if [ $failed -gt 0 ]; then
-            echo -e "${RED}$failed Ruby containers failed to build${NC}"
+            echo -e "${RED}$failed Ruby images failed to build${NC}"
             exit 1
         fi
     else
@@ -453,7 +456,7 @@ fi
 
 # Build Ruby Sorbet variants (depends on Ruby base images)
 if [ ${#RUBY_SORBET_VERSIONS[@]} -eq 0 ]; then
-    echo -e "${YELLOW}Skipping Ruby Sorbet images${NC}"
+    echo -e "${YELLOW}No Ruby Sorbet images to build${NC}"
 else
     echo -e "${YELLOW}Building Ruby Sorbet images (${#RUBY_SORBET_VERSIONS[@]} versions)${NC}"
 
@@ -467,7 +470,7 @@ else
         fi
 
         if [ $failed -gt 0 ]; then
-            echo -e "${RED}$failed Ruby Sorbet containers failed to build${NC}"
+            echo -e "${RED}$failed Ruby Sorbet images failed to build${NC}"
             exit 1
         fi
     else
@@ -481,14 +484,14 @@ fi
 
 echo
 echo -e "${GREEN}=========================================${NC}"
-echo -e "${GREEN}  All Language Containers Built Successfully${NC}"
+echo -e "${GREEN}  All Language Images Built Successfully${NC}"
 echo -e "${GREEN}=========================================${NC}"
 echo
 
 if [ -n "$PUSH_FLAG" ]; then
     # Images were pushed to registry
     echo -e "${GREEN}Images pushed to ${REGISTRY} (${REGISTRY_PREFIX}):${NC}"
-    echo -e "  • ${#REGULAR_LANGUAGES[@]} language containers"
+    echo -e "  • ${#REGULAR_LANGUAGES[@]} language images"
     echo -e "  • ${#RUBY_VERSIONS[@]} Ruby base images"
     echo -e "  • ${#RUBY_SORBET_VERSIONS[@]} Ruby Sorbet images"
     echo
@@ -510,10 +513,9 @@ elif [ "$MULTIARCH" = true ]; then
     echo -e "${YELLOW}To load local platform images, run without --multiarch${NC}"
     echo
     echo -e "${YELLOW}To publish to registry:${NC}"
-    echo -e "  $0 --multiarch --language-tag=${LANGUAGE_TAG} --registry=ghcr"
-    echo -e "  $0 --multiarch --language-tag=${LANGUAGE_TAG} --registry=dockerhub"
+    echo -e "  $(dirname "$0")/publish-images.sh --registry=ghcr"
 else
-    echo -e "${BLUE}Container Images (Local):${NC}"
+    echo -e "${BLUE}Images (Local):${NC}"
     docker images | grep "nuanced-lsp-" | grep -v -E "(wrapper|proxy|watchdog)" | grep -F "$LANGUAGE_TAG" | awk '{printf "  %-40s %10s\n", $1":"$2, $7}'
     echo
     echo -e "${BLUE}Total size:${NC}"
