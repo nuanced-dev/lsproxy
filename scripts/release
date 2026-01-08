@@ -10,7 +10,7 @@ Usage: $(basename "$0") <version> [--repo ghcr.io/owner/name] [--no-build]
 
 Automates a release by:
   - Verifies environment
-  - Builds multi-arch Docker images and pushes to ghcr.io (amd64, arm64) [can skip with --no-build]
+  - Builds multi-platform Docker images and pushes to ghcr.io (amd64, arm64) [can skip with --no-build]
   - Creates a GitHub release (no assets, creates git tag if missing)
 
 Examples:
@@ -62,12 +62,12 @@ if ! status="$(git status --porcelain)" || [[ -n "$status" ]]; then
   exit 1
 fi
 
-# Optionally build and push multi-arch Docker images (lets build script handle GHCR login)
+# Optionally build and push multi-platform Docker images (lets build script handle GHCR login)
 if [[ ${DO_BUILD} -eq 1 ]]; then
-  echo "Building and pushing multi-arch Docker images..."
+  echo "Building and pushing multi-platform Docker images..."
   release/build-multiarch.sh "${TAG}" "${REPO_ARG[@]}"
 else
-  echo "Skipping multi-arch Docker build (--no-build)."
+  echo "Skipping multi-platform Docker build (--no-build)."
 fi
 
 # Create GitHub release without artifacts

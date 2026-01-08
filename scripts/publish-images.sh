@@ -32,7 +32,7 @@ help() {
     echo ""
     echo "Images:"
     echo "  - Images must already be built (use scripts/build-rust-images.sh and scripts/build-language-images.sh)"
-    echo "  - Images must be multi-arch builds (built with --multiarch flag)"
+    echo "  - Images must be multi-platform builds (built with --multi-platform flag)"
     echo ""
     echo "Versioning:"
     echo "  Rust images (wrapper, proxy, watchdog) use release version tags (e.g. 0.4.0)"
@@ -91,20 +91,6 @@ for arg in "$@"; do
     esac
 done
 
-# Check for required tokens
-if [ "$DRY_RUN" = false ]; then
-    if [[ "$REGISTRY_TARGET" =~ ^(ghcr|both)$ ]] && [ -z "$GITHUB_TOKEN" ]; then
-        echo -e "${RED}Error: GITHUB_TOKEN environment variable is not set${NC}"
-        echo "Please set GITHUB_TOKEN with ghcr.io push permissions"
-        exit 1
-    fi
-    if [[ "$REGISTRY_TARGET" =~ ^(dockerhub|both)$ ]] && [ -z "$DOCKER_HUB_TOKEN" ]; then
-        echo -e "${RED}Error: DOCKER_HUB_TOKEN environment variable is not set${NC}"
-        echo "Please set DOCKER_HUB_TOKEN for Docker Hub authentication"
-        exit 1
-    fi
-fi
-
 # Fall back to default tags
 RUST_TAG="${RUST_TAG:-$DEFAULT_RUST_TAG}"
 LANGUAGE_TAG="${LANGUAGE_TAG:-$DEFAULT_LANGUAGE_TAG}"
@@ -141,6 +127,11 @@ echo
 if [ "$DRY_RUN" = false ]; then
     if [ "$PUBLISH_TO_GHCR" = true ]; then
         echo -e "${YELLOW}Authenticating with GHCR...${NC}"
+        if [ -z "${GITHUB_TOKEN:+x}" ]; then
+            echo -e "${RED}Error: GITHUB_TOKEN environment variable is not set${NC}"
+            echo "Please set GITHUB_TOKEN with ghcr.io push permissions"
+            exit 1
+        fi
         if ! echo "$GITHUB_TOKEN" | docker login ghcr.io -u nuanced-dev --password-stdin; then
             echo -e "${RED}Error: Failed to authenticate with GHCR${NC}"
             exit 1
@@ -149,6 +140,11 @@ if [ "$DRY_RUN" = false ]; then
     fi
     if [ "$PUBLISH_TO_DOCKERHUB" = true ]; then
         echo -e "${YELLOW}Authenticating with Docker Hub...${NC}"
+        if [ -z "${DOCKER_HUB_TOKEN:+x}" ]; then
+            echo -e "${RED}Error: DOCKER_HUB_TOKEN environment variable is not set${NC}"
+            echo "Please set DOCKER_HUB_TOKEN for Docker Hub authentication"
+            exit 1
+        fi
         if ! echo "$DOCKER_HUB_TOKEN" | docker login -u nuanced --password-stdin; then
             echo -e "${RED}Error: Failed to authenticate with Docker Hub${NC}"
             exit 1

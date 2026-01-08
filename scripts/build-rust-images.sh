@@ -10,7 +10,7 @@ DEFAULT_RUST_TAG="$("$SCRIPT_DIR/util/rust-image-version.sh")"
 DEFAULT_LANGUAGE_TAG="$("$SCRIPT_DIR/util/language-image-version.sh")"
 
 usage() {
-    echo "Usage: $0 [--cache=MODE] [--language-tag=TAG] [--multiarch] [--registry=REGISTRY] [--rust-tag=TAG] [--sequential]"
+    echo "Usage: $0 [--cache=MODE] [--language-tag=TAG] [--multi-platform] [--registry=REGISTRY] [--rust-tag=TAG] [--sequential]"
 }
 
 help() {
@@ -28,7 +28,7 @@ help() {
     echo "                               reproducible builds while still caching Rust compilation."
     echo "  --language-tag=TAG    Tag of language images to use (default: $DEFAULT_LANGUAGE_TAG)"
     echo "                        Language images use semver (e.g., 1.0.0) for API compatibility"
-    echo "  --multiarch           Build for both linux/amd64 and linux/arm64 (default: local platform only)"
+    echo "  --multi-platform      Build for both linux/amd64 and linux/arm64 (default: local platform only)"
     echo "  --registry=REG        Push to registry: ghcr, dockerhub, or local (default: no push)"
     echo "  --rust-tag=TAG        Tag Rust images with specified tag (default: $DEFAULT_RUST_TAG)"
     echo "  --sequential          Build images sequentially (default: parallel)"
@@ -36,7 +36,7 @@ help() {
     echo ""
     echo "Examples:"
     echo "  $0 --rust-tag=0.4.8 --language-tag=1.1.0"
-    echo "  $0 --multiarch --rust-tag=0.4.8 --registry=ghcr"
+    echo "  $0 --multi-platform --rust-tag=0.4.8 --registry=ghcr"
     echo "  $0 --cache=gha --rust-tag=0.4.8"
 }
 
@@ -65,7 +65,7 @@ for arg in "$@"; do
         --language-tag=*)
             LANGUAGE_TAG="${arg#*=}"
             ;;
-        --multiarch)
+        --multi-platform)
             MULTIARCH=true
             ;;
         --registry=*)
@@ -93,9 +93,40 @@ done
 RUST_TAG="${RUST_TAG:-$DEFAULT_RUST_TAG}"
 LANGUAGE_TAG="${LANGUAGE_TAG:-$DEFAULT_LANGUAGE_TAG}"
 
+BUILD_CMD=()
+if [ "$MULTIARCH" = true ]; then
+    BUILD_CMD=("docker" "buildx" "build" "--platform" "linux/amd64,linux/arm64")
+    echo -e "${BLUE}=========================================${NC}"
+    echo -e "${BLUE}  Building Multi-Arch Rust Images${NC}"
+    echo -e "${BLUE}  Platforms: linux/amd64, linux/arm64${NC}"
+    echo -e "${BLUE}  Parallel: $PARALLEL${NC}"
+    echo -e "${BLUE}  Cache: $CACHE_MODE${NC}"
+    echo -e "${BLUE}=========================================${NC}"
+    echo
+else
+    BUILD_CMD=("docker" "build")
+    echo -e "${BLUE}=========================================${NC}"
+    echo -e "${BLUE}  Building Rust Images (Local Platform)${NC}"
+    echo -e "${BLUE}  Parallel: $PARALLEL${NC}"
+    echo -e "${BLUE}  Cache: $CACHE_MODE${NC}"
+    echo -e "${BLUE}=========================================${NC}"
+    echo
+fi
+
+# Verify storage for multi-platform builds
+if [ "$MULTIARCH" = true ] && [ "$(docker system info --format json | jq '.DriverStatus | any(.[]; .[0] == "driver-type" and .[1] == "io.containerd.snapshotter.v1")')" != true ]; then
+    echo -e "${RED}Error: Multi-arch builds require containerd storage so Docker can load the multi-platform images${NC}"
+    exit 1
+fi
+
+# Set up build arguments
+BUILD_CMD+=(
+    "--build-arg" "RUST_IMAGE_VERSION=$RUST_TAG"
+    "--build-arg" "LANGUAGE_IMAGE_VERSION=$LANGUAGE_TAG"
+)
+
 # Set up registry configuration and authentication
 REGISTRY_PREFIX=""
-PUSH_FLAG=""
 if [ -n "$REGISTRY" ]; then
     case "$REGISTRY" in
         ghcr)
@@ -158,38 +189,7 @@ if [ -n "$REGISTRY" ]; then
             fi
             ;;
     esac
-    PUSH_FLAG="--push"
-    echo
-fi
-
-# Set up build arguments
-BUILD_ARGS=("--build-arg" "RUST_IMAGE_VERSION=$RUST_TAG" "--build-arg" "LANGUAGE_IMAGE_VERSION=$LANGUAGE_TAG")
-
-# Set up build command based on multiarch flag
-BUILD_CMD="docker build"
-PLATFORM_FLAG=""
-if [ "$MULTIARCH" = true ]; then
-    BUILD_CMD="docker buildx build"
-    PLATFORM_FLAG="--platform linux/amd64,linux/arm64"
-    # Note: Multi-arch builds are NOT loaded into local Docker daemon
-    # They are built and cached, ready for pushing to a registry
-    echo -e "${BLUE}=========================================${NC}"
-    echo -e "${BLUE}  Building Multi-Arch Rust Images${NC}"
-    echo -e "${BLUE}  Platforms: linux/amd64, linux/arm64${NC}"
-    echo -e "${BLUE}  Cache: $CACHE_MODE | Parallel: $PARALLEL${NC}"
-    echo -e "${BLUE}=========================================${NC}"
-    echo
-    echo -e "${YELLOW}Note: Multi-arch builds are prepared for publishing but not loaded into local Docker${NC}"
-    echo -e "${YELLOW}      Use 'docker buildx imagetools inspect <image>' to verify build${NC}"
-    echo -e "${YELLOW}      Use './scripts/publish-images.sh' to push to registry${NC}"
-    echo -e "${YELLOW}      Skipping local cargo build (cross-compilation happens in Docker)${NC}"
-    echo
-else
-    BUILD_CMD="docker build"
-    echo -e "${BLUE}=========================================${NC}"
-    echo -e "${BLUE}  Building Rust Images (Local Platform)${NC}"
-    echo -e "${BLUE}  Cache: $CACHE_MODE | Parallel: $PARALLEL${NC}"
-    echo -e "${BLUE}=========================================${NC}"
+    BUILD_CMD+=("--push")
     echo
 fi
 
@@ -210,28 +210,37 @@ compute_cache_flags() {
 
 build_image() {
     local name="$1"
-    local image_tag="$2"
-    local dockerfile="$3"
-    local log_file="$4"
-    local human_name="$5"
+
+    local dockerfile="dockerfiles/${name}.Dockerfile"
+
+    if [ ! -f "$dockerfile" ]; then
+        echo -e "${RED}Error: $dockerfile not found${NC}"
+        return 1
+    fi
+
+    local image_name="nuanced-lsp-${name}"
+
+    # Determine the full image version (with or without registry prefix)
+    local full_image_tag="${REGISTRY_PREFIX}${image_name}:${RUST_TAG}"
+
+    echo -e "${BLUE}Building ${full_image_tag}...${NC}"
 
     local CACHE_FLAGS
     CACHE_FLAGS="$(compute_cache_flags "$name")"
 
-    echo -e "${BLUE}Building ${image_tag}...${NC}"
-    if $BUILD_CMD $PLATFORM_FLAG $CACHE_FLAGS $PUSH_FLAG -f "${dockerfile}" -t "${image_tag}" "${BUILD_ARGS[@]}" . > "${log_file}" 2>&1; then
-        if [ -n "$PUSH_FLAG" ]; then
-            echo -e "${GREEN}✓ ${image_tag} built and pushed successfully${NC}"
-        elif [ "$MULTIARCH" = true ]; then
-            echo -e "${GREEN}✓ ${image_tag} built successfully (multi-arch)${NC}"
+    local log_file="/tmp/build-${name}.log"
+
+    if "${BUILD_CMD[@]}" $CACHE_FLAGS -f "$dockerfile" -t "$full_image_tag" . > "$log_file" 2>&1; then
+        if [ "$MULTIARCH" = true ]; then
+            echo -e "${GREEN}✓ ${full_image_tag} built successfully (multi-platform)${NC}"
         else
             local size
-            size=$(docker images "${image_tag}" --format "{{.Size}}")
-            echo -e "${GREEN}✓ ${image_tag} built successfully ($size)${NC}"
+            size=$(docker images "${image_name}:${RUST_TAG}" --format "{{.Size}}")
+            echo -e "${GREEN}✓ ${full_image_tag} built successfully ($size)${NC}"
         fi
         return 0
     else
-        echo -e "${RED}✗ ${human_name} failed to build${NC}"
+        echo -e "${RED}✗ ${image_name} failed to build${NC}"
         echo -e "${YELLOW}See ${log_file} for details${NC}"
         tail -20 "${log_file}" || true
         return 1
@@ -239,25 +248,21 @@ build_image() {
 }
 
 # Build images (wrapper, proxy, watchdog)
-echo -e "${YELLOW}Step 1: Building images${NC}"
-
-PROXY_IMAGE_TAG="${REGISTRY_PREFIX}nuanced-lsp-proxy:${RUST_TAG}"
-WATCHDOG_IMAGE_TAG="${REGISTRY_PREFIX}nuanced-lsp-watchdog:${RUST_TAG}"
-WRAPPER_IMAGE_TAG="${REGISTRY_PREFIX}nuanced-lsp-wrapper:${RUST_TAG}"
+echo -e "${YELLOW}Building Rust images${NC}"
 
 if [ "$PARALLEL" = true ]; then
     echo -e "${BLUE}Building in parallel (logs: /tmp/build-*.log)...${NC}"
     declare -a pids names
 
-    (build_image "proxy" "${PROXY_IMAGE_TAG}" dockerfiles/proxy.Dockerfile /tmp/build-proxy.log "nuanced-lsp-proxy") &
+    (build_image "proxy") &
     pids+=($!)
     names+=("proxy")
 
-    (build_image "watchdog" "${WATCHDOG_IMAGE_TAG}" dockerfiles/watchdog.Dockerfile /tmp/build-watchdog.log "nuanced-lsp-watchdog") &
+    (build_image "watchdog") &
     pids+=($!)
     names+=("watchdog")
 
-    (build_image "wrapper" "${WRAPPER_IMAGE_TAG}" dockerfiles/wrapper.Dockerfile /tmp/build-wrapper.log "nuanced-lsp-wrapper") &
+    (build_image "wrapper") &
     pids+=($!)
     names+=("wrapper")
 
@@ -273,45 +278,45 @@ if [ "$PARALLEL" = true ]; then
         exit 1
     fi
 else
-    build_image "proxy" "${PROXY_IMAGE_TAG}" dockerfiles/proxy.Dockerfile /tmp/build-proxy.log "nuanced-lsp-proxy" || exit 1
-    build_image "watchdog" "${WATCHDOG_IMAGE_TAG}" dockerfiles/watchdog.Dockerfile /tmp/build-watchdog.log "nuanced-lsp-watchdog" || exit 1
-    build_image "wrapper" "${WRAPPER_IMAGE_TAG}" dockerfiles/wrapper.Dockerfile /tmp/build-wrapper.log "nuanced-lsp-wrapper" || exit 1
+    build_image "proxy" || exit 1
+    build_image "watchdog" || exit 1
+    build_image "wrapper" || exit 1
 fi
 echo
-
-if [ "$MULTIARCH" = true ]; then
-    echo -e "${BLUE}Multi-arch images built and cached (not loaded into local Docker)${NC}"
-    echo
-fi
 
 echo -e "${GREEN}=========================================${NC}"
 echo -e "${GREEN}  Rust Images Built Successfully${NC}"
 echo -e "${GREEN}=========================================${NC}"
 echo
-
-if [ -n "$PUSH_FLAG" ]; then
-    # Images were pushed to registry
-    echo -e "${GREEN}Images pushed to ${REGISTRY}:${NC}"
-    echo -e "  ${PROXY_IMAGE_TAG}"
-    echo -e "  ${WATCHDOG_IMAGE_TAG}"
-    echo -e "  ${WRAPPER_IMAGE_TAG}"
+echo -e "${BLUE}Images (Local):${NC}"
+docker images | grep "nuanced-lsp-" | grep -E "(proxy|watchdog|wrapper)" | grep -F "$RUST_TAG" | awk '{printf "  %-30s %10s\n", $1":"$2, $7}'
+echo
+echo -e "${BLUE}Total size:${NC}"
+docker images | grep "nuanced-lsp-" | grep -E "(proxy|watchdog|wrapper)" | grep -F "$RUST_TAG" | awk '{size+=$7} END {print "  ~" size " (approximate)"}'
+echo
+if [ -n "$REGISTRY" ]; then
+    echo -e "${BLUE}Images pushed to ${REGISTRY}:${NC}"
     echo
-    echo -e "${YELLOW}To verify:${NC}"
-    echo -e "  docker pull ${PROXY_IMAGE_TAG}"
-    echo -e "  docker pull ${WATCHDOG_IMAGE_TAG}"
-    echo -e "  docker pull ${WRAPPER_IMAGE_TAG}"
-elif [ "$MULTIARCH" = true ]; then
-    echo -e "${YELLOW}To verify multi-arch builds:${NC}"
+    echo -e "${YELLOW}To verify pushed images:${NC}"
+    echo -e "  docker pull ${REGISTRY_PREFIX}nuanced-lsp-proxy:${RUST_TAG}"
+    echo -e "  docker pull ${REGISTRY_PREFIX}nuanced-lsp-watchdog:${RUST_TAG}"
+    echo -e "  docker pull ${REGISTRY_PREFIX}nuanced-lsp-wrapper:${RUST_TAG}"
+    if [ "$REGISTRY" = "ghcr" ]; then
+        echo
+        echo -e "${YELLOW}To list all packages in ${REGISTRY}:${NC}"
+        echo -e "  ./scripts/ghcr-utils.sh list-packages"
+    fi
+    echo
+fi
+if [ "$MULTIARCH" = true ]; then
+    echo -e "${BLUE}Multi-arch images built and cached${NC}"
+    echo
+    echo -e "${YELLOW}To verify multi-platform builds:${NC}"
     echo -e "  docker buildx imagetools inspect nuanced-lsp-proxy:${RUST_TAG}"
     echo -e "  docker buildx imagetools inspect nuanced-lsp-watchdog:${RUST_TAG}"
     echo -e "  docker buildx imagetools inspect nuanced-lsp-wrapper:${RUST_TAG}"
     echo
-    echo -e "${YELLOW}To load local platform images, run without --multiarch${NC}"
-    echo
     echo -e "${YELLOW}To publish:${NC}"
-    echo -e "  $(dirname "$0")/publish-images.sh --rust-tag=${RUST_TAG} --registry=ghcr"
-else
-    echo -e "${BLUE}Images (Local):${NC}"
-    docker images | grep -E "nuanced-lsp-(proxy|watchdog|wrapper)" | grep -F "$RUST_TAG" | awk '{printf "  %-30s %10s\n", $1":"$2, $7}'
+    echo -e "  $(dirname "$0")/publish-images.sh --registry=ghcr"
+    echo
 fi
-echo

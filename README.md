@@ -207,7 +207,7 @@ For full API documentation, see [Nuanced LSP API Reference](https://docs.nuanced
 
 #### Building Docker images
 
-Nuanced LSP supports multi-architecture Docker images for both `linux/amd64` and `linux/arm64` platforms. This section describes how to build and publish these images.
+Nuanced LSP supports multi-platform Docker images for both `linux/amd64` and `linux/arm64` platforms. This section describes how to build and publish these images.
 
 **Building for Local Development (Single Architecture)**
 
@@ -228,11 +228,11 @@ There are many options you can specify with the image build scripts that help wi
 For building images that support both amd64 and arm64:
 
 ```bash
-# Build multi-arch Rust containers
-./scripts/build-rust-images.sh --multiarch
+# Build multi-platform Rust containers
+./scripts/build-rust-images.sh ----multi-platform
 
-# Build multi-arch language containers
-./scripts/build-language-images.sh --multiarch
+# Build multi-platform language containers
+./scripts/build-language-images.sh ----multi-platform
 ```
 
 **Note:** Multi-arch builds use Docker Buildx and may require QEMU for cross-compilation. The build process will be slower than single-architecture builds (2-3x).
@@ -243,9 +243,9 @@ Images can be published to GitHub Container Registry (ghcr.io) and/or Docker Hub
 
 ```bash
 # Publish to GHCR
-./scripts/build-rust-images.sh --multiarch --registry=ghcr --rust-tag=X.Y.Z
+./scripts/build-rust-images.sh ----multi-platform --registry=ghcr --rust-tag=X.Y.Z
 
-./scripts/build-language-images.sh --multiarch --registry=ghcr --rust-tag=X.Y.Z
+./scripts/build-language-images.sh ----multi-platform --registry=ghcr --rust-tag=X.Y.Z
 ```
 
 **Environment Variables for Publishing:**
