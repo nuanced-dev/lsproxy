@@ -312,13 +312,16 @@ async fn wait_for_language_health(lang_key: &str) -> Result<(), Box<dyn std::err
             .await?;
         if resp.status().is_success() {
             let body: serde_json::Value = resp.json().await?;
-            if body
+            if let Some(status) = body
                 .get("languages")
                 .and_then(|l| l.get(lang_key))
                 .and_then(|v| v.as_bool())
-                == Some(true)
             {
-                return Ok(());
+                if status {
+                    return Ok(());
+                } else {
+                    return Err(format!("Language {} unhealthy", lang_key).into());
+                }
             }
         }
         tokio::time::sleep(Duration::from_secs(1)).await;

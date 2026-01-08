@@ -148,18 +148,22 @@ ready=false
 for i in $(seq 1 60); do
     HEALTH=$(curl -sf http://localhost:4444/v1/system/health || true)
     STATUS=$(echo "$HEALTH" | jq -r '.status' 2>/dev/null || echo "")
-    LANG_PENDING=$(echo "$HEALTH" | jq -r '.languages | to_entries[]? | select(.value != true) | .key' 2>/dev/null || true)
+    LANG_FAILED=$(echo "$HEALTH" | jq -r '.languages | to_entries[]? | select(.value == false) | .key' 2>/dev/null || true)
 
-    if [ "$STATUS" = "ok" ] && [ -z "$LANG_PENDING" ]; then
-        echo -e "${GREEN}Service healthy after ${i}s${NC}"
+    if [ "$STATUS" = "ok" ] && [ -n "$LANG_FAILED" ]; then
+        failed_list=$(IFS=', '; echo "${LANG_FAILED}")
+        echo -e "${RED}✗ ERROR: Service failed to start languages: ${failed_list}${NC}"
+        exit 1
+    fi
+
+    if [ "$STATUS" = "ok" ]; then
+        echo -e "${GREEN}✓ Service and languages healthy after ${i}s${NC}"
         ready=true
         break
     fi
 
     if (( i % 5 == 0 )); then
-        waiting_list=$(IFS=', '; echo "${LANG_PENDING}")
-        [ -z "$waiting_list" ] && waiting_list="waiting for health endpoint..."
-        echo -e "${YELLOW}  [${i}s] Waiting: ${waiting_list}${NC}"
+        echo -e "${YELLOW}  [${i}s] Status: $STATUS...${NC}"
     else
         printf "${YELLOW}.${NC}"
     fi

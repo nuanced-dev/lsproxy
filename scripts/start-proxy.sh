@@ -211,7 +211,6 @@ if [ "$DETACHED" = true ]; then
     echo -e "  View logs:        docker logs -f nuanced-lsp-proxy"
     echo -e "  Stop service:     docker rm -f nuanced-lsp-proxy"
     echo -e "  Test health:      curl http://localhost:${PORT}/v1/system/health | jq"
-    echo -e "  Run tests:        ./scripts/test-all-endpoints.sh"
     echo
 
     # Tail logs if requested
