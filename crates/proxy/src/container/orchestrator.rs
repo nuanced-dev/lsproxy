@@ -1,4 +1,4 @@
-use crate::container::language_image;
+use crate::container::{find_image, language_image};
 
 use super::{ContainerHealthStatus, ContainerInfo, ContainerOrchestrator, OrchestratorError};
 use bollard::container::{Config, CreateContainerOptions};
@@ -221,8 +221,11 @@ impl ContainerOrchestrator {
             None
         };
 
+        // Find the right image to use
+        let image = find_image(&self.docker, image_name.clone()).await?;
+
         let config = Config {
-            image: Some(image_name.clone()),
+            image: Some(image),
             working_dir,
             env: Some(env),
             host_config: Some(host_config),
@@ -242,63 +245,7 @@ impl ContainerOrchestrator {
 
         // Create the container
         log::info!("Creating container {} for {:?}", container_name, language);
-        let container_result = self
-            .docker
-            .create_container(Some(options.clone()), config.clone())
-            .await;
-
-        let container = match container_result {
-            Ok(c) => c,
-            Err(e) => {
-                // If image not found locally, check if GHCR image exists or pull it
-                let err_msg = e.to_string();
-                if err_msg.contains("404") || err_msg.contains("No such image") {
-                    use super::language_image_ghcr;
-                    let ghcr_image = language_image_ghcr(&language);
-
-                    // Check if GHCR image already exists locally
-                    let image_exists = self.docker.inspect_image(&ghcr_image).await.is_ok();
-
-                    if !image_exists {
-                        log::info!(
-                            "{} not found locally, pulling from GHCR: {}",
-                            image_name,
-                            ghcr_image
-                        );
-
-                        use bollard::image::CreateImageOptions;
-                        use futures_util::stream::StreamExt;
-
-                        let create_options = CreateImageOptions {
-                            from_image: ghcr_image.clone(),
-                            ..Default::default()
-                        };
-
-                        let mut stream = self.docker.create_image(Some(create_options), None, None);
-                        while let Some(info) = stream.next().await {
-                            if let Err(e) = info {
-                                log::error!("Failed to pull language image from GHCR: {}", e);
-                                return Err(e.into());
-                            }
-                        }
-
-                        log::info!("{:?} image successfully pulled from GHCR", language);
-                    } else {
-                        log::info!("{:?} using existing GHCR image: {}", language, ghcr_image);
-                    }
-
-                    // Create container using GHCR image name
-                    let mut config_ghcr = config.clone();
-                    config_ghcr.image = Some(ghcr_image);
-
-                    self.docker
-                        .create_container(Some(options), config_ghcr)
-                        .await?
-                } else {
-                    return Err(e.into());
-                }
-            }
-        };
+        let container = self.docker.create_container(Some(options), config).await?;
 
         let container_id = container.id;
 

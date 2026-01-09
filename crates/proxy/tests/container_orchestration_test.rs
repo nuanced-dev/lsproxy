@@ -8,7 +8,6 @@
 use bollard::container::{
     Config, CreateContainerOptions, ListContainersOptions, RemoveContainerOptions,
 };
-use bollard::image::ListImagesOptions;
 use bollard::Docker;
 use once_cell::sync::Lazy;
 use reqwest::Client;
@@ -23,7 +22,8 @@ use tokio::time::sleep;
 
 use common::api_types::SupportedLanguages;
 use proxy::container::{
-    language_image_base, language_image_ghcr, proxy_image, WATCHDOG_IMAGE_BASE, WRAPPER_IMAGE_BASE,
+    find_image, language_image, language_image_base, proxy_image, WATCHDOG_IMAGE_BASE,
+    WRAPPER_IMAGE_BASE,
 };
 
 const TEST_PROXY_CONTAINER_NAME: &str = "nuanced-lsp-test-service";
@@ -38,7 +38,7 @@ fn test_proxy_image() -> String {
     proxy_image()
 }
 fn test_python_image() -> String {
-    language_image_ghcr(&SupportedLanguages::Python)
+    language_image(&SupportedLanguages::Python)
 }
 
 /// Shared test fixture that lives for the entire test suite
@@ -145,36 +145,19 @@ impl ContainerFixture {
     async fn verify_images(docker: &Docker) -> Result<(), Box<dyn std::error::Error>> {
         // Check for proxy image
         let proxy_img = test_proxy_image();
-        let mut filters = HashMap::new();
-        filters.insert("reference".to_string(), vec![proxy_img.to_string()]);
-
-        let options = ListImagesOptions {
-            filters,
-            ..Default::default()
-        };
-
-        let images = docker.list_images(Some(options)).await?;
-        if images.is_empty() {
+        if let Err(_) = find_image(docker, proxy_img.clone()).await {
             return Err(format!(
-                "Required image {} not found. Run: ./scripts/build-rust-images.sh",
+                "Required image {} not found. Build locally with: ./scripts/build-images.sh",
                 proxy_img
             )
             .into());
         }
 
-        // Check for Python image (GHCR name)
+        // Check for Python image
         let python_img = test_python_image();
-        let mut filters = HashMap::new();
-        filters.insert("reference".to_string(), vec![python_img.clone()]);
-        let options = ListImagesOptions {
-            filters,
-            ..Default::default()
-        };
-        let images = docker.list_images(Some(options)).await?;
-
-        if images.is_empty() {
+        if let Err(_) = find_image(docker, python_img.clone()).await {
             return Err(format!(
-                "Required image {} not found. Pull from GHCR or run: ./scripts/build-language-images.sh",
+                "Required image {} not found. Build locally with: ./scripts/build-images.sh",
                 python_img
             )
             .into());
