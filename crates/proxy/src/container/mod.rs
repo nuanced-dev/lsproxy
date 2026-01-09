@@ -16,12 +16,12 @@ pub mod orchestrator;
 // These correspond to the Docker images built by scripts/build-images.sh --all-services
 
 /// Default version tag for Rust containers (wrapper, proxy, watchdog)
-/// Can be overridden with RUST_IMAGE_VERSION environment variable at
+/// Can be overridden with SERVICE_IMAGE_VERSION environment variable at
 /// build or runtime.
-const DEFAULT_RUST_IMAGE_VERSION: &str = env!("CARGO_PKG_VERSION");
+const DEFAULT_SERVICE_IMAGE_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 /// Override version tag for Rust containers specified at runtime.
-const BUILD_RUST_IMAGE_VERSION: Option<&'static str> = option_env!("RUST_IMAGE_VERSION");
+const BUILD_SERVICE_IMAGE_VERSION: Option<&'static str> = option_env!("SERVICE_IMAGE_VERSION");
 
 /// Default version tag for language containers (python, ruby, typescript, etc.)
 /// Can be overridden with LANGUAGE_IMAGE_VERSION environment variable at build
@@ -76,15 +76,15 @@ pub fn language_image_base(language: &SupportedLanguages) -> String {
     }
 }
 
-/// Get Rust image version from environment or use default
-pub fn rust_image_version() -> String {
+/// Get service image version from environment or use default
+pub fn service_image_version() -> String {
     // Tags are trimmed in case they end in newlines from files or tool output
-    if let Ok(tag) = std::env::var("RUST_IMAGE_VERSION") {
+    if let Ok(tag) = std::env::var("SERVICE_IMAGE_VERSION") {
         tag.trim().to_string()
-    } else if let Some(tag) = BUILD_RUST_IMAGE_VERSION {
+    } else if let Some(tag) = BUILD_SERVICE_IMAGE_VERSION {
         tag.trim().to_string()
     } else {
-        DEFAULT_RUST_IMAGE_VERSION.trim().to_string()
+        DEFAULT_SERVICE_IMAGE_VERSION.trim().to_string()
     }
 }
 
@@ -114,17 +114,17 @@ pub fn container_registry() -> String {
 /// Helper functions to get full image names with version tags
 pub fn proxy_image() -> String {
     std::env::var("PROXY_IMAGE")
-        .unwrap_or_else(|_| format!("{}:{}", PROXY_IMAGE_BASE, rust_image_version()))
+        .unwrap_or_else(|_| format!("{}:{}", PROXY_IMAGE_BASE, service_image_version()))
 }
 
 pub fn wrapper_image() -> String {
     std::env::var("WRAPPER_IMAGE")
-        .unwrap_or_else(|_| format!("{}:{}", WRAPPER_IMAGE_BASE, rust_image_version()))
+        .unwrap_or_else(|_| format!("{}:{}", WRAPPER_IMAGE_BASE, service_image_version()))
 }
 
 pub fn watchdog_image() -> String {
     std::env::var("WATCHDOG_IMAGE")
-        .unwrap_or_else(|_| format!("{}:{}", WATCHDOG_IMAGE_BASE, rust_image_version()))
+        .unwrap_or_else(|_| format!("{}:{}", WATCHDOG_IMAGE_BASE, service_image_version()))
 }
 
 pub fn language_image(language: &SupportedLanguages) -> String {

@@ -175,7 +175,7 @@ else
 fi
 
 BUILD_CMD+=(
-    "--build-arg" "RUST_IMAGE_VERSION=$SERVICE_TAG"
+    "--build-arg" "SERVICE_IMAGE_VERSION=$SERVICE_TAG"
     "--build-arg" "LANGUAGE_IMAGE_VERSION=$LANGUAGE_TAG"
 )
 

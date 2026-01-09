@@ -9,8 +9,8 @@ ARG BUILDARCH
 ARG TARGETPLATFORM
 ARG TARGETARCH
 
-ARG RUST_IMAGE_VERSION
-RUN test -n "$RUST_IMAGE_VERSION" || (echo "Missing required build argument RUST_IMAGE_VERSION" ; false)
+ARG SERVICE_IMAGE_VERSION
+RUN test -n "$SERVICE_IMAGE_VERSION" || (echo "Missing required build argument SERVICE_IMAGE_VERSION" ; false)
 ARG LANGUAGE_IMAGE_VERSION
 RUN test -n "$LANGUAGE_IMAGE_VERSION" || (echo "Missing required build argument LANGUAGE_IMAGE_VERSION" ; false)
 

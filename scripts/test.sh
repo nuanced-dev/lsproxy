@@ -52,7 +52,7 @@ CARGO_ENV=()
 if [ -n "$SERVICE_TAG" ]; then
     echo "Using service image version: ${SERVICE_TAG}"
     TAG_FLAGS+=("--service-tag=$SERVICE_TAG")
-    CARGO_ENV+=("RUST_IMAGE_VERSION=$SERVICE_TAG")
+    CARGO_ENV+=("SERVICE_IMAGE_VERSION=$SERVICE_TAG")
 fi
 if [ -n "$LANGUAGE_TAG" ]; then
     echo "Using language image version: ${LANGUAGE_TAG}"

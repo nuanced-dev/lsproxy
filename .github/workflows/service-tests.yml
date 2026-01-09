@@ -77,7 +77,7 @@ jobs:
       - name: Run Rust tests
         run: cargo test --locked --workspace --all-targets --all-features
         env:
-            RUST_IMAGE_VERSION: ${{ env.SERVICE_TAG }}
+            SERVICE_IMAGE_VERSION: ${{ env.SERVICE_TAG }}
             LANGUAGE_IMAGE_VERSION: ${{ env.LANGUAGE_TAG }}
 
   test-container-lifecycle:
