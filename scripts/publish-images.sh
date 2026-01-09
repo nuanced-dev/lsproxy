@@ -9,13 +9,14 @@ source "$SCRIPT_DIR/include/constants.sh"
 
 DEFAULT_SERVICE_TAG="$("$SCRIPT_DIR/util/rust-image-version.sh")"
 DEFAULT_LANGUAGE_TAG="$("$SCRIPT_DIR/util/language-image-version.sh")"
+DEFAULT_REGISTRY="ghcr.io/nuanced-dev"
 
 usage() {
     echo "Usage: $0 [--dry-run] [--language-tag=TAG] [--languages=LANG...] [--registry=REG,...] [--services=SVC...] [--service-tag=TAG]"
 }
 
 help() {
-    echo "Publish Docker images to container registries"
+    echo "Publish Docker images to container registry"
     echo ""
     echo "Usage: $0 [OPTIONS...]"
     echo ""
@@ -26,8 +27,7 @@ help() {
     echo "  --language-tag=TAG    Tag of language images to use (default: $DEFAULT_LANGUAGE_TAG)"
     echo "  --languages=LANG...   Comma-separated list of languages (default: none)"
     echo "                        Supports versioned Ruby: ruby-3.2.2, ruby-sorbet-3.2.2"
-    echo "  --registry=REG,...    Target registries - comma-separated (required)"
-    echo "                        Examples: nuanced, ghcr.io/nuanced-dev, nuanced,ghcr.io/nuanced-dev"
+    echo "  --registry=REG        Target registry (default: $DEFAULT_REGISTRY)"
     echo "  --services=SVC...     Comma-separated list of services: proxy, watchdog, wrapper (default: none)"
     echo "  --service-tag=TAG     Tag of service images to use (default: $DEFAULT_SERVICE_TAG)"
     echo "  --help, -h            Show this help message"
@@ -42,11 +42,11 @@ help() {
     echo "  This allows language images to guarantee API compatibility with service images"
     echo ""
     echo "Authentication:"
-    echo "  You must be logged in to Docker registries before running this script."
+    echo "  You must be logged in to Docker registry before running this script."
     echo "  Use 'docker login <registry>' to authenticate."
     echo "  Examples:"
     echo "    docker login ghcr.io -u <username>"
-    echo "    docker login -u <username>  # for Docker Hub (https://index.docker.io/v1/)"
+    echo "    docker login -u <username>  # for Docker Hub"
     echo ""
     echo "Examples:"
     echo "  $0 --registry=nuanced,ghcr.io/nuanced-dev --all-services --all-languages"
@@ -60,7 +60,7 @@ help() {
 DRY_RUN=false
 LANGUAGE_TAG=""
 LANGUAGES=()
-REGISTRIES=()
+REGISTRY=""
 SERVICES=()
 SERVICE_TAG=""
 
@@ -87,7 +87,7 @@ for arg in "$@"; do
             IFS=',' read -ra LANGUAGES <<< "${arg#*=}"
             ;;
         --registry=*)
-            IFS=',' read -ra REGISTRIES <<< "${arg#*=}"
+            REGISTRY="${arg#*=}"
             ;;
         --services=*)
             IFS=',' read -ra SERVICES <<< "${arg#*=}"
@@ -103,17 +103,10 @@ for arg in "$@"; do
     esac
 done
 
-# Validate required arguments
-if [ ${#REGISTRIES[@]} -eq 0 ]; then
-    echo -e "${RED}Error: --registry is required${NC}"
-    echo ""
-    usage
-    exit 1
-fi
-
-# Fall back to default tags
-SERVICE_TAG="${SERVICE_TAG:-$DEFAULT_SERVICE_TAG}"
+# Fall back to defaults
 LANGUAGE_TAG="${LANGUAGE_TAG:-$DEFAULT_LANGUAGE_TAG}"
+REGISTRY="${REGISTRY:-$DEFAULT_REGISTRY}"
+SERVICE_TAG="${SERVICE_TAG:-$DEFAULT_SERVICE_TAG}"
 
 echo -e "${BLUE}=========================================${NC}"
 echo -e "${BLUE}  Publishing Images${NC}"
@@ -123,12 +116,12 @@ fi
 if [ ${#LANGUAGES[@]} -gt 0 ]; then
     echo -e "${BLUE}  Language images: $LANGUAGE_TAG${NC}"
 fi
-echo -e "${BLUE}  Registries: ${REGISTRIES[*]}${NC}"
+echo -e "${BLUE}  Registry: ${REGISTRY}${NC}"
 echo -e "${BLUE}  Dry Run: $DRY_RUN${NC}"
 echo -e "${BLUE}=========================================${NC}"
 echo
 
-# Check authentication with registries
+# Check authentication with registry
 check_registry_auth() {
     local registry="$1"
     local registry_key="$registry"
@@ -163,15 +156,13 @@ get_login_command() {
 
 if [ "$DRY_RUN" = false ]; then
     echo -e "${YELLOW}Checking registry authentication...${NC}"
-    for registry in "${REGISTRIES[@]}"; do
-        if ! check_registry_auth "$registry"; then
-            echo -e "${RED}Error: Not logged in to registry: $registry${NC}"
-            echo -e "${YELLOW}Please authenticate using:${NC}"
-            echo -e "  $(get_login_command "$registry")"
-            exit 1
-        fi
-        echo -e "${GREEN}✓ Authenticated with $registry${NC}"
-    done
+    if ! check_registry_auth "$REGISTRY"; then
+        echo -e "${RED}Error: Not logged in to registry: $REGISTRY${NC}"
+        echo -e "${YELLOW}Please authenticate using:${NC}"
+        echo -e "  $(get_login_command "$REGISTRY")"
+        exit 1
+    fi
+    echo -e "${GREEN}✓ Authenticated with $registry${NC}"
     echo
 fi
 
@@ -189,20 +180,18 @@ publish_image() {
         return 1
     fi
 
-    # Publish to all specified registries
-    for registry in "${REGISTRIES[@]}"; do
-        local registry_image="${registry}/${image}"
+    # Publish to specified registry
+    local registry_image="${REGISTRY}/${image}"
 
-        if [ "$DRY_RUN" = true ]; then
-            echo -e "${YELLOW}[DRY RUN] Would tag: ${image} → ${registry_image}${NC}"
-            echo -e "${YELLOW}[DRY RUN] Would push: ${registry_image}${NC}"
-        else
-            docker tag "$image" "$registry_image"
-            docker push "$registry_image"
-            PUBLISHED_IMAGES+=("${registry_image}")
-            echo -e "${GREEN}✓ Published to ${registry}: ${registry_image}${NC}"
-        fi
-    done
+    if [ "$DRY_RUN" = true ]; then
+        echo -e "${YELLOW}[DRY RUN] Would tag: ${image} → ${registry_image}${NC}"
+        echo -e "${YELLOW}[DRY RUN] Would push: ${registry_image}${NC}"
+    else
+        docker tag "$image" "$registry_image"
+        docker push "$registry_image"
+        PUBLISHED_IMAGES+=("${registry_image}")
+        echo -e "${GREEN}✓ Published to ${REGISTRY}: ${registry_image}${NC}"
+    fi
 
     return 0
 }
