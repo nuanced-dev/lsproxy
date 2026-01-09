@@ -6,11 +6,11 @@ SCRIPT_DIR="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")" && pwd)"
 
 source "$SCRIPT_DIR/include/colors.sh"
 
-DEFAULT_RUST_TAG="$("$SCRIPT_DIR/util/rust-image-version.sh")"
 DEFAULT_LANGUAGE_TAG="$("$SCRIPT_DIR/util/language-image-version.sh")"
+DEFAULT_SERVICE_TAG="$("$SCRIPT_DIR/util/service-image-version.sh")"
 
 usage() {
-    echo "Usage: $0 [--auth] [--foreground] [--language-tag=TAG] [--logs] [--port=PORT] [--rust-tag=TAG] WORKSPACE_DIR"
+    echo "Usage: $0 [--auth] [--foreground] [--language-tag=TAG] [--logs] [--port=PORT] [--service-tag=TAG] WORKSPACE_DIR"
 }
 
 help() {
@@ -24,7 +24,7 @@ help() {
     echo "  --language-tag=TAG    Tag of language images to use (default: $DEFAULT_LANGUAGE_TAG)"
     echo "  --logs, -l            Tail logs after starting"
     echo "  --port=PORT           Use custom port (default: 4444)"
-    echo "  --rust-tag=TAG        Tag images with specified tag (default: $DEFAULT_RUST_TAG)"
+    echo "  --service-tag=TAG     Tag images with specified tag (default: $DEFAULT_SERVICE_TAG)"
     echo "  --help, -h            Show this help"
     echo ""
     echo "Examples:"
@@ -39,7 +39,7 @@ DETACHED=true
 LANGUAGE_TAG=""
 TAIL_LOGS=false
 PORT=4444
-RUST_TAG=""
+SERVICE_TAG=""
 WORKSPACE_PATH=
 
 # Parse options
@@ -60,8 +60,8 @@ for arg in "$@"; do
         --port=*)
             PORT="${arg#*=}"
             ;;
-        --rust-tag=*)
-            RUST_TAG="${arg#*=}"
+        --service-tag=*)
+            SERVICE_TAG="${arg#*=}"
             ;;
         --help|-h)
             help
@@ -78,7 +78,7 @@ for arg in "$@"; do
 done
 
 # Fall back to default tags
-RUST_TAG="${RUST_TAG:-$DEFAULT_RUST_TAG}"
+SERVICE_TAG="${SERVICE_TAG:-$DEFAULT_SERVICE_TAG}"
 
 # Verify workspace argument
 if [ -z "$WORKSPACE_PATH" ]; then
@@ -146,11 +146,11 @@ docker run \
     -v /var/run/docker.sock:/var/run/docker.sock \
     -v "${WORKSPACE_PATH}:/mnt/workspace" \
     -e RUST_LOG=info,nuanced_lsp_proxy=debug,proxy=debug,nuanced_lsp_wrapper=debug,wrapper=debug \
-    -e "WRAPPER_IMAGE=nuanced-lsp-wrapper:${RUST_TAG}" \
-    -e "WATCHDOG_IMAGE=nuanced-lsp-watchdog:${RUST_TAG}" \
+    -e "WRAPPER_IMAGE=nuanced-lsp-wrapper:${SERVICE_TAG}" \
+    -e "WATCHDOG_IMAGE=nuanced-lsp-watchdog:${SERVICE_TAG}" \
     -e NUANCED_LSP_MAX_MEMORY=8192 \
     "${DOCKER_ARGS[@]}" \
-    "nuanced-lsp-proxy:${RUST_TAG}"
+    "nuanced-lsp-proxy:${SERVICE_TAG}"
 
 if [ "$DETACHED" = true ]; then
     echo -e "${GREEN}✓ Service container started${NC}"

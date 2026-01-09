@@ -7,8 +7,9 @@ SCRIPT_DIR="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")" && pwd)"
 source "$SCRIPT_DIR/include/colors.sh"
 source "$SCRIPT_DIR/include/constants.sh"
 
-DEFAULT_SERVICE_TAG="$("$SCRIPT_DIR/util/rust-image-version.sh")"
 DEFAULT_LANGUAGE_TAG="$("$SCRIPT_DIR/util/language-image-version.sh")"
+DEFAULT_SERVICE_TAG="$("$SCRIPT_DIR/util/service-image-version.sh")"
+
 DEFAULT_REGISTRY="ghcr.io/nuanced-dev"
 
 usage() {

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Default Rust image version equals the crate version
+# Default service image version equals the Rust crate version
 
 set -euo pipefail
 

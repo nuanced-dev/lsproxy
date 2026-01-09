@@ -7,8 +7,8 @@ SCRIPT_DIR="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")" && pwd)"
 source "$SCRIPT_DIR/include/colors.sh"
 source "$SCRIPT_DIR/include/constants.sh"
 
-DEFAULT_SERVICE_TAG="$("$SCRIPT_DIR/util/rust-image-version.sh")"
 DEFAULT_LANGUAGE_TAG="$("$SCRIPT_DIR/util/language-image-version.sh")"
+DEFAULT_SERVICE_TAG="$("$SCRIPT_DIR/util/service-image-version.sh")"
 
 usage() {
     echo "Usage: $0 [--all-languages] [--all-services] [--cache=MODE] [--jobs=N] [--language-tag=TAG] [--languages=LANG...] [--multi-platform] [--sequential] [--service-tag=TAG] [--services=SVC...]"

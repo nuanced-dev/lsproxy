@@ -6,8 +6,8 @@ SCRIPT_DIR="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")" && pwd)"
 
 source "$SCRIPT_DIR/include/colors.sh"
 
-DEFAULT_RUST_TAG="$("$SCRIPT_DIR/util/rust-image-version.sh")"
 DEFAULT_LANGUAGE_TAG="$("$SCRIPT_DIR/util/language-image-version.sh")"
+DEFAULT_SERVICE_TAG="$("$SCRIPT_DIR/util/service-image-version.sh")"
 
 help() {
     echo "Test container lifecycle: build, run, health check, cleanup"
@@ -16,13 +16,13 @@ help() {
     echo ""
     echo "Options:"
     echo "  --language-tag=TAG    Tag of language images to use (default: $DEFAULT_LANGUAGE_TAG)"
-    echo "  --rust-tag=TAG        Tag of Rust images to use (default: $DEFAULT_RUST_TAG)"
+    echo "  --service-tag=TAG     Tag of service images to use (default: $DEFAULT_SERVICE_TAG)"
     echo "  --help, -h            Show this help"
 }
 
 # Default values
 LANGUAGE_TAG=""
-RUST_TAG=""
+SERVICE_TAG=""
 
 # Parse options
 for arg in "$@"; do
@@ -30,8 +30,8 @@ for arg in "$@"; do
         --language-tag=*)
             LANGUAGE_TAG="${arg#*=}"
             ;;
-        --rust-tag=*)
-            RUST_TAG="${arg#*=}"
+        --service-tag=*)
+            SERVICE_TAG="${arg#*=}"
             ;;
         --help|-h)
             help
@@ -45,7 +45,7 @@ for arg in "$@"; do
 done
 
 # Fall back to default tags
-RUST_TAG="${RUST_TAG:-$DEFAULT_RUST_TAG}"
+SERVICE_TAG="${SERVICE_TAG:-$DEFAULT_SERVICE_TAG}"
 
 WORKSPACE_PATH="$(cd "$SCRIPT_DIR/../sample_project/python" && pwd)"
 SERVICE_NAME="nuanced-lsp-proxy-$(uuidgen | tr '[:upper:]' '[:lower:]' | cut -c1-12)"
@@ -111,7 +111,7 @@ trap cleanup EXIT INT TERM
 
 # Test 1: Service image exists
 test_step "Service image exists" \
-    "docker images nuanced-lsp-proxy:${RUST_TAG} --format '{{.Repository}}' | grep -q nuanced-lsp-proxy"
+    "docker images nuanced-lsp-proxy:${SERVICE_TAG} --format '{{.Repository}}' | grep -q nuanced-lsp-proxy"
 
 # Test 2: Start service container
 echo
@@ -129,10 +129,10 @@ docker run -d \
     -v "$WORKSPACE_PATH:/mnt/workspace" \
     -e RUST_LOG=info,nuanced_lsp_proxy=debug,proxy=debug,nuanced_lsp_wrapper=debug,wrapper=debug \
     -e USE_AUTH=false \
-    -e "WRAPPER_IMAGE=nuanced-lsp-wrapper:${RUST_TAG}" \
-    -e "WATCHDOG_IMAGE=nuanced-lsp-watchdog:${RUST_TAG}" \
+    -e "WRAPPER_IMAGE=nuanced-lsp-wrapper:${SERVICE_TAG}" \
+    -e "WATCHDOG_IMAGE=nuanced-lsp-watchdog:${SERVICE_TAG}" \
     "${DOCKER_ARGS[@]}" \
-    "nuanced-lsp-proxy:${RUST_TAG}"
+    "nuanced-lsp-proxy:${SERVICE_TAG}"
 
 SERVICE_ID=$(docker inspect --format '{{.Id}}' "${SERVICE_NAME}" 2>/dev/null || echo "")
 # Language containers label their parent with the orchestrator instance ID, which is the

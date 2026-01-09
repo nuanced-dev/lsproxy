@@ -191,7 +191,7 @@ For full API documentation, see [Nuanced LSP API Reference](https://docs.nuanced
 ```bash
 # 1. Build the service container (one-time setup)
 #    This builds: orchestrator, lsp-wrapper, and watchdog
-./scripts/build-rust-images.sh
+./scripts/build-images.sh --all-services
 
 # 2. Start the proxy service (language containers are pulled dynamically as needed)
 ./scripts/start-proxy.sh sample_project/all
@@ -215,10 +215,10 @@ For local development, you can build images for your native platform:
 
 ```bash
 # Build Rust containers (wrapper, service, watchdog) without cache
-./scripts/build-rust-images.sh
+./scripts/build-images.sh --all-services
 
 # Build main language containers (8 languages + 16 supported Ruby versions)
-./scripts/build-language-images.sh
+./scripts/build-images.sh --all-languages
 ```
 
 There are many options you can specify with the image build scripts that help with tagging, caching, running builds sequentially vs. parallel, etc. Please view the scripts to see the full options available.
@@ -229,10 +229,10 @@ For building images that support both amd64 and arm64:
 
 ```bash
 # Build multi-platform Rust containers
-./scripts/build-rust-images.sh ----multi-platform
+./scripts/build-images.sh --all-services --multi-platform
 
 # Build multi-platform language containers
-./scripts/build-language-images.sh ----multi-platform
+./scripts/build-images.sh --all-languages --multi-platform
 ```
 
 **Note:** Multi-arch builds use Docker Buildx and may require QEMU for cross-compilation. The build process will be slower than single-architecture builds (2-3x).
@@ -243,9 +243,9 @@ Images can be published to GitHub Container Registry (ghcr.io) and/or Docker Hub
 
 ```bash
 # Publish to GHCR
-./scripts/build-rust-images.sh ----multi-platform --registry=ghcr --rust-tag=X.Y.Z
+./scripts/build-images.sh --all-services --multi-platform --registry=ghcr --service-tag=X.Y.Z
 
-./scripts/build-language-images.sh ----multi-platform --registry=ghcr --rust-tag=X.Y.Z
+./scripts/build-images.sh --all-languages --multi-platform --registry=ghcr --service-tag=X.Y.Z
 ```
 
 **Environment Variables for Publishing:**
