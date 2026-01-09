@@ -5,63 +5,64 @@ set -eu
 SCRIPT_DIR="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")" && pwd)"
 
 source "$SCRIPT_DIR/include/colors.sh"
-source "$SCRIPT_DIR/include/supported-languages.sh"
-source "$SCRIPT_DIR/include/supported-ruby-versions.sh"
+source "$SCRIPT_DIR/include/constants.sh"
 
-DEFAULT_RUST_TAG="$("$SCRIPT_DIR/util/rust-image-version.sh")"
+DEFAULT_SERVICE_TAG="$("$SCRIPT_DIR/util/rust-image-version.sh")"
 DEFAULT_LANGUAGE_TAG="$("$SCRIPT_DIR/util/language-image-version.sh")"
 
 usage() {
-    echo "Usage: $0 [--dry-run] [--language-tag=TAG] [--languages=LANG...] [--registry=REGISTRY] [--rust=IMAGE...] [--rust-tag=TAG]"
+    echo "Usage: $0 [--dry-run] [--language-tag=TAG] [--languages=LANG...] [--registry=REG,...] [--services=SVC...] [--service-tag=TAG]"
 }
 
 help() {
-    echo "Publish Docker images to container registries (ghcr.io and/or Docker Hub)"
+    echo "Publish Docker images to container registries"
     echo ""
     echo "Usage: $0 [OPTIONS...]"
     echo ""
     echo "Options:"
+    echo "  --all-languages       Publish all language images (shortcut for --languages=<all>)"
+    echo "  --all-services        Publish all service images (shortcut for --services=proxy,watchdog,wrapper)"
     echo "  --dry-run, -N         Show what would be pushed without actually pushing"
     echo "  --language-tag=TAG    Tag of language images to use (default: $DEFAULT_LANGUAGE_TAG)"
-    echo "  --languages=LANG...   Comma-separated list of languages (default: all languages)"
-    echo "                        Use empty value (--languages=) for no languages"
+    echo "  --languages=LANG...   Comma-separated list of languages (default: none)"
     echo "                        Supports versioned Ruby: ruby-3.2.2, ruby-sorbet-3.2.2"
-    echo "  --registry=REGISTRY   Target registry: ghcr, dockerhub, or both (default: both)"
-    echo "  --rust=IMAGE...       Comma-separated list of Rust images: proxy, watchdog, wrapper"
-    echo "                        (default: all Rust images)"
-    echo "                        Use empty value (--rust=) for no Rust images"
-    echo "  --rust-tag=TAG        Tag of Rust images to use (default: $DEFAULT_RUST_TAG)"
+    echo "  --registry=REG,...    Target registries - comma-separated (required)"
+    echo "                        Examples: nuanced, ghcr.io/nuanced-dev, nuanced,ghcr.io/nuanced-dev"
+    echo "  --services=SVC...     Comma-separated list of services: proxy, watchdog, wrapper (default: none)"
+    echo "  --service-tag=TAG     Tag of service images to use (default: $DEFAULT_SERVICE_TAG)"
     echo "  --help, -h            Show this help message"
     echo ""
     echo "Images:"
-    echo "  - Images must already be built (use scripts/build-rust-images.sh and scripts/build-language-images.sh)"
+    echo "  - Images must already be built (use scripts/build-images.sh)"
     echo "  - Images must be multi-platform builds (built with --multi-platform flag)"
     echo ""
     echo "Versioning:"
-    echo "  Rust images (wrapper, proxy, watchdog) use release version tags (e.g. 0.4.0)"
+    echo "  Service images (wrapper, proxy, watchdog) use release version tags (e.g. 0.4.0)"
     echo "  Language images use independent semver for API/protocol compatibility (e.g. 1.0.0)"
-    echo "  This allows language images to guarantee API compatibility with Rust images"
+    echo "  This allows language images to guarantee API compatibility with service images"
     echo ""
-    echo "Environment:"
-    echo "  GITHUB_TOKEN          Required for authentication to ghcr.io (if using ghcr or both)"
-    echo "  DOCKER_HUB_TOKEN      Required for authentication to Docker Hub (if using dockerhub or both)"
+    echo "Authentication:"
+    echo "  You must be logged in to Docker registries before running this script."
+    echo "  Use 'docker login <registry>' to authenticate."
+    echo "  Examples:"
+    echo "    docker login ghcr.io -u <username>"
+    echo "    docker login -u <username>  # for Docker Hub (https://index.docker.io/v1/)"
     echo ""
     echo "Examples:"
-    echo "  $0"
-    echo "  $0 --languages=python,typescript,ruby"
-    echo "  $0 --languages=ruby-3.2.2,ruby-sorbet-3.2.2"
-    echo "  $0 --language-tag=1.0.0 --registry=both"
-    echo "  $0 --rust= --languages=python"
-    echo "  $0 --rust=proxy,watchdog"
+    echo "  $0 --registry=nuanced,ghcr.io/nuanced-dev --all-services --all-languages"
+    echo "  $0 --registry=ghcr.io/nuanced-dev --languages=python,typescript,ruby"
+    echo "  $0 --registry=nuanced --languages=ruby-3.2.2,ruby-sorbet-3.2.2"
+    echo "  $0 --registry=nuanced --language-tag=1.0.0"
+    echo "  $0 --registry=ghcr.io/nuanced-dev --services=proxy,watchdog"
 }
 
 # Default settings
 DRY_RUN=false
 LANGUAGE_TAG=""
-LANGUAGES=("${SUPPORTED_LANGUAGES[@]}")
-REGISTRY_TARGET="both"  # Options: ghcr, dockerhub, both
-RUST_IMAGES=(wrapper proxy watchdog)
-RUST_TAG=""
+LANGUAGES=()
+REGISTRIES=()
+SERVICES=()
+SERVICE_TAG=""
 
 # Parse arguments
 for arg in "$@"; do
@@ -69,6 +70,12 @@ for arg in "$@"; do
         --help|-h)
             help
             exit 0
+            ;;
+        --all-languages)
+            LANGUAGES=("${SUPPORTED_LANGUAGES[@]}")
+            ;;
+        --all-services)
+            SERVICES=(wrapper proxy watchdog)
             ;;
         --dry-run|-N)
             DRY_RUN=true
@@ -80,17 +87,13 @@ for arg in "$@"; do
             IFS=',' read -ra LANGUAGES <<< "${arg#*=}"
             ;;
         --registry=*)
-            REGISTRY_TARGET="${arg#*=}"
-            if [[ ! "$REGISTRY_TARGET" =~ ^(ghcr|dockerhub|both)$ ]]; then
-                echo -e "${YELLOW}Invalid registry: $REGISTRY_TARGET. Must be ghcr, dockerhub, or both${NC}"
-                exit 1
-            fi
+            IFS=',' read -ra REGISTRIES <<< "${arg#*=}"
             ;;
-        --rust=*)
-            IFS=',' read -ra RUST_IMAGES <<< "${arg#*=}"
+        --services=*)
+            IFS=',' read -ra SERVICES <<< "${arg#*=}"
             ;;
-        --rust-tag=*)
-            RUST_TAG="${arg#*=}"
+        --service-tag=*)
+            SERVICE_TAG="${arg#*=}"
             ;;
         *)
             echo -e "${YELLOW}Unknown argument: $arg${NC}"
@@ -100,70 +103,75 @@ for arg in "$@"; do
     esac
 done
 
+# Validate required arguments
+if [ ${#REGISTRIES[@]} -eq 0 ]; then
+    echo -e "${RED}Error: --registry is required${NC}"
+    echo ""
+    usage
+    exit 1
+fi
+
 # Fall back to default tags
-RUST_TAG="${RUST_TAG:-$DEFAULT_RUST_TAG}"
+SERVICE_TAG="${SERVICE_TAG:-$DEFAULT_SERVICE_TAG}"
 LANGUAGE_TAG="${LANGUAGE_TAG:-$DEFAULT_LANGUAGE_TAG}"
-
-# Registry configuration
-GHCR_REGISTRY="ghcr.io/nuanced-dev"
-DOCKERHUB_REGISTRY="nuanced"
-
-# Determine which registries to publish to
-PUBLISH_TO_GHCR=false
-PUBLISH_TO_DOCKERHUB=false
-if [[ "$REGISTRY_TARGET" =~ ^(ghcr|both)$ ]]; then
-    PUBLISH_TO_GHCR=true
-fi
-if [[ "$REGISTRY_TARGET" =~ ^(dockerhub|both)$ ]]; then
-    PUBLISH_TO_DOCKERHUB=true
-fi
 
 echo -e "${BLUE}=========================================${NC}"
 echo -e "${BLUE}  Publishing Images${NC}"
-if [ ${#RUST_IMAGES[@]} -gt 0 ]; then
-    echo -e "${BLUE}  Rust images: $RUST_TAG${NC}"
+if [ ${#SERVICES[@]} -gt 0 ]; then
+    echo -e "${BLUE}  Service images: $SERVICE_TAG${NC}"
 fi
 if [ ${#LANGUAGES[@]} -gt 0 ]; then
     echo -e "${BLUE}  Language images: $LANGUAGE_TAG${NC}"
 fi
-if [ "$PUBLISH_TO_GHCR" = true ]; then
-    echo -e "${BLUE}  GHCR: $GHCR_REGISTRY${NC}"
-fi
-if [ "$PUBLISH_TO_DOCKERHUB" = true ]; then
-    echo -e "${BLUE}  Docker Hub: $DOCKERHUB_REGISTRY${NC}"
-fi
+echo -e "${BLUE}  Registries: ${REGISTRIES[*]}${NC}"
 echo -e "${BLUE}  Dry Run: $DRY_RUN${NC}"
 echo -e "${BLUE}=========================================${NC}"
 echo
 
-# Authenticate with registries
+# Check authentication with registries
+check_registry_auth() {
+    local registry="$1"
+    local registry_key="$registry"
+
+    # Normalize registry key for Docker config lookup
+    # If registry contains /, check for the part until the first /
+    if [[ "$registry" == */* ]]; then
+        registry_key="${registry%%/*}"
+    else
+        # No slash means Docker Hub
+        registry_key="https://index.docker.io/v1/"
+    fi
+
+    if ! jq -e ".auths | has(\"$registry_key\")" "$HOME/.docker/config.json" > /dev/null 2>&1; then
+        return 1
+    fi
+    return 0
+}
+
+get_login_command() {
+    local registry="$1"
+
+    if [[ "$registry" == */* ]]; then
+        # Registry with / (e.g., ghcr.io/nuanced-dev)
+        local registry_host="${registry%%/*}"
+        echo "docker login $registry_host -u <username>"
+    else
+        # No slash means Docker Hub
+        echo "docker login -u <username>"
+    fi
+}
+
 if [ "$DRY_RUN" = false ]; then
-    if [ "$PUBLISH_TO_GHCR" = true ]; then
-        echo -e "${YELLOW}Authenticating with GHCR...${NC}"
-        if [ -z "${GITHUB_TOKEN:+x}" ]; then
-            echo -e "${RED}Error: GITHUB_TOKEN environment variable is not set${NC}"
-            echo "Please set GITHUB_TOKEN with ghcr.io push permissions"
+    echo -e "${YELLOW}Checking registry authentication...${NC}"
+    for registry in "${REGISTRIES[@]}"; do
+        if ! check_registry_auth "$registry"; then
+            echo -e "${RED}Error: Not logged in to registry: $registry${NC}"
+            echo -e "${YELLOW}Please authenticate using:${NC}"
+            echo -e "  $(get_login_command "$registry")"
             exit 1
         fi
-        if ! echo "$GITHUB_TOKEN" | docker login ghcr.io -u nuanced-dev --password-stdin; then
-            echo -e "${RED}Error: Failed to authenticate with GHCR${NC}"
-            exit 1
-        fi
-        echo -e "${GREEN}✓ Authenticated with GHCR${NC}"
-    fi
-    if [ "$PUBLISH_TO_DOCKERHUB" = true ]; then
-        echo -e "${YELLOW}Authenticating with Docker Hub...${NC}"
-        if [ -z "${DOCKER_HUB_TOKEN:+x}" ]; then
-            echo -e "${RED}Error: DOCKER_HUB_TOKEN environment variable is not set${NC}"
-            echo "Please set DOCKER_HUB_TOKEN for Docker Hub authentication"
-            exit 1
-        fi
-        if ! echo "$DOCKER_HUB_TOKEN" | docker login -u nuanced --password-stdin; then
-            echo -e "${RED}Error: Failed to authenticate with Docker Hub${NC}"
-            exit 1
-        fi
-        echo -e "${GREEN}✓ Authenticated with Docker Hub${NC}"
-    fi
+        echo -e "${GREEN}✓ Authenticated with $registry${NC}"
+    done
     echo
 fi
 
@@ -181,53 +189,38 @@ publish_image() {
         return 1
     fi
 
-    # Publish to GHCR if enabled
-    if [ "$PUBLISH_TO_GHCR" = true ]; then
-        local ghcr_image="${GHCR_REGISTRY}/${image}"
+    # Publish to all specified registries
+    for registry in "${REGISTRIES[@]}"; do
+        local registry_image="${registry}/${image}"
 
         if [ "$DRY_RUN" = true ]; then
-            echo -e "${YELLOW}[DRY RUN] Would tag: ${image} → ${ghcr_image}${NC}"
-            echo -e "${YELLOW}[DRY RUN] Would push: ${ghcr_image}${NC}"
+            echo -e "${YELLOW}[DRY RUN] Would tag: ${image} → ${registry_image}${NC}"
+            echo -e "${YELLOW}[DRY RUN] Would push: ${registry_image}${NC}"
         else
-            docker tag "$image" "$ghcr_image"
-            docker push "$ghcr_image"
-            PUBLISHED_IMAGES+=("${ghcr_image}")
-            echo -e "${GREEN}✓ Published to GHCR: ${ghcr_image}${NC}"
+            docker tag "$image" "$registry_image"
+            docker push "$registry_image"
+            PUBLISHED_IMAGES+=("${registry_image}")
+            echo -e "${GREEN}✓ Published to ${registry}: ${registry_image}${NC}"
         fi
-    fi
-
-    # Publish to Docker Hub if enabled
-    if [ "$PUBLISH_TO_DOCKERHUB" = true ]; then
-        local dockerhub_image="${DOCKERHUB_REGISTRY}/${image}"
-
-        if [ "$DRY_RUN" = true ]; then
-            echo -e "${YELLOW}[DRY RUN] Would tag: ${image} → ${dockerhub_image}${NC}"
-            echo -e "${YELLOW}[DRY RUN] Would push: ${dockerhub_image}${NC}"
-        else
-            docker tag "$image" "$dockerhub_image"
-            docker push "$dockerhub_image"
-            PUBLISHED_IMAGES+=("${dockerhub_image}")
-            echo -e "${GREEN}✓ Published to Docker Hub: ${dockerhub_image}${NC}"
-        fi
-    fi
+    done
 
     return 0
 }
 
-# Core Rust images
-if [ ${#RUST_IMAGES[@]} -eq 0 ]; then
-    echo -e "${YELLOW}No Rust images to publish${NC}"
+# Service images
+if [ ${#SERVICES[@]} -eq 0 ]; then
+    echo -e "${YELLOW}No service images to publish${NC}"
 else
-    echo -e "${YELLOW}Publishing ${#RUST_IMAGES[@]} Rust images (version: $RUST_TAG)${NC}"
+    echo -e "${YELLOW}Publishing ${#SERVICES[@]} service images (version: $SERVICE_TAG)${NC}"
     echo
 
     failed=0
-    for image_name in "${RUST_IMAGES[@]}"; do
-        publish_image "nuanced-lsp-${image_name}:$RUST_TAG" || failed=$((failed + 1))
+    for image_name in "${SERVICES[@]}"; do
+        publish_image "nuanced-lsp-${image_name}:$SERVICE_TAG" || failed=$((failed + 1))
     done
 
     if [ $failed -gt 0 ]; then
-        echo -e "${RED}$failed Rust images failed to publish${NC}"
+        echo -e "${RED}$failed service images failed to publish${NC}"
         exit 1
     fi
 
@@ -238,7 +231,7 @@ fi
 echo -e "${YELLOW}Publishing images for ${#LANGUAGES[@]} languages (version: $LANGUAGE_TAG)${NC}"
 
 # Separate languages into categories (ruby-sorbet must be built after ruby)
-REGULAR_LANGUAGES=()
+UNVERSIONED_LANGUAGES=()
 RUBY_VERSIONS=()
 RUBY_SORBET_VERSIONS=()
 
@@ -254,16 +247,16 @@ for lang in "${LANGUAGES[@]}"; do
         version="${lang#ruby-sorbet-}"
         RUBY_SORBET_VERSIONS+=("$version")
     else
-        REGULAR_LANGUAGES+=("$lang")
+        UNVERSIONED_LANGUAGES+=("$lang")
     fi
 done
 
 failed=0
-if [ ${#REGULAR_LANGUAGES[@]} -eq 0 ]; then
-    echo -e "${YELLOW}No regular language images to publish${NC}"
+if [ ${#UNVERSIONED_LANGUAGES[@]} -eq 0 ]; then
+    echo -e "${YELLOW}No unversioned language images to publish${NC}"
 else
-    echo -e "${YELLOW}Publishing ${#REGULAR_LANGUAGES[@]} language images${NC}"
-    for lang in "${REGULAR_LANGUAGES[@]}"; do
+    echo -e "${YELLOW}Publishing ${#UNVERSIONED_LANGUAGES[@]} language images${NC}"
+    for lang in "${UNVERSIONED_LANGUAGES[@]}"; do
         publish_image "nuanced-lsp-${lang}:$LANGUAGE_TAG" || failed=$((failed + 1))
     done
 fi
@@ -298,8 +291,8 @@ if [ "$DRY_RUN" = true ]; then
     echo -e "${GREEN}  No images were actually pushed${NC}"
 else
     echo -e "${GREEN}  All Images Published Successfully${NC}"
-    if [ ${#RUST_IMAGES[@]} -gt 0 ]; then
-        echo -e "${GREEN}  Rust images: $RUST_TAG${NC}"
+    if [ ${#SERVICES[@]} -gt 0 ]; then
+        echo -e "${GREEN}  Service images: $SERVICE_TAG${NC}"
     fi
     if [ ${#LANGUAGES[@]} -gt 0 ]; then
         echo -e "${GREEN}  Language images: $LANGUAGE_TAG${NC}"
@@ -309,11 +302,6 @@ else
         echo -e "  ${image}"
     done
     echo
-    if [ "$PUBLISH_TO_GHCR" = true ]; then
-        echo -e "${YELLOW}To list all GHCR packages:${NC}"
-        echo -e "  ./scripts/ghcr-utils.sh list-packages"
-        echo
-    fi
 fi
 echo -e "${GREEN}=========================================${NC}"
 echo
