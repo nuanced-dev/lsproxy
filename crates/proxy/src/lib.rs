@@ -140,9 +140,10 @@ pub async fn initialize_app_state_with_mount_dir(
     // Spawn watchdog container to monitor this service
     // The watchdog will cleanup language containers if this service dies unexpectedly
     info!("Spawning watchdog container...");
-    if let Err(e) = orchestrator.spawn_watchdog().await {
-        warn!("Failed to spawn watchdog (will continue without it): {}", e);
-    }
+    orchestrator.spawn_watchdog_container().await?;
+
+    info!("Spawning wrapper container...");
+    orchestrator.spawn_wrapper_container().await?;
 
     let initialization_complete = Arc::new(AtomicBool::new(false));
 

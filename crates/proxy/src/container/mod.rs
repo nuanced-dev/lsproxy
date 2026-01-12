@@ -174,22 +174,19 @@ pub async fn find_image(docker: &Docker, image: String) -> Result<String, Orches
     };
 
     let mut stream = docker.create_image(Some(create_options), None, None);
+    // the stream ends when an error occurs or the image is pulled
     while let Some(info) = stream.next().await {
         match info {
-            Ok(_) => {
-                log::info!(
-                    "Successfully pulled image from registry: {}",
-                    registry_image
-                );
-                return Ok(registry_image);
-            }
+            Ok(_) => {}
             Err(e) => {
                 log::error!("Failed to pull image from registry: {registry_image}: {e}");
+                return Err(e.into());
             }
         }
     }
 
-    return Err(OrchestratorError::ImageNotFound(registry_image));
+    log::info!("Successfully pulled image from registry: {registry_image}");
+    Ok(registry_image)
 }
 
 pub use http_client::ContainerHttpClient;
@@ -526,7 +523,9 @@ impl ContainerOrchestrator {
                 let orchestrator = self.clone();
                 async move {
                     log::info!("Spawning container for {:?}", language);
-                    let result = orchestrator.spawn_container(language.clone()).await;
+                    let result = orchestrator
+                        .spawn_language_container(language.clone())
+                        .await;
                     (language, result)
                 }
             })
@@ -582,7 +581,7 @@ impl ContainerOrchestrator {
     /// Spawn the wrapper container
     /// The wrapper container holds the lsp-wrapper binary and ast-grep configs
     /// that will be mounted into language containers via --volumes-from
-    pub async fn ensure_wrapper_container(&self) -> Result<String, OrchestratorError> {
+    pub async fn spawn_wrapper_container(&self) -> Result<String, OrchestratorError> {
         use bollard::container::{Config, CreateContainerOptions};
         use bollard::models::HostConfig;
 
@@ -605,7 +604,7 @@ impl ContainerOrchestrator {
         }
 
         let id_short = self.instance_id_short();
-        let wrapper_name = format!("nuanced-lsp-wrapper-{}", id_short);
+        let wrapper_name = format!("{WRAPPER_IMAGE_BASE}-{}", id_short);
 
         // Check if wrapper container already exists (by name)
         if let Ok(info) = self.docker.inspect_container(&wrapper_name, None).await {
@@ -754,7 +753,7 @@ impl ContainerOrchestrator {
 
     /// Spawn a watchdog container to monitor this service and cleanup on unexpected death
     /// Returns the watchdog container ID
-    pub async fn spawn_watchdog(&self) -> Result<String, OrchestratorError> {
+    pub async fn spawn_watchdog_container(&self) -> Result<String, OrchestratorError> {
         use bollard::container::{Config, CreateContainerOptions};
         use bollard::models::HostConfig;
 
@@ -765,7 +764,7 @@ impl ContainerOrchestrator {
             parent_id
         );
 
-        let watchdog_name = format!("nuanced-lsp-watchdog-{}", self.instance_id_short());
+        let watchdog_name = format!("{WATCHDOG_IMAGE_BASE}-{}", self.instance_id_short());
 
         // Check if watchdog already exists
         if let Ok(_) = self.docker.inspect_container(&watchdog_name, None).await {
@@ -808,11 +807,11 @@ impl ContainerOrchestrator {
     }
 
     /// Stop the watchdog container
-    pub async fn stop_watchdog(&self) -> Result<(), OrchestratorError> {
+    pub async fn stop_watchdog_container(&self) -> Result<(), OrchestratorError> {
         use bollard::container::RemoveContainerOptions;
 
         // Use instance_id (parent container ID preferred) for unique watchdog name
-        let watchdog_name = format!("nuanced-lsp-watchdog-{}", self.instance_id_short());
+        let watchdog_name = format!("{WATCHDOG_IMAGE_BASE}-{}", self.instance_id_short());
 
         // Try to remove the watchdog (force=true handles running containers)
         let remove_options = RemoveContainerOptions {

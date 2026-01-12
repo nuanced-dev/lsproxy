@@ -81,7 +81,7 @@ async fn main() -> std::io::Result<()> {
     }
 
     // Stop the watchdog now that we're done
-    if let Err(e) = orchestrator.stop_watchdog().await {
+    if let Err(e) = orchestrator.stop_watchdog_container().await {
         error!("Error stopping watchdog: {}", e);
     } else {
         info!("Watchdog stopped");

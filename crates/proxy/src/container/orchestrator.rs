@@ -19,7 +19,7 @@ impl ContainerOrchestrator {
     /// - `OrchestratorError::Docker`: Docker daemon not accessible or image doesn't exist
     /// - `OrchestratorError::Io`: Port binding failure or workspace path invalid
     /// - `OrchestratorError::Docker`: Container fails to start (resource limits, LSP crash)
-    pub async fn spawn_container(
+    pub async fn spawn_language_container(
         &self,
         language: SupportedLanguages,
     ) -> Result<ContainerInfo, OrchestratorError> {
@@ -67,7 +67,7 @@ impl ContainerOrchestrator {
             .await;
 
         // Call implementation and handle health status updates
-        let info = match self.spawn_container_impl(language.clone()).await {
+        let info = match self.spawn_language_container_impl(language.clone()).await {
             Ok(info) => info,
             Err(e) => {
                 self.set_container_health(language, ContainerHealthStatus::Unhealthy)
@@ -97,13 +97,21 @@ impl ContainerOrchestrator {
     }
 
     /// Internal implementation of container spawning
-    /// All errors are handled by the wrapper `spawn_container` method
-    async fn spawn_container_impl(
+    /// All errors are handled by the wrapper `spawn_language_container` method
+    async fn spawn_language_container_impl(
         &self,
         language: SupportedLanguages,
     ) -> Result<ContainerInfo, OrchestratorError> {
-        // Ensure wrapper container is running before spawning language containers
-        let wrapper_container_id = self.ensure_wrapper_container().await?;
+        let wrapper_container_id = self
+            .wrapper_container_id
+            .lock()
+            .await
+            .clone()
+            .ok_or_else(|| {
+                OrchestratorError::Configuration(
+                    "Wrapper container not initialized".to_string(),
+                )
+            })?;
         log::debug!("Using wrapper container: {}", wrapper_container_id);
 
         let image_name = language_image(&language);
@@ -663,7 +671,7 @@ mod tests {
 
     #[tokio::test]
     #[cfg_attr(not(feature = "docker-tests"), ignore)]
-    async fn test_spawn_container_returns_existing() -> Result<(), OrchestratorError> {
+    async fn test_spawn_language_container_returns_existing() -> Result<(), OrchestratorError> {
         let orchestrator = ContainerOrchestrator::new().await?;
 
         // Pre-populate with a "container"
@@ -680,7 +688,7 @@ mod tests {
 
         // Try to spawn - should return existing
         let result = orchestrator
-            .spawn_container(SupportedLanguages::Python)
+            .spawn_language_container(SupportedLanguages::Python)
             .await?;
         assert_eq!(result.container_id, "existing-123");
         assert_eq!(result.port, 9000);
@@ -688,7 +696,7 @@ mod tests {
         Ok(())
     }
 
-    // Note: Full spawn_container test would require:
+    // Note: Full spawn_language_container test would require:
     // 1. Docker images to be built (nuanced-lsp-golang:1.0.0, etc.)
     // 2. Valid workspace path
     // 3. Cleanup of created containers
