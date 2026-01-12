@@ -138,10 +138,11 @@ pub fn language_image(language: &SupportedLanguages) -> String {
 /// Find the right Docker image for a given image name:tag string
 ///
 /// This method implements a fallback strategy to locate or pull container images:
-/// 1. Check if the local image exists - if so, return it
-/// 2. Otherwise, check if the image prefixed with the container registry exists locally
-/// 3. If not, try to pull the prefixed image from the container registry
-/// 4. If pull fails, return an error
+/// 1. If image contains '/', treat it as a registry image - skip local check and pull directly
+/// 2. Check if the local image exists - if so, return it
+/// 3. Otherwise, check if the image prefixed with the container registry exists locally
+/// 4. If not, try to pull the prefixed image from the container registry
+/// 5. If pull fails, return an error
 ///
 /// # Arguments
 /// * `image` - The image name:tag string (e.g., "nuanced-lsp-wrapper:1.0.0")
@@ -149,15 +150,18 @@ pub fn language_image(language: &SupportedLanguages) -> String {
 /// # Returns
 /// The image name to use when creating a container
 pub async fn find_image(docker: &Docker, image: String) -> Result<String, OrchestratorError> {
-    // Check if local image exists
-    if docker.inspect_image(&image).await.is_ok() {
-        log::debug!("Using local image: {image}");
-        return Ok(image);
-    }
+    let registry_image = if image.contains('/') {
+        image
+    } else {
+        // Check if local image exists
+        if docker.inspect_image(&image).await.is_ok() {
+            log::debug!("Using local image: {image}");
+            return Ok(image);
+        }
 
-    // Build the registry-prefixed image name
-    let cr = container_registry();
-    let registry_image = format!("{cr}/{image}");
+        // Build the registry-prefixed image name
+        format!("{}/{}", container_registry(), image)
+    };
 
     // Check if registry image already exists locally
     if docker.inspect_image(&registry_image).await.is_ok() {
@@ -165,27 +169,23 @@ pub async fn find_image(docker: &Docker, image: String) -> Result<String, Orches
         return Ok(registry_image);
     }
 
-    // Try to pull from registry
-    log::info!("Try pulling from registry: {registry_image}");
-
+    log::info!("Pulling from registry: {registry_image}");
     let create_options = CreateImageOptions {
         from_image: registry_image.clone(),
         ..Default::default()
     };
-
     let mut stream = docker.create_image(Some(create_options), None, None);
-    // the stream ends when an error occurs or the image is pulled
     while let Some(info) = stream.next().await {
         match info {
             Ok(_) => {}
             Err(e) => {
-                log::error!("Failed to pull image from registry: {registry_image}: {e}");
+                log::error!("Failed to pull image: {registry_image}: {e}");
                 return Err(e.into());
             }
         }
     }
 
-    log::info!("Successfully pulled image from registry: {registry_image}");
+    log::info!("Successfully pulled image: {registry_image}");
     Ok(registry_image)
 }
 
