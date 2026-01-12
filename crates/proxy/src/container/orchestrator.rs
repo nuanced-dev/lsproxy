@@ -102,16 +102,16 @@ impl ContainerOrchestrator {
         &self,
         language: SupportedLanguages,
     ) -> Result<ContainerInfo, OrchestratorError> {
-        let wrapper_container_id = self
-            .wrapper_container_id
-            .lock()
-            .await
-            .clone()
-            .ok_or_else(|| {
-                OrchestratorError::Configuration(
-                    "Wrapper container not initialized".to_string(),
-                )
-            })?;
+        let wrapper_container_id =
+            self.wrapper_container_id
+                .lock()
+                .await
+                .clone()
+                .ok_or_else(|| {
+                    OrchestratorError::Configuration(
+                        "Wrapper container not initialized".to_string(),
+                    )
+                })?;
         log::debug!("Using wrapper container: {}", wrapper_container_id);
 
         let image_name = language_image(&language);
