@@ -7,11 +7,6 @@ SCRIPT_DIR="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")" && pwd)"
 source "$SCRIPT_DIR/include/colors.sh"
 source "$SCRIPT_DIR/include/constants.sh"
 
-DEFAULT_LANGUAGE_TAG="$("$SCRIPT_DIR/util/language-image-version.sh")"
-DEFAULT_SERVICE_TAG="$("$SCRIPT_DIR/util/service-image-version.sh")"
-
-DEFAULT_REGISTRY="ghcr.io/nuanced-dev"
-
 usage() {
     echo "Usage: $0 [--dry-run] [--language-tag=TAG] [--languages=LANG...] [--registry=REG] [--services=SVC...] [--service-tag=TAG]"
 }

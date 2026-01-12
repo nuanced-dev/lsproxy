@@ -12,6 +12,8 @@ ARG SERVICE_IMAGE_VERSION
 RUN test -n "$SERVICE_IMAGE_VERSION" || (echo "Missing required build argument SERVICE_IMAGE_VERSION" ; false)
 ARG LANGUAGE_IMAGE_VERSION
 RUN test -n "$LANGUAGE_IMAGE_VERSION" || (echo "Missing required build argument LANGUAGE_IMAGE_VERSION" ; false)
+ARG CONTAINER_REGISTRY
+RUN test -n "$CONTAINER_REGISTRY" || (echo "Missing required build argument CONTAINER_REGISTRY" ; false)
 
 # Set up cross-compilation tools and target based on build/target platform
 RUN apt-get update && \

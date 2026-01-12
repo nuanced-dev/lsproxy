@@ -5,9 +5,7 @@ set -eu
 SCRIPT_DIR="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")" && pwd)"
 
 source "$SCRIPT_DIR/include/colors.sh"
-
-DEFAULT_LANGUAGE_TAG="$("$SCRIPT_DIR/util/language-image-version.sh")"
-DEFAULT_SERVICE_TAG="$("$SCRIPT_DIR/util/service-image-version.sh")"
+source "$SCRIPT_DIR/include/constants.sh"
 
 help() {
     echo "Test container lifecycle: build, run, health check, cleanup"

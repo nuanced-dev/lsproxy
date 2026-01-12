@@ -1,3 +1,21 @@
+SCRIPT_DIR="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")" && pwd)"
+
+if [ -n "${LANGUAGE_IMAGE_VERSION:+x}" ]; then
+    DEFAULT_LANGUAGE_TAG="$LANGUAGE_IMAGE_VERSION"
+else
+    DEFAULT_LANGUAGE_TAG="$(cat "$SCRIPT_DIR/../../language-image-version")"
+fi
+export DEFAULT_LANGUAGE_TAG
+
+if [ -n "${SERVICE_IMAGE_VERSION:+x}" ]; then
+    DEFAULT_SERVICE_TAG="$SERVICE_IMAGE_VERSION"
+else
+    DEFAULT_SERVICE_TAG="$(cargo metadata --no-deps --format-version 1 --manifest-path "$SCRIPT_DIR/../../Cargo.toml" | jq -r '.packages[] | select(.name == "proxy") | .version')"
+fi
+export DEFAULT_SERVICE_TAG
+
+export DEFAULT_REGISTRY="ghcr.io/nuanced-dev"
+
 export ALL_SERVICES=( \
     "proxy"
     "watchdog"

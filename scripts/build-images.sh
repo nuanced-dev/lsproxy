@@ -7,9 +7,6 @@ SCRIPT_DIR="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")" && pwd)"
 source "$SCRIPT_DIR/include/colors.sh"
 source "$SCRIPT_DIR/include/constants.sh"
 
-DEFAULT_LANGUAGE_TAG="$("$SCRIPT_DIR/util/language-image-version.sh")"
-DEFAULT_SERVICE_TAG="$("$SCRIPT_DIR/util/service-image-version.sh")"
-
 usage() {
     echo "Usage: $0 [--all-languages] [--all-services] [--cache=MODE] [--jobs=N] [--language-tag=TAG] [--languages=LANG...] [--multi-platform] [--registry=REG] [--sequential] [--service-tag=TAG] [--services=SVC...]"
 }
@@ -35,7 +32,7 @@ help() {
     echo "  --languages=LANG...   Build specific language(s) - comma-separated (default: none)"
     echo "                        Supports versioned Ruby: ruby-3.2.2, ruby-sorbet-3.2.2"
     echo "  --multi-platform      Build for both linux/amd64 and linux/arm64 (default: local platform only)"
-    echo "  --registry=REG        Container registry where proxy expects missing service images (default: ghcr.io/nuanced-dev)"
+    echo "  --registry=REG        Container registry where proxy expects missing service images (default: $DEFAULT_REGISTRY)"
     echo "  --sequential          Build images sequentially (shorthand for --jobs=1)"
     echo "  --service-tag=TAG     Tag service images with specified tag (default: $DEFAULT_SERVICE_TAG)"
     echo "  --services=SVC...     Build specific service(s) - comma-separated (default: none)"
@@ -71,6 +68,7 @@ JOBS=4
 LANGUAGE_TAG=""
 LANGUAGES=()
 MULTIPLATFORM=false
+REGISTRY=""
 SERVICE_TAG=""
 SERVICES=()
 
@@ -110,6 +108,9 @@ for arg in "$@"; do
         --multi-platform)
             MULTIPLATFORM=true
             ;;
+        --registry=*)
+            REGISTRY="${arg#*=}"
+            ;;
         --sequential)
             JOBS=1
             ;;
@@ -138,6 +139,7 @@ fi
 # Fall back to default tags
 SERVICE_TAG="${SERVICE_TAG:-$DEFAULT_SERVICE_TAG}"
 LANGUAGE_TAG="${LANGUAGE_TAG:-$DEFAULT_LANGUAGE_TAG}"
+REGISTRY="${REGISTRY:-$DEFAULT_REGISTRY}"
 
 # ---------------------------------------
 # Build Commands
@@ -178,6 +180,7 @@ fi
 BUILD_CMD+=(
     "--build-arg" "SERVICE_IMAGE_VERSION=$SERVICE_TAG"
     "--build-arg" "LANGUAGE_IMAGE_VERSION=$LANGUAGE_TAG"
+    "--build-arg" "CONTAINER_REGISTRY=$REGISTRY"
 )
 
 # Verify storage for multi-platform builds
