@@ -11,7 +11,7 @@ DEFAULT_LANGUAGE_TAG="$("$SCRIPT_DIR/util/language-image-version.sh")"
 DEFAULT_SERVICE_TAG="$("$SCRIPT_DIR/util/service-image-version.sh")"
 
 usage() {
-    echo "Usage: $0 [--all-languages] [--all-services] [--cache=MODE] [--jobs=N] [--language-tag=TAG] [--languages=LANG...] [--multi-platform] [--sequential] [--service-tag=TAG] [--services=SVC...]"
+    echo "Usage: $0 [--all-languages] [--all-services] [--cache=MODE] [--jobs=N] [--language-tag=TAG] [--languages=LANG...] [--multi-platform] [--registry=REG] [--sequential] [--service-tag=TAG] [--services=SVC...]"
 }
 
 help() {
@@ -35,6 +35,7 @@ help() {
     echo "  --languages=LANG...   Build specific language(s) - comma-separated (default: none)"
     echo "                        Supports versioned Ruby: ruby-3.2.2, ruby-sorbet-3.2.2"
     echo "  --multi-platform      Build for both linux/amd64 and linux/arm64 (default: local platform only)"
+    echo "  --registry=REG        Container registry where proxy expects missing service images (default: ghcr.io/nuanced-dev)"
     echo "  --sequential          Build images sequentially (shorthand for --jobs=1)"
     echo "  --service-tag=TAG     Tag service images with specified tag (default: $DEFAULT_SERVICE_TAG)"
     echo "  --services=SVC...     Build specific service(s) - comma-separated (default: none)"

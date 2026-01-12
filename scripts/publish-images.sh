@@ -13,7 +13,7 @@ DEFAULT_SERVICE_TAG="$("$SCRIPT_DIR/util/service-image-version.sh")"
 DEFAULT_REGISTRY="ghcr.io/nuanced-dev"
 
 usage() {
-    echo "Usage: $0 [--dry-run] [--language-tag=TAG] [--languages=LANG...] [--registry=REG,...] [--services=SVC...] [--service-tag=TAG]"
+    echo "Usage: $0 [--dry-run] [--language-tag=TAG] [--languages=LANG...] [--registry=REG] [--services=SVC...] [--service-tag=TAG]"
 }
 
 help() {

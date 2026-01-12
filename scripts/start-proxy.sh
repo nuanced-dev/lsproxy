@@ -10,7 +10,7 @@ DEFAULT_LANGUAGE_TAG="$("$SCRIPT_DIR/util/language-image-version.sh")"
 DEFAULT_SERVICE_TAG="$("$SCRIPT_DIR/util/service-image-version.sh")"
 
 usage() {
-    echo "Usage: $0 [--auth] [--foreground] [--language-tag=TAG] [--logs] [--port=PORT] [--service-tag=TAG] WORKSPACE_DIR"
+    echo "Usage: $0 [--auth] [--foreground] [--language-tag=TAG] [--logs] [--port=PORT] [--registry=REG] [--service-tag=TAG] WORKSPACE_DIR"
 }
 
 help() {
@@ -24,6 +24,7 @@ help() {
     echo "  --language-tag=TAG    Tag of language images to use (default: $DEFAULT_LANGUAGE_TAG)"
     echo "  --logs, -l            Tail logs after starting"
     echo "  --port=PORT           Use custom port (default: 4444)"
+    echo "  --registry=REG        Container registry for service images (default: none)"
     echo "  --service-tag=TAG     Tag images with specified tag (default: $DEFAULT_SERVICE_TAG)"
     echo "  --help, -h            Show this help"
     echo ""
@@ -39,6 +40,7 @@ DETACHED=true
 LANGUAGE_TAG=""
 TAIL_LOGS=false
 PORT=4444
+REGISTRY=""
 SERVICE_TAG=""
 WORKSPACE_PATH=
 
@@ -60,6 +62,9 @@ for arg in "$@"; do
         --port=*)
             PORT="${arg#*=}"
             ;;
+        --registry=*)
+            REGISTRY="${arg#*=}"
+            ;;
         --service-tag=*)
             SERVICE_TAG="${arg#*=}"
             ;;
@@ -77,22 +82,26 @@ for arg in "$@"; do
     esac
 done
 
-# Fall back to default tags
-SERVICE_TAG="${SERVICE_TAG:-$DEFAULT_SERVICE_TAG}"
-
 # Verify workspace argument
 if [ -z "$WORKSPACE_PATH" ]; then
-    echo -e "${RED}Error: Workspace directory missing${NC}"
+    echo -e "${RED}Error: Workspace directory argument missing${NC}"
     usage
     exit 1
 fi
 if [ ! -d "$WORKSPACE_PATH" ]; then
-    echo -e "${RED}Error: Workspace directory not found: $WORKSPACE_PATH${NC}"
+    echo -e "${RED}Error: Workspace directory does not exist: $WORKSPACE_PATH${NC}"
     exit 1
 fi
 
 # Convert to absolute path
 WORKSPACE_PATH="$(cd "$WORKSPACE_PATH" && pwd)"
+
+
+
+
+
+
+
 
 echo -e "${BLUE}=========================================${NC}"
 echo -e "${BLUE}  Starting Nuanced LSP Service${NC}           "
@@ -136,20 +145,29 @@ fi
 if [ "$USE_AUTH" = false ]; then
     DOCKER_ARGS+=("-e" "USE_AUTH=false")
 fi
+# If tags were set via flags, pass them on
 if [ -n "$LANGUAGE_TAG" ]; then
     DOCKER_ARGS+=("-e" "LANGUAGE_IMAGE_VERSION=${LANGUAGE_TAG}")
 fi
+if [ -n "$SERVICE_TAG" ]; then
+    DOCKER_ARGS+=("-e" "SERVICE_IMAGE_VERSION=${SERVICE_TAG}")
+fi
+if [ -n "$REGISTRY" ]; then
+    DOCKER_ARGS+=("-e" "CONTAINER_REGISTRY=${REGISTRY}")
+fi
+# If images were set in the environment, pass them on
 if [ -n "${WATCHDOG_IMAGE:+x}" ]; then
     DOCKER_ARGS+=("-e" "WATCHDOG_IMAGE=${WATCHDOG_IMAGE}")
 fi
 if [ -n "${WRAPPER_IMAGE:+x}" ]; then
     DOCKER_ARGS+=("-e" "WRAPPER_IMAGE=${WRAPPER_IMAGE}")
 fi
+# If languages were set in the environment, pass them on
 if [ -n "${ENABLED_LANGUAGES:+x}" ]; then
     DOCKER_ARGS+=("-e" "ENABLED_LANGUAGES=${ENABLED_LANGUAGES}")
 fi
 
-PROXY_IMAGE="${PROXY_IMAGE:-nuanced-lsp-proxy:${SERVICE_TAG}}"
+PROXY_IMAGE="${REGISTRY:+$REGISTRY/}${PROXY_IMAGE:-nuanced-lsp-proxy:${SERVICE_TAG:-$DEFAULT_SERVICE_TAG}}"
 
 docker run \
     --name nuanced-lsp-proxy \

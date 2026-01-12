@@ -16,6 +16,7 @@ help() {
     echo ""
     echo "Options:"
     echo "  --language-tag=TAG    Tag of language images to use (default: $DEFAULT_LANGUAGE_TAG)"
+    echo "  --registry=REG        Container registry for service images (default: none)"
     echo "  --service-tag=TAG     Tag of service images to use (default: $DEFAULT_SERVICE_TAG)"
     echo "  --help, -h            Show this help"
     echo ""
@@ -25,12 +26,16 @@ help() {
 # Default values
 LANGUAGE_TAG=""
 SERVICE_TAG=""
+REGISTRY=""
 
 # Parse options
 for arg in "$@"; do
     case $arg in
         --language-tag=*)
             LANGUAGE_TAG="${arg#*=}"
+            ;;
+        --registry=*)
+            REGISTRY="${arg#*=}"
             ;;
         --service-tag=*)
             SERVICE_TAG="${arg#*=}"
@@ -46,8 +51,8 @@ for arg in "$@"; do
     esac
 done
 
-# Fall back to default tags
-SERVICE_TAG="${SERVICE_TAG:-$DEFAULT_SERVICE_TAG}"
+# Configuration
+WORKSPACE_PATH="$(cd "$SCRIPT_DIR/../sample_project/python" && pwd)"
 
 DOCKER_ARGS=(
     "-v" "/var/run/docker.sock:/var/run/docker.sock"
@@ -55,20 +60,29 @@ DOCKER_ARGS=(
     "-e" "RUST_LOG=info,nuanced_lsp_proxy=debug,proxy=debug,nuanced_lsp_wrapper=debug,wrapper=debug"
     "-e" "USE_AUTH=false"
 )
+# If tags were set via flags, pass them on
 if [ -n "$LANGUAGE_TAG" ]; then
     DOCKER_ARGS+=("-e" "LANGUAGE_IMAGE_VERSION=${LANGUAGE_TAG}")
 fi
+if [ -n "$SERVICE_TAG" ]; then
+    DOCKER_ARGS+=("-e" "SERVICE_IMAGE_VERSION=${SERVICE_TAG}")
+fi
+if [ -n "$REGISTRY" ]; then
+    DOCKER_ARGS+=("-e" "CONTAINER_REGISTRY=${REGISTRY}")
+fi
+# If images were set in the environment, pass them on
 if [ -n "${WATCHDOG_IMAGE:+x}" ]; then
     DOCKER_ARGS+=("-e" "WATCHDOG_IMAGE=${WATCHDOG_IMAGE}")
 fi
 if [ -n "${WRAPPER_IMAGE:+x}" ]; then
     DOCKER_ARGS+=("-e" "WRAPPER_IMAGE=${WRAPPER_IMAGE}")
 fi
+# If languages were set in the environment, pass them on
+if [ -n "${ENABLED_LANGUAGES:+x}" ]; then
+    DOCKER_ARGS+=("-e" "ENABLED_LANGUAGES=${ENABLED_LANGUAGES}")
+fi
 
-PROXY_IMAGE="${PROXY_IMAGE:-nuanced-lsp-proxy:${SERVICE_TAG}}"
-
-# Configuration
-WORKSPACE_PATH="$(cd "$SCRIPT_DIR/../sample_project/python" && pwd)"
+PROXY_IMAGE="${REGISTRY:+$REGISTRY/}${PROXY_IMAGE:-nuanced-lsp-proxy:${SERVICE_TAG:-$DEFAULT_SERVICE_TAG}}"
 
 echo -e "${BLUE}=========================================${NC}"
 echo -e "${BLUE}  Watchdog Functionality Tests${NC}"
