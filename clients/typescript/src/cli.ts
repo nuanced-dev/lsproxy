@@ -36,16 +36,17 @@ import type {
   UpCommandOptions,
   UpResult,
 } from "./types.js";
-import { VERSION, LANGUAGE_IMAGE_VERSION } from "./__generated/version.js";
 import {
   DEFAULT_BIND_HOST,
   DEFAULT_CONTAINER_NAME,
+  DEFAULT_CONTAINER_REGISTRY,
   DEFAULT_HOST_PORT,
   DEFAULT_HOST_URL,
-  DEFAULT_PROXY_IMAGE,
+  DEFAULT_LANGUAGE_IMAGE_VERSION,
+  DEFAULT_SERVICE_IMAGE_VERSION,
   DEFAULT_TIMEOUT_SECS,
-  DEFAULT_WATCHDOG_IMAGE,
-  DEFAULT_WRAPPER_IMAGE,
+  PROXY_IMAGE_BASE,
+  VERSION,
 } from "./defaults.js";
 import type { NuancedLspClient } from "./client.js";
 
@@ -60,8 +61,8 @@ async function lspClient(opts: {
   const { NuancedLspClient } = await import("./client.js");
   return new NuancedLspClient({
     containerName: opts.containerName ?? process.env.NUANCED_LSP_CONTAINER_NAME,
-    lsProxyUrl: opts.lspUrl ?? process.env.NUANCED_LSP_URL,
-    lsProxyPort:
+    proxyUrl: opts.lspUrl ?? process.env.NUANCED_LSP_URL,
+    proxyPort:
       opts.lspPort ??
       (process.env.NUANCED_LSP_PORT
         ? parseInt(process.env.NUANCED_LSP_PORT)
@@ -226,9 +227,8 @@ async function upCommand(
 
   const res = await client.up(workspace, {
     languageImageVersion: opts.languageImageVersion,
-    proxyImage: opts.proxyImage,
-    watchdogImage: opts.watchdogImage,
-    wrapperImage: opts.wrapperImage,
+    serviceImageVersion: opts.serviceImageVersion,
+    containerRegistry: opts.containerRegistry,
     timeout: opts.timeout,
     stream: opts.stream,
     ro: opts.ro,
@@ -357,7 +357,9 @@ async function pullCommand(opts: PullCommandOptions): Promise<void> {
   const client = await lspClient({
     sudo: getSudoFlag(opts),
   });
-  const image = opts.image ?? DEFAULT_PROXY_IMAGE;
+  const image =
+    opts.image ??
+    `${DEFAULT_CONTAINER_REGISTRY}/${PROXY_IMAGE_BASE}:${DEFAULT_SERVICE_IMAGE_VERSION}`;
 
   if (!opts.json) log.info(`Pulling image '${image}'...`);
 
@@ -607,20 +609,16 @@ program
     DEFAULT_BIND_HOST,
   )
   .option(
-    "--proxy-image <ref>",
-    `Nuanced LSP proxy image (default: ${DEFAULT_PROXY_IMAGE})`,
-  )
-  .option(
-    "--watchdog-image <ref>",
-    `Nuanced LSP watchdog image (default: ${DEFAULT_WATCHDOG_IMAGE})`,
-  )
-  .option(
-    "--wrapper-image <ref>",
-    `Nuanced LSP wrapper image (default: ${DEFAULT_WRAPPER_IMAGE})`,
-  )
-  .option(
     "--language-image-version <version>",
-    `Nuanced LSP language image version (default: ${LANGUAGE_IMAGE_VERSION})`,
+    `Nuanced LSP language image version (default: ${DEFAULT_LANGUAGE_IMAGE_VERSION})`,
+  )
+  .option(
+    "--service-image-version <version>",
+    `Nuanced LSP service image version (default: ${DEFAULT_SERVICE_IMAGE_VERSION})`,
+  )
+  .option(
+    "--container-registry <registry>",
+    `Container registry (default: ${DEFAULT_CONTAINER_REGISTRY})`,
   )
   .option(
     "--container-name <name>",
@@ -726,10 +724,10 @@ program
 
 program
   .command("pull")
-  .description(ansi.pink("Pull Nuanced LSProxy image."))
+  .description(ansi.pink("Pull Nuanced LSP proxy image."))
   .option(
     "--proxy-image <ref>",
-    `Nuanced LSP proxy image to pull (default: ${DEFAULT_PROXY_IMAGE})`,
+    `Image to pull (default: ${DEFAULT_CONTAINER_REGISTRY}/${PROXY_IMAGE_BASE}:${DEFAULT_SERVICE_IMAGE_VERSION})`,
   )
   .option("--sudo", "Run Docker commands with sudo")
   .option("--stream", "Stream process stdout and stderr")

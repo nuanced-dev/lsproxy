@@ -55,11 +55,11 @@ export class NuancedLspClient {
   readonly containerName: string;
   private readonly sudo?: boolean;
   private readonly retries: number;
-  private readonly lsProxyPort: number;
-  private readonly lsProxyBaseUrl: string;
+  private readonly proxyPort: number;
+  private readonly proxyBaseUrl: string;
   private timeoutSecs: number;
 
-  private fullLsProxyUrl: string | undefined;
+  private fullProxyUrl: string | undefined;
 
   // Cache for list-files results to avoid redundant calls
   // TODO: Add proper cache invalidation when files are modified
@@ -72,26 +72,24 @@ export class NuancedLspClient {
 
   constructor(opts?: {
     containerName?: string;
-    lsProxyUrl?: string;
-    lsProxyPort?: number;
+    proxyUrl?: string;
+    proxyPort?: number;
     timeoutSecs?: number;
     retries?: number;
     sudo?: boolean;
   }) {
-    this.lsProxyBaseUrl = (opts?.lsProxyUrl ?? DEFAULT_HOST_URL).replace(
+    this.proxyBaseUrl = (opts?.proxyUrl ?? DEFAULT_HOST_URL).replace(
       TRAILING_SLASH_RE,
       "",
     );
-    const lsProxyPort =
-      typeof opts?.lsProxyPort === "number"
-        ? opts.lsProxyPort
-        : DEFAULT_HOST_PORT;
-    this.lsProxyPort = lsProxyPort;
+    const proxyPort =
+      typeof opts?.proxyPort === "number" ? opts.proxyPort : DEFAULT_HOST_PORT;
+    this.proxyPort = proxyPort;
 
-    // If port is 0 (dynamic assignment), leave fullLsProxyUrl undefined
+    // If port is 0 (dynamic assignment), leave fullProxyUrl undefined
     // It will be resolved lazily when needed
-    this.fullLsProxyUrl =
-      lsProxyPort === 0 ? undefined : `${this.lsProxyBaseUrl}:${lsProxyPort}`;
+    this.fullProxyUrl =
+      proxyPort === 0 ? undefined : `${this.proxyBaseUrl}:${proxyPort}`;
 
     this.containerName = opts?.containerName ?? DEFAULT_CONTAINER_NAME;
     this.timeoutSecs = opts?.timeoutSecs ?? DEFAULT_TIMEOUT_SECS;
@@ -107,14 +105,14 @@ export class NuancedLspClient {
    * Get the LSProxy URL. If the URL is not set (because port was 0 in constructor),
    * dynamically determine the port from the running container.
    */
-  private async lsProxyUrl(): Promise<string> {
-    if (this.fullLsProxyUrl) {
-      return this.fullLsProxyUrl;
+  private async proxyUrl(): Promise<string> {
+    if (this.fullProxyUrl) {
+      return this.fullProxyUrl;
     }
 
     // Port not set - need to detect it from the running container
     const { port } = await proxy();
-    const lsProxyPort = await port(
+    const proxyPort = await port(
       this.containerName,
       DEFAULT_CONTAINER_PORT,
       this.sudo,
@@ -127,8 +125,8 @@ export class NuancedLspClient {
     }
 
     // Cache the URL for future calls
-    this.fullLsProxyUrl = `${this.lsProxyBaseUrl}:${lsProxyPort}`;
-    return this.fullLsProxyUrl;
+    this.fullProxyUrl = `${this.proxyBaseUrl}:${proxyPort}`;
+    return this.fullProxyUrl;
   }
 
   // ---- Lifecycle (docker) ---------------------------------------------------
@@ -136,9 +134,8 @@ export class NuancedLspClient {
     workspace: string,
     opts: {
       languageImageVersion?: string;
-      proxyImage?: string;
-      watchdogImage?: string;
-      wrapperImage?: string;
+      serviceImageVersion?: string;
+      containerRegistry?: string;
       timeout?: number;
       stream?: boolean;
       ro?: boolean;
@@ -151,11 +148,10 @@ export class NuancedLspClient {
     const { up } = await proxy();
     const result = await up(workspace, {
       containerName: this.containerName,
-      hostPort: this.lsProxyPort,
+      hostPort: this.proxyPort,
       languageImageVersion: opts.languageImageVersion,
-      proxyImage: opts.proxyImage,
-      watchdogImage: opts.watchdogImage,
-      wrapperImage: opts.wrapperImage,
+      serviceImageVersion: opts.serviceImageVersion,
+      containerRegistry: opts.containerRegistry,
       timeout: this.resolveTimeout(opts.timeout),
       sudo: this.sudo,
       stream: opts.stream,
@@ -168,7 +164,7 @@ export class NuancedLspClient {
 
     // If up succeeded and we don't have a URL yet, set it now
     if (result.ok) {
-      this.fullLsProxyUrl = `${this.lsProxyBaseUrl}:${result.data.host_port}`;
+      this.fullProxyUrl = `${this.proxyBaseUrl}:${result.data.host_port}`;
     }
 
     return result;
@@ -226,7 +222,7 @@ export class NuancedLspClient {
   // ---- Health (data-plane) --------------------------------------------------
 
   async health(timeoutSecs?: number): Promise<HttpResult<HealthResult>> {
-    const url = await this.lsProxyUrl();
+    const url = await this.proxyUrl();
     const { httpRequestWithRetries } = await http();
     return httpRequestWithRetries<HealthResult>(
       "GET",
@@ -252,7 +248,7 @@ export class NuancedLspClient {
     }
 
     // Cache miss or expired - fetch from server
-    const url = await this.lsProxyUrl();
+    const url = await this.proxyUrl();
     const { httpRequestWithRetries } = await http();
     const result = await httpRequestWithRetries<ListFilesResult>(
       "GET",
@@ -280,7 +276,7 @@ export class NuancedLspClient {
     range?: LspRange | null,
     timeoutSecs?: number,
   ): Promise<HttpResult<ReadSourceResult>> {
-    const url = await this.lsProxyUrl();
+    const url = await this.proxyUrl();
     const { httpRequestWithRetries } = await http();
     return httpRequestWithRetries<ReadSourceResult>(
       "POST",
@@ -299,7 +295,7 @@ export class NuancedLspClient {
     filePath: string,
     timeoutSecs?: number,
   ): Promise<HttpResult<DefinitionsInFileResult>> {
-    const url = await this.lsProxyUrl();
+    const url = await this.proxyUrl();
     const { httpRequestWithRetries } = await http();
     return httpRequestWithRetries<DefinitionsInFileResult>(
       "GET",
@@ -318,7 +314,7 @@ export class NuancedLspClient {
     includeSourceCode?: boolean,
     timeoutSecs?: number,
   ): Promise<HttpResult<FindDefinitionResult>> {
-    const url = await this.lsProxyUrl();
+    const url = await this.proxyUrl();
     const { httpRequestWithRetries } = await http();
     return httpRequestWithRetries<FindDefinitionResult>(
       "POST",
@@ -341,7 +337,7 @@ export class NuancedLspClient {
     position?: LspPosition | null,
     timeoutSecs?: number,
   ): Promise<HttpResult<FindIdentifierResult>> {
-    const url = await this.lsProxyUrl();
+    const url = await this.proxyUrl();
     const { httpRequestWithRetries } = await http();
     return httpRequestWithRetries<FindIdentifierResult>(
       "POST",
@@ -359,7 +355,7 @@ export class NuancedLspClient {
     fullScan = false,
     timeoutSecs?: number,
   ): Promise<HttpResult<FindReferencedSymbolsResult>> {
-    const url = await this.lsProxyUrl();
+    const url = await this.proxyUrl();
     const { httpRequestWithRetries } = await http();
     return httpRequestWithRetries<FindReferencedSymbolsResult>(
       "POST",
@@ -381,7 +377,7 @@ export class NuancedLspClient {
     includeRawResponse?: boolean,
     timeoutSecs?: number,
   ): Promise<HttpResult<FindReferencesResult>> {
-    const url = await this.lsProxyUrl();
+    const url = await this.proxyUrl();
     const { httpRequestWithRetries } = await http();
     return httpRequestWithRetries<FindReferencesResult>(
       "POST",

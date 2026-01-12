@@ -1,7 +1,6 @@
 {
   "lsp-version": "0.4.0",
-  "proxy-image-version": "0.4.9",
-  "wrapper-image-version": "0.4.9",
-  "watchdog-image-version": "0.4.9",
-  "language-image-version": "1.0.0"
+  "language-image-version": "1.0.0",
+  "service-image-version": "0.4.9",
+  "container-registry": "ghcr.io/nuanced-dev"
 }

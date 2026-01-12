@@ -1,4 +1,5 @@
 import path from "node:path";
+import process from "node:process";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
@@ -136,9 +137,9 @@ export function workspacePath(langKey: string): string {
 }
 
 export const TIMEOUT_SECONDS = Number(process.env.NUANCED_LSP_TIMEOUT ?? "120");
-export const PROXY_IMAGE_OVERRIDE = process.env.PROXY_IMAGE ?? "";
-export const WATCHDOG_IMAGE_OVERRIDE = process.env.WATCHDOG_IMAGE ?? "";
-export const WRAPPER_IMAGE_OVERRIDE = process.env.WRAPPER_IMAGE ?? "";
+export const LANGUAGE_IMAGE_VERSION = process.env.LANGUAGE_TAG ?? "";
+export const SERVICE_IMAGE_VERSION = process.env.SERVICE_TAG ?? "";
+export const CONTAINER_REGISTRY = process.env.REGISTRY ?? "";
 export const SYMBOL_SCENARIO_DELAY = Number(
   process.env.SYMBOL_SCENARIO_DELAY ?? "0",
 );

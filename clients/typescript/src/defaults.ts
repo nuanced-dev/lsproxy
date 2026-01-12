@@ -1,8 +1,12 @@
 import {
-  DEFAULT_PROXY_IMAGE,
-  DEFAULT_WATCHDOG_IMAGE,
-  DEFAULT_WRAPPER_IMAGE,
+  VERSION,
+  CONTAINER_REGISTRY,
+  SERVICE_IMAGE_VERSION,
+  LANGUAGE_IMAGE_VERSION,
 } from "./__generated/version.js";
+
+// Export package version.
+export { VERSION };
 
 // DEFAULT_BIND_HOST is the default host address to which the LSProxy container binds.
 // The default is the local loopback, implying the container only accepts connections from the same machine.
@@ -26,17 +30,20 @@ export const DEFAULT_HOST_URL = "http://127.0.0.1";
 // DEFAULT_MOUNT_DIR is the default directory inside the container where the host workspace is mounted.
 export const DEFAULT_MOUNT_DIR = "/mnt/workspace";
 
-// DEFAULT_PROXY_IMAGE is the nuanced-lsp-proxy image computed from the package version.
-export { DEFAULT_PROXY_IMAGE };
-
 // DEFAULT_RETRIES is the number of retries a client will attempt HTTP requests to the LSProxy container before returning a result or error.
 export const DEFAULT_RETRIES = 5;
 
 // DEFAULT_TIMEOUT_SECS is the per-request timeout in seconds for HTTP requests from the client to the LSProxy container.
 export const DEFAULT_TIMEOUT_SECS = 120;
 
-// DEFAULT_WATCHDOG_IMAGE is the nuanced-lsp-watchdog image computed from the package version.
-export { DEFAULT_WATCHDOG_IMAGE };
+// Container registry for published images
+export { CONTAINER_REGISTRY as DEFAULT_CONTAINER_REGISTRY };
 
-// DEFAULT_WRAPPER_IMAGE is the nuanced-lsp-wrapper image computed from the package version.
-export { DEFAULT_WRAPPER_IMAGE };
+// Language image version
+export { LANGUAGE_IMAGE_VERSION as DEFAULT_LANGUAGE_IMAGE_VERSION };
+
+// Service image version
+export { SERVICE_IMAGE_VERSION as DEFAULT_SERVICE_IMAGE_VERSION };
+
+// Image base names (without registry prefix or version tag)
+export const PROXY_IMAGE_BASE = "nuanced-lsp-proxy";

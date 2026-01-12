@@ -17,14 +17,14 @@ import {
   DEFAULT_BIND_HOST,
   DEFAULT_CONTAINER_NAME,
   DEFAULT_CONTAINER_PORT,
+  DEFAULT_CONTAINER_REGISTRY,
   DEFAULT_HOST_PORT,
+  DEFAULT_LANGUAGE_IMAGE_VERSION,
   DEFAULT_MOUNT_DIR,
-  DEFAULT_PROXY_IMAGE,
+  DEFAULT_SERVICE_IMAGE_VERSION,
   DEFAULT_TIMEOUT_SECS,
-  DEFAULT_WATCHDOG_IMAGE,
-  DEFAULT_WRAPPER_IMAGE,
+  PROXY_IMAGE_BASE,
 } from "./defaults.js";
-import { LANGUAGE_IMAGE_VERSION } from "./__generated/version.js";
 
 // Lazy import http module.
 type HttpModule = typeof import("./http.js");
@@ -39,6 +39,47 @@ function dockerCmd(sudo: boolean | undefined, args: string[]) {
   return sudo
     ? { cmd: "sudo", fullArgs: ["docker", ...args] as string[] }
     : { cmd: "docker", fullArgs: args as string[] };
+}
+
+/** Check if a Docker image exists locally */
+function imageExists(image: string, sudo?: boolean): boolean {
+  const r = runDockerCmd(["image", "inspect", image], { sudo });
+  return r.ok;
+}
+
+/**
+ * Find the right Docker image for a given image name:tag string
+ */
+async function findImage(
+  image: string,
+  registry: string,
+  sudo?: boolean,
+  stream?: boolean,
+): Promise<DockerResult<string>> {
+  const registryImage = image.includes("/")
+    ? image
+    : (() => {
+        // Check if local image exists
+        if (imageExists(image, sudo)) {
+          return image;
+        }
+
+        // Build the registry-prefixed image name
+        return `${registry}/${image}`;
+      })();
+
+  // Check if registry image already exists locally
+  if (imageExists(registryImage, sudo)) {
+    return ok(registryImage);
+  }
+
+  // Try to pull from registry
+  const pullRes = await pull(registryImage, sudo, stream);
+  if (!pullRes.ok) {
+    return pullRes;
+  }
+
+  return ok(registryImage);
 }
 
 type RunDockerOpts = {
@@ -183,9 +224,8 @@ export async function up(
     hostPort?: number;
     containerName?: string;
     languageImageVersion?: string;
-    proxyImage?: string;
-    watchdogImage?: string;
-    wrapperImage?: string;
+    serviceImageVersion?: string;
+    containerRegistry?: string;
     timeout?: number;
     sudo?: boolean;
     stream?: boolean;
@@ -198,10 +238,9 @@ export async function up(
 ): Promise<DockerResult<UpResult>> {
   const {
     containerName = DEFAULT_CONTAINER_NAME,
-    languageImageVersion = LANGUAGE_IMAGE_VERSION,
-    proxyImage: proxyImage = DEFAULT_PROXY_IMAGE,
-    watchdogImage: watchdogImage = DEFAULT_WATCHDOG_IMAGE,
-    wrapperImage: wrapperImage = DEFAULT_WRAPPER_IMAGE,
+    languageImageVersion = DEFAULT_LANGUAGE_IMAGE_VERSION,
+    serviceImageVersion = DEFAULT_SERVICE_IMAGE_VERSION,
+    containerRegistry = DEFAULT_CONTAINER_REGISTRY,
     timeout = DEFAULT_TIMEOUT_SECS,
     sudo = false,
     stream = false,
@@ -228,6 +267,18 @@ export async function up(
     : workspace;
   const abs = path.resolve(expanded);
   const mountMode = ro ? "ro" : "rw";
+
+  // Find the proxy image to use
+  const proxyImageResult = await findImage(
+    `${PROXY_IMAGE_BASE}:${serviceImageVersion}`,
+    containerRegistry,
+    sudo,
+    stream,
+  );
+  if (!proxyImageResult.ok) {
+    return proxyImageResult;
+  }
+  const proxyImage = proxyImageResult.data;
 
   const args = [
     "run",
@@ -256,11 +307,11 @@ export async function up(
     "-e",
     `RUST_LOG=info${debug ? ",nuanced_lsp_proxy=debug,proxy=debug,nuanced_lsp_wrapper=debug,wrapper=debug" : ""}`,
     "-e",
-    `WATCHDOG_IMAGE=${watchdogImage}`,
-    "-e",
-    `WRAPPER_IMAGE=${wrapperImage}`,
-    "-e",
     `LANGUAGE_IMAGE_VERSION=${languageImageVersion}`,
+    "-e",
+    `SERVICE_IMAGE_VERSION=${serviceImageVersion}`,
+    "-e",
+    `CONTAINER_REGISTRY=${containerRegistry}`,
     // env flags inserted below
   ];
 
@@ -634,7 +685,9 @@ export async function pull(
   sudo?: boolean,
   stream?: boolean,
 ): Promise<DockerResult<PullResult>> {
-  const img = image ?? DEFAULT_PROXY_IMAGE;
+  const img =
+    image ??
+    `${DEFAULT_CONTAINER_REGISTRY}/${PROXY_IMAGE_BASE}:${DEFAULT_SERVICE_IMAGE_VERSION}`;
   const args = ["pull", img];
   const r = runDockerCmd(args, { sudo, stream });
   if (!r.ok) {

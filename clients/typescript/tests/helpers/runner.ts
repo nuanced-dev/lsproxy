@@ -4,9 +4,9 @@ import { spawnSync, SpawnSyncOptions } from "node:child_process";
 import {
   LanguageSpec,
   TIMEOUT_SECONDS,
-  PROXY_IMAGE_OVERRIDE,
-  WATCHDOG_IMAGE_OVERRIDE,
-  WRAPPER_IMAGE_OVERRIDE,
+  LANGUAGE_IMAGE_VERSION,
+  SERVICE_IMAGE_VERSION,
+  CONTAINER_REGISTRY,
   SYMBOL_SCENARIO_DELAY,
   WORKSPACE_SCENARIO_DELAY,
   workspacePath,
@@ -28,9 +28,9 @@ export class ClientRunner {
   public readonly containerName: string;
   public hostPort: number;
   public readonly timeoutSeconds: number;
-  public readonly proxyImage: string;
-  public readonly watchdogImage: string;
-  public readonly wrapperImage: string;
+  public readonly languageImageVersion: string;
+  public readonly serviceImageVersion: string;
+  public readonly containerRegistry: string;
   public readonly symbolDelay: number;
   public readonly workspaceDelay: number;
 
@@ -48,9 +48,9 @@ export class ClientRunner {
     this.requestedHostPort = fixedPort(options.language.key);
     this.hostPort = this.requestedHostPort;
     this.timeoutSeconds = TIMEOUT_SECONDS;
-    this.proxyImage = PROXY_IMAGE_OVERRIDE;
-    this.watchdogImage = WATCHDOG_IMAGE_OVERRIDE;
-    this.wrapperImage = WRAPPER_IMAGE_OVERRIDE;
+    this.languageImageVersion = LANGUAGE_IMAGE_VERSION;
+    this.serviceImageVersion = SERVICE_IMAGE_VERSION;
+    this.containerRegistry = CONTAINER_REGISTRY;
     this.symbolDelay = SYMBOL_SCENARIO_DELAY;
     this.workspaceDelay = WORKSPACE_SCENARIO_DELAY;
   }
@@ -275,14 +275,14 @@ export class ClientRunner {
       "--json",
       ...extraArgs,
     ];
-    if (this.proxyImage) {
-      args.push("--proxy-image", this.proxyImage);
+    if (this.languageImageVersion) {
+      args.push("--language-image-version", this.languageImageVersion);
     }
-    if (this.watchdogImage) {
-      args.push("--watchdog-image", this.watchdogImage);
+    if (this.serviceImageVersion) {
+      args.push("--service-image-version", this.serviceImageVersion);
     }
-    if (this.wrapperImage) {
-      args.push("--wrapper-image", this.wrapperImage);
+    if (this.containerRegistry) {
+      args.push("--container-registry", this.containerRegistry);
     }
 
     const attempt = () => {
