@@ -117,22 +117,29 @@ test_step "Service image exists" \
 echo
 echo -e "${BLUE}Starting service container (${SERVICE_NAME})...${NC}"
 
-DOCKER_ARGS=()
+DOCKER_ARGS=(
+    "-v" "/var/run/docker.sock:/var/run/docker.sock"
+    "-v" "${WORKSPACE_PATH}:/mnt/workspace"
+    "-e" "RUST_LOG=info,nuanced_lsp_proxy=debug,proxy=debug,nuanced_lsp_wrapper=debug,wrapper=debug"
+    "-e" "USE_AUTH=false"
+)
 if [ -n "$LANGUAGE_TAG" ]; then
     DOCKER_ARGS+=("-e" "LANGUAGE_IMAGE_VERSION=${LANGUAGE_TAG}")
 fi
+if [ -n "${WATCHDOG_IMAGE:+x}" ]; then
+    DOCKER_ARGS+=("-e" "WATCHDOG_IMAGE=${WATCHDOG_IMAGE}")
+fi
+if [ -n "${WRAPPER_IMAGE:+x}" ]; then
+    DOCKER_ARGS+=("-e" "WRAPPER_IMAGE=${WRAPPER_IMAGE}")
+fi
+
+PROXY_IMAGE="${PROXY_IMAGE:-nuanced-lsp-proxy:${SERVICE_TAG}}"
 
 docker run -d \
     --name "${SERVICE_NAME}" \
     -p 4444:4444 \
-    -v /var/run/docker.sock:/var/run/docker.sock \
-    -v "$WORKSPACE_PATH:/mnt/workspace" \
-    -e RUST_LOG=info,nuanced_lsp_proxy=debug,proxy=debug,nuanced_lsp_wrapper=debug,wrapper=debug \
-    -e USE_AUTH=false \
-    -e "WRAPPER_IMAGE=nuanced-lsp-wrapper:${SERVICE_TAG}" \
-    -e "WATCHDOG_IMAGE=nuanced-lsp-watchdog:${SERVICE_TAG}" \
     "${DOCKER_ARGS[@]}" \
-    "nuanced-lsp-proxy:${SERVICE_TAG}"
+    "$PROXY_IMAGE"
 
 SERVICE_ID=$(docker inspect --format '{{.Id}}' "${SERVICE_NAME}" 2>/dev/null || echo "")
 # Language containers label their parent with the orchestrator instance ID, which is the

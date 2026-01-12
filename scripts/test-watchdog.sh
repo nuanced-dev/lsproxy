@@ -49,10 +49,23 @@ done
 # Fall back to default tags
 SERVICE_TAG="${SERVICE_TAG:-$DEFAULT_SERVICE_TAG}"
 
-DOCKER_ARGS=()
+DOCKER_ARGS=(
+    "-v" "/var/run/docker.sock:/var/run/docker.sock"
+    "-v" "${WORKSPACE_PATH}:/mnt/workspace"
+    "-e" "RUST_LOG=info,nuanced_lsp_proxy=debug,proxy=debug,nuanced_lsp_wrapper=debug,wrapper=debug"
+    "-e" "USE_AUTH=false"
+)
 if [ -n "$LANGUAGE_TAG" ]; then
     DOCKER_ARGS+=("-e" "LANGUAGE_IMAGE_VERSION=${LANGUAGE_TAG}")
 fi
+if [ -n "${WATCHDOG_IMAGE:+x}" ]; then
+    DOCKER_ARGS+=("-e" "WATCHDOG_IMAGE=${WATCHDOG_IMAGE}")
+fi
+if [ -n "${WRAPPER_IMAGE:+x}" ]; then
+    DOCKER_ARGS+=("-e" "WRAPPER_IMAGE=${WRAPPER_IMAGE}")
+fi
+
+PROXY_IMAGE="${PROXY_IMAGE:-nuanced-lsp-proxy:${SERVICE_TAG}}"
 
 # Configuration
 WORKSPACE_PATH="$(cd "$SCRIPT_DIR/../sample_project/python" && pwd)"
@@ -234,14 +247,8 @@ echo -e "${BLUE}Starting service container...${NC}"
 docker run -d \
     --name test-watchdog-svc \
     -p 4455:4444 \
-    -v /var/run/docker.sock:/var/run/docker.sock \
-    -v "$WORKSPACE_PATH:/mnt/workspace" \
-    -e RUST_LOG=info,nuanced_lsp_proxy=debug,proxy=debug,nuanced_lsp_wrapper=debug,wrapper=debug \
-    -e USE_AUTH=false \
-    -e "WRAPPER_IMAGE=nuanced-lsp-wrapper:${SERVICE_TAG}" \
-    -e "WATCHDOG_IMAGE=nuanced-lsp-watchdog:${SERVICE_TAG}" \
     "${DOCKER_ARGS[@]}" \
-    "nuanced-lsp-proxy:${SERVICE_TAG}" > /dev/null
+    "$PROXY_IMAGE" > /dev/null
 
 wait_for_service_ready 4455
 
@@ -305,14 +312,8 @@ echo -e "${BLUE}Starting service container...${NC}"
 docker run -d \
     --name test-watchdog-kill \
     -p 4456:4444 \
-    -v /var/run/docker.sock:/var/run/docker.sock \
-    -v "$WORKSPACE_PATH:/mnt/workspace" \
-    -e RUST_LOG=info,nuanced_lsp_proxy=debug,proxy=debug,nuanced_lsp_wrapper=debug,wrapper=debug \
-    -e USE_AUTH=false \
-    -e "WRAPPER_IMAGE=nuanced-lsp-wrapper:${SERVICE_TAG}" \
-    -e "WATCHDOG_IMAGE=nuanced-lsp-watchdog:${SERVICE_TAG}" \
     "${DOCKER_ARGS[@]}" \
-    "nuanced-lsp-proxy:${SERVICE_TAG}" > /dev/null
+    "$PROXY_IMAGE" > /dev/null
 
 wait_for_service_ready 4456
 
@@ -357,26 +358,14 @@ echo -e "${BLUE}Starting two service instances...${NC}"
 docker run -d \
     --name test-watchdog-multi1 \
     -p 4457:4444 \
-    -v /var/run/docker.sock:/var/run/docker.sock \
-    -v "$WORKSPACE_PATH:/mnt/workspace" \
-    -e RUST_LOG=info,nuanced_lsp_proxy=debug,proxy=debug,nuanced_lsp_wrapper=debug,wrapper=debug \
-    -e USE_AUTH=false \
-    -e "WRAPPER_IMAGE=nuanced-lsp-wrapper:${SERVICE_TAG}" \
-    -e "WATCHDOG_IMAGE=nuanced-lsp-watchdog:${SERVICE_TAG}" \
     "${DOCKER_ARGS[@]}" \
-    "nuanced-lsp-proxy:${SERVICE_TAG}" > /dev/null
+    "$PROXY_IMAGE" > /dev/null
 
 docker run -d \
     --name test-watchdog-multi2 \
     -p 4458:4444 \
-    -v /var/run/docker.sock:/var/run/docker.sock \
-    -v "$WORKSPACE_PATH:/mnt/workspace" \
-    -e RUST_LOG=info,nuanced_lsp_proxy=debug,proxy=debug,nuanced_lsp_wrapper=debug,wrapper=debug \
-    -e USE_AUTH=false \
-    -e "WRAPPER_IMAGE=nuanced-lsp-wrapper:${SERVICE_TAG}" \
-    -e "WATCHDOG_IMAGE=nuanced-lsp-watchdog:${SERVICE_TAG}" \
     "${DOCKER_ARGS[@]}" \
-    "nuanced-lsp-proxy:${SERVICE_TAG}" > /dev/null
+    "$PROXY_IMAGE" > /dev/null
 
 wait_for_service_ready 4457 120
 wait_for_service_ready 4458 120

@@ -123,7 +123,11 @@ fi
 # Start the service
 echo -e "${BLUE}Starting service container...${NC}"
 
-DOCKER_ARGS=()
+DOCKER_ARGS=(
+    "-v" "/var/run/docker.sock:/var/run/docker.sock"
+    "-v" "${WORKSPACE_PATH}:/mnt/workspace"
+    "-e" "RUST_LOG=info,nuanced_lsp_proxy=debug,proxy=debug,nuanced_lsp_wrapper=debug,wrapper=debug"
+)
 if [ "$DETACHED" = true ]; then
     DOCKER_ARGS+=("-d")
 else
@@ -135,22 +139,24 @@ fi
 if [ -n "$LANGUAGE_TAG" ]; then
     DOCKER_ARGS+=("-e" "LANGUAGE_IMAGE_VERSION=${LANGUAGE_TAG}")
 fi
-
+if [ -n "${WATCHDOG_IMAGE:+x}" ]; then
+    DOCKER_ARGS+=("-e" "WATCHDOG_IMAGE=${WATCHDOG_IMAGE}")
+fi
+if [ -n "${WRAPPER_IMAGE:+x}" ]; then
+    DOCKER_ARGS+=("-e" "WRAPPER_IMAGE=${WRAPPER_IMAGE}")
+fi
 if [ -n "${ENABLED_LANGUAGES:+x}" ]; then
     DOCKER_ARGS+=("-e" "ENABLED_LANGUAGES=${ENABLED_LANGUAGES}")
 fi
 
+PROXY_IMAGE="${PROXY_IMAGE:-nuanced-lsp-proxy:${SERVICE_TAG}}"
+
 docker run \
     --name nuanced-lsp-proxy \
     -p "${PORT}:4444" \
-    -v /var/run/docker.sock:/var/run/docker.sock \
-    -v "${WORKSPACE_PATH}:/mnt/workspace" \
-    -e RUST_LOG=info,nuanced_lsp_proxy=debug,proxy=debug,nuanced_lsp_wrapper=debug,wrapper=debug \
-    -e "WRAPPER_IMAGE=nuanced-lsp-wrapper:${SERVICE_TAG}" \
-    -e "WATCHDOG_IMAGE=nuanced-lsp-watchdog:${SERVICE_TAG}" \
     -e NUANCED_LSP_MAX_MEMORY=8192 \
     "${DOCKER_ARGS[@]}" \
-    "nuanced-lsp-proxy:${SERVICE_TAG}"
+    "$PROXY_IMAGE"
 
 if [ "$DETACHED" = true ]; then
     echo -e "${GREEN}✓ Service container started${NC}"
