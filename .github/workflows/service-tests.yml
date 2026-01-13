@@ -25,9 +25,6 @@ jobs:
   check-rust:
     runs-on: ubuntu-latest
     needs: build-images
-    env:
-      SERVICE_IMAGE_VERSION: ${{ env.SERVICE_TAG }}
-      LANGUAGE_IMAGE_VERSION: ${{ env.LANGUAGE_TAG }}
     steps:
       - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
@@ -41,6 +38,9 @@ jobs:
 
       - name: Run Rust check
         run: cargo build --locked --workspace --all-targets --all-features
+        env:
+          SERVICE_IMAGE_VERSION: ${{ env.SERVICE_TAG }}
+          LANGUAGE_IMAGE_VERSION: ${{ env.LANGUAGE_TAG }}
 
       - name: Run Rust fmt
         run: cargo fmt --check
@@ -81,9 +81,6 @@ jobs:
   test-rust:
     runs-on: ubuntu-latest
     needs: build-images
-    env:
-      SERVICE_IMAGE_VERSION: ${{ env.SERVICE_TAG }}
-      LANGUAGE_IMAGE_VERSION: ${{ env.LANGUAGE_TAG }}
     steps:
       - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
@@ -108,6 +105,9 @@ jobs:
 
       - name: Run Rust tests
         run: cargo test --locked --workspace --all-targets --all-features
+        env:
+          SERVICE_IMAGE_VERSION: ${{ env.SERVICE_TAG }}
+          LANGUAGE_IMAGE_VERSION: ${{ env.LANGUAGE_TAG }}
 
   test-container-lifecycle:
     runs-on: ubuntu-latest
