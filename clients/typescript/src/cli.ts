@@ -45,7 +45,6 @@ import {
   DEFAULT_LANGUAGE_IMAGE_VERSION,
   DEFAULT_SERVICE_IMAGE_VERSION,
   DEFAULT_TIMEOUT_SECS,
-  PROXY_IMAGE_BASE,
   VERSION,
 } from "./defaults.js";
 import type { NuancedLspClient } from "./client.js";
@@ -357,21 +356,81 @@ async function pullCommand(opts: PullCommandOptions): Promise<void> {
   const client = await lspClient({
     sudo: getSudoFlag(opts),
   });
-  const image =
-    opts.image ??
-    `${DEFAULT_CONTAINER_REGISTRY}/${PROXY_IMAGE_BASE}:${DEFAULT_SERVICE_IMAGE_VERSION}`;
 
-  if (!opts.json) log.info(`Pulling image '${image}'...`);
+  // Import constants
+  const { ALL_SERVICES, ALL_LANGUAGES, selectLanguages } =
+    await import("./constants.js");
 
-  const res = await client.pull(image, opts.stream);
+  // Parse services
+  let services: string[] = [];
+  if (opts.allServices) {
+    services = [...ALL_SERVICES];
+  } else if (opts.services) {
+    services = opts.services
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+  }
 
-  handleResult<PullResult, DockerErr>(res, {
-    json: !!opts.json,
-    fallbackErrMsg: `Failed to pull image '${image}'`,
-    onSuccess: (data: PullResult) => {
-      log.info(`Successfully pulled image: ${data.image}`);
-    },
-  });
+  // Parse languages and expand "ruby" and "ruby-sorbet" into all supported versions
+  let languages: string[] = [];
+  if (opts.allLanguages) {
+    languages = [...ALL_LANGUAGES];
+  } else if (opts.languages) {
+    const names = opts.languages
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    languages = selectLanguages(names, ALL_LANGUAGES);
+  }
+
+  // Validate at least one of services or languages is specified
+  if (services.length === 0 && languages.length === 0) {
+    log.err(
+      "At least one of, --all-languages --all-services, --languages=, or --services= must be specified",
+    );
+    process.exit(1);
+  }
+
+  // Get registry and image versions
+  const registry = opts.containerRegistry ?? DEFAULT_CONTAINER_REGISTRY;
+  const serviceVersion =
+    opts.serviceImageVersion ?? DEFAULT_SERVICE_IMAGE_VERSION;
+  const languageVersion =
+    opts.languageImageVersion ?? DEFAULT_LANGUAGE_IMAGE_VERSION;
+
+  // Build list of images to pull
+  const images: string[] = [];
+  for (const service of services) {
+    images.push(`${registry}/nuanced-lsp-${service}:${serviceVersion}`);
+  }
+  for (const language of languages) {
+    images.push(`${registry}/nuanced-lsp-${language}:${languageVersion}`);
+  }
+
+  // Pull each image
+  let failed = false;
+  for (const image of images) {
+    if (!opts.json) log.info(`Pulling image '${image}'...`);
+
+    const res = await client.pull(image, opts.stream);
+
+    handleResult<PullResult, DockerErr>(res, {
+      json: !!opts.json,
+      fallbackErrMsg: `Failed to pull image '${image}`,
+      onSuccess: (data: PullResult) => {
+        log.info(`Successfully pulled image: ${data.image}`);
+      },
+      onError: (err) => {
+        log.err(`Failed to pull image '${image}: ${err.message}`);
+        failed = true;
+      },
+    });
+  }
+
+  if (failed) {
+    process.exit(1);
+  }
 }
 
 async function healthCommand(opts: HealthCommandOptions): Promise<void> {
@@ -724,10 +783,28 @@ program
 
 program
   .command("pull")
-  .description(ansi.pink("Pull Nuanced LSP proxy image."))
+  .description(ansi.pink("Pull Nuanced LSP images."))
+  .option("--all-languages", "Pull all language images")
+  .option("--all-services", "Pull all service images")
   .option(
-    "--proxy-image <ref>",
-    `Image to pull (default: ${DEFAULT_CONTAINER_REGISTRY}/${PROXY_IMAGE_BASE}:${DEFAULT_SERVICE_IMAGE_VERSION})`,
+    "--language-image-version <version>",
+    `Language image version (default: ${DEFAULT_LANGUAGE_IMAGE_VERSION})`,
+  )
+  .option(
+    "--languages <list>",
+    "Pull specific language images (comma-separated)",
+  )
+  .option(
+    "--service-image-version <version>",
+    `Service image version (default: ${DEFAULT_SERVICE_IMAGE_VERSION})`,
+  )
+  .option(
+    "--services <list>",
+    "Pull specific service images (comma-separated: proxy,watchdog,wrapper)",
+  )
+  .option(
+    "--container-registry <registry>",
+    `Container registry (default: ${DEFAULT_CONTAINER_REGISTRY})`,
   )
   .option("--sudo", "Run Docker commands with sudo")
   .option("--stream", "Stream process stdout and stderr")

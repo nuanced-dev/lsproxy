@@ -374,7 +374,13 @@ export type StatusCommandOptions = Named<
 >;
 
 export const PullCommandOptionsSchema = BaseCommandOptionsSchema.extend({
-  image: z.string().optional(),
+  allLanguages: z.boolean().optional(),
+  allServices: z.boolean().optional(),
+  languageImageVersion: z.string().optional(),
+  languages: z.string().optional(),
+  serviceImageVersion: z.string().optional(),
+  services: z.string().optional(),
+  containerRegistry: z.string().optional(),
   stream: z.boolean().optional(),
   sudo: z.boolean().optional(),
 });

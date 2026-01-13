@@ -2,7 +2,7 @@
 set -euo pipefail
 
 usage() {
-    echo "Usage: $0 [--fail-fast] [--languages=LANG...] [--language-tag=TAG] [--service-tag=TAG] [--registry=REG] [--record-fixtures] [--symbol-delay=<secs>] [--timeout=<secs>] [--workers=N] [--workspace-delay=<secs>] [-- VITEST_ARGS...]"
+    echo "Usage: $0 [--fail-fast] [--workspaces=WORKSPACE...] [--language-tag=TAG] [--service-tag=TAG] [--registry=REG] [--record-fixtures] [--symbol-delay=<secs>] [--timeout=<secs>] [--workers=N] [--workspace-delay=<secs>] [-- VITEST_ARGS...]"
 }
 
 help() {
@@ -15,7 +15,7 @@ help() {
     echo ""
     echo "Options:"
     echo "  --fail-fast                         Stop on first failure"
-    echo "  --languages=LANG...                 Languages to include in the test (default: all)"
+    echo "  --workspaces=WORKSPACE...           Workspaces to include in the test (default: all)"
     echo "  --language-tag=TAG                  Language image version tag"
     echo "  --service-tag=TAG                   Service image version tag"
     echo "  --registry=REG                      Container registry"
@@ -40,10 +40,10 @@ help() {
 }
 
 FAIL_FAST=                   # if true, stop on first failure.
-NUANCED_LANGUAGES=           # languages to run tests for
-LANGUAGE_TAG=      # language image version tag
-SERVICE_TAG=       # service image version tag
-REGISTRY=          # container registry
+TEST_WORKSPACES=             # workspaces to run tests for
+LANGUAGE_TAG=                # language image version tag
+SERVICE_TAG=                 # service image version tag
+REGISTRY=                    # container registry
 RECORD_FIXTURES=             # if true, record fixtures instead of comparing.
 SYMBOL_SCENARIO_DELAY=       # delay (in seconds) before running symbol scenario tests.
 NUANCED_LSP_TIMEOUT=         # number of seconds each test case is allowed to run.
@@ -55,9 +55,6 @@ while [[ $# -gt 0 ]]; do
     case $arg in
         --fail-fast)
             export FAIL_FAST=1
-            ;;
-        --languages=*)
-            export NUANCED_LANGUAGES="${arg#*=}"
             ;;
         --language-tag=*)
             export LANGUAGE_TAG="${arg#*=}"
@@ -82,6 +79,9 @@ while [[ $# -gt 0 ]]; do
             ;;
         --workspace-delay=*)
             export WORKSPACE_SCENARIO_DELAY="${arg#*=}"
+            ;;
+        --workspaces=*)
+            export TEST_WORKSPACES="${arg#*=}"
             ;;
         -h|--help)
             help

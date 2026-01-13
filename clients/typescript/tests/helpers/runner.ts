@@ -2,7 +2,6 @@ import fs from "node:fs";
 import { spawnSync, SpawnSyncOptions } from "node:child_process";
 
 import {
-  LanguageSpec,
   TIMEOUT_SECONDS,
   LANGUAGE_IMAGE_VERSION,
   SERVICE_IMAGE_VERSION,
@@ -19,11 +18,11 @@ import {
 import { LogFollower, startLogFollow, stopLogFollow } from "./logs.js";
 
 export interface RunnerOptions {
-  language: LanguageSpec;
+  workspace: string;
 }
 
 export class ClientRunner {
-  public readonly language: LanguageSpec;
+  public readonly language: string;
   public readonly workspace: string;
   public readonly containerName: string;
   public hostPort: number;
@@ -40,12 +39,12 @@ export class ClientRunner {
   private readonly requestedHostPort: number;
 
   constructor(private readonly options: RunnerOptions) {
-    this.language = options.language;
-    this.workspace = workspacePath(options.language.key);
+    this.language = options.workspace;
+    this.workspace = workspacePath(options.workspace);
     this.containerName = dockerSafe(
-      `nuanced-test-${options.language.key}-worker-${workerIndex()}`,
+      `nuanced-test-${options.workspace}-worker-${workerIndex()}`,
     );
-    this.requestedHostPort = fixedPort(options.language.key);
+    this.requestedHostPort = fixedPort(options.workspace);
     this.hostPort = this.requestedHostPort;
     this.timeoutSeconds = TIMEOUT_SECONDS;
     this.languageImageVersion = LANGUAGE_IMAGE_VERSION;

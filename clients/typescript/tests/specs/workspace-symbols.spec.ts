@@ -1,7 +1,7 @@
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-import { LANGUAGES, DOCKER_AVAILABLE } from "../helpers/constants.js";
+import { TEST_WORKSPACES, DOCKER_AVAILABLE } from "../helpers/constants.js";
 import { ClientRunner, createRunner } from "../helpers/runner.js";
 import {
   pickIdentifier,
@@ -32,15 +32,15 @@ const describeDocker = DOCKER_AVAILABLE ? describe : describe.skip;
 
 describe("TypeScript client", () => {
   describeDocker("workspace + symbols", () => {
-    for (const language of LANGUAGES) {
-      describe(language.label, () => {
+    for (const workspace of TEST_WORKSPACES) {
+      describe(workspace, () => {
         let runner: ClientRunner;
 
         beforeAll(async () => {
-          runner = createRunner({ language });
+          runner = createRunner({ workspace });
           runner.ensureUp();
           // For Rust, wait for initial indexing to complete
-          if (language.key === "rust") {
+          if (workspace === "rust") {
             await new Promise((resolve) => setTimeout(resolve, 15000));
           }
         });
@@ -203,7 +203,7 @@ describe("TypeScript client", () => {
         });
 
         it("finds referenced symbols where supported", async () => {
-          if (!REFERENCED_SYMBOLS_SUPPORTED.has(language.key)) {
+          if (!REFERENCED_SYMBOLS_SUPPORTED.has(workspace)) {
             return;
           }
 
@@ -283,7 +283,7 @@ describe("TypeScript client", () => {
                 });
                 considered += 1;
               } catch (error) {
-                if (language.key === "php") {
+                if (workspace === "php") {
                   const msg = String((error as Error).message).toLowerCase();
                   if (
                     msg.includes("-32603") ||

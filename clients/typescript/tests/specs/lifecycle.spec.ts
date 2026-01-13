@@ -3,7 +3,7 @@ import path from "node:path";
 import os from "node:os";
 import { describe, it, expect } from "vitest";
 
-import { LANGUAGES, DOCKER_AVAILABLE } from "../helpers/constants.js";
+import { TEST_WORKSPACES, DOCKER_AVAILABLE } from "../helpers/constants.js";
 import { ClientRunner, createRunner } from "../helpers/runner.js";
 
 const describeDocker = DOCKER_AVAILABLE ? describe : describe.skip;
@@ -41,17 +41,15 @@ const lifecycleSemaphore = createSemaphore(MAX_LIFECYCLE_CONCURRENCY);
 
 describe("TypeScript client", () => {
   describeDocker("lifecycle", () => {
-    for (const language of LANGUAGES) {
-      describe(language.label, () => {
+    for (const workspace of TEST_WORKSPACES) {
+      describe(workspace, () => {
         it.concurrent(
           "manages container lifecycle: up, status, run scripts, logs, down",
           async () => {
             const release = await lifecycleSemaphore.acquire();
 
-            console.info(
-              `[lifecycle] starting ${language.key} (${language.label})`,
-            );
-            const runner: ClientRunner = createRunner({ language });
+            console.info(`[lifecycle] starting ${workspace}`);
+            const runner: ClientRunner = createRunner({ workspace });
 
             try {
               // Test: bring container up
