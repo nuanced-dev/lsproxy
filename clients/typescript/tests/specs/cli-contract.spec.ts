@@ -70,7 +70,7 @@ const HELP_PATTERNS: Record<string, RegExp[]> = {
     /--sudo\b/i,
     /--stream\b/i,
     /--json\b/i,
-],
+  ],
   health: [/--lsp-url\b/i, /--lsp-port\b/i, /--timeout\b/i, /--json\b/i],
   "list-files": [/--lsp-url\b/i, /--lsp-port\b/i, /--timeout\b/i, /--json\b/i],
   "read-source": [
