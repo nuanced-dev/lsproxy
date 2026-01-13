@@ -28,8 +28,8 @@
     "lint": "eslint",
     "lint:fix": "eslint --fix",
     "obfuscate": "javascript-obfuscator dist --output dist --config obfuscator-config.json",
-    "postbuild": "cp src/languages.json dist/languages.json && chmod +x dist/cli.cjs",
-    "prebuild": "cp config/languages.json src/languages.json && scripts/generate-version.mjs",
+    "postbuild": "chmod +x dist/cli.cjs",
+    "prebuild": "scripts/generate-version.mjs",
     "prepublishOnly": "npm run clean && npm run build && npm run obfuscate",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit"
