@@ -1,0 +1,84 @@
+name: Release Service Images
+
+on:
+  push:
+    tags:
+      - 'service-images-v*'
+
+permissions:
+  contents: write
+  packages: write
+
+env:
+  REGISTRY: ghcr.io/nuanced-dev
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: docker/setup-qemu-action@v3
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Validate tag version
+        id: version
+        run: |
+          TAG_VERSION="${GITHUB_REF#refs/tags/service-images-v}"
+          DEFAULT_VERSION=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "proxy") | .version')
+
+          echo "Tag version: $TAG_VERSION"
+          echo "Default service version: $DEFAULT_VERSION"
+
+          if [ "$TAG_VERSION" != "$DEFAULT_VERSION" ]; then
+            echo "Error: Tag version ($TAG_VERSION) does not match default service version ($DEFAULT_VERSION)"
+            exit 1
+          fi
+
+          echo "✓ Tag version matches default service version"
+          echo "SERVICE_TAG=$DEFAULT_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build multi-platform service images
+        run: |
+          ./scripts/build-images.sh \
+            --all-services \
+            --multi-platform \
+            --cache=gha \
+            --sequential
+
+      - name: Publish service images
+        run: |
+          ./scripts/publish-images.sh \
+            --all-services \
+            --registry=${{ env.REGISTRY }}
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: service-images-v${{ steps.version.outputs.SERVICE_TAG }}
+          name: Service Images v${{ steps.version.outputs.SERVICE_TAG }}
+          body: |
+            ## Service Images Release v${{ steps.version.outputs.SERVICE_TAG }}
+
+            Multi-platform Docker images for proxy, watchdog, and wrapper services.
+
+            ### Images Published
+            - `${{ env.REGISTRY }}/nuanced-lsp-proxy:${{ steps.version.outputs.SERVICE_TAG }}`
+            - `${{ env.REGISTRY }}/nuanced-lsp-watchdog:${{ steps.version.outputs.SERVICE_TAG }}`
+            - `${{ env.REGISTRY }}/nuanced-lsp-wrapper:${{ steps.version.outputs.SERVICE_TAG }}`
+
+            ### Platforms
+            - linux/amd64
+            - linux/arm64
+          draft: false
+          prerelease: false
