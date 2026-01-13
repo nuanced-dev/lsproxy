@@ -22,8 +22,32 @@ env:
     SERVICE_TAG: actions-run-${{ github.run_id }}
 
 jobs:
+  check-rust:
+    runs-on: ubuntu-latest
+    needs: build-images
+    env:
+      SERVICE_IMAGE_VERSION: ${{ env.SERVICE_TAG }}
+      LANGUAGE_IMAGE_VERSION: ${{ env.LANGUAGE_TAG }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Show Rust toolchain
+        run: rustc --version && cargo --version
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+
+      - name: Run Rust check
+        run: cargo build --locked --workspace --all-targets --all-features
+
+      - name: Run Rust fmt
+        run: cargo fmt --check
+
   build-images:
     runs-on: ubuntu-latest
+    needs: check-rust
     steps:
       - uses: actions/checkout@v6
 
@@ -33,7 +57,12 @@ jobs:
       # cache backend for BuildKit cache mounts (Cargo registry and build artifacts).
       # This gives us reproducible builds while still caching Rust compilation.
       - name: Build service images
-        run: ./scripts/build-images.sh --all-services --service-tag=${{ env.SERVICE_TAG }} --language-tag=${{ env.LANGUAGE_TAG }} --cache=gha --sequential
+        run: |
+          ./scripts/build-images.sh \
+            --all-services --service-tag=${{ env.SERVICE_TAG }} \
+            --language-tag=${{ env.LANGUAGE_TAG }} \
+            --cache=gha \
+            --sequential
 
       - name: Export images
         run: |
@@ -52,6 +81,9 @@ jobs:
   test-rust:
     runs-on: ubuntu-latest
     needs: build-images
+    env:
+      SERVICE_IMAGE_VERSION: ${{ env.SERVICE_TAG }}
+      LANGUAGE_IMAGE_VERSION: ${{ env.LANGUAGE_TAG }}
     steps:
       - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
@@ -76,15 +108,10 @@ jobs:
 
       - name: Run Rust tests
         run: cargo test --locked --workspace --all-targets --all-features
-        env:
-            SERVICE_IMAGE_VERSION: ${{ env.SERVICE_TAG }}
-            LANGUAGE_IMAGE_VERSION: ${{ env.LANGUAGE_TAG }}
 
   test-container-lifecycle:
     runs-on: ubuntu-latest
     needs: build-images
-    env:
-      LANGUAGE_TAG: "1.0.0"
     steps:
       - uses: actions/checkout@v6
 
@@ -105,8 +132,6 @@ jobs:
   test-watchdog:
     runs-on: ubuntu-latest
     needs: build-images
-    env:
-      LANGUAGE_TAG: "1.0.0"
     steps:
       - uses: actions/checkout@v6
 
@@ -127,8 +152,6 @@ jobs:
   test-all-endpoints:
     runs-on: ubuntu-latest
     needs: build-images
-    env:
-      LANGUAGE_TAG: "1.0.0"
     steps:
       - uses: actions/checkout@v6
 
