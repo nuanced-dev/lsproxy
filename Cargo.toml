@@ -9,7 +9,11 @@ resolver = "2"
 [workspace.package]
 version = "0.4.9"
 edition = "2021"
-authors = ["Nuanced"]
+authors = ["Nuanced Dev"]
+repository = "https://github.com/nuanced-dev/lsp"
+description = "Nuanced LSP containerized LSP service"
+license = "Apache-2.0"
+publish = false
 
 [workspace.dependencies]
 # Shared dependencies

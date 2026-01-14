@@ -3,11 +3,13 @@ name: TypeScript Tests
 on:
   pull_request:
     paths:
+    - '.github/workflows/typescript-*'
     - 'clients/typescript/**'
   push:
     branches:
     - main
     paths:
+    - '.github/workflows/typescript-*'
     - 'clients/typescript/**'
 
 concurrency:
@@ -24,15 +26,19 @@ defaults:
 jobs:
   check:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [18.x, 20.x, 22.x, 24.x]
 
     steps:
     - name: Checkout
       uses: actions/checkout@v6
 
-    - name: Setup Node.js 24.x
+    - name: Setup Node.js ${{ matrix.node-version }}
       uses: actions/setup-node@v6
       with:
-        node-version: 24.x
+        node-version: ${{ matrix.node-version }}
 
     - name: Install dependencies
       run: npm install
@@ -43,21 +49,18 @@ jobs:
     - name: Lint
       run: npm run lint
 
-  build-and-test:
+  test:
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        node-version: [24.x]
+    needs: check
 
     steps:
     - name: Checkout
       uses: actions/checkout@v6
 
-    - name: Setup Node.js ${{ matrix.node-version }}
+    - name: Setup Node.js 24.x
       uses: actions/setup-node@v6
       with:
-        node-version: ${{ matrix.node-version }}
+        node-version: 24.x
 
     - name: Install dependencies
       run: npm install
