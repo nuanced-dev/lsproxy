@@ -6,6 +6,8 @@ This is the TypeScript library and CLI for the Nuanced LSP containerized code na
 - It allows using LSP capabilities where setting up locally running LSP servers is impossible or undesirable (e.g., in cloud deployments). _It is not meant to replace local LSP servers for IDE use._
 - It exposes [LSProxy](https://github.com/agentic-labs/lsproxy)'s API to access code navigation information.
 
+It supports [multiple languages](#supported-languages) and helps retrieve code context and symbol resolution and symbol relationships for a mounted workspace.
+
 ## Requirements
 
 **System dependencies:**
@@ -32,23 +34,31 @@ _Assuming all system dependencies are satisfied and the TypeScript client was su
 
 **Run the CLI:**
 
-Start Nuanced LSP for a workspace:
-
 ```bash
+# Start the container with your workspace
 nuanced-lsp up /path/to/workspace
-```
 
-_The first time it can take a while for the service to start because it needs to pull the necessary Docker images._
+# The first time it can take a while for the service to start because it needs to pull the necessary Docker images._
 
-List all source files in the workspace:
+# Check container status
+nuanced-lsp status
 
-```bash
+# Check service health
+nuanced-lsp health
+
+# List all files in the workspace
 nuanced-lsp list-files
-```
 
-Shut down Nuanced LSP:
+# Get symbol definitions in a file
+nuanced-lsp definitions-in-file src/index.ts
 
-```bash
+# Find definition at a specific position (line:char, 0-indexed)
+nuanced-lsp find-definition src/index.ts --position 10:5
+
+# Find all references to a symbol
+nuanced-lsp find-references src/index.ts --position 10:5
+
+# Stop the container
 nuanced-lsp down
 ```
 
@@ -68,14 +78,53 @@ npm i -S @nuanced-dev/lsp
 
 Example usage:
 
-```ts
+```typescript
 import { NuancedLspClient } from '@nuanced-dev/lsp';
 
 const client = new NuancedLspClient();
-await client.up({ workspace: '/path/to/ws' });
-console.log(await client.listFiles());
+
+// Start container with workspace
+await client.up({ workspace: '/path/to/workspace' });
+
+// List workspace files
+const files = await client.listFiles();
+console.log(files);
+
+// Get definitions in a file
+const definitions = await client.definitionsInFile({ file: 'src/index.ts' });
+
+// Find definition at position
+const definition = await client.findDefinition({
+  file: 'src/index.ts',
+  position: { line: 10, character: 5 }
+});
+
+// Find all references
+const references = await client.findReferences({
+  file: 'src/index.ts',
+  position: { line: 10, character: 5 }
+});
+
+// Clean up
 await client.down();
 ```
+
+## Supported languages
+
+| Language              | Image                             | Language Server            |
+|-----------------------|-----------------------------------|----------------------------|
+| C/C++                 | `nuanced-lsp-clangd`              | clangd                     |
+| C#                    | `nuanced-lsp-csharp`              | omnisharp                  |
+| Golang                | `nuanced-lsp-golang`              | gopls                      |
+| Java                  | `nuanced-lsp-java`                | eclipse-jdtls              |
+| PHP                   | `nuanced-lsp-php`                 | phpactor                   |
+| Python                | `nuanced-lsp-python`              | jedi-language-server       |
+| Ruby                  | `nuanced-lsp-ruby-VERSION`        | ruby-lsp                   |
+| Ruby (Sorbet)         | `nuanced-lsp-ruby-sorbet-VERSION` | sorbet                     |
+| Rust                  | `nuanced-lsp-rust`                | rust-analyzer              |
+| TypeScript/JavaScript | `nuanced-lsp-typescript`          | typescript-language-server |
+
+We aim to support the Ruby versioned released in the last year.
 
 ## API overview
 

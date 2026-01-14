@@ -1,0 +1,201 @@
+## Container Architecture
+
+```
+┌─────────────────────────────────────────────────┐
+│         Host Machine                            │
+│                                                 │
+│  ┌──────────────────────────────────────────┐  │
+│  │   nuanced-lsp-proxy                        │  │
+│  │   (Rust service + orchestrator)          │  │
+│  │                                          │  │
+│  │   Spawns:                                │  │
+│  │   ┌────────────────────────────────────┐│  │
+│  │   │ nuanced-lsp-watchdog (monitoring)      ││  │
+│  │   └────────────────────────────────────┘│  │
+│  │   ┌────────────────────────────────────┐│  │
+│  │   │ nuanced-lsp-python                     ││  │
+│  │   │ nuanced-lsp-golang                     ││  │
+│  │   │ nuanced-lsp-rust                       ││  │
+│  │   │ nuanced-lsp-typescript                 ││  │
+│  │   │ ...                                ││  │
+│  │   │ (labeled with parent service ID)   ││  │
+│  │   └────────────────────────────────────┘│  │
+│  │                                          │  │
+│  │   Connected via Docker bridge network   │  │
+│  └──────────────────────────────────────────┘  │
+│                                                 │
+│  Workspace mounted at:                          │
+│  /mnt/workspace (service)                       │
+│  /workspace (language containers)               │
+│                                                 │
+│  Docker socket mounted for container spawning   │
+└─────────────────────────────────────────────────┘
+```
+
+## Architecture Overview
+
+The system consists of several containerized components that work together to provide language server functionality:
+
+| Component | Code Reference | Container Name(s) | Purpose | Relationships |
+|-----------|---------------|-------------------|---------|---------------|
+| **Service** | `crates/proxy` | `nuanced-lsp-proxy` | Main orchestrator that receives HTTP requests from clients, detects file languages, and routes requests to appropriate language containers | Spawns wrapper, language containers, and watchdog; forwards requests between client and language containers |
+| **Wrapper** | `crates/wrapper` | `nuanced-lsp-wrapper-<id>` | Shared volume container providing the `lsp-wrapper` binary and ast-grep configs | Mounted by all language containers via `--volumes-from` to share binaries without duplication |
+| **Language Containers** | `dockerfiles/*.Dockerfile` | `nuanced-lsp-python-<id>`<br/>`nuanced-lsp-typescript-<id>`<br/>`nuanced-lsp-rust-<id>`<br/>`nuanced-lsp-golang-<id>`<br/>etc. | Run language-specific LSP servers (jedi, typescript-language-server, rust-analyzer, gopls, etc.) and translate HTTP requests to LSP JSON-RPC over stdio | Mount wrapper binary via `--volumes-from`; receive HTTP requests from service; execute LSP operations; labeled with parent service ID |
+| **Watchdog** | `crates/watchdog` | `nuanced-lsp-watchdog-<id>` | Independent monitor that polls the service container health and automatically cleans up all language containers if the service crashes or stops | Monitors service via `docker inspect`; uses Docker labels to identify and cleanup language containers belonging to crashed service |
+
+### Key Benefits
+
+- **Process isolation** - Separates proxy service process from LSP server processes, preventing crashes in one language server from affecting others
+- **Role-based image organization** - Docker images are cleanly separated into their corresponding roles: service, wrapper, watchdog, and individual language LSP images
+- **Lightweight service image** - Service image is relatively small at 187MB, enabling fast deployment and updates
+- **Binary injection architecture** - Language LSP server images are independent from the Nuanced LSP Rust code via binary injection, preventing expensive image rebuilds when Rust code changes
+- **Dynamic language support** - Language container images are pulled dynamically on-demand based on detected languages in your workspace
+- **Automatic cleanup** - Watchdog ensures no orphaned containers remain running if the service crashes or is killed
+- **Multi-instance support** - Multiple service instances can run simultaneously, each with isolated language containers identified by unique service IDs
+- **Efficient resource sharing** - Wrapper binary and ast-grep configs are shared across all language containers via Docker volumes, avoiding duplication
+
+```mermaid
+graph TD
+    Client[Client Application] -->|HTTP Requests| Proxy[nuanced-lsp-proxy]
+    Proxy -->|Spawns & Routes| Python[nuanced-lsp-python<br/>jedi-language-server]
+    Proxy -->|Spawns & Routes| TypeScript[nuanced-lsp-typescript<br/>typescript-language-server]
+    Proxy -->|Spawns & Routes| Rust[nuanced-lsp-rust<br/>rust-analyzer]
+    Proxy -->|Spawns & Routes| Golang[nuanced-lsp-golang<br/>gopls]
+    Proxy -->|Creates| Wrapper[nuanced-lsp-wrapper<br/>nuanced-lsp-wrapper binary<br/>ast-grep configs]
+
+    Python -.->|--volumes-from| Wrapper
+    TypeScript -.->|--volumes-from| Wrapper
+    Rust -.->|--volumes-from| Wrapper
+    Golang -.->|--volumes-from| Wrapper
+
+    Proxy -->|Creates| Watchdog[nuanced-lsp-watchdog<br/>Monitor]
+    Watchdog -.->|Monitors via<br/>docker inspect| Proxy
+    Watchdog -.->|Cleans up on<br/>service crash| Python
+    Watchdog -.->|Cleans up on<br/>service crash| TypeScript
+    Watchdog -.->|Cleans up on<br/>service crash| Rust
+    Watchdog -.->|Cleans up on<br/>service crash| Golang
+    Watchdog -.->|Cleans up on<br/>service crash| Wrapper
+
+    style Proxy fill:#4A90E2
+    style Wrapper fill:#F5A623
+    style Watchdog fill:#7ED321
+    style Python fill:#B8E986
+    style TypeScript fill:#B8E986
+    style Rust fill:#B8E986
+    style Golang fill:#B8E986
+```
+
+### Architecture
+
+The entry point to Nuanced LSP is a **proxy service container**. On initialization, the mounted workspace is scaned, and programming languages are detected based on file path heuristics. The proxy service spawns a **LSP server container** for each supported language detected. After initialization completes, the proxy service proxies HTTP requests from a client to the appropriate LSP server container.
+
+Because LSP servers typically use JSON RPC over stdio, a thin Rust wrapper is injected into each LSP server container on initialization. This wrapper translates HTTP requests received from the proxy service into JSON RPC and forwards to the LSP server. Then the wrapper translates the LSP server's JSON RPC response into a HTTP response for the proxy service.
+
+#### Shared wrapper across all LSP server containers
+
+Nuanced LSP uses **binary injection** to share the `nuanced-lsp-wrapper` binary and `ast-grep` configuration across all LSP server containers. The primary advantage of this technique is language Dockerfiles remain 100% independent from the Nuanced LSP Rust code. This saves on requiring rebuilding the language images every time a Rust code change is made. It also prevents embedding the `nuanced-lsp-wrapper` binary into every language image, saving ~400MB on image size per language image.
+
+```mermaid
+graph TB
+    Wrapper[nuanced-lsp-wrapper<br/>360MB<br/>━━━━━━━━━━━━━━━━<br/>nuanced-lsp-wrapper binary<br/>ast-grep configs<br/>━━━━━━━━━━━━━━━━<br/>VOLUME /opt/nuanced-lsp-wrapper<br/>Language-agnostic HTTP server<br/>LSP process manager]
+
+    Python[nuanced-lsp-python<br/>jedi-ls only<br/>Mounts wrapper]
+    TypeScript[nuanced-lsp-typescript<br/>typescript-ls only<br/>Mounts wrapper]
+
+    Python -.->|--volumes-from| Wrapper
+    TypeScript -.->|--volumes-from| Wrapper
+
+    style Wrapper fill:#F5A623,stroke:#333,stroke-width:3px
+    style Python fill:#B8E986
+    style TypeScript fill:#B8E986
+```
+
+#### Container Architecture Example
+
+When you load a workspace with Python and TypeScript files, here's what happens:
+
+```mermaid
+graph TB
+    Client[Client Application<br/>API calls to localhost:4444]
+
+    Proxy[nuanced-lsp-proxy<br/>187MB<br/>━━━━━━━━━━━━━━━━<br/>Spawns LSP server containers<br />Proxies requests]
+
+    Python[nuanced-lsp-python<br/>688MB<br/>jedi-ls]
+
+    TypeScript[nuanced-lsp-typescript<br/>899MB]
+
+    Wrapper[nuanced-lsp-wrapper<br/>360MB<br/>━━━━━━━━━━━━━━━━<br/>nuanced-lsp-wrapper binary<br/>ast-grep configs]
+
+    Watchdog[nuanced-lsp-watchdog<br/>Independent Monitor<br/>47.3MB<br/>━━━━━━━━━━━━━━━━<br/>Monitors nuanced-lsp-proxy container<br/>Cleans up LSP server and wrapper containers on crash]
+
+    Client -->|HTTP| Proxy
+    Proxy -->|Creates| Wrapper
+    Proxy -->|Creates| Watchdog
+    Proxy -->|Spawns & Routes| Python
+    Proxy -->|Spawns & Routes| TypeScript
+
+    Python -.->|--volumes-from| Wrapper
+    TypeScript -.->|--volumes-from| Wrapper
+
+    Watchdog -.->|Monitors| Proxy
+    Watchdog -.->|Cleanup| Python
+    Watchdog -.->|Cleanup| TypeScript
+    Watchdog -.->|Cleanup| Wrapper
+
+    style Proxy fill:#4A90E2
+    style Wrapper fill:#F5A623
+    style Watchdog fill:#7ED321
+    style Python fill:#B8E986
+    style TypeScript fill:#B8E986
+    style Client fill:#E8E8E8
+```
+
+**Total image size on disk: 2.2GB** (proxy (187MB) + python (688MB) + typescript (899MB) + wrapper (360MB) + watchdog (47.3MB) = 2.1813MB)
+
+#### Client request example
+
+This sequence diagram shows how a client request is handled:
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Proxy as nuanced-lsp-proxy
+    participant Wrapper as nuanced-lsp-wrapper
+    participant Python LSP as nuanced-lsp-python<br />Jedi language server
+
+    Client->>+Proxy: POST /v1/symbol/find-definition<br/>{file: "main.py", position: {line: 10, character: 5}}
+    Note over Proxy: Route to Python LSP server container based on file
+    Proxy->>+Wrapper: HTTP POST localhost:8080/find-definition<br/>{file: "main.py", position: {line: 10, character: 5}}
+    Wrapper->>+Python LSP: LSP Request (JSON-RPC over stdio)<br/>textDocument/definition
+    Note over LSP: Jedi analyzes code<br/>finds definition
+    Python LSP-->>-Wrapper: LSP Response (JSON-RPC)<br/>{uri, range, ...}
+    Note over Wrapper: Translates<br/>LSP response to HTTP
+    Wrapper-->>-Proxy: HTTP 200 OK<br/>{definitions: [{path, range, ...}]}
+    Proxy-->>-Client: HTTP 200 OK<br/>{definitions: [{path, range, ...}]}
+```
+
+#### Container roles
+
+**1. Proxy container (nuanced-lsp-service)** - 187MB
+- Built from: `dockerfiles/proxy.Dockerfile` → `crates/proxy`
+- Spawns LSP server containers on workspace initialization
+- Spawns wrapper and watchdog containers
+- Provides HTTP API handlers to proxy client requests to appropriate LSP server container
+
+**2. Wrapper container (nuanced-lsp-wrapper)** - 360MB
+- Built from: `dockerfiles/wrapper.Dockerfile` → `crates/wrapper`
+- Contains: `nuanced-lsp-wrapper` binary + `ast-grep` configs
+- Binary is injected into LSP server containers via Docker volume mounting
+- Single container per Nuanced LSP workspace
+- Provides HTTP API handlers for Proxy requests
+- Translation between proxy HTTP requests and LSP server JSON RPC
+
+**3. Language containers** - Variable sizes (see table below)
+- Built from: Language-specific Dockerfiles (pure Debian base)
+- Each contains: Language-specific LSP server only (e.g., gopls, rust-analyzer)
+- Wrapper binary mounted at runtime via `--volumes-from nuanced-lsp-wrapper`
+
+**4. Watchdog container (nuanced-lsp-watchdog)** - 47.3MB
+- Built from: `dockerfiles/watchdog.Dockerfile`
+- Monitors proxy container health
+- Automatically cleans up wrapper and language containers when proxy container stops
