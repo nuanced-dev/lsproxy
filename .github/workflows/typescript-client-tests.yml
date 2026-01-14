@@ -5,12 +5,16 @@ on:
     paths:
     - '.github/workflows/typescript-*'
     - 'clients/typescript/**'
+    - '!clients/typescript/*.md'
+    - '!clients/typescript/docs/**'
   push:
     branches:
     - main
     paths:
     - '.github/workflows/typescript-*'
     - 'clients/typescript/**'
+    - '!clients/typescript/*.md'
+    - '!clients/typescript/docs/**'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

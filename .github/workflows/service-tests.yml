@@ -3,12 +3,18 @@ name: Service Tests
 on:
   pull_request:
     paths-ignore:
-    - 'clients/typescript/**'
+    - '.github/workflows/*-client-*'
+    - '*.md'
+    - 'clients/**'
+    - 'docs/**'
   push:
     branches:
     - main
     paths-ignore:
-    - 'clients/typescript/**'
+    - '.github/workflows/*-client-*'
+    - '*.md'
+    - 'clients/**'
+    - 'docs/**'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
