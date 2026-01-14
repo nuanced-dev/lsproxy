@@ -164,7 +164,7 @@ if [ "$DRY_RUN" = false ]; then
         echo -e "  $(get_login_command "$REGISTRY")"
         exit 1
     fi
-    echo -e "${GREEN}✓ Authenticated with $registry${NC}"
+    echo -e "${GREEN}✓ Authenticated with $REGISTRY${NC}"
     echo
 fi
 
@@ -179,7 +179,7 @@ publish_image() {
     echo -e "${BLUE}Publishing ${image}...${NC}"
 
     if ! docker image inspect "${image}" > /dev/null 2>&1; then
-        echo -e "${RED}✗ Local image ${image} not found. Please build it first.${NC}"
+        echo -e "${RED}✗ Local image ${image} not found. Please build it first. (This can also happen if Resource Saver is active.)${NC}"
         return 1
     fi
 
