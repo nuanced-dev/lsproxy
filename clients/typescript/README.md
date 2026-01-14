@@ -137,6 +137,16 @@ When Nuanced LSP is run through the Nuanced MCP server, you can override images 
 
 These are useful for testing development builds or using custom container images.
 
+## Troubleshooting
+
+If Nuanced LSP is not working as expected, check the following common issues:
+
+- _Docker is not running._ Docker is required to start the containerized LSP servers.
+
+- _The Docker socker is not exposed._ The services requires access to the Docker socker to be able to start language containers on demand.
+
+- _Nuanced LSP is already running for another workspace._ If Nuanced LSP is already running for another workspace, it cannot bind to the default API port. To run the service multiple times, explicitly specify which port to use.
+
 ## Support and Contributing
 
 Nuanced LSP is maintained but not under active development. We do accept bug fixes, documentation improvements, and small, well-scoped extensions. Supporting larger extensions, feature requests, or support with custom integration and deployment scenarios are out of scope.
