@@ -148,6 +148,33 @@ fi
 SERVICE_TAG="${SERVICE_TAG:-$DEFAULT_SERVICE_TAG}"
 REGISTRY="${REGISTRY:-$DEFAULT_REGISTRY}"
 
+if [ ${#SERVICES[@]} -gt 0 ] && [ ${#LANGUAGES[@]} -gt 0 ] && is_semver "$LANGUAGE_TAG"; then
+    echo
+    echo -e "${YELLOW}=========================================${NC}"
+    echo -e "${YELLOW}  WARNING${NC}"
+    echo -e "${YELLOW}=========================================${NC}"
+    echo -e "${YELLOW}Service images were built with LANGUAGE_IMAGE_VERSION=${LANGUAGE_TAG}${NC}"
+    echo -e "${YELLOW}They will depend on the specific version ${LANGUAGE_TAG}, not just major version $(extract_major_version "$LANGUAGE_TAG")${NC}"
+    echo -e "${YELLOW}${NC}"
+    echo -e "${YELLOW}To avoid this, build service and language images separately:${NC}"
+    echo -e "${YELLOW}  1. Build service images:  $0 --all-services --service-tag=${SERVICE_TAG}${NC}"
+    echo -e "${YELLOW}  2. Build language images: $0 --all-languages --language-tag=${LANGUAGE_TAG}${NC}"
+    echo -e "${YELLOW}=========================================${NC}"
+    echo
+    if [ "${CI-}" == true ]; then
+        echo -e "${RED}Prevented in CI because it is too error-prone.${NC}"
+        exit 1
+    else
+        read -p "Do you want to continue? [y/N] " -r
+        echo
+        if [[ $REPLY =~ ^[Yy] ]]; then
+            echo "Proceeding..."
+        else
+            exit 1
+        fi
+    fi
+fi
+
 # ---------------------------------------
 # Build Commands
 # ---------------------------------------
@@ -184,11 +211,14 @@ else
     echo
 fi
 
-BUILD_CMD+=(
-    "--build-arg" "SERVICE_IMAGE_VERSION=$SERVICE_TAG"
-    "--build-arg" "LANGUAGE_IMAGE_VERSION=$LANGUAGE_TAG"
-    "--build-arg" "CONTAINER_REGISTRY=$REGISTRY"
-)
+# Add build args based on what's being built
+BUILD_CMD+=("--build-arg" "CONTAINER_REGISTRY=$REGISTRY")
+if [ ${#SERVICES[@]} -gt 0 ]; then
+    BUILD_CMD+=("--build-arg" "SERVICE_IMAGE_VERSION=$SERVICE_TAG")
+fi
+if [ ${#LANGUAGES[@]} -gt 0 ]; then
+    BUILD_CMD+=("--build-arg" "LANGUAGE_IMAGE_VERSION=$LANGUAGE_TAG")
+fi
 
 # Verify storage for multi-platform builds
 if [ "$MULTIPLATFORM" = true ] && [ "$(docker system info --format json | jq '.DriverStatus | any(.[]; .[0] == "driver-type" and .[1] == "io.containerd.snapshotter.v1")')" != true ]; then
