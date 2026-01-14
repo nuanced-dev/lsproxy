@@ -1,12 +1,16 @@
-import {
-  VERSION,
-  CONTAINER_REGISTRY,
-  SERVICE_IMAGE_VERSION,
-  LANGUAGE_IMAGE_VERSION,
-} from "./__generated/version.js";
+import { VERSION } from "./__generated/version.js";
 
-// Export package version.
+// VERSION is the package version
 export { VERSION };
+
+// Container registry for published images
+export const DEFAULT_CONTAINER_REGISTRY = "ghcr.io/nuanced-dev";
+
+// Language image version
+export const DEFAULT_LANGUAGE_IMAGE_VERSION = "1.0.0";
+
+// Service image version
+export const DEFAULT_SERVICE_IMAGE_VERSION = "0.4.9";
 
 // DEFAULT_BIND_HOST is the default host address to which the LSProxy container binds.
 // The default is the local loopback, implying the container only accepts connections from the same machine.
@@ -35,15 +39,6 @@ export const DEFAULT_RETRIES = 5;
 
 // DEFAULT_TIMEOUT_SECS is the per-request timeout in seconds for HTTP requests from the client to the LSProxy container.
 export const DEFAULT_TIMEOUT_SECS = 120;
-
-// Container registry for published images
-export { CONTAINER_REGISTRY as DEFAULT_CONTAINER_REGISTRY };
-
-// Language image version
-export { LANGUAGE_IMAGE_VERSION as DEFAULT_LANGUAGE_IMAGE_VERSION };
-
-// Service image version
-export { SERVICE_IMAGE_VERSION as DEFAULT_SERVICE_IMAGE_VERSION };
 
 // Image base names (without registry prefix or version tag)
 export const PROXY_IMAGE_BASE = "nuanced-lsp-proxy";

@@ -1,5 +1,6 @@
 {
   "name": "@nuanced-dev/lsp",
+  "version": "0.4.0",
   "description": "TypeScript library and CLI for Nuanced LSP",
   "license": "Apache-2.0",
   "author": "Nuanced",
@@ -62,7 +63,6 @@
   "engines": {
     "node": ">=18"
   },
-  "version": "0.4.0",
   "publishConfig": {
     "access": "public"
   }

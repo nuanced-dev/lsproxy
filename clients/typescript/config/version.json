@@ -1,6 +1,0 @@
-{
-  "lsp-version": "0.4.0",
-  "language-image-version": "1.0.0",
-  "service-image-version": "0.4.9",
-  "container-registry": "ghcr.io/nuanced-dev"
-}
