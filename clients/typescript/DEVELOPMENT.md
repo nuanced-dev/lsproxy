@@ -1,4 +1,4 @@
-# Developing Nuanced LSP TypeScript client
+# Development
 
 ## Repo layout
 
@@ -8,14 +8,25 @@
 | `scripts/`        | Project-level scripts                        |
 | `tests/`          | Unified test suite                           |
 
+## Requirements
+
+- Recent Node.js version installed
+- Docker installed and running
+
 ## Local development
 
 **Building:**
 
-Build the project:
+Build the source:
 
 ```bash
 npm run build
+```
+
+Lint and format the source:
+
+```bash
+npm run lint:fix
 ```
 
 Run the CLI from source:
@@ -35,7 +46,7 @@ npm run test
 Running tests with custom settings:
 
 ```bash
-./scripts/test.sh --help
+scripts/test.sh --help
 ```
 
 _Note that the full test suite takes a long time to run and requires pulling several languages images. Run time or disk usage can be limited by running the tests only for specific workspaces. See instructions below._
@@ -81,7 +92,25 @@ Common `scripts/test.sh` usage:
 
 All API tests are based on fixtures. These can be re-recorded easily using the `scripts/test.sh --record-fixtures` flag.
 
-## Updating image versions
+## Versioning
+
+The TypeScript client uses semantic versioning, where versions have the form `MAJOR.MINOR.PATCH`.
+
+**Client versions:**
+
+- Major version increases for breaking changes.
+
+  For example, flags have been removed, or renamed.
+
+- Minor version increases for added functionality that is backward compatible.
+
+  For example, a new command has been added to the CLI.
+
+- Patch version increases for small changes and bug fixes.
+
+For `0.x.y` versions, the minor version is treated like the major version.
+
+**Image versions:**
 
 The TypeScript client depends on **published** versions of the service and language images. The versions used by the client are defined in `src/defaults.ts`.
 
@@ -95,7 +124,7 @@ Follow these steps to release a new version:
 
 1. Open a branch for the new release.
 
-1. Update the package version to the desired new version.
+1. Update the package version in `package.json` to the desired new version.
 
 1. Update the [changelog](CHANGELOG.md) to include an entry for the new version.
 

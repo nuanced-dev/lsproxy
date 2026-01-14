@@ -11,7 +11,7 @@ This is the TypeScript library and CLI for the Nuanced LSP containerized code na
 **System dependencies:**
 
 - Recent Node.js version installed
-- Docker daemon installed and running
+- Docker installed and running
 
 **Resource requirements:**
 
