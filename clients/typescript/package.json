@@ -2,7 +2,7 @@
   "name": "@nuanced-dev/lsp",
   "description": "TypeScript library and CLI for Nuanced LSP",
   "license": "Apache-2.0",
-  "author": "Nuanced Dev",
+  "author": "Nuanced",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/nuanced-dev/lsp.git"
@@ -41,7 +41,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "commander": "^12.1.0",
+    "commander": "^14.0.2",
     "zod": "^3.23.8"
   },
   "devDependencies": {

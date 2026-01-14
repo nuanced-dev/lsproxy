@@ -515,3 +515,25 @@ The following is a summary of the base `lsproxy` implementation and where Nuance
 ### Documentation
 
 See the `docs/` for more detailed documentation.
+
+## Support and Contributing
+
+Nuanced LSP is maintained but not under active development. We do accept bug fixes, documentation improvements, and small, well-scoped extensions. Supporting larger extensions, feature requests, or support with custom integration and deployment scenarios are out of scope.
+
+For more details see [support](SUPPORT.md) and [contribution](CONTRIBUTING.md) guidelines.
+
+## License
+
+Copyright 2025 Nuanced
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
