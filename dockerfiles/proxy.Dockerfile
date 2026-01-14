@@ -67,7 +67,6 @@ RUN apt-get update && \
 # we create a minimal stub that satisfies Cargo's workspace validation.
 WORKDIR /usr/src
 COPY Cargo.toml ./
-COPY language-image-version ./
 # Cargo.lock is optional - if present, ensures reproducible builds with exact dependency versions.
 # The wildcard syntax (Cargo.lock*) allows the build to succeed even if Cargo.lock is not committed.
 # For production builds, Cargo.lock should be committed to ensure reproducibility across all builds.

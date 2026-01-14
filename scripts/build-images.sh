@@ -6,6 +6,7 @@ SCRIPT_DIR="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")" && pwd)"
 
 source "$SCRIPT_DIR/include/colors.sh"
 source "$SCRIPT_DIR/include/constants.sh"
+source "$SCRIPT_DIR/include/lib.sh"
 
 usage() {
     echo "Usage: $0 [--all-languages] [--all-services] [--cache=MODE] [--jobs=N] [--language-tag=TAG] [--languages=LANG...] [--multi-platform] [--registry=REG] [--sequential] [--service-tag=TAG] [--services=SVC...]"
@@ -239,7 +240,7 @@ build_image() {
 
         for additional_image_tag in "${additional_image_tags[@]}"; do
             docker tag "$image_tag" "$additional_image_tag" >> "$log_file" 2>&1
-            echo -e "${GREEN}  Also tagged: ${additional_tag}${NC}"
+            echo -e "${GREEN}  Also tagged: ${additional_image_tag}${NC}"
         done
 
         return 0

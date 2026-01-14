@@ -6,6 +6,7 @@ SCRIPT_DIR="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")" && pwd)"
 
 source "$SCRIPT_DIR/include/colors.sh"
 source "$SCRIPT_DIR/include/constants.sh"
+source "$SCRIPT_DIR/include/lib.sh"
 
 usage() {
     echo "Usage: $0 [--dry-run] [--language-tag=TAG] [--languages=LANG...] [--registry=REG] [--services=SVC...] [--service-tag=TAG]"
