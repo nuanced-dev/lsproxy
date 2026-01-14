@@ -6,6 +6,8 @@ labels: ''
 assignees: ''
 ---
 
+_Make sure to read and follow the [contributing](https://github.com/nuanced-dev/lsp/blob/main/CONTRIBUTING.md) guidelines before opening a pull request._
+
 **Describe the changes**
 
 [A clear and concise description of what the changes are.]

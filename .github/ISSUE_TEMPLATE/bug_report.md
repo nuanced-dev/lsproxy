@@ -6,6 +6,8 @@ labels: ''
 assignees: ''
 ---
 
+_Make sure to read and follow the [support](https://github.com/nuanced-dev/lsp/blob/main/SUPPORT.md) guidelines before opening an issue._
+
 **Describe the bug**
 
 [A clear and concise description of what the bug is.]
