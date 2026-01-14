@@ -244,9 +244,10 @@ export async function up(
     stream = false,
     ro = false,
     bindHost = DEFAULT_BIND_HOST,
-    hostPort = DEFAULT_HOST_PORT,
     debug = false,
   } = opts;
+
+  let { hostPort = DEFAULT_HOST_PORT } = opts;
 
   if (!Number.isInteger(hostPort) || hostPort < 0) {
     throw new Error(

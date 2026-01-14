@@ -19,7 +19,7 @@ help() {
     echo "Options:"
     echo "  --auth                Enable JWT authentication"
     echo "  --foreground, -f      Run in foreground (not detached)"
-    echo "  --language-tag=TAG    Tag of language images to use (default: $DEFAULT_LANGUAGE_TAG)"
+    echo "  --language-tag=TAG    Tag of language images to use"
     echo "  --logs, -l            Tail logs after starting"
     echo "  --port=PORT           Use custom port (default: 4444)"
     echo "  --registry=REG        Container registry for service images (default: none)"
@@ -93,13 +93,6 @@ fi
 
 # Convert to absolute path
 WORKSPACE_PATH="$(cd "$WORKSPACE_PATH" && pwd)"
-
-
-
-
-
-
-
 
 echo -e "${BLUE}=========================================${NC}"
 echo -e "${BLUE}  Starting Nuanced LSP Service${NC}           "

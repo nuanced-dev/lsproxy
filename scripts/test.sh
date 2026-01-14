@@ -13,7 +13,7 @@ help() {
     echo "Usage: $0 [OPTIONS...]"
     echo ""
     echo "Options:"
-    echo "  --language-tag=TAG    Tag of language images to use (default: $DEFAULT_LANGUAGE_TAG)"
+    echo "  --language-tag=TAG    Tag of language images to use"
     echo "  --service-tag=TAG     Tag of service images to use (default: $DEFAULT_SERVICE_TAG)"
     echo "  --help, -h            Show this help"
     echo ""

@@ -20,7 +20,7 @@ help() {
     echo "If the service is already running, it uses the existing containers."
     echo ""
     echo "Options:"
-    echo "  --language-tag=TAG    Tag of language images to use (default: $DEFAULT_LANGUAGE_TAG)"
+    echo "  --language-tag=TAG    Tag of language images to use"
     echo "  --no-cleanup          Don't stop containers after tests (useful for debugging)"
     echo "  --service-tag=TAG     Tag images with specified tag (default: $DEFAULT_SERVICE_TAG)"
     echo "  --help, -h            Show this help"

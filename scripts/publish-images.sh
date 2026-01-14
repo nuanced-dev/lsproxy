@@ -20,7 +20,7 @@ help() {
     echo "  --all-languages       Publish all language images (shortcut for --languages=<all>)"
     echo "  --all-services        Publish all service images (shortcut for --services=proxy,watchdog,wrapper)"
     echo "  --dry-run, -N         Show what would be pushed without actually pushing"
-    echo "  --language-tag=TAG    Tag of language images to use (default: $DEFAULT_LANGUAGE_TAG)"
+    echo "  --language-tag=TAG    Tag of language images to use"
     echo "  --languages=LANG...   Comma-separated list of languages (default: none)"
     echo "                        Supports versioned Ruby: ruby-3.2.2, ruby-sorbet-3.2.2"
     echo "  --registry=REG        Target registry (default: $DEFAULT_REGISTRY)"
@@ -99,8 +99,13 @@ for arg in "$@"; do
     esac
 done
 
+# Language tag is required if publishing languages
+if [ ${#LANGUAGES[@]} -gt 0 ] && [ -z "$LANGUAGE_TAG" ]; then
+    echo -e "${RED}Error: --language-tag is required when building language images${NC}"
+    exit 1
+fi
+
 # Fall back to defaults
-LANGUAGE_TAG="${LANGUAGE_TAG:-$DEFAULT_LANGUAGE_TAG}"
 REGISTRY="${REGISTRY:-$DEFAULT_REGISTRY}"
 SERVICE_TAG="${SERVICE_TAG:-$DEFAULT_SERVICE_TAG}"
 
