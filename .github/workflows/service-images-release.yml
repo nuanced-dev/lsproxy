@@ -28,18 +28,18 @@ jobs:
         id: version
         run: |
           TAG_VERSION="${GITHUB_REF#refs/tags/service-images-v}"
-          DEFAULT_VERSION=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "proxy") | .version')
+          CURRENT_VERSION=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "proxy") | .version')
 
           echo "Tag version: $TAG_VERSION"
-          echo "Default service version: $DEFAULT_VERSION"
+          echo "Current service version: $CURRENT_VERSION"
 
-          if [ "$TAG_VERSION" != "$DEFAULT_VERSION" ]; then
-            echo "Error: Tag version ($TAG_VERSION) does not match default service version ($DEFAULT_VERSION)"
+          if [ "$TAG_VERSION" != "$CURRENT_VERSION" ]; then
+            echo "Error: Tag version ($TAG_VERSION) does not match current service version ($CURRENT_VERSION)"
             exit 1
           fi
 
-          echo "✓ Tag version matches default service version"
-          echo "SERVICE_TAG=$DEFAULT_VERSION" >> $GITHUB_OUTPUT
+          echo "✓ Tag version matches current service version"
+          echo "SERVICE_TAG=$CURRENT_VERSION" >> $GITHUB_OUTPUT
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
@@ -70,15 +70,10 @@ jobs:
           body: |
             ## Service Images Release v${{ steps.version.outputs.SERVICE_TAG }}
 
-            Multi-platform Docker images for proxy, watchdog, and wrapper services.
+            Published multi-platform Docker service images to ${{ env.REGISTRY }}.
 
-            ### Images Published
-            - `${{ env.REGISTRY }}/nuanced-lsp-proxy:${{ steps.version.outputs.SERVICE_TAG }}`
-            - `${{ env.REGISTRY }}/nuanced-lsp-watchdog:${{ steps.version.outputs.SERVICE_TAG }}`
-            - `${{ env.REGISTRY }}/nuanced-lsp-wrapper:${{ steps.version.outputs.SERVICE_TAG }}`
+            ### Changes
 
-            ### Platforms
-            - linux/amd64
-            - linux/arm64
+            See [CHANGELOG.md](${{ github.server_url }}/${{ github.repository }}/blob/${{ github.ref_name }}/CHANGELOG.md) for details.
           draft: false
           prerelease: false

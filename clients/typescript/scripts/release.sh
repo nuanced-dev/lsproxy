@@ -1,29 +1,34 @@
 #!/usr/bin/env bash
+
 set -euo pipefail
 
-. "$(dirname "$0")/release-shared.bash"
+SCRIPT_DIR="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")" && pwd)"
+CLIENT_DIR="$(dirname "$SCRIPT_DIR")"
+
+source "$CLIENT_DIR/../../scripts/include/colors.sh"
+source "$CLIENT_DIR/../../scripts/include/lib.sh"
+
+PACKAGE_VERSION=$(node -p "require('$CLIENT_DIR/package.json').version")
+export PACKAGE_VERSION
 
 usage() {
-    echo "Create a release for the lsp package"
-    echo ""
     echo "Usage: $0"
+}
+
+help() {
+    echo "Release TypeScript client by pushing git tag"
     echo ""
-    echo "Before running:"
-    echo "1. Edit config/version.json with the desired versions"
-    echo "2. Commit your changes"
-    echo "3. Run this script to build, tag, publish, and release"
+    echo "Usage: $0 [OPTIONS...]"
     echo ""
-    echo "The script will:"
-    echo "- Validate all 5 required versions are present in config/version.json"
-    echo "- Run the build (which updates package.json and generates version.ts)"
-    echo "- Commit any generated file changes"
-    echo "- Create and push the git tag (lsp-v<version>)"
-    echo "- Publish the package to npm"
-    echo "- Create a GitHub release with the package archive"
+    echo "Options:"
+    echo "  --help, -h            Show this help message"
     echo ""
-    echo "Required environment variables for publishing:"
-    echo "- NODE_AUTH_TOKEN: npm token for publishing (or be logged in via `npm login`)"
-    echo "- GITHUB_TOKEN: for creating the GitHub release (or be logged in via `gh auth`)"
+    echo "Pre-release checks:"
+    echo "  - Git working directory must be clean"
+    echo "  - Changelog entry must exist for the version being released"
+    echo "  - Git tag must not already exist"
+    echo ""
+    echo "This will push tag: typescript-client-v${PACKAGE_VERSION}"
 }
 
 # Parse arguments
@@ -34,92 +39,73 @@ for arg in "$@"; do
             exit 0
             ;;
         *)
-            echo -e "Unknown argument: $arg"
+            echo -e "${YELLOW}Unknown argument: $arg${NC}"
             usage
             exit 1
             ;;
     esac
 done
 
-echo "Starting release process..."
+echo -e "${BLUE}=========================================${NC}"
+echo -e "${BLUE}  Release TypeScript Client${NC}"
+echo -e "${BLUE}  Version: v$PACKAGE_VERSION${NC}"
+echo -e "${BLUE}=========================================${NC}"
+echo
 
-check_required_commands
+# Pre-release checks
+echo -e "${YELLOW}Running pre-release checks...${NC}"
 
-ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-CONFIG_JSON="$ROOT_DIR/config/version.json"
-
-[[ -f "$CONFIG_JSON" ]] || die "Missing $CONFIG_JSON"
-
-# Validate all required versions are present
-validate_all_versions
-
-echo "📌 Release versions:"
-echo "   lsp-version:            $LSP_VERSION"
-echo "   proxy-image-version:    $PROXY_IMAGE_VERSION"
-echo "   wrapper-image-version:  $WRAPPER_IMAGE_VERSION"
-echo "   watchdog-image-version: $WATCHDOG_IMAGE_VERSION"
-echo "   language-image-version: $LANGUAGE_IMAGE_VERSION"
-
-# Build (this updates package.json version and generates version.ts)
-echo "🔨 Running build..."
-npm run build
-
-read_package_metadata
-
-check_changelog_entry
-
-TAG="typescript-cli-v$LSP_VERSION"
-CURRENT_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
-
-# Refuse to overwrite an existing tag
-if git rev-parse "$TAG" >/dev/null 2>&1; then
-  die "Git tag $TAG already exists. If re-releasing, delete the tag first."
+# Check working directory is clean
+if ! is_git_working_directory_clean "$CLIENT_DIR"; then
+    echo -e "${RED}Error: Git working directory is not clean${NC}"
+    echo -e "${YELLOW}Please commit or stash your changes before releasing${NC}"
+    exit 1
 fi
+echo -e "${GREEN}✓ Git working directory is clean${NC}"
 
-# Stage generated files that may have changed
-git add \
-  config/version.json \
-  package.json \
-  src/__generated/version.ts \
-
-# Commit only if there are staged changes
-if git diff --cached --quiet; then
-  echo "ℹ️  No generated file changes to commit."
-else
-  git commit -m "chore(release): $TAG"
+# Check version is semver
+if ! is_semver "$PACKAGE_VERSION"; then
+    echo -e "${RED}Error: Package version must be in MAJOR.MINOR.PATCH format${NC}"
+    echo -e "${YELLOW}Current version: $PACKAGE_VERSION${NC}"
+    exit 1
 fi
+echo -e "${GREEN}✓ Package version is valid semver: $PACKAGE_VERSION${NC}"
 
-# Verify working directory is clean before tagging
-check_clean_working_directory
+# Check changelog entry
+if ! has_changelog_entry "$PACKAGE_VERSION" "$CLIENT_DIR/CHANGELOG.md"; then
+    echo -e "${RED}Error: Changelog entry missing for version $PACKAGE_VERSION${NC}"
+    echo -e "${YELLOW}Please add a changelog entry in clients/typescript/CHANGELOG.md with format:${NC}"
+    echo -e "${YELLOW}  ## [$PACKAGE_VERSION] - YYYY-MM-DD${NC}"
+    exit 1
+fi
+echo -e "${GREEN}✓ Changelog entry exists for version $PACKAGE_VERSION${NC}"
 
-# Push the commit first (so the tag points to a pushed commit)
-git push origin "$CURRENT_BRANCH"
+# Check tag doesn't exist
+TAG="typescript-client-v$PACKAGE_VERSION"
+if git_tag_exists "$TAG"; then
+    echo -e "${RED}Error: Git tag $TAG already exists${NC}"
+    exit 1
+fi
+echo -e "${GREEN}✓ Git tag $TAG does not exist${NC}"
 
-# Create an annotated tag and push it
-git tag -a "$TAG" -m "Release $TAG"
+echo -e "${GREEN}All pre-release checks passed${NC}"
+echo
+
+# Push tag
+echo -e "${YELLOW}Pushing git tag...${NC}"
+echo -e "${BLUE}Creating and pushing tag: $TAG${NC}"
+git tag "$TAG"
 git push origin "$TAG"
+echo -e "${GREEN}✓ Tag $TAG pushed${NC}"
 
-echo "✅ Release $TAG tagged and pushed."
-
-# Create package archive
-echo "📦 Creating package archive..."
-archive_dir=$(mktemp -d)
-cleanup() {
-    rm -rf "$archive_dir"
-}
-trap cleanup EXIT
-archive_file="$(npm pack --pack-destination "$archive_dir" | tail -1)"
-
-# Publish to npm
-echo "🚀 Publishing to npm..."
-npm publish
-
-# Create GitHub release
-echo "📝 Creating GitHub release..."
-gh release create "$TAG" "$archive_file" \
-    --title "Release $package_version" \
-    --generate-notes \
-    --latest
-
-echo "✅ Release $package_version published successfully!"
-echo "   npm: https://www.npmjs.com/package/$package_name/v/$package_version"
+echo
+echo -e "${GREEN}=========================================${NC}"
+echo -e "${GREEN}  Release Complete${NC}"
+echo -e "${GREEN}=========================================${NC}"
+echo
+echo -e "${BLUE}GitHub Actions workflow will now:${NC}"
+echo -e "${BLUE}  1. Run tests${NC}"
+echo -e "${BLUE}  2. Build the package${NC}"
+echo -e "${BLUE}  3. Publish to npm${NC}"
+echo -e "${BLUE}  4. Create GitHub release for $TAG${NC}"
+echo

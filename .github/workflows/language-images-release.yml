@@ -26,18 +26,18 @@ jobs:
         id: version
         run: |
           TAG_VERSION="${GITHUB_REF#refs/tags/language-images-v}"
-          DEFAULT_VERSION=$(cat language-image-version)
+          CURRENT_VERSION=$(cat language-image-version)
 
           echo "Tag version: $TAG_VERSION"
-          echo "Default language version: $DEFAULT_VERSION"
+          echo "Current language version: $CURRENT_VERSION"
 
-          if [ "$TAG_VERSION" != "$DEFAULT_VERSION" ]; then
-            echo "Error: Tag version ($TAG_VERSION) does not match default language version ($DEFAULT_VERSION)"
+          if [ "$TAG_VERSION" != "$CURRENT_VERSION" ]; then
+            echo "Error: Tag version ($TAG_VERSION) does not match current language version ($CURRENT_VERSION)"
             exit 1
           fi
 
-          echo "✓ Tag version matches default language version"
-          echo "LANGUAGE_TAG=$DEFAULT_VERSION" >> $GITHUB_OUTPUT
+          echo "✓ Tag version matches current language version"
+          echo "LANGUAGE_TAG=$CURRENT_VERSION" >> $GITHUB_OUTPUT
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
@@ -68,22 +68,10 @@ jobs:
           body: |
             ## Language Images Release v${{ steps.version.outputs.LANGUAGE_TAG }}
 
-            Multi-platform Docker images for all supported language servers.
+            Published multi-platform Docker images for all supported language servers to ${{ env.REGISTRY }}.
 
-            ### Images Published
-            - `${{ env.REGISTRY }}/nuanced-lsp-clangd:${{ steps.version.outputs.LANGUAGE_TAG }}`
-            - `${{ env.REGISTRY }}/nuanced-lsp-csharp:${{ steps.version.outputs.LANGUAGE_TAG }}`
-            - `${{ env.REGISTRY }}/nuanced-lsp-golang:${{ steps.version.outputs.LANGUAGE_TAG }}`
-            - `${{ env.REGISTRY }}/nuanced-lsp-java:${{ steps.version.outputs.LANGUAGE_TAG }}`
-            - `${{ env.REGISTRY }}/nuanced-lsp-php:${{ steps.version.outputs.LANGUAGE_TAG }}`
-            - `${{ env.REGISTRY }}/nuanced-lsp-python:${{ steps.version.outputs.LANGUAGE_TAG }}`
-            - `${{ env.REGISTRY }}/nuanced-lsp-ruby-*:${{ steps.version.outputs.LANGUAGE_TAG }}`
-            - `${{ env.REGISTRY }}/nuanced-lsp-ruby-sorbet-*:${{ steps.version.outputs.LANGUAGE_TAG }}`
-            - `${{ env.REGISTRY }}/nuanced-lsp-rust:${{ steps.version.outputs.LANGUAGE_TAG }}`
-            - `${{ env.REGISTRY }}/nuanced-lsp-typescript:${{ steps.version.outputs.LANGUAGE_TAG }}`
+            ### Changes
 
-            ### Platforms
-            - linux/amd64
-            - linux/arm64
+            See [CHANGELOG.md](${{ github.server_url }}/${{ github.repository }}/blob/${{ github.ref_name }}/CHANGELOG.md) for details.
           draft: false
           prerelease: false
