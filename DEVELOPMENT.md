@@ -175,7 +175,7 @@ Common custom publish workflows:
 
 **Building:**
 
-Build the langauge images:
+Build the language images:
 
 ```bash
 scripts/build-images.sh --all-languages

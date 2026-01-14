@@ -3,7 +3,7 @@ name: Release Language Images
 on:
   push:
     tags:
-      - 'language-images-v*'
+      - 'language-images-*-v*'
 
 permissions:
   contents: write
@@ -22,22 +22,19 @@ jobs:
 
       - uses: docker/setup-buildx-action@v3
 
-      - name: Validate tag version
-        id: version
+      - name: Parse tag
+        id: tag
         run: |
-          TAG_VERSION="${GITHUB_REF#refs/tags/language-images-v}"
-          CURRENT_VERSION=$(cat language-image-version)
+          # Format: language-images-LANGUAGE-vX.Y.Z
+          TAG_NAME="${GITHUB_REF#refs/tags/language-images-}"
+          LANGUAGE="${TAG_NAME%-v*}"
+          VERSION="${TAG_NAME##*-v}"
 
-          echo "Tag version: $TAG_VERSION"
-          echo "Current language version: $CURRENT_VERSION"
+          echo "Language: $LANGUAGE"
+          echo "Tag: $TAG"
 
-          if [ "$TAG_VERSION" != "$CURRENT_VERSION" ]; then
-            echo "Error: Tag version ($TAG_VERSION) does not match current language version ($CURRENT_VERSION)"
-            exit 1
-          fi
-
-          echo "✓ Tag version matches current language version"
-          echo "LANGUAGE_TAG=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+          echo "LANGUAGE=$LANGUAGE" >> $GITHUB_OUTPUT
+          echo "LANGUAGE_TAG=$TAG" >> $GITHUB_OUTPUT
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
@@ -49,29 +46,27 @@ jobs:
       - name: Build multi-platform language images
         run: |
           ./scripts/build-images.sh \
-            --all-languages \
+            --languages=${{ steps.tag.outputs.LANGUAGE }} \
+            --language-tag=${{ steps.tag.outputs.LANGUAGE_TAG }} \
             --multi-platform \
             --cache=gha \
             --sequential
 
-      - name: Publish language images
+      - name: Publish images
         run: |
           ./scripts/publish-images.sh \
-            --all-languages \
+            --languages=${{ steps.tag.outputs.LANGUAGE }} \
+            --language-tag=${{ steps.tag.outputs.LANGUAGE_TAG }} \
             --registry=${{ env.REGISTRY }}
 
-      - name: Create GitHub Release
+      - name: Create release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: language-images-v${{ steps.version.outputs.LANGUAGE_TAG }}
-          name: Language Images v${{ steps.version.outputs.LANGUAGE_TAG }}
+          tag_name: ${{ github.ref_name }}
+          name: ${{ steps.tag.outputs.LANGUAGE }} v${{ steps.tag.outputs.LANGUAGE_TAG }}
           body: |
-            ## Language Images Release v${{ steps.version.outputs.LANGUAGE_TAG }}
+            ## ${{ steps.tag.outputs.LANGUAGE }} v${{ steps.tag.outputs.LANGUAGE_TAG }} release
 
-            Published multi-platform Docker images for all supported language servers to ${{ env.REGISTRY }}.
-
-            ### Changes
-
-            See [CHANGELOG.md](${{ github.server_url }}/${{ github.repository }}/blob/${{ github.ref_name }}/CHANGELOG.md) for details.
+            Published multi-platform Docker language images for ${{ steps.tag.outputs.LANGUAGE }} v${{ steps.tag.outputs.LANGUAGE_TAG }}.
           draft: false
           prerelease: false

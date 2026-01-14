@@ -44,6 +44,18 @@ is_semver() {
     [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
 }
 
+# Extract major version from semver tag or fail if not in semver format
+# Usage: extract_major_version VERSION
+extract_major_version() {
+    local version="$1"
+    if is_semver "$version"; then
+        echo "${version%%.*}"
+        exit 0
+    else
+        exit 1
+    fi
+}
+
 # Check if git tag exists
 # Usage: git_tag_exists TAG
 git_tag_exists() {

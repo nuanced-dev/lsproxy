@@ -24,9 +24,10 @@ const DEFAULT_SERVICE_IMAGE_VERSION: &str = env!("CARGO_PKG_VERSION");
 const BUILD_SERVICE_IMAGE_VERSION: Option<&'static str> = option_env!("SERVICE_IMAGE_VERSION");
 
 /// Default version tag for language containers (python, ruby, typescript, etc.)
+/// Uses major version only to enable sticky image versions across patch updates.
 /// Can be overridden with LANGUAGE_IMAGE_VERSION environment variable at build
 /// or runtime.
-const DEFAULT_LANGUAGE_IMAGE_VERSION: &str = include_str!("../../../../language-image-version");
+const DEFAULT_LANGUAGE_IMAGE_VERSION: &str = "1";
 
 /// Override version tag for Rust containers specified at runtime.
 const BUILD_LANGUAGE_IMAGE_VERSION: Option<&'static str> = option_env!("LANGUAGE_IMAGE_VERSION");

@@ -168,6 +168,7 @@ PUBLISHED_IMAGES=()
 # Function to tag and push an image
 publish_image() {
     local image="$1"
+    local additional_images=("${@:2}")
 
     echo -e "${BLUE}Publishing ${image}...${NC}"
 
@@ -178,15 +179,28 @@ publish_image() {
 
     # Publish to specified registry
     local registry_image="${REGISTRY}/${image}"
+    local additional_registry_images=()
+    for additional_image in "${additional_images[@]}"; do
+        additional_registry_images+=("${REGISTRY}/${additional_image}")
+    done
 
     if [ "$DRY_RUN" = true ]; then
-        echo -e "${YELLOW}[DRY RUN] Would tag: ${image} → ${registry_image}${NC}"
-        echo -e "${YELLOW}[DRY RUN] Would push: ${registry_image}${NC}"
+        echo -e "${YELLOW}[DRY RUN] Would tag and push: ${registry_image}${NC}"
+        for additional_registry_image in "${additional_registry_images[@]}"; do
+            echo -e "${YELLOW}[DRY RUN] Would also tag and push: ${additional_registry_image}${NC}"
+        done
     else
         docker tag "$image" "$registry_image"
         docker push "$registry_image"
         PUBLISHED_IMAGES+=("${registry_image}")
-        echo -e "${GREEN}✓ Published to ${REGISTRY}: ${registry_image}${NC}"
+        echo -e "${GREEN}✓ Published: ${registry_image}${NC}"
+
+        for additional_registry_image in "${additional_registry_images[@]}"; do
+            docker tag "$image" "$additional_registry_image"
+            docker push "$additional_registry_image"
+            PUBLISHED_IMAGES+=("${additional_registry_image}")
+            echo -e "${GREEN}✓ Also published major: ${additional_registry_image}${NC}"
+        done
     fi
 
     return 0
@@ -242,7 +256,15 @@ if [ ${#UNVERSIONED_LANGUAGES[@]} -eq 0 ]; then
 else
     echo -e "${YELLOW}Publishing ${#UNVERSIONED_LANGUAGES[@]} language images${NC}"
     for lang in "${UNVERSIONED_LANGUAGES[@]}"; do
-        publish_image "nuanced-lsp-${lang}:$LANGUAGE_TAG" || failed=$((failed + 1))
+        local image_tags=("nuanced-lsp-${lang}:$LANGUAGE_TAG")
+
+        # Also tag with major version
+        local major_version
+        if major_version="$(extract_major_version "$LANGUAGE_TAG")"; then
+            image_tags+=("nuanced-lsp-${lang}:${major_version}")
+        fi
+
+        publish_image "${image_tags[@]}" || failed=$((failed + 1))
     done
 fi
 
@@ -251,7 +273,15 @@ if [ ${#RUBY_VERSIONS[@]} -eq 0 ]; then
 else
     echo -e "${YELLOW}Publishing Ruby images (${#RUBY_VERSIONS[@]} versions)${NC}"
     for ruby_version in "${RUBY_VERSIONS[@]}"; do
-        publish_image "nuanced-lsp-ruby-${ruby_version}:$LANGUAGE_TAG" || failed=$((failed + 1))
+        local image_tags=("nuanced-lsp-ruby-${ruby_version}:$LANGUAGE_TAG")
+
+        # Also tag with major version
+        local major_version
+        if major_version="$(extract_major_version "$LANGUAGE_TAG")"; then
+            image_tags+=("nuanced-lsp-ruby-${ruby_version}:${major_version}")
+        fi
+
+        publish_image "${image_tags[@]}" || failed=$((failed + 1))
     done
 fi
 
@@ -260,7 +290,15 @@ if [ ${#RUBY_SORBET_VERSIONS[@]} -eq 0 ]; then
 else
     echo -e "${YELLOW}Publishing Ruby Sorbet images (${#RUBY_SORBET_VERSIONS[@]} versions)${NC}"
     for ruby_version in "${RUBY_SORBET_VERSIONS[@]}"; do
-        publish_image "nuanced-lsp-ruby-sorbet-${ruby_version}:$LANGUAGE_TAG" || failed=$((failed + 1))
+        local image_tags=("nuanced-lsp-ruby-sorbet-${ruby_version}:$LANGUAGE_TAG")
+
+        # Also tag with major version
+        local major_version
+        if major_version="$(extract_major_version "$LANGUAGE_TAG")"; then
+            image_tags+=("nuanced-lsp-ruby-sorbet-${ruby_version}:${major_version}")
+        fi
+
+        publish_image "${image_tags[@]}" || failed=$((failed + 1))
     done
 fi
 

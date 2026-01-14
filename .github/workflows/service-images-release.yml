@@ -65,10 +65,10 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: service-images-v${{ steps.version.outputs.SERVICE_TAG }}
-          name: Service Images v${{ steps.version.outputs.SERVICE_TAG }}
+          tag_name: ${{ github.ref_name }}
+          name: Services v${{ steps.version.outputs.SERVICE_TAG }}
           body: |
-            ## Service Images Release v${{ steps.version.outputs.SERVICE_TAG }}
+            ## Services v${{ steps.version.outputs.SERVICE_TAG }} release
 
             Published multi-platform Docker service images to ${{ env.REGISTRY }}.
 

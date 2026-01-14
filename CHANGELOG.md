@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - The proxy will use service and language images with a specific
   version, instead of defaulting to `latest`, ensuring compatible
-  service containers. The versions are (a) the crate and langauge
+  service containers. The versions are (a) the crate and language
   versions in the repo, or (b) the values of `SERVICE_IMAGE_VERSION`
   and `LANGUAGE_IMAGE_VERSION` environment variables at build time, or
   (c) the values of those variables at run time.

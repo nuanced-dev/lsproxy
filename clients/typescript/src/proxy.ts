@@ -19,7 +19,6 @@ import {
   DEFAULT_CONTAINER_PORT,
   DEFAULT_CONTAINER_REGISTRY,
   DEFAULT_HOST_PORT,
-  DEFAULT_LANGUAGE_IMAGE_VERSION,
   DEFAULT_MOUNT_DIR,
   DEFAULT_SERVICE_IMAGE_VERSION,
   DEFAULT_TIMEOUT_SECS,
@@ -238,7 +237,6 @@ export async function up(
 ): Promise<DockerResult<UpResult>> {
   const {
     containerName = DEFAULT_CONTAINER_NAME,
-    languageImageVersion = DEFAULT_LANGUAGE_IMAGE_VERSION,
     serviceImageVersion = DEFAULT_SERVICE_IMAGE_VERSION,
     containerRegistry = DEFAULT_CONTAINER_REGISTRY,
     timeout = DEFAULT_TIMEOUT_SECS,
@@ -246,10 +244,9 @@ export async function up(
     stream = false,
     ro = false,
     bindHost = DEFAULT_BIND_HOST,
+    hostPort = DEFAULT_HOST_PORT,
     debug = false,
   } = opts;
-
-  let { hostPort = DEFAULT_HOST_PORT } = opts;
 
   if (!Number.isInteger(hostPort) || hostPort < 0) {
     throw new Error(
@@ -309,11 +306,14 @@ export async function up(
     "-e",
     `CONTAINER_REGISTRY=${containerRegistry}`,
     "-e",
-    `LANGUAGE_IMAGE_VERSION=${languageImageVersion}`,
-    "-e",
     `SERVICE_IMAGE_VERSION=${serviceImageVersion}`,
     // env flags inserted below
   ];
+
+  // Only set LANGUAGE_IMAGE_VERSION if provided
+  if (opts.languageImageVersion) {
+    args.push("-e", `LANGUAGE_IMAGE_VERSION=${opts.languageImageVersion}`);
+  }
 
   // Append env-file if provided
   if (opts.envFile && String(opts.envFile).trim()) {

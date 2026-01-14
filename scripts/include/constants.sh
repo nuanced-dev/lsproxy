@@ -1,12 +1,5 @@
 CONSTANTS_DIR="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")" && pwd)"
 
-if [ -n "${LANGUAGE_IMAGE_VERSION:+x}" ]; then
-    DEFAULT_LANGUAGE_TAG="$LANGUAGE_IMAGE_VERSION"
-else
-    DEFAULT_LANGUAGE_TAG="$(cat "$CONSTANTS_DIR/../../language-image-version")"
-fi
-export DEFAULT_LANGUAGE_TAG
-
 if [ -n "${SERVICE_IMAGE_VERSION:+x}" ]; then
     DEFAULT_SERVICE_TAG="$SERVICE_IMAGE_VERSION"
 else

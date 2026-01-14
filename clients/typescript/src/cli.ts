@@ -688,7 +688,7 @@ program
   )
   .option(
     "--language-image-version <version>",
-    `Nuanced LSP language image version (default: ${DEFAULT_LANGUAGE_IMAGE_VERSION})`,
+    "Language image version (default: from service)",
   )
   .option(
     "--service-image-version <version>",

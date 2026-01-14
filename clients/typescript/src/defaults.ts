@@ -7,7 +7,7 @@ export { VERSION };
 export const DEFAULT_CONTAINER_REGISTRY = "ghcr.io/nuanced-dev";
 
 // Language image version
-export const DEFAULT_LANGUAGE_IMAGE_VERSION = "1.0.0";
+export const DEFAULT_LANGUAGE_IMAGE_VERSION = "1";
 
 // Service image version
 export const DEFAULT_SERVICE_IMAGE_VERSION = "0.4.9";

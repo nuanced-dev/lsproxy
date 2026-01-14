@@ -136,9 +136,14 @@ if [ ${#SERVICES[@]} -eq 0 ] && [ ${#LANGUAGES[@]} -eq 0 ]; then
     exit 1
 fi
 
+# Language tag is required if building languages
+if [ ${#LANGUAGES[@]} -gt 0 ] && [ -z "$LANGUAGE_TAG" ]; then
+    echo -e "${RED}Error: --language-tag is required when building language images${NC}"
+    exit 1
+fi
+
 # Fall back to default tags
 SERVICE_TAG="${SERVICE_TAG:-$DEFAULT_SERVICE_TAG}"
-LANGUAGE_TAG="${LANGUAGE_TAG:-$DEFAULT_LANGUAGE_TAG}"
 REGISTRY="${REGISTRY:-$DEFAULT_REGISTRY}"
 
 # ---------------------------------------
@@ -206,8 +211,9 @@ compute_cache_flags() {
 
 build_image() {
     local dockerfile="$1"
-    local image_tag="$2"
-    local cache_name="$3"
+    local cache_name="$2"
+    local image_tag="$3"
+    local additional_image_tags=("${@:4}")
 
     echo -e "${BLUE}Building ${image_tag}...${NC}"
 
@@ -229,6 +235,12 @@ build_image() {
             size=$(docker images "${image_tag}" --format "{{.Size}}")
             echo -e "${GREEN}✓ ${image_tag} built successfully ($size)${NC}"
         fi
+
+        for additional_image_tag in "${additional_image_tags[@]}"; do
+            docker tag "$image_tag" "$additional_image_tag" >> "$log_file" 2>&1
+            echo -e "${GREEN}  Also tagged: ${additional_tag}${NC}"
+        done
+
         return 0
     else
         echo -e "${RED}✗ ${image_tag} failed to build${NC}"
@@ -249,7 +261,7 @@ build_service_image() {
     local image_tag="nuanced-lsp-${name}:${SERVICE_TAG}"
     local cache_name="$name"
 
-    build_image "$docker_file" "$image_tag" "$cache_name"
+    build_image "$docker_file" "$cache_name" "$image_tag"
 }
 
 # Build service images (proxy, watchdog, wrapper)
@@ -311,8 +323,6 @@ build_language_image() {
         image_name="nuanced-lsp-${lang}"
     fi
 
-    local image_tag="${image_name}:${LANGUAGE_TAG}"
-
     local cache_name
     if [ -n "$subdir" ]; then
         cache_name="${subdir}-${lang}"
@@ -320,7 +330,15 @@ build_language_image() {
         cache_name="${lang}"
     fi
 
-    build_image "$dockerfile" "$image_tag" "$cache_name"
+    local image_tags=("${image_name}:${LANGUAGE_TAG}")
+
+    # Also tag with major version
+    local major_version
+    if major_version="$(extract_major_version "$LANGUAGE_TAG")"; then
+        image_tags+=("${image_name}:${major_version}")
+    fi
+
+    build_image "$dockerfile" "$cache_name" "${image_tags[@]}"
 }
 
 # Throttled parallel build function
