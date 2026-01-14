@@ -1,16 +1,26 @@
 # Nuanced LSP
 
 This is the TypeScript library and CLI for the Nuanced LSP containerized code navigation service.
-It exposes [LSProxy](https://github.com/agentic-labs/lsproxy)'s API while adding container lifecycle commands and an ergonomic developer experience.
+
+- Nuanced LSP is designed to provide precise code navigation to agents or other tools.
+- It allows using LSP capabilities where setting up locally running LSP servers is impossible or undesirable (e.g., in cloud deployments). _It is not meant to replace local LSP servers for IDE use._
+- It exposes [LSProxy](https://github.com/agentic-labs/lsproxy)'s API to access code navigation information.
+
+## Requirements
+
+**System dependencies:**
+
+- Recent Node.js version installed
+- Docker daemon installed and running
+
+**Resource requirements:**
+
+- Memory usage is related to the size of the workspaces being used. The service containers use ~100MB memory. The language containers memory usage depends on the individual language servers and can run into GB's for large repos.
+- Disk usage is ~700MD for the service images, and on average ~1GB for per language image.
 
 ## Quick start
 
 **Install Nuanced LSP:**
-
-Requirement dependencies:
-
-- A recent Node.js installation
-- Docker daemon installed running
 
 Install the package:
 
