@@ -193,7 +193,7 @@ publish_image() {
     if [ "$DRY_RUN" = true ]; then
         echo -e "${YELLOW}[DRY RUN] Would tag and push: ${registry_image}${NC}"
         for additional_registry_image in "${additional_registry_images[@]}"; do
-            echo -e "${YELLOW}[DRY RUN] Would also tag and push: ${additional_registry_image}${NC}"
+            echo -e "${YELLOW}[DRY RUN] Would also tag: ${additional_registry_image}${NC}"
         done
     else
         docker tag "$image" "$registry_image"
@@ -202,8 +202,7 @@ publish_image() {
         echo -e "${GREEN}✓ Published: ${registry_image}${NC}"
 
         for additional_registry_image in "${additional_registry_images[@]}"; do
-            docker tag "$image" "$additional_registry_image"
-            docker push "$additional_registry_image"
+            docker buildx imagetools create --tag "${additional_registry_image}" "${registry_image}"
             PUBLISHED_IMAGES+=("${additional_registry_image}")
             echo -e "${GREEN}✓ Also published major: ${additional_registry_image}${NC}"
         done
