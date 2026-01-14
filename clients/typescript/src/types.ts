@@ -310,9 +310,9 @@ export type BaseCommandOptions = Named<
 export const UpCommandOptionsSchema = BaseCommandOptionsSchema.extend({
   containerName: z.string().optional(),
   hostPort: z.number().int().min(0).optional(),
+  containerRegistry: z.string().optional(),
   languageImageVersion: z.string().optional(),
   serviceImageVersion: z.string().optional(),
-  containerRegistry: z.string().optional(),
   timeout: z.number().optional(),
   sudo: z.boolean().optional(),
   stream: z.boolean().optional(),
@@ -374,13 +374,13 @@ export type StatusCommandOptions = Named<
 >;
 
 export const PullCommandOptionsSchema = BaseCommandOptionsSchema.extend({
+  containerRegistry: z.string().optional(),
   allLanguages: z.boolean().optional(),
   allServices: z.boolean().optional(),
   languageImageVersion: z.string().optional(),
   languages: z.string().optional(),
   serviceImageVersion: z.string().optional(),
   services: z.string().optional(),
-  containerRegistry: z.string().optional(),
   stream: z.boolean().optional(),
   sudo: z.boolean().optional(),
 });

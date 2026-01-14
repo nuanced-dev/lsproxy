@@ -98,9 +98,9 @@ export function workspacePath(langKey: string): string {
 }
 
 export const TIMEOUT_SECONDS = Number(process.env.NUANCED_LSP_TIMEOUT ?? "120");
+export const CONTAINER_REGISTRY = process.env.REGISTRY ?? "";
 export const LANGUAGE_IMAGE_VERSION = process.env.LANGUAGE_TAG ?? "";
 export const SERVICE_IMAGE_VERSION = process.env.SERVICE_TAG ?? "";
-export const CONTAINER_REGISTRY = process.env.REGISTRY ?? "";
 export const SYMBOL_SCENARIO_DELAY = Number(
   process.env.SYMBOL_SCENARIO_DELAY ?? "0",
 );

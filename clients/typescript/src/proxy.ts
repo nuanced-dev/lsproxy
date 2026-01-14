@@ -223,9 +223,9 @@ export async function up(
   opts: {
     hostPort?: number;
     containerName?: string;
+    containerRegistry?: string;
     languageImageVersion?: string;
     serviceImageVersion?: string;
-    containerRegistry?: string;
     timeout?: number;
     sudo?: boolean;
     stream?: boolean;
@@ -307,11 +307,11 @@ export async function up(
     "-e",
     `RUST_LOG=info${debug ? ",nuanced_lsp_proxy=debug,proxy=debug,nuanced_lsp_wrapper=debug,wrapper=debug" : ""}`,
     "-e",
+    `CONTAINER_REGISTRY=${containerRegistry}`,
+    "-e",
     `LANGUAGE_IMAGE_VERSION=${languageImageVersion}`,
     "-e",
     `SERVICE_IMAGE_VERSION=${serviceImageVersion}`,
-    "-e",
-    `CONTAINER_REGISTRY=${containerRegistry}`,
     // env flags inserted below
   ];
 

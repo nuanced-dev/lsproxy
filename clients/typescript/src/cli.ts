@@ -225,9 +225,12 @@ async function upCommand(
     log.info(`Starting Nuanced LSP container '${client.containerName}'...`);
 
   const res = await client.up(workspace, {
-    languageImageVersion: opts.languageImageVersion,
-    serviceImageVersion: opts.serviceImageVersion,
-    containerRegistry: opts.containerRegistry,
+    containerRegistry:
+      opts.containerRegistry ?? process.env.CONTAINER_REGISTRTY,
+    languageImageVersion:
+      opts.languageImageVersion ?? process.env.LANGUAGE_IMAGE_VERSION,
+    serviceImageVersion:
+      opts.serviceImageVersion ?? process.env.SERVICE_IMAGE_VERSION,
     timeout: opts.timeout,
     stream: opts.stream,
     ro: opts.ro,
@@ -393,19 +396,30 @@ async function pullCommand(opts: PullCommandOptions): Promise<void> {
   }
 
   // Get registry and image versions
-  const registry = opts.containerRegistry ?? DEFAULT_CONTAINER_REGISTRY;
-  const serviceVersion =
-    opts.serviceImageVersion ?? DEFAULT_SERVICE_IMAGE_VERSION;
+  const containerRegistry =
+    opts.containerRegistry ??
+    process.env.CONTAINER_REGISTRTY ??
+    DEFAULT_CONTAINER_REGISTRY;
   const languageVersion =
-    opts.languageImageVersion ?? DEFAULT_LANGUAGE_IMAGE_VERSION;
+    opts.languageImageVersion ??
+    process.env.LANGUAGE_IMAGE_VERSION ??
+    DEFAULT_LANGUAGE_IMAGE_VERSION;
+  const serviceVersion =
+    opts.serviceImageVersion ??
+    process.env.SERVICE_IMAGE_VERSION ??
+    DEFAULT_SERVICE_IMAGE_VERSION;
 
   // Build list of images to pull
   const images: string[] = [];
   for (const service of services) {
-    images.push(`${registry}/nuanced-lsp-${service}:${serviceVersion}`);
+    images.push(
+      `${containerRegistry}/nuanced-lsp-${service}:${serviceVersion}`,
+    );
   }
   for (const language of languages) {
-    images.push(`${registry}/nuanced-lsp-${language}:${languageVersion}`);
+    images.push(
+      `${containerRegistry}/nuanced-lsp-${language}:${languageVersion}`,
+    );
   }
 
   // Pull each image
@@ -652,7 +666,8 @@ program
   .option("--json", "Output machine-readable JSON") // harmless, consistent
   .action(versionCommand);
 
-// lifecycle commands
+program.commandsGroup("Lifecycle commands:");
+
 program
   .command("up")
   .description(ansi.pink("Start the Nuanced LSP container locally in Docker."))
@@ -668,16 +683,16 @@ program
     DEFAULT_BIND_HOST,
   )
   .option(
+    "--container-registry <registry>",
+    `Container registry (default: ${DEFAULT_CONTAINER_REGISTRY})`,
+  )
+  .option(
     "--language-image-version <version>",
     `Nuanced LSP language image version (default: ${DEFAULT_LANGUAGE_IMAGE_VERSION})`,
   )
   .option(
     "--service-image-version <version>",
     `Nuanced LSP service image version (default: ${DEFAULT_SERVICE_IMAGE_VERSION})`,
-  )
-  .option(
-    "--container-registry <registry>",
-    `Container registry (default: ${DEFAULT_CONTAINER_REGISTRY})`,
   )
   .option(
     "--container-name <name>",
@@ -784,6 +799,10 @@ program
 program
   .command("pull")
   .description(ansi.pink("Pull Nuanced LSP images."))
+  .option(
+    "--container-registry <registry>",
+    `Container registry (default: ${DEFAULT_CONTAINER_REGISTRY})`,
+  )
   .option("--all-languages", "Pull all language images")
   .option("--all-services", "Pull all service images")
   .option(
@@ -802,16 +821,13 @@ program
     "--services <list>",
     "Pull specific service images (comma-separated: proxy,watchdog,wrapper)",
   )
-  .option(
-    "--container-registry <registry>",
-    `Container registry (default: ${DEFAULT_CONTAINER_REGISTRY})`,
-  )
   .option("--sudo", "Run Docker commands with sudo")
   .option("--stream", "Stream process stdout and stderr")
   .option("--json", "Output machine-readable JSON")
   .action(pullCommand);
 
-// LSProxy workspace/API commands
+program.commandsGroup("System commands:");
+
 program
   .command("health")
   .description(ansi.pink("Check Nuanced LSP system health."))
@@ -828,6 +844,8 @@ program
   )
   .option("--json", "Output machine-readable JSON")
   .action(healthCommand);
+
+program.commandsGroup("Workspace commands:");
 
 program
   .command("list-files")
@@ -867,6 +885,8 @@ program
   )
   .option("--json", "Output machine-readable JSON")
   .action(readSourceCommand);
+
+program.commandsGroup("Symbols commands:");
 
 program
   .command("definitions-in-file <file>")

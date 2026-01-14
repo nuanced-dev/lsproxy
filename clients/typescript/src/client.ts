@@ -133,9 +133,9 @@ export class NuancedLspClient {
   async up(
     workspace: string,
     opts: {
+      containerRegistry?: string;
       languageImageVersion?: string;
       serviceImageVersion?: string;
-      containerRegistry?: string;
       timeout?: number;
       stream?: boolean;
       ro?: boolean;
@@ -149,9 +149,9 @@ export class NuancedLspClient {
     const result = await up(workspace, {
       containerName: this.containerName,
       hostPort: this.proxyPort,
+      containerRegistry: opts.containerRegistry,
       languageImageVersion: opts.languageImageVersion,
       serviceImageVersion: opts.serviceImageVersion,
-      containerRegistry: opts.containerRegistry,
       timeout: this.resolveTimeout(opts.timeout),
       sudo: this.sudo,
       stream: opts.stream,

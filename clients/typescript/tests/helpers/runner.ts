@@ -3,9 +3,9 @@ import { spawnSync, SpawnSyncOptions } from "node:child_process";
 
 import {
   TIMEOUT_SECONDS,
+  CONTAINER_REGISTRY,
   LANGUAGE_IMAGE_VERSION,
   SERVICE_IMAGE_VERSION,
-  CONTAINER_REGISTRY,
   SYMBOL_SCENARIO_DELAY,
   WORKSPACE_SCENARIO_DELAY,
   workspacePath,
@@ -27,9 +27,9 @@ export class ClientRunner {
   public readonly containerName: string;
   public hostPort: number;
   public readonly timeoutSeconds: number;
+  public readonly containerRegistry: string;
   public readonly languageImageVersion: string;
   public readonly serviceImageVersion: string;
-  public readonly containerRegistry: string;
   public readonly symbolDelay: number;
   public readonly workspaceDelay: number;
 
@@ -47,9 +47,9 @@ export class ClientRunner {
     this.requestedHostPort = fixedPort(options.workspace);
     this.hostPort = this.requestedHostPort;
     this.timeoutSeconds = TIMEOUT_SECONDS;
+    this.containerRegistry = CONTAINER_REGISTRY;
     this.languageImageVersion = LANGUAGE_IMAGE_VERSION;
     this.serviceImageVersion = SERVICE_IMAGE_VERSION;
-    this.containerRegistry = CONTAINER_REGISTRY;
     this.symbolDelay = SYMBOL_SCENARIO_DELAY;
     this.workspaceDelay = WORKSPACE_SCENARIO_DELAY;
   }
