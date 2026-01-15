@@ -220,12 +220,6 @@ if [ -n "$LANGUAGE_TAG" ]; then
     BUILD_CMD+=("--build-arg" "LANGUAGE_IMAGE_VERSION=$LANGUAGE_TAG")
 fi
 
-# Verify storage for multi-platform builds
-if [ "$MULTIPLATFORM" = true ] && [ "$(docker system info --format json | jq '.DriverStatus | any(.[]; .[0] == "driver-type" and .[1] == "io.containerd.snapshotter.v1")')" != true ]; then
-    echo -e "${RED}Error: Multi-arch builds require containerd storage so Docker can load the multi-platform images${NC}"
-    exit 1
-fi
-
 compute_cache_flags() {
     local name="$1"
     case "$CACHE_MODE" in
