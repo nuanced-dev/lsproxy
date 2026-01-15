@@ -3,7 +3,7 @@
 
 # Builder stage: Install .NET SDK and csharp-ls
 FROM debian:bookworm-slim AS builder
-LABEL org.opencontainers.image.source https://github.com/nuanced-dev/lsp
+LABEL org.opencontainers.image.source=https://github.com/nuanced-dev/lsp
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -30,7 +30,7 @@ RUN dotnet tool install --global csharp-ls
 # Wrapper binary will be mounted at runtime via --volumes-from
 # .NET is self-contained, doesn't need build tools
 FROM debian:bookworm-slim
-LABEL org.opencontainers.image.source https://github.com/nuanced-dev/lsp
+LABEL org.opencontainers.image.source=https://github.com/nuanced-dev/lsp
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV HOME=/home/user

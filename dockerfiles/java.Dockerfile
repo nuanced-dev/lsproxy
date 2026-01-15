@@ -4,7 +4,7 @@
 
 # Builder stage: Download jdtls
 FROM debian:bookworm-slim AS builder
-LABEL org.opencontainers.image.source https://github.com/nuanced-dev/lsp
+LABEL org.opencontainers.image.source=https://github.com/nuanced-dev/lsp
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -24,7 +24,7 @@ RUN curl -L -o /tmp/jdt-language-server.tar.gz https://www.eclipse.org/downloads
 # Wrapper binary will be mounted at runtime via --volumes-from
 # Java is JVM-based, doesn't need build tools
 FROM debian:bookworm-slim
-LABEL org.opencontainers.image.source https://github.com/nuanced-dev/lsp
+LABEL org.opencontainers.image.source=https://github.com/nuanced-dev/lsp
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV HOME=/home/user

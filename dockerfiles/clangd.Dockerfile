@@ -4,7 +4,7 @@
 # Runtime stage: Pure Debian base (standalone image with language-specific LSP server)
 # Wrapper binary will be mounted at runtime via --volumes-from
 FROM debian:bookworm-slim
-LABEL org.opencontainers.image.source https://github.com/nuanced-dev/lsp
+LABEL org.opencontainers.image.source=https://github.com/nuanced-dev/lsp
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV HOME=/home/user

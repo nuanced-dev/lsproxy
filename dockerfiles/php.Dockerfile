@@ -3,7 +3,7 @@
 
 # Builder stage: Install Composer and Phpactor (needs PHP to run composer install)
 FROM debian:bookworm-slim AS builder
-LABEL org.opencontainers.image.source https://github.com/nuanced-dev/lsp
+LABEL org.opencontainers.image.source=https://github.com/nuanced-dev/lsp
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -33,7 +33,7 @@ RUN cd /usr/src && \
 # Runtime stage: Pure Debian base (standalone image with language-specific LSP server)
 # Wrapper binary will be mounted at runtime via --volumes-from
 FROM debian:bookworm-slim
-LABEL org.opencontainers.image.source https://github.com/nuanced-dev/lsp
+LABEL org.opencontainers.image.source=https://github.com/nuanced-dev/lsp
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV HOME=/home/user
