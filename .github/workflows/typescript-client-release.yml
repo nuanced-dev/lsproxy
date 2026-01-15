@@ -64,7 +64,7 @@ jobs:
             ### Installation
 
             ```bash
-            npm install @nuanced-dev/lsp@${{ steps.version.outputs.VERSION }}
+            npm install -g @nuanced-dev/lsp@${{ steps.version.outputs.VERSION }}
             ```
 
             ### Changes
