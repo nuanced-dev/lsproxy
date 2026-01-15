@@ -400,3 +400,19 @@ Follow these steps to release a new version of a language image:
    The release script supports multiple languages, and even `--all-languages`, but releasing all languages is probably only necessary if the interface between the wrapper and the language containers changes (and thus the major version).
 
 1. If releases are successful, merge the release branch.
+
+### GHCR permission errors
+
+If the image release workflow fails with an error like the following, the package permissions on GitHub are wrong.
+
+```
+#15 ERROR: failed to push ghcr.io/nuanced-dev/nuanced-lsp-watchdog:0.4.9: denied: permission_denied: write_package
+```
+
+To fix this, do the following:
+
+1. Find the package on https://github.com/orgs/nuanced-dev/packages. For example, <https://github.com/orgs/nuanced-dev/packages/container/package/nuanced-lsp-watchdog> for the watchdog. Link the package to the `nuanced-dev/lsp` repository, if it isn't already.
+
+1. Go to the package settings. For example, <https://github.com/orgs/nuanced-dev/packages/container/nuanced-lsp-watchdog/settings> for the watchdog. Add the `nuanced-dev/lsp` repository under "Actions access" and give it Admin role.
+
+_Unfortunately, there is no API or other way to do this in bulk. It has to be done in the UI for every package that has this issue._
