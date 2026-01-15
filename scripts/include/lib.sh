@@ -13,7 +13,7 @@ has_commands() {
     return $result
 }
 
-# Ensure there's a line `[version] - YYYY-MM-DD` in CHANGELOG.md
+# Ensure there's a line `[version] - YYYY-MM-DD` in a changelog file
 # Usage: has_changelog_entry VERSION FILE
 has_changelog_entry() {
     local version="$1"

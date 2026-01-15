@@ -68,5 +68,9 @@ jobs:
             ## ${{ steps.tag.outputs.LANGUAGE }} v${{ steps.tag.outputs.LANGUAGE_TAG }} release
 
             Published multi-platform Docker language images for ${{ steps.tag.outputs.LANGUAGE }} v${{ steps.tag.outputs.LANGUAGE_TAG }}.
+
+            ### Changes
+
+            See [changelog](${{ github.server_url }}/${{ github.repository }}/blob/${{ github.ref_name }}/CHANGELOG.languages.md) for details.
           draft: false
           prerelease: false

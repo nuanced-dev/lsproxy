@@ -29,6 +29,7 @@ help() {
     echo ""
     echo "Pre-release checks:"
     echo "  - Git working directory must be clean"
+    echo "  - Changelog entries must exist for all languages"
     echo "  - Version must be valid semver"
     echo "  - Git tags must not already exist"
     echo ""
@@ -152,6 +153,19 @@ if ! is_git_working_directory_clean "$ROOT_DIR"; then
     exit 1
 fi
 echo -e "${GREEN}✓ Git working directory is clean${NC}"
+
+# Check changelog entries
+CHANGELOG_FILE="$ROOT_DIR/CHANGELOG.languages.md"
+for lang in "${EXPANDED_LANGUAGES[@]}"; do
+    CHANGELOG_ENTRY="${lang} ${LANGUAGE_TAG}"
+    if ! has_changelog_entry "$CHANGELOG_ENTRY" "$CHANGELOG_FILE"; then
+        echo -e "${RED}Error: Missing changelog entry for [$CHANGELOG_ENTRY]${NC}"
+        echo -e "${YELLOW}Please add a changelog entry in CHANGELOG.languages.md with format:${NC}"
+        echo -e "${YELLOW}  ## [$CHANGELOG_ENTRY] - $(date -I)${NC}"
+        exit 1
+    fi
+done
+echo -e "${GREEN}✓ Changelog entries exist for all languages${NC}"
 
 # Check tags don't exist for any language
 TAGS_TO_CREATE=()

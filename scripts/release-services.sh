@@ -57,10 +57,11 @@ fi
 echo -e "${GREEN}✓ Git working directory is clean${NC}"
 
 # Check changelog entry
-if ! has_changelog_entry "$DEFAULT_SERVICE_TAG" "$ROOT_DIR/CHANGELOG.md"; then
+CHANGELOG_FILE="$ROOT_DIR/CHANGELOG.services.md"
+if ! has_changelog_entry "$DEFAULT_SERVICE_TAG" "$CHANGELOG_FILE"; then
     echo -e "${RED}Error: Missing changelog entry for $DEFAULT_SERVICE_TAG${NC}"
-    echo -e "${YELLOW}Please add a changelog entry in CHANGELOG.md with format:${NC}"
-    echo -e "${YELLOW}  ## [$DEFAULT_SERVICE_TAG] - YYYY-MM-DD${NC}"
+    echo -e "${YELLOW}Please add a changelog entry in CHANGELOG.services.md with format:${NC}"
+    echo -e "${YELLOW}  ## [$DEFAULT_SERVICE_TAG] - $(date -I)${NC}"
     exit 1
 fi
 echo -e "${GREEN}✓ Changelog entry exists for $DEFAULT_SERVICE_TAG${NC}"

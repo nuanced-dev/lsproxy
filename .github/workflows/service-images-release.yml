@@ -74,6 +74,6 @@ jobs:
 
             ### Changes
 
-            See [CHANGELOG.md](${{ github.server_url }}/${{ github.repository }}/blob/${{ github.ref_name }}/CHANGELOG.md) for details.
+            See [changelog](${{ github.server_url }}/${{ github.repository }}/blob/${{ github.ref_name }}/CHANGELOG.services.md) for details.
           draft: false
           prerelease: false

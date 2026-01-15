@@ -395,7 +395,7 @@ Follow these steps to release a new version of the service images:
 
 1. Update the crate version in `Cargo.toml` to the desired new version.
 
-1. Update the [changelog](CHANGELOG.md) to include an entry for the new version.
+1. Update the [changelog](CHANGELOG.services.md) to include an entry for the new version.
 
 1. Run the release script:
 
@@ -414,6 +414,8 @@ Follow these steps to release a new version of a language image:
 1. Open a branch for the new release.
 
 1. Determine the MAJOR.MINOR.PATCH language version you want to release.
+
+1. Update the [changelog](CHANGELOG.languages.md) to include entries for each language being released.
 
 1. Run the release script:
 
