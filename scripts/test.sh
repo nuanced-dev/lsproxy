@@ -1,8 +1,65 @@
 #!/usr/bin/env bash
-# Comprehensive test suite for Nuanced LSP.
-# Runs all test suites: Rust unit/integration tests and shell-based endpoint tests.
 
-set -e  # Exit immediately if a command exits with a non-zero status
+set -eu  # Exit immediately if a command exits with a non-zero status
+
+SCRIPT_DIR="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")" && pwd)"
+
+source "$SCRIPT_DIR/include/colors.sh"
+source "$SCRIPT_DIR/include/constants.sh"
+
+help() {
+    echo "Comprehensive test suite for Nuanced LSP"
+    echo ""
+    echo "Usage: $0 [OPTIONS...]"
+    echo ""
+    echo "Options:"
+    echo "  --language-tag=TAG    Tag of language images to use"
+    echo "  --service-tag=TAG     Tag of service images to use (default: $DEFAULT_SERVICE_TAG)"
+    echo "  --help, -h            Show this help"
+    echo ""
+    echo "Runs all test suites: Rust unit/integration tests and shell-based endpoint tests."
+}
+
+# Default values
+LANGUAGE_TAG=""
+SERVICE_TAG=""
+
+# Parse options
+for arg in "$@"; do
+    case $arg in
+        --language-tag=*)
+            LANGUAGE_TAG="${arg#*=}"
+            ;;
+        --service-tag=*)
+            SERVICE_TAG="${arg#*=}"
+            ;;
+        --help|-h)
+            help
+            exit 0
+            ;;
+        *)
+            echo -e "${RED}Unknown option: $arg${NC}"
+            exit 1
+            ;;
+    esac
+done
+
+# Flags to pass on to other tests
+TAG_FLAGS=()
+CARGO_ENV=()
+if [ -n "$SERVICE_TAG" ]; then
+    echo "Using service image version: ${SERVICE_TAG}"
+    TAG_FLAGS+=("--service-tag=$SERVICE_TAG")
+    CARGO_ENV+=("SERVICE_IMAGE_VERSION=$SERVICE_TAG")
+fi
+if [ -n "$LANGUAGE_TAG" ]; then
+    echo "Using language image version: ${LANGUAGE_TAG}"
+    TAG_FLAGS+=("--language-tag=$LANGUAGE_TAG")
+    CARGO_ENV+=("LANGUAGE_IMAGE_VERSION=$LANGUAGE_TAG")
+fi
+
+# Fall back to default tags
+SERVICE_TAG="${SERVICE_TAG:-$DEFAULT_SERVICE_TAG}"
 
 echo "========================================"
 echo "  Nuanced LSP Test Suite                "
@@ -18,25 +75,18 @@ fi
 # 1. Run Rust unit and integration tests
 echo "1. Running Rust unit and integration tests..."
 echo "----------------------------------------"
-# Set Docker image versions for tests
-# Use "latest" for development, or override with specific versions for production testing
-export RUST_IMAGE_VERSION="${RUST_IMAGE_VERSION:-latest}"
-export LANGUAGE_IMAGE_VERSION="${LANGUAGE_IMAGE_VERSION:-1.0.0}"
-echo "Using image versions: Rust=${RUST_IMAGE_VERSION}, Language=${LANGUAGE_IMAGE_VERSION}"
 # Run with --test-threads=1 to ensure serial execution of integration tests
 # The container orchestration tests use #[serial] and a shared fixture
-cargo test --workspace -- --test-threads=1 $@
+env "${CARGO_ENV[@]}" cargo test --workspace --all-targets --all-features -- --test-threads=1
 echo "✓ Rust tests passed"
 echo
 
 # 2. Build all containers (if not already built)
 echo "2. Checking Docker images..."
 echo "----------------------------------------"
-if ! docker images | grep -q "nuanced-lsp-proxy.*latest"; then
-    echo "Service image not found. Building Rust images..."
-    ./scripts/build-rust-images.sh
-    echo "Building language images..."
-    ./scripts/build-language-images.sh
+if ! docker images | grep -F "nuanced-lsp-proxy" | grep -qF "$SERVICE_TAG"; then
+    echo "✗ Service image not found. Build first with scripts/build-images.sh --all-services"
+    exit 1
 else
     echo "✓ Docker images found"
 fi
@@ -45,19 +95,19 @@ echo
 # 3. Run container lifecycle tests
 echo "3. Running container lifecycle tests..."
 echo "----------------------------------------"
-./scripts/test-container-lifecycle.sh
+./scripts/test-container-lifecycle.sh "${TAG_FLAGS[@]}"
 echo
 
 # 4. Run watchdog tests
 echo "4. Running watchdog tests..."
 echo "----------------------------------------"
-./scripts/test-watchdog.sh
+./scripts/test-watchdog.sh "${TAG_FLAGS[@]}"
 echo
 
 # 5. Run endpoint tests
 echo "5. Running endpoint tests..."
 echo "----------------------------------------"
-./scripts/test-all-endpoints.sh
+./scripts/test-all-endpoints.sh "${TAG_FLAGS[@]}"
 echo
 
 echo "========================================"

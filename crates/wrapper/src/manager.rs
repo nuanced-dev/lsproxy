@@ -8,7 +8,7 @@ use common::ast_grep::client::AstGrepClient;
 use common::ast_grep::types::AstGrepMatch;
 use common::utils::file_utils::uri_to_relative_path_string;
 use common::utils::workspace_documents::WorkspaceDocuments;
-use log::{error, warn};
+use log::warn;
 use lsp_types::{GotoDefinitionResponse, Location, Position, Range};
 use std::sync::Arc;
 use thiserror::Error;

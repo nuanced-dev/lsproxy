@@ -5,19 +5,19 @@ edition.workspace = true
 
 [dependencies]
 ast-grep.workspace = true
-serde.workspace = true
-serde_json.workspace = true
-lsp-types.workspace = true
+async-trait.workspace = true
 glob.workspace = true
 ignore.workspace = true
-url.workspace = true
-utoipa.workspace = true
+log.workspace = true
+lsp-types.workspace = true
+serde_json.workspace = true
+serde.workspace = true
 strum = "0.26"
 strum_macros = "0.26"
-tokio.workspace = true
-async-trait.workspace = true
-log.workspace = true
 thiserror.workspace = true
+tokio.workspace = true
+url.workspace = true
+utoipa.workspace = true
 
 # Common crate specific
 notify-debouncer-mini = "0.4"

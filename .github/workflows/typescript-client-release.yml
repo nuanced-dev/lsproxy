@@ -1,0 +1,76 @@
+name: Release TypeScript Client
+
+on:
+  push:
+    tags:
+      - 'typescript-client-v*'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  id-token: write # allows trusted publishing to NPM
+
+defaults:
+  run:
+    working-directory: clients/typescript
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js 24.x
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
+
+      - name: Validate tag version
+        id: version
+        run: |
+          TAG_VERSION="${GITHUB_REF#refs/tags/typescript-client-v}"
+          PACKAGE_VERSION=$(node -p "require('./package.json').version")
+
+          echo "Tag version: $TAG_VERSION"
+          echo "Current package version: $PACKAGE_VERSION"
+
+          if [ "$TAG_VERSION" != "$PACKAGE_VERSION" ]; then
+            echo "Error: Tag version ($TAG_VERSION) does not match package.json version ($PACKAGE_VERSION)"
+            exit 1
+          fi
+
+          echo "✓ Tag version matches package.json version"
+          echo "VERSION=$PACKAGE_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Install dependencies
+        working-directory: clients/typescript
+        run: npm install
+
+      - name: Publish to npm
+        run: npm publish
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: typescript-client-v${{ steps.version.outputs.VERSION }}
+          name: TypeScript Client v${{ steps.version.outputs.VERSION }}
+          body: |
+            ## TypeScript Client Release v${{ steps.version.outputs.VERSION }}
+
+            Published package [@nuanced-dev/lsp](https://www.npmjs.com/package/@nuanced-dev/lsp) to NPM.
+
+            ### Installation
+
+            ```bash
+            npm install @nuanced-dev/lsp@${{ steps.version.outputs.VERSION }}
+            ```
+
+            ### Changes
+
+            See [CHANGELOG.md](${{ github.server_url }}/${{ github.repository }}/blob/${{ github.ref_name }}/clients/typescript/CHANGELOG.md) for details.
+          draft: false
+          prerelease: false

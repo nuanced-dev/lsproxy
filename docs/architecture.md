@@ -1,462 +1,153 @@
-# Nuanced LSP Architecture
+# Archtecture
 
-## System Overview
+## Overview
 
-Nuanced LSP is a containerized Language Server Protocol (LSP) proxy service that provides unified access to multiple language servers through a single HTTP API. The system uses a binary injection architecture to minimize image rebuild cascades and optimize resource usage.
+Nuanced LSP consists of the following service and language components.
 
-## Request Flow Sequence Diagram
+- **Proxy:** Manages the other service containers and the language containers, serves the API, and forwards API requests to the right language containers.
+
+- **Watchdog:** Cleans up other containers if the proxy unexpectedly fails.
+
+- **Wrapper:** Contains the binary that manages LSP server processes and serves the internal API that is called by the proxy. The wrapper container does not run LSP servers directly. Instead the binary is injected into the language containers, which run it. This allows for updating the wrapper logic without having to rebuild every language image.
+
+- **Languages:** Contains the LSP server for a specific language. It does not contain the wrapper binary it runs to serve the internal API, but relies on the wrapper being injected at run time.
+
+## System components
+
+The system consists of several containerized components that work together to provide language server functionality:
+
+| Component | Code Reference | Container Name(s) | Purpose | Relationships |
+|-----------|---------------|-------------------|---------|---------------|
+| **Proxy** | `crates/proxy` and `dockerfiles/proxy.Dockerfile` | `nuanced-lsp-proxy` | Main orchestrator that receives HTTP requests from clients, detects file languages, and routes requests to appropriate language containers | Spawns wrapper, language containers, and watchdog; forwards requests between client and language containers |
+| **Wrapper** | `crates/wrapper` and `dockerfiles/wrapper.Dockerfile` | `nuanced-lsp-wrapper-<id>` | Shared volume container providing the `lsp-wrapper` binary and ast-grep configs | Mounted by all language containers via `--volumes-from` to share binaries without duplication |
+| **Language Containers** | `dockerfiles/<language>.Dockerfile` | `nuanced-lsp-<language>-<id>` | Run language-specific LSP servers (jedi, typescript-language-server, rust-analyzer, gopls, etc.) and translate HTTP requests to LSP JSON-RPC over stdio | Mount wrapper binary via `--volumes-from`; receive HTTP requests from service; execute LSP operations; labeled with parent service ID |
+| **Watchdog** | `crates/watchdog` and `dockerfiles/watchdog.Dockerfile` | `nuanced-lsp-watchdog-<id>` | Independent monitor that polls the service container health and automatically cleans up all language containers if the service crashes or stops | Monitors service via `docker inspect`; uses Docker labels to identify and cleanup language containers belonging to crashed service |
+
+### Key Benefits
+
+- **Process isolation** - Separates proxy service process from LSP server processes, preventing crashes in one language server from affecting others
+- **Role-based image organization** - Docker images are cleanly separated into their corresponding roles: service, wrapper, watchdog, and individual language LSP images
+- **Lightweight service image** - Service image is relatively small, enabling fast deployment and updates
+- **Binary injection architecture** - Language LSP server images are independent from the Nuanced LSP Rust code via binary injection, preventing expensive image rebuilds when Rust code changes
+- **Dynamic language support** - Language container images are pulled dynamically on-demand based on detected languages in your workspace
+- **Automatic cleanup** - Watchdog ensures no orphaned containers remain running if the service crashes or is killed
+- **Multi-instance support** - Multiple service instances can run simultaneously, each with isolated language containers identified by unique service IDs
+- **Efficient resource sharing** - Wrapper binary and ast-grep configs are shared across all language containers via Docker volumes, avoiding duplication
+
+```mermaid
+graph TD
+    Client[Client Application] -->|HTTP Requests| Proxy[nuanced-lsp-proxy]
+    Proxy -->|Spawns & Routes| Python[nuanced-lsp-python<br/>jedi-language-server]
+    Proxy -->|Spawns & Routes| TypeScript[nuanced-lsp-typescript<br/>typescript-language-server]
+    Proxy -->|Spawns & Routes| Rust[nuanced-lsp-rust<br/>rust-analyzer]
+    Proxy -->|Spawns & Routes| Golang[nuanced-lsp-golang<br/>gopls]
+    Proxy -->|Creates| Wrapper[nuanced-lsp-wrapper<br/>nuanced-lsp-wrapper binary<br/>ast-grep configs]
+
+    Python -.->|--volumes-from| Wrapper
+    TypeScript -.->|--volumes-from| Wrapper
+    Rust -.->|--volumes-from| Wrapper
+    Golang -.->|--volumes-from| Wrapper
+
+    Proxy -->|Creates| Watchdog[nuanced-lsp-watchdog<br/>Monitor]
+    Watchdog -.->|Monitors via<br/>docker inspect| Proxy
+    Watchdog -.->|Cleans up on<br/>service crash| Python
+    Watchdog -.->|Cleans up on<br/>service crash| TypeScript
+    Watchdog -.->|Cleans up on<br/>service crash| Rust
+    Watchdog -.->|Cleans up on<br/>service crash| Golang
+    Watchdog -.->|Cleans up on<br/>service crash| Wrapper
+
+    style Proxy fill:#47A,color:#000
+    style Wrapper fill:#6CE,color:#000
+    style Watchdog fill:#CB4,color:#000
+    style Python fill:#283,color:#000
+    style TypeScript fill:#283,color:#000
+    style Rust fill:#283,color:#000
+    style Golang fill:#283,color:#000
+```
+
+### In-depth description
+
+The entry point to Nuanced LSP is a **proxy service container**. On initialization, the mounted workspace is scaned, and programming languages are detected based on file path heuristics. The proxy service spawns a **LSP server container** for each supported language detected. After initialization completes, the proxy service proxies HTTP requests from a client to the appropriate LSP server container.
+
+Because LSP servers typically use JSON RPC over stdio, a thin Rust wrapper is injected into each LSP server container on initialization. This wrapper translates HTTP requests received from the proxy service into JSON RPC and forwards to the LSP server. Then the wrapper translates the LSP server's JSON RPC response into a HTTP response for the proxy service.
+
+#### Shared wrapper across all LSP server containers
+
+Nuanced LSP uses **binary injection** to share the `nuanced-lsp-wrapper` binary and `ast-grep` configuration across all LSP server containers. The primary advantage of this technique is language Dockerfiles remain 100% independent from the Nuanced LSP Rust code. This saves on requiring rebuilding the language images every time a Rust code change is made. It also prevents embedding the `nuanced-lsp-wrapper` binary into every language image, saving image size per language image.
+
+```mermaid
+graph TB
+    Wrapper[nuanced-lsp-wrapper<br/>━━━━━━━━━━━━━━━━<br/>nuanced-lsp-wrapper binary<br/>ast-grep configs<br/>━━━━━━━━━━━━━━━━<br/>VOLUME /opt/nuanced-lsp-wrapper<br/>Language-agnostic HTTP server<br/>LSP process manager]
+
+    Python[nuanced-lsp-python<br/>jedi-ls only<br/>Mounts wrapper]
+    TypeScript[nuanced-lsp-typescript<br/>typescript-ls only<br/>Mounts wrapper]
+
+    Python -.->|--volumes-from| Wrapper
+    TypeScript -.->|--volumes-from| Wrapper
+
+
+    style Wrapper fill:#6CE,color:#000
+    style Python fill:#283,color:#000
+    style TypeScript fill:#283,color:#000
+```
+
+#### Container Architecture Example
+
+When you load a workspace with Python and TypeScript files, here's what happens:
+
+```mermaid
+graph TB
+    Client[Client Application<br/>API calls to localhost:4444]
+
+    Proxy[nuanced-lsp-proxy<br/>━━━━━━━━━━━━━━━━<br/>Spawns LSP server containers<br />Proxies requests]
+
+    Python[nuanced-lsp-python<br/>jedi-ls]
+
+    TypeScript[nuanced-lsp-typescript]
+
+    Wrapper[nuanced-lsp-wrapper<br/>━━━━━━━━━━━━━━━━<br/>nuanced-lsp-wrapper binary<br/>ast-grep configs]
+
+    Watchdog[nuanced-lsp-watchdog<br/>Independent Monitor<br/>━━━━━━━━━━━━━━━━<br/>Monitors nuanced-lsp-proxy container<br/>Cleans up LSP server and wrapper containers on crash]
+
+    Client -->|HTTP| Proxy
+    Proxy -->|Creates| Wrapper
+    Proxy -->|Creates| Watchdog
+    Proxy -->|Spawns & Routes| Python
+    Proxy -->|Spawns & Routes| TypeScript
+
+    Python -.->|--volumes-from| Wrapper
+    TypeScript -.->|--volumes-from| Wrapper
+
+    Watchdog -.->|Monitors| Proxy
+    Watchdog -.->|Cleanup| Python
+    Watchdog -.->|Cleanup| TypeScript
+    Watchdog -.->|Cleanup| Wrapper
+
+    style Proxy fill:#47A,color:#000
+    style Wrapper fill:#6CE,color:#000
+    style Watchdog fill:#CB4,color:#000
+    style Python fill:#283,color:#000
+    style TypeScript fill:#283,color:#000
+```
+
+#### Client request example
+
+This sequence diagram shows how a client request is handled:
 
 ```mermaid
 sequenceDiagram
     participant Client
-    participant Service as nuanced-lsp-proxy<br/>(Orchestrator)
-    participant Docker as Docker Engine
-    participant LangContainer as Language Container<br/>(e.g., nuanced-lsp-typescript-xxx)
-    participant Wrapper as lsp-wrapper<br/>(Binary)
-    participant LSP as LSP Server<br/>(e.g., typescript-language-server)
-    participant AstGrep as ast-grep<br/>(CLI Tool)
-    participant Workspace as Workspace Files<br/>(/mnt/workspace)
+    participant Proxy as nuanced-lsp-proxy
+    participant Wrapper as nuanced-lsp-wrapper
+    participant Python as nuanced-lsp-python<br />Jedi language server
 
-    Note over Client,Workspace: 1. Client Request
-    Client->>Service: HTTP POST /v1/{language}/{endpoint}<br/>e.g., /v1/typescript/find-definition
-
-    Note over Service,Docker: 2. Service Routes Request
-    Service->>Service: Parse request body<br/>Validate workspace path
-    Service->>Docker: Check if language container exists<br/>GET /containers/{id}/json
-
-    alt Container doesn't exist
-        Service->>Docker: Create language container<br/>docker run --volumes-from nuanced-lsp-wrapper
-        Docker->>LangContainer: Start container
-        Note over LangContainer: Mounts /opt/lsp-wrapper/<br/>from wrapper container
-    end
-
-    Note over Service,LangContainer: 3. Forward to Language Container
-    Service->>LangContainer: HTTP POST /{endpoint}<br/>via Docker HTTP API (port 8080)
-
-    Note over LangContainer,Wrapper: 4. Wrapper Receives Request
-    LangContainer->>Wrapper: HTTP request handled by<br/>Actix-web server
-    Wrapper->>Wrapper: Parse request<br/>Validate file path
-
-    alt LSP-based endpoint (find-definition, find-references)
-        Note over Wrapper,LSP: 5a. LSP Server Communication
-        Wrapper->>LSP: Check if LSP server is running
-        alt LSP server not running
-            Wrapper->>LSP: Start LSP server process<br/>(e.g., typescript-language-server --stdio)
-        end
-
-        Wrapper->>LSP: Send LSP JSON-RPC request<br/>e.g., textDocument/definition
-        Note over LSP,Workspace: LSP analyzes workspace files
-        LSP->>Workspace: Read source files<br/>Build symbol index
-        Workspace-->>LSP: File contents
-        LSP-->>Wrapper: JSON-RPC response<br/>with location data
-
-    else ast-grep endpoint (find-referenced-symbols, definitions-in-file)
-        Note over Wrapper,AstGrep: 5b. ast-grep Processing
-        Wrapper->>AstGrep: Execute ast-grep scan<br/>--config /opt/lsp-wrapper/ast_grep/{type}/config.yml
-        AstGrep->>Workspace: Parse source file<br/>Apply pattern matching rules
-        Workspace-->>AstGrep: File contents
-        AstGrep-->>Wrapper: JSON output with matches
-        Wrapper->>Wrapper: Filter and transform<br/>ast-grep results
-    end
-
-    Note over Wrapper,LangContainer: 6. Wrapper Returns Response
-    Wrapper->>Wrapper: Format response<br/>Apply transformations
-    Wrapper-->>LangContainer: HTTP 200 OK<br/>JSON response body
-
-    Note over LangContainer,Service: 7. Container Returns to Service
-    LangContainer-->>Service: HTTP response via<br/>Docker API
-
-    Note over Service,Client: 8. Service Returns to Client
-    Service->>Service: Add CORS headers<br/>Format final response
-    Service-->>Client: HTTP 200 OK<br/>JSON response body
+    Client->>+Proxy: POST /v1/symbol/find-definition<br/>{file: "main.py", position: {line: 10, character: 5}}
+    Note over Proxy: Route to Python LSP server container based on file
+    Proxy->>+Wrapper: HTTP POST localhost:8080/find-definition<br/>{file: "main.py", position: {line: 10, character: 5}}
+    Wrapper->>+Python: LSP Request (JSON-RPC over stdio)<br/>textDocument/definition
+    Note over Python: Jedi analyzes code<br/>finds definition
+    Python-->>-Wrapper: LSP Response (JSON-RPC)<br/>{uri, range, ...}
+    Note over Wrapper: Translates<br/>LSP response to HTTP
+    Wrapper-->>-Proxy: HTTP 200 OK<br/>{definitions: [{path, range, ...}]}
+    Proxy-->>-Client: HTTP 200 OK<br/>{definitions: [{path, range, ...}]}
 ```
-
-## Component Details
-
-### 1. nuanced-lsp-proxy (Orchestrator)
-- **Technology**: Rust (Actix-web framework)
-- **Location**: `crates/proxy/`
-- **Container**: `nuanced-lsp-proxy`
-- **Port**: 4444 (exposed to host)
-- **Responsibilities**:
-  - HTTP API gateway (exposes `/v1/{language}/{endpoint}`)
-  - Container lifecycle management (create, monitor, remove)
-  - Request routing to appropriate language containers
-  - Workspace management and validation
-  - JWT authentication (optional)
-  - CORS handling
-  - Swagger UI documentation
-
-### 2. nuanced-lsp-wrapper (Binary)
-- **Technology**: Rust (Actix-web framework)
-- **Location**: `crates/wrapper/`
-- **Container**: `nuanced-lsp-wrapper` (volume provider only)
-- **Binary Path**: `/opt/lsp-wrapper/bin/lsp-wrapper`
-- **Port**: 8080 (internal within language containers)
-- **Responsibilities**:
-  - HTTP server running inside each language container
-  - LSP server process management (spawn, monitor, restart)
-  - LSP JSON-RPC communication (stdin/stdout)
-  - ast-grep integration for pattern-based queries
-  - Request validation and error handling
-  - Response formatting and transformation
-
-### 3. Language Containers
-- **Examples**: `nuanced-lsp-typescript-xxx`, `nuanced-lsp-python-xxx`, `nuanced-lsp-ruby-xxx`
-- **Dockerfiles**: `dockerfiles/{language}.Dockerfile`
-- **Base Images**: Debian Bookworm Slim
-- **Key Features**:
-  - Language runtime and dependencies (e.g., Node.js, Python, Ruby)
-  - LSP server installation (e.g., typescript-language-server, pyright)
-  - Volume mounts:
-    - `--volumes-from nuanced-lsp-wrapper` (shares `/opt/lsp-wrapper/`)
-    - Workspace mount at `/mnt/workspace`
-  - Entrypoint: `/opt/lsp-wrapper/bin/lsp-wrapper` (shared binary)
-  - Isolated execution environment per workspace
-
-### 4. LSP Servers
-- **Examples**:
-  - TypeScript: `typescript-language-server --stdio`
-  - Python: `pyright-langserver --stdio`
-  - Rust: `rust-analyzer`
-  - Go: `gopls`
-  - Ruby: `ruby-lsp`
-- **Communication**: JSON-RPC over stdin/stdout
-- **Operations**:
-  - `textDocument/definition` - Find symbol definitions
-  - `textDocument/references` - Find all references to symbol
-  - `textDocument/hover` - Get hover information
-  - `textDocument/completion` - Code completion
-
-### 5. ast-grep
-- **Technology**: Pattern-based code search tool
-- **Installation**: Python package (`ast-grep-cli`)
-- **Binary Path**: `/opt/lsp-wrapper/bin/ast-grep` (shared via volume)
-- **Config Path**: `/opt/lsp-wrapper/ast_grep/{type}/config.yml`
-- **Config Types**:
-  - `symbol/` - Function/class definitions
-  - `identifier/` - Variable/function names
-  - `reference/` - Symbol usage patterns
-- **Usage**: Fast pattern matching for structural queries
-
-### 6. Watchdog (Container Cleanup)
-- **Technology**: Rust async task (part of orchestrator)
-- **Location**: `crates/proxy/src/container/mod.rs`
-- **Responsibilities**:
-  - Ensures all containers are cleaned up when service stops
-  - Handles both graceful shutdown and crash scenarios
-  - Manages cleanup of language containers and wrapper container
-- **Cleanup Process**:
-  1. **Normal Shutdown**: When service stops gracefully (via signal or API), `cleanup_all()` is called from `main.rs`
-  2. **Crash Recovery**: If service crashes/exits unexpectedly, Docker's restart policy or external orchestration handles cleanup
-  3. **Cleanup Order**:
-     - Stop all language containers first (iterates through active containers)
-     - Stop wrapper container last (via `stop_wrapper_container()`)
-     - Wrapper must be stopped last since language containers depend on its volumes
-- **Signal File**: Writes `/tmp/cleanup_complete` on successful cleanup
-- **Code Location**: `crates/proxy/src/container/mod.rs:336-350` (`cleanup_all()`)
-
-**Why Watchdog Matters:**
-- Prevents orphaned containers consuming resources
-- Ensures wrapper container (required for `--volumes-from`) is properly cleaned up
-- Maintains clean state between service restarts
-- Language containers cannot function without wrapper container running
-
-## Binary Injection Architecture
-
-The system uses **binary injection** via Docker volumes to share the wrapper binary and ast-grep across all language containers:
-
-```
-┌────────────────────────────────────┐
-│ nuanced-lsp-wrapper                    │
-│ (Volume Container)                 │
-│                                    │
-│ /opt/lsp-wrapper/                  │
-│  ├── bin/                          │
-│  │   ├── lsp-wrapper (Rust binary) │
-│  │   └── ast-grep   (Python CLI)   │
-│  └── ast_grep/                     │
-│      ├── symbol/                   │
-│      ├── identifier/               │
-│      └── reference/                │
-└────────────────────────────────────┘
-         │
-         │ --volumes-from
-         ├──────────────────┐
-         ├──────────────────┼──────────────────┐
-         │                  │                  │
-         ▼                  ▼                  ▼
-┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
-│ nuanced-lsp-    │ │ nuanced-lsp-    │ │ nuanced-lsp-    │
-│ typescript-xxx  │ │ python-xxx      │ │ rust-xxx        │
-│                 │ │                 │ │                 │
-│ Language: TS    │ │ Language: Python│ │ Language: Rust  │
-│ LSP: ts-ls      │ │ LSP: pyright    │ │ LSP: rust-analyzer
-│                 │ │                 │ │                 │
-│ Mounts:         │ │ Mounts:         │ │ Mounts:         │
-│ /opt/lsp-wrapper│ │ /opt/lsp-wrapper│ │ /opt/lsp-wrapper│
-│ /mnt/workspace  │ │ /mnt/workspace  │ │ /mnt/workspace  │
-└─────────────────┘ └─────────────────┘ └─────────────────┘
-```
-
-### Benefits
-1. **No Rebuild Cascade**: Changing wrapper code only requires rebuilding one container
-2. **Consistent Binaries**: All containers use identical wrapper and ast-grep versions
-3. **Smaller Images**: Language containers don't embed wrapper binary (~50MB saved per image)
-4. **Faster Updates**: Deploy wrapper changes without rebuilding 227 language images
-
-## Network Architecture
-
-```
-┌────────────────────────────────────────────────────────┐
-│ Host Machine                                           │
-│                                                        │
-│  ┌──────────────────────────────────────────────────┐  │
-│  │ nuanced-lsp-proxy                                  │  │
-│  │ Port: 4444 (exposed)                             │  │
-│  │ Network: bridge                                  │  │
-│  └──────────────┬───────────────────────────────────┘  │
-│                 │ Docker API                           │
-│                 │ (Unix socket)                        │
-│                 ▼                                      │
-│  ┌──────────────────────────────────────────────────┐  │
-│  │ Docker Engine                                    │  │
-│  └──────────────┬───────────────────────────────────┘  │
-│                 │                                      │
-│                 │ Container Communication              │
-│                 │ (Docker bridge network)              │
-│                 │                                      │
-│     ┌───────────┼───────────┬────────────┐             │
-│     │           │           │            │             │
-│     ▼           ▼           ▼            ▼             │
-│  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐       │
-│  │ wrapper │ │ ts-xxx  │ │ py-xxx  │ │ rust-xxx│       │
-│  │ (vol)   │ │ :8080   │ │ :8080   │ │ :8080   │       │
-│  └─────────┘ └─────────┘ └─────────┘ └─────────┘       │
-│                                                        │
-└────────────────────────────────────────────────────────┘
-```
-
-## Request Lifecycle
-
-### Example: Find Definition Request
-
-1. **Client Request**:
-   ```bash
-   curl -X POST http://localhost:4444/v1/typescript/find-definition \
-     -H "Content-Type: application/json" \
-     -d '{
-       "path": "src/index.ts",
-       "position": {"line": 10, "character": 5}
-     }'
-   ```
-
-2. **Service Processing**:
-   - Validates workspace path exists
-   - Checks if `nuanced-lsp-typescript-{workspace-id}` container exists
-   - Creates container if needed with `--volumes-from nuanced-lsp-wrapper`
-   - Forwards request via Docker API to container port 8080
-
-3. **Wrapper Processing**:
-   - Receives HTTP request at `/find-definition`
-   - Checks if `typescript-language-server` is running
-   - Starts LSP if needed: `typescript-language-server --stdio`
-   - Sends JSON-RPC request:
-     ```json
-     {
-       "jsonrpc": "2.0",
-       "id": 1,
-       "method": "textDocument/definition",
-       "params": {
-         "textDocument": {"uri": "file:///mnt/workspace/src/index.ts"},
-         "position": {"line": 10, "character": 5}
-       }
-     }
-     ```
-
-4. **LSP Server Processing**:
-   - Parses TypeScript files in workspace
-   - Builds symbol table and cross-references
-   - Resolves definition location
-
-5. **Response Chain**:
-   - LSP → Wrapper: JSON-RPC response with location
-   - Wrapper → Service: HTTP 200 with transformed JSON
-   - Service → Client: HTTP 200 with final JSON response
-
-## Container Lifecycle
-
-### Startup Sequence
-1. User starts service: `./scripts/start-proxy.sh`
-2. Orchestrator container starts: `nuanced-lsp-proxy`
-3. Wrapper volume container starts: `nuanced-lsp-wrapper` (provides volumes)
-4. Language containers created on-demand when first request arrives
-
-### Shutdown Sequence
-1. User stops service: `./scripts/stop-proxy.sh`
-2. All language containers removed
-3. Wrapper container removed
-4. Orchestrator container removed
-
-### Container Naming
-- Service: `nuanced-lsp-proxy`
-- Wrapper: `nuanced-lsp-wrapper`
-- Languages: `nuanced-lsp-{language}-{workspace-id}`
-  - Example: `nuanced-lsp-typescript-a1b2c3d4-e5f6-7890-abcd-ef1234567890`
-
-## Configuration
-
-### Environment Variables
-- `WORKSPACE_PATH`: Path to workspace directory (required)
-- `PORT`: Service port (default: 4444)
-- `REQUIRE_AUTH`: Enable JWT authentication (default: false)
-- `ENABLED_LANGUAGES`: Comma-separated list of languages to enable
-  - Example: `ENABLED_LANGUAGES=typescript,python,rust`
-  - If not set, all languages are enabled
-
-### Volume Mounts
-- **Wrapper volume**: `/opt/lsp-wrapper/` shared to all language containers
-- **Workspace**: User's project directory mounted at `/mnt/workspace`
-- **Docker socket**: `/var/run/docker.sock` for container management
-
-## Supported Languages
-
-| Language   | LSP Server              | Container Prefix       |
-|------------|-------------------------|------------------------|
-| TypeScript | typescript-language-server | nuanced-lsp-typescript- |
-| JavaScript | typescript-language-server | nuanced-lsp-javascript- |
-| Python     | pyright-langserver     | nuanced-lsp-python-     |
-| Rust       | rust-analyzer          | nuanced-lsp-rust-       |
-| Go         | gopls                  | nuanced-lsp-golang-     |
-| Java       | jdtls                  | nuanced-lsp-java-       |
-| C/C++      | clangd                 | nuanced-lsp-clangd-     |
-| C#         | OmniSharp             | nuanced-lsp-csharp-     |
-| PHP        | intelephense          | nuanced-lsp-php-        |
-| Ruby       | ruby-lsp              | nuanced-lsp-ruby-       |
-| Ruby (Sorbet) | sorbet             | nuanced-lsp-ruby-sorbet-|
-
-## API Endpoints
-
-### System Endpoints
-- `GET /v1/system/health` - Health check
-- `GET /swagger-ui/` - Swagger documentation
-
-### Workspace Endpoints
-- `POST /v1/workspace/list-files` - List all files in workspace
-
-### Language-Specific Endpoints
-All endpoints accept POST requests with JSON body.
-
-Pattern: `/v1/{language}/{endpoint}`
-
-**LSP-based endpoints**:
-- `/v1/{language}/find-definition` - Find symbol definition
-- `/v1/{language}/find-references` - Find all references
-- `/v1/{language}/read-source` - Read file contents with optional range
-
-**ast-grep endpoints**:
-- `/v1/{language}/definitions-in-file` - Get all definitions in file
-- `/v1/{language}/find-identifier` - Find identifier by name
-- `/v1/{language}/find-referenced-symbols` - Find symbols referenced in function body
-
-## Testing
-
-Run comprehensive endpoint tests:
-```bash
-./scripts/test-all-endpoints.sh
-```
-
-Current test coverage: **93/94 tests passing (98.9%)**
-
-## Future Architecture Simplification
-
-The current binary injection architecture using `--volumes-from` and the wrapper container could be further simplified in a future refactor by eliminating the wrapper container entirely and using Docker stdin/stdout mounting for direct LSP server communication.
-
-### Current Architecture Limitations
-
-The current system requires:
-- A dedicated wrapper container (`nuanced-lsp-wrapper`) running continuously to provide volume access
-- Binary injection via `--volumes-from` to share the `lsp-wrapper` binary and `ast-grep` configs
-- Three-tier architecture: orchestrator → wrapper → LSP servers
-- Complex volume mount dependencies
-
-### Proposed Simplified Architecture
-
-**Core Idea**: The orchestrator container directly manages LSP server processes running in language-specific containers using Docker's stdin/stdout mounting capabilities.
-
-**How It Would Work**:
-
-1. **Eliminate the wrapper container**:
-   - No need for `nuanced-lsp-wrapper` volume container
-   - No `--volumes-from` volume mounting
-   - Remove binary injection complexity
-
-2. **Direct LSP communication**:
-   - Orchestrator spawns language containers with LSP servers
-   - Use `docker run` with stdin/stdout mounting: `docker run -i --mount type=bind,src=/workspace,dst=/mnt/workspace nuanced-lsp-python python -m pyright --stdio`
-   - Orchestrator communicates directly with LSP via container stdin/stdout
-   - Send JSON-RPC requests over stdin, receive responses from stdout
-
-3. **Simplified container structure**:
-   ```
-   nuanced-lsp-proxy (orchestrator)
-       ├─ docker run -i nuanced-lsp-python (LSP server process)
-       ├─ docker run -i nuanced-lsp-typescript (LSP server process)
-       ├─ docker run -i nuanced-lsp-rust (LSP server process)
-       └─ ... (other language containers)
-   ```
-
-4. **Implementation approach**:
-   - Language containers only need LSP server and runtime (no wrapper binary)
-   - Orchestrator maintains persistent stdin/stdout pipes to each LSP container
-   - JSON-RPC communication flows: Client → Orchestrator → LSP (stdin) → LSP (stdout) → Orchestrator → Client
-   - Container lifecycle: spawn on first request, keep alive for session, cleanup on shutdown
-
-### Benefits
-
-- **Simpler architecture**: Only two tiers (orchestrator → LSP) instead of three
-- **Fewer containers**: Eliminate wrapper container entirely
-- **No volume mount complexity**: Direct stdin/stdout communication
-- **Reduced dependencies**: No need for `--volumes-from` or volume sharing
-- **Easier debugging**: Direct pipe communication is more straightforward
-- **Smaller images**: Language containers don't need wrapper binary or ast-grep
-
-### Trade-offs
-
-- **LSP lifecycle management**: Orchestrator must handle stdin/stdout pipe management for each LSP process
-- **Error handling**: Need robust handling for broken pipes, container crashes
-- **ast-grep operations**: Would need alternative approach (could run ast-grep directly in orchestrator or as separate service)
-- **State persistence**: LSP server state tied to container lifecycle (similar to current architecture)
-
-### Migration Path
-
-This simplification could be implemented incrementally:
-
-1. **Phase 1**: Proof of concept with single language (e.g., Python)
-   - Implement direct stdin/stdout mounting for one LSP server
-   - Verify JSON-RPC communication works correctly
-   - Test performance and reliability
-
-2. **Phase 2**: Extend to all languages
-   - Migrate remaining LSP servers to direct communication
-   - Handle language-specific LSP initialization differences
-   - Update container images to remove wrapper dependencies
-
-3. **Phase 3**: Remove wrapper container
-   - Eliminate `nuanced-lsp-wrapper` build and deployment
-   - Remove `--volumes-from` logic from orchestrator
-   - Clean up binary injection code
-
-4. **Phase 4**: Handle ast-grep alternative
-   - Move ast-grep to orchestrator container, or
-   - Implement ast-grep as separate microservice, or
-   - Use LSP-native alternatives where possible
-
-### Open Questions
-
-- How to handle ast-grep operations without shared binary?
-- Performance impact of stdin/stdout vs current HTTP communication?
-- Container lifecycle: persistent vs ephemeral LSP processes?
-- Compatibility with all LSP servers via stdin/stdout?
-
-This future architecture would significantly reduce system complexity while maintaining all current functionality. The trade-off is shifting some complexity from volume mounting to stdin/stdout pipe management, which is arguably more standard and easier to reason about.

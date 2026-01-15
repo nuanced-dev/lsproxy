@@ -8,7 +8,6 @@
 use bollard::container::{
     Config, CreateContainerOptions, ListContainersOptions, RemoveContainerOptions,
 };
-use bollard::image::ListImagesOptions;
 use bollard::Docker;
 use once_cell::sync::Lazy;
 use reqwest::Client;
@@ -22,21 +21,24 @@ use tokio::sync::Mutex;
 use tokio::time::sleep;
 
 use common::api_types::SupportedLanguages;
-use proxy::container::{language_image, language_image_ghcr, PROXY_IMAGE_BASE, WRAPPER_IMAGE_BASE};
+use proxy::container::{
+    find_image, language_image, language_image_base, proxy_image, WATCHDOG_IMAGE_BASE,
+    WRAPPER_IMAGE_BASE,
+};
 
+const TEST_PROXY_CONTAINER_NAME: &str = "nuanced-lsp-test-service";
 const SERVICE_PORT: u16 = 14444; // Use non-standard port to avoid conflicts
 const CONTAINER_PORT: u16 = 4444; // Port the service listens on inside container
 const BASE_URL: &str = "http://localhost:14444";
 const MAX_RETRIES: u32 = 30;
 const RETRY_DELAY: Duration = Duration::from_secs(1);
-const TEST_RUST_IMAGE_VERSION: &str = "latest";
 
 // Helper functions for test images
 fn test_proxy_image() -> String {
-    format!("{PROXY_IMAGE_BASE}:{TEST_RUST_IMAGE_VERSION}")
+    proxy_image()
 }
 fn test_python_image() -> String {
-    language_image_ghcr(&SupportedLanguages::Python)
+    language_image(&SupportedLanguages::Python)
 }
 
 /// Shared test fixture that lives for the entire test suite
@@ -54,6 +56,37 @@ struct ContainerFixture {
 }
 
 impl ContainerFixture {
+    async fn cleanup_all_containers_by_name(
+        docker: &Docker,
+        name: String,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let mut filters = HashMap::new();
+        filters.insert("name".to_string(), vec![name]);
+
+        let options = ListContainersOptions {
+            all: true,
+            filters,
+            ..Default::default()
+        };
+
+        let containers = docker.list_containers(Some(options)).await?;
+        for container in containers {
+            if let Some(id) = container.id {
+                let _ = docker
+                    .remove_container(
+                        &id,
+                        Some(RemoveContainerOptions {
+                            force: true,
+                            ..Default::default()
+                        }),
+                    )
+                    .await;
+            }
+        }
+
+        Ok(())
+    }
+
     /// Comprehensive cleanup of all test-related containers
     /// Removes orphaned containers from previous failed test runs
     async fn cleanup_all_test_containers(
@@ -61,74 +94,18 @@ impl ContainerFixture {
     ) -> Result<(), Box<dyn std::error::Error>> {
         println!("Cleaning up all test-related containers...");
 
-        // Clean up all nuanced-lsp-python-* containers (test language containers)
-        let mut filters = HashMap::new();
-        filters.insert("name".to_string(), vec!["nuanced-lsp-python-".to_string()]);
-
-        let options = ListContainersOptions {
-            all: true,
-            filters,
-            ..Default::default()
-        };
-
-        let python_containers = docker.list_containers(Some(options)).await?;
-        for container in python_containers {
-            if let Some(id) = container.id {
-                let _ = docker
-                    .remove_container(
-                        &id,
-                        Some(RemoveContainerOptions {
-                            force: true,
-                            ..Default::default()
-                        }),
-                    )
-                    .await;
-            }
-        }
-
-        // Clean up test watchdog containers
-        let mut filters = HashMap::new();
-        filters.insert(
-            "name".to_string(),
-            vec!["nuanced-lsp-watchdog-".to_string()],
-        );
-
-        let options = ListContainersOptions {
-            all: true,
-            filters,
-            ..Default::default()
-        };
-
-        let watchdog_containers = docker.list_containers(Some(options)).await?;
-        for container in watchdog_containers {
-            if let Some(id) = container.id {
-                let _ = docker
-                    .remove_container(
-                        &id,
-                        Some(RemoveContainerOptions {
-                            force: true,
-                            ..Default::default()
-                        }),
-                    )
-                    .await;
-            }
-        }
-
-        // Clean up wrapper container
-        let _ = docker
-            .remove_container(
-                WRAPPER_IMAGE_BASE,
-                Some(RemoveContainerOptions {
-                    force: true,
-                    ..Default::default()
-                }),
-            )
-            .await;
+        Self::cleanup_all_containers_by_name(
+            docker,
+            format!("{}-", language_image_base(&SupportedLanguages::Python)),
+        )
+        .await?;
+        Self::cleanup_all_containers_by_name(docker, format!("{WATCHDOG_IMAGE_BASE}-")).await?;
+        Self::cleanup_all_containers_by_name(docker, format!("{WRAPPER_IMAGE_BASE}-")).await?;
 
         // Clean up test service container
         let _ = docker
             .remove_container(
-                "nuanced-lsp-test-service",
+                TEST_PROXY_CONTAINER_NAME,
                 Some(RemoveContainerOptions {
                     force: true,
                     ..Default::default()
@@ -168,36 +145,19 @@ impl ContainerFixture {
     async fn verify_images(docker: &Docker) -> Result<(), Box<dyn std::error::Error>> {
         // Check for proxy image
         let proxy_img = test_proxy_image();
-        let mut filters = HashMap::new();
-        filters.insert("reference".to_string(), vec![proxy_img.to_string()]);
-
-        let options = ListImagesOptions {
-            filters,
-            ..Default::default()
-        };
-
-        let images = docker.list_images(Some(options)).await?;
-        if images.is_empty() {
+        if let Err(_) = find_image(docker, proxy_img.clone()).await {
             return Err(format!(
-                "Required image {} not found. Run: ./scripts/build-rust-images.sh",
+                "Required image {} not found. Build locally with: ./scripts/build-images.sh",
                 proxy_img
             )
             .into());
         }
 
-        // Check for Python image (GHCR name)
+        // Check for Python image
         let python_img = test_python_image();
-        let mut filters = HashMap::new();
-        filters.insert("reference".to_string(), vec![python_img.clone()]);
-        let options = ListImagesOptions {
-            filters,
-            ..Default::default()
-        };
-        let images = docker.list_images(Some(options)).await?;
-
-        if images.is_empty() {
+        if let Err(_) = find_image(docker, python_img.clone()).await {
             return Err(format!(
-                "Required image {} not found. Pull from GHCR or run: ./scripts/build-language-images.sh",
+                "Required image {} not found. Build locally with: ./scripts/build-images.sh",
                 python_img
             )
             .into());
@@ -230,10 +190,9 @@ impl ContainerFixture {
             .ok_or("Invalid workspace path")?;
 
         let proxy_img = test_proxy_image();
-        let image_version_env = format!("RUST_IMAGE_VERSION={TEST_RUST_IMAGE_VERSION}");
         let config: Config<&str> = Config {
             image: Some(&proxy_img),
-            env: Some(vec!["USE_AUTH=false", "RUST_LOG=info,nuanced_lsp_proxy=debug,proxy=debug,nuanced_lsp_wrapper=debug,wrapper=debug", &image_version_env]),
+            env: Some(vec!["USE_AUTH=false", "RUST_LOG=info,nuanced_lsp_proxy=debug,proxy=debug,nuanced_lsp_wrapper=debug,wrapper=debug"]),
             host_config: Some(bollard::models::HostConfig {
                 binds: Some(vec![
                     "/var/run/docker.sock:/var/run/docker.sock".to_string(),
@@ -258,7 +217,7 @@ impl ContainerFixture {
         };
 
         let options = CreateContainerOptions {
-            name: "nuanced-lsp-test-service",
+            name: TEST_PROXY_CONTAINER_NAME,
             ..Default::default()
         };
 
@@ -336,13 +295,16 @@ async fn wait_for_language_health(lang_key: &str) -> Result<(), Box<dyn std::err
             .await?;
         if resp.status().is_success() {
             let body: serde_json::Value = resp.json().await?;
-            if body
+            if let Some(status) = body
                 .get("languages")
                 .and_then(|l| l.get(lang_key))
                 .and_then(|v| v.as_bool())
-                == Some(true)
             {
-                return Ok(());
+                if status {
+                    return Ok(());
+                } else {
+                    return Err(format!("Language {} unhealthy", lang_key).into());
+                }
             }
         }
         tokio::time::sleep(Duration::from_secs(1)).await;
@@ -368,6 +330,7 @@ async fn cleanup_fixture() -> Result<(), Box<dyn std::error::Error>> {
 
 #[tokio::test]
 #[serial]
+#[cfg_attr(not(feature = "docker-tests"), ignore)]
 async fn test_service_health() -> Result<(), Box<dyn std::error::Error>> {
     get_fixture().await?;
 
@@ -394,6 +357,7 @@ async fn test_service_health() -> Result<(), Box<dyn std::error::Error>> {
 
 #[tokio::test]
 #[serial]
+#[cfg_attr(not(feature = "docker-tests"), ignore)]
 async fn test_container_spawn_on_request() -> Result<(), Box<dyn std::error::Error>> {
     get_fixture().await?;
 
@@ -468,6 +432,7 @@ async fn test_container_spawn_on_request() -> Result<(), Box<dyn std::error::Err
 
 #[tokio::test]
 #[serial]
+#[cfg_attr(not(feature = "docker-tests"), ignore)]
 async fn test_request_forwarding() -> Result<(), Box<dyn std::error::Error>> {
     get_fixture().await?;
 
@@ -503,6 +468,7 @@ async fn test_request_forwarding() -> Result<(), Box<dyn std::error::Error>> {
 
 #[tokio::test]
 #[serial]
+#[cfg_attr(not(feature = "docker-tests"), ignore)]
 async fn test_multiple_requests_same_container() -> Result<(), Box<dyn std::error::Error>> {
     get_fixture().await?;
 
@@ -581,6 +547,7 @@ async fn test_multiple_requests_same_container() -> Result<(), Box<dyn std::erro
 
 #[tokio::test]
 #[serial]
+#[cfg_attr(not(feature = "docker-tests"), ignore)]
 async fn test_list_files() -> Result<(), Box<dyn std::error::Error>> {
     get_fixture().await?;
 
@@ -606,6 +573,7 @@ async fn test_list_files() -> Result<(), Box<dyn std::error::Error>> {
 
 #[tokio::test]
 #[serial]
+#[cfg_attr(not(feature = "docker-tests"), ignore)]
 async fn test_find_references() -> Result<(), Box<dyn std::error::Error>> {
     get_fixture().await?;
 
@@ -641,6 +609,7 @@ async fn test_find_references() -> Result<(), Box<dyn std::error::Error>> {
 
 #[tokio::test]
 #[serial]
+#[cfg_attr(not(feature = "docker-tests"), ignore)]
 async fn test_find_references_with_context_lines() -> Result<(), Box<dyn std::error::Error>> {
     get_fixture().await?;
 
@@ -736,6 +705,7 @@ async fn test_find_references_with_context_lines() -> Result<(), Box<dyn std::er
 /// Named with zzz prefix to run last (tests run alphabetically within serial group)
 #[tokio::test]
 #[serial]
+#[cfg_attr(not(feature = "docker-tests"), ignore)]
 async fn test_zzz_cleanup() -> Result<(), Box<dyn std::error::Error>> {
     cleanup_fixture().await?;
     Ok(())

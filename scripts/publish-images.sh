@@ -1,324 +1,314 @@
 #!/usr/bin/env bash
 
-set -e
+set -eu
 
 SCRIPT_DIR="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")" && pwd)"
 
-# Publish Docker images to container registries (ghcr.io and/or Docker Hub)
-# Usage: ./scripts/publish-images.sh <rust-version> [--language-tag=TAG] [--dry-run] [--registry=REGISTRY]
-#
-# Example: ./scripts/publish-images.sh 0.4.0
-# Example: ./scripts/publish-images.sh 0.4.0 --language-tag=1.0.0
-# Example: ./scripts/publish-images.sh 0.4.0 --language-tag=1.0.0 --registry=both
-#
-# Versioning:
-#   Rust containers (wrapper, proxy, watchdog) use release version tags (e.g., 0.4.0)
-#   Language containers use independent semver tags (e.g., 1.0.0)
-#   This allows language containers to guarantee API compatibility with Rust containers
-#
-# Requirements:
-#   - GITHUB_TOKEN environment variable must be set with ghcr.io push permissions (if publishing to ghcr)
-#   - DOCKER_HUB_TOKEN environment variable must be set (if publishing to dockerhub)
-#   - Images must already be built (use scripts/build-rust-images.sh and scripts/build-language-images.sh)
-#   - Images must be multi-arch builds (built with --multiarch flag)
+source "$SCRIPT_DIR/include/colors.sh"
+source "$SCRIPT_DIR/include/constants.sh"
+source "$SCRIPT_DIR/include/lib.sh"
 
-# Colors
-GREEN='\033[0;32m'
-RED='\033[0;31m'
-BLUE='\033[0;34m'
-YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
+usage() {
+    echo "Usage: $0 [--dry-run] [--language-tag=TAG] [--languages=LANG...] [--registry=REG] [--services=SVC...] [--service-tag=TAG]"
+}
+
+help() {
+    echo "Publish Docker images to container registry"
+    echo ""
+    echo "Usage: $0 [OPTIONS...]"
+    echo ""
+    echo "Options:"
+    echo "  --all-languages       Publish all language images (shortcut for --languages=<all>)"
+    echo "  --all-services        Publish all service images (shortcut for --services=proxy,watchdog,wrapper)"
+    echo "  --dry-run, -N         Show what would be pushed without actually pushing"
+    echo "  --language-tag=TAG    Tag of language images to use"
+    echo "  --languages=LANG...   Comma-separated list of languages (default: none)"
+    echo "                        Supports versioned Ruby: ruby-3.2.2, ruby-sorbet-3.2.2"
+    echo "  --registry=REG        Target registry (default: $DEFAULT_REGISTRY)"
+    echo "  --services=SVC...     Comma-separated list of services: proxy, watchdog, wrapper (default: none)"
+    echo "  --service-tag=TAG     Tag of service images to use (default: $DEFAULT_SERVICE_TAG)"
+    echo "  --help, -h            Show this help message"
+    echo ""
+    echo "Images:"
+    echo "  - Images must already be built (use scripts/build-images.sh)"
+    echo "  - Images must be multi-platform builds (built with --multi-platform flag)"
+    echo ""
+    echo "Versioning:"
+    echo "  Service images (wrapper, proxy, watchdog) use release version tags (e.g. 0.4.0)"
+    echo "  Language images use independent semver for API/protocol compatibility (e.g. 1.0.0)"
+    echo "  This allows language images to guarantee API compatibility with service images"
+    echo ""
+    echo "Authentication:"
+    echo "  You must be logged in to Docker registry before running this script."
+    echo "  Use 'docker login <registry>' to authenticate."
+    echo "  Examples:"
+    echo "    docker login ghcr.io -u <username>"
+    echo "    docker login -u <username>  # for Docker Hub"
+    echo ""
+    echo "Examples:"
+    echo "  $0 --registry=nuanced,ghcr.io/nuanced-dev --all-services --all-languages"
+    echo "  $0 --registry=ghcr.io/nuanced-dev --languages=python,typescript,ruby"
+    echo "  $0 --registry=nuanced --languages=ruby-3.2.2,ruby-sorbet-3.2.2"
+    echo "  $0 --registry=nuanced --language-tag=1.0.0"
+    echo "  $0 --registry=ghcr.io/nuanced-dev --services=proxy,watchdog"
+}
 
 # Default settings
 DRY_RUN=false
-REGISTRY_TARGET="both"  # Options: ghcr, dockerhub, both
-LANGUAGE_TAG=""  # If not specified, defaults to same as RUST_VERSION
-
-# Import SUPPORTED_RUBY_VERSIONS
-. "$SCRIPT_DIR/supported-ruby-versions.sh"
+LANGUAGE_TAG=""
+LANGUAGES=()
+REGISTRY=""
+SERVICES=()
+SERVICE_TAG=""
 
 # Parse arguments
-RUST_VERSION=""
 for arg in "$@"; do
     case $arg in
-        --dry-run)
+        --help|-h)
+            help
+            exit 0
+            ;;
+        --all-languages)
+            LANGUAGES=("${SUPPORTED_LANGUAGES[@]}")
+            ;;
+        --all-services)
+            SERVICES=(wrapper proxy watchdog)
+            ;;
+        --dry-run|-N)
             DRY_RUN=true
             ;;
         --language-tag=*)
             LANGUAGE_TAG="${arg#*=}"
             ;;
+        --languages=*)
+            IFS=',' read -ra LANGUAGES <<< "${arg#*=}"
+            ;;
         --registry=*)
-            REGISTRY_TARGET="${arg#*=}"
-            if [[ ! "$REGISTRY_TARGET" =~ ^(ghcr|dockerhub|both)$ ]]; then
-                echo -e "${YELLOW}Invalid registry: $REGISTRY_TARGET. Must be ghcr, dockerhub, or both${NC}"
-                exit 1
-            fi
+            REGISTRY="${arg#*=}"
             ;;
-        --help|-h)
-            echo "Usage: $0 <rust-version> [--language-tag=TAG] [--dry-run] [--registry=REGISTRY]"
-            echo ""
-            echo "Arguments:"
-            echo "  <rust-version>        Version tag for Rust containers (e.g., 0.4.0)"
-            echo ""
-            echo "Options:"
-            echo "  --language-tag=TAG    Version tag for language containers (default: same as rust-version)"
-            echo "                        Language containers use semver (e.g., 1.0.0) for API compatibility"
-            echo "  --dry-run             Show what would be pushed without actually pushing"
-            echo "  --registry=REGISTRY   Target registry: ghcr, dockerhub, or both (default: both)"
-            echo "  --help, -h            Show this help message"
-            echo ""
-            echo "Versioning:"
-            echo "  Rust containers (wrapper, proxy, watchdog) version with release tags"
-            echo "  Language containers use independent semver for API/protocol compatibility"
-            echo ""
-            echo "Environment:"
-            echo "  GITHUB_TOKEN          Required for authentication to ghcr.io (if using ghcr or both)"
-            echo "  DOCKER_HUB_TOKEN      Required for authentication to Docker Hub (if using dockerhub or both)"
-            exit 0
+        --services=*)
+            IFS=',' read -ra SERVICES <<< "${arg#*=}"
             ;;
-        -*)
-            echo -e "${YELLOW}Unknown argument: $arg${NC}"
-            echo "Usage: $0 <rust-version> [--language-tag=TAG] [--dry-run] [--registry=REGISTRY]"
-            exit 1
+        --service-tag=*)
+            SERVICE_TAG="${arg#*=}"
             ;;
         *)
-            if [ -z "$RUST_VERSION" ]; then
-                RUST_VERSION="$arg"
-            else
-                echo -e "${YELLOW}Unexpected argument: $arg${NC}"
-                echo "Usage: $0 <rust-version> [--language-tag=TAG] [--dry-run] [--registry=REGISTRY]"
-                exit 1
-            fi
+            echo -e "${YELLOW}Unknown argument: $arg${NC}"
+            usage
+            exit 1
             ;;
     esac
 done
 
-# Validate rust version argument
-if [ -z "$RUST_VERSION" ]; then
-    echo -e "${RED}Error: Rust version argument is required${NC}"
-    echo "Usage: $0 <rust-version> [--language-tag=TAG] [--dry-run] [--registry=REGISTRY]"
+# Language tag is required if publishing languages
+if [ ${#LANGUAGES[@]} -gt 0 ] && [ -z "$LANGUAGE_TAG" ]; then
+    echo -e "${RED}Error: --language-tag is required when building language images${NC}"
     exit 1
 fi
 
-# If language tag not specified, use same as Rust version
-if [ -z "$LANGUAGE_TAG" ]; then
-    LANGUAGE_TAG="$RUST_VERSION"
-    echo -e "${YELLOW}Note: Using same version tag for language containers: $LANGUAGE_TAG${NC}"
-    echo -e "${YELLOW}      Consider using --language-tag=1.0.0 for independent semver${NC}"
-    echo
-fi
-
-# Validate rust version format (should be semver: X.Y.Z)
-if ! [[ "$RUST_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-    echo -e "${YELLOW}Warning: Rust version '$RUST_VERSION' does not follow semver format (X.Y.Z)${NC}"
-    read -p "Continue anyway? (y/N) " -n 1 -r
-    echo
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-        exit 1
-    fi
-fi
-
-# Check for required tokens
-if [ "$DRY_RUN" = false ]; then
-    if [[ "$REGISTRY_TARGET" =~ ^(ghcr|both)$ ]] && [ -z "$GITHUB_TOKEN" ]; then
-        echo -e "${RED}Error: GITHUB_TOKEN environment variable is not set${NC}"
-        echo "Please set GITHUB_TOKEN with ghcr.io push permissions"
-        exit 1
-    fi
-    if [[ "$REGISTRY_TARGET" =~ ^(dockerhub|both)$ ]] && [ -z "$DOCKER_HUB_TOKEN" ]; then
-        echo -e "${RED}Error: DOCKER_HUB_TOKEN environment variable is not set${NC}"
-        echo "Please set DOCKER_HUB_TOKEN for Docker Hub authentication"
-        exit 1
-    fi
-fi
-
-# Registry configuration
-GHCR_REGISTRY="ghcr.io/nuanced-dev"
-DOCKERHUB_REGISTRY="nuanced"
-
-# Determine which registries to publish to
-PUBLISH_TO_GHCR=false
-PUBLISH_TO_DOCKERHUB=false
-if [[ "$REGISTRY_TARGET" =~ ^(ghcr|both)$ ]]; then
-    PUBLISH_TO_GHCR=true
-fi
-if [[ "$REGISTRY_TARGET" =~ ^(dockerhub|both)$ ]]; then
-    PUBLISH_TO_DOCKERHUB=true
-fi
+# Fall back to defaults
+REGISTRY="${REGISTRY:-$DEFAULT_REGISTRY}"
+SERVICE_TAG="${SERVICE_TAG:-$DEFAULT_SERVICE_TAG}"
 
 echo -e "${BLUE}=========================================${NC}"
 echo -e "${BLUE}  Publishing Images${NC}"
-echo -e "${BLUE}  Rust containers: $RUST_VERSION${NC}"
-echo -e "${BLUE}  Language containers: $LANGUAGE_TAG${NC}"
-if [ "$PUBLISH_TO_GHCR" = true ]; then
-    echo -e "${BLUE}  GHCR: $GHCR_REGISTRY${NC}"
+if [ ${#SERVICES[@]} -gt 0 ]; then
+    echo -e "${BLUE}  Service images: $SERVICE_TAG${NC}"
 fi
-if [ "$PUBLISH_TO_DOCKERHUB" = true ]; then
-    echo -e "${BLUE}  Docker Hub: $DOCKERHUB_REGISTRY${NC}"
+if [ ${#LANGUAGES[@]} -gt 0 ]; then
+    echo -e "${BLUE}  Language images: $LANGUAGE_TAG${NC}"
 fi
+echo -e "${BLUE}  Registry: ${REGISTRY}${NC}"
 echo -e "${BLUE}  Dry Run: $DRY_RUN${NC}"
 echo -e "${BLUE}=========================================${NC}"
 echo
 
-# Authenticate with registries
+# Check authentication with registry
+check_registry_auth() {
+    local registry="$1"
+    local registry_key="$registry"
+
+    # Normalize registry key for Docker config lookup
+    # If registry contains /, check for the part until the first /
+    if [[ "$registry" == */* ]]; then
+        registry_key="${registry%%/*}"
+    else
+        # No slash means Docker Hub
+        registry_key="https://index.docker.io/v1/"
+    fi
+
+    if ! jq -e ".auths | has(\"$registry_key\")" "$HOME/.docker/config.json" > /dev/null 2>&1; then
+        return 1
+    fi
+    return 0
+}
+
+get_login_command() {
+    local registry="$1"
+
+    if [[ "$registry" == */* ]]; then
+        # Registry with / (e.g., ghcr.io/nuanced-dev)
+        local registry_host="${registry%%/*}"
+        echo "docker login $registry_host -u <username>"
+    else
+        # No slash means Docker Hub
+        echo "docker login -u <username>"
+    fi
+}
+
 if [ "$DRY_RUN" = false ]; then
-    if [ "$PUBLISH_TO_GHCR" = true ]; then
-        echo -e "${YELLOW}Authenticating with GHCR...${NC}"
-        echo "$GITHUB_TOKEN" | docker login ghcr.io -u USERNAME --password-stdin
-        echo -e "${GREEN}✓ Authenticated with GHCR${NC}"
+    echo -e "${YELLOW}Checking registry authentication...${NC}"
+    if ! check_registry_auth "$REGISTRY"; then
+        echo -e "${RED}Error: Not logged in to registry: $REGISTRY${NC}"
+        echo -e "${YELLOW}Please authenticate using:${NC}"
+        echo -e "  $(get_login_command "$REGISTRY")"
+        exit 1
     fi
-    if [ "$PUBLISH_TO_DOCKERHUB" = true ]; then
-        echo -e "${YELLOW}Authenticating with Docker Hub...${NC}"
-        echo "$DOCKER_HUB_TOKEN" | docker login -u nuanced --password-stdin
-        echo -e "${GREEN}✓ Authenticated with Docker Hub${NC}"
-    fi
+    echo -e "${GREEN}✓ Authenticated with $REGISTRY${NC}"
     echo
 fi
 
+# Array to track published images
+PUBLISHED_IMAGES=()
+
 # Function to tag and push an image
 publish_image() {
-    local local_image="$1"
-    local remote_base="$2"
-    local version="$3"
+    local image="$1"
+    local additional_images=("${@:2}")
 
-    echo -e "${BLUE}Publishing ${local_image}...${NC}"
+    echo -e "${BLUE}Publishing ${image}...${NC}"
 
-    # Check if local image exists with the version tag first, then try :latest
-    local source_tag=""
-    if docker image inspect "${local_image}:${version}" > /dev/null 2>&1; then
-        source_tag="${local_image}:${version}"
-    elif docker image inspect "${local_image}:latest" > /dev/null 2>&1; then
-        source_tag="${local_image}:latest"
-    else
-        echo -e "${RED}✗ Local image ${local_image} not found with :${version} or :latest tag. Please build it first.${NC}"
+    if ! docker image inspect "${image}" > /dev/null 2>&1; then
+        echo -e "${RED}✗ Local image ${image} not found. Please build it first. (This can also happen if Resource Saver is active.)${NC}"
         return 1
     fi
 
-    # Publish to GHCR if enabled
-    if [ "$PUBLISH_TO_GHCR" = true ]; then
-        local ghcr_version_tag="${GHCR_REGISTRY}/${remote_base}:${version}"
-        local ghcr_latest_tag="${GHCR_REGISTRY}/${remote_base}:latest"
+    # Publish to specified registry
+    local registry_image="${REGISTRY}/${image}"
+    local additional_registry_images=()
+    for additional_image in "${additional_images[@]}"; do
+        additional_registry_images+=("${REGISTRY}/${additional_image}")
+    done
 
-        if [ "$DRY_RUN" = true ]; then
-            echo -e "${YELLOW}[DRY RUN] Would tag: ${source_tag} → ${ghcr_version_tag}${NC}"
-            echo -e "${YELLOW}[DRY RUN] Would tag: ${source_tag} → ${ghcr_latest_tag}${NC}"
-            echo -e "${YELLOW}[DRY RUN] Would push: ${ghcr_version_tag}${NC}"
-            echo -e "${YELLOW}[DRY RUN] Would push: ${ghcr_latest_tag}${NC}"
-        else
-            docker tag "$source_tag" "$ghcr_version_tag"
-            docker tag "$source_tag" "$ghcr_latest_tag"
+    if [ "$DRY_RUN" = true ]; then
+        echo -e "${YELLOW}[DRY RUN] Would tag and push: ${registry_image}${NC}"
+        for additional_registry_image in "${additional_registry_images[@]}"; do
+            echo -e "${YELLOW}[DRY RUN] Would also tag: ${additional_registry_image}${NC}"
+        done
+    else
+        docker tag "$image" "$registry_image"
+        docker push "$registry_image"
+        PUBLISHED_IMAGES+=("${registry_image}")
+        echo -e "${GREEN}✓ Published: ${registry_image}${NC}"
 
-            docker push "$ghcr_version_tag"
-            docker push "$ghcr_latest_tag"
-
-            echo -e "${GREEN}✓ Published to GHCR: ${remote_base}:${version} and :latest${NC}"
-        fi
-    fi
-
-    # Publish to Docker Hub if enabled
-    if [ "$PUBLISH_TO_DOCKERHUB" = true ]; then
-        local dockerhub_version_tag="${DOCKERHUB_REGISTRY}/${remote_base}:${version}"
-        local dockerhub_latest_tag="${DOCKERHUB_REGISTRY}/${remote_base}:latest"
-
-        if [ "$DRY_RUN" = true ]; then
-            echo -e "${YELLOW}[DRY RUN] Would tag: ${source_tag} → ${dockerhub_version_tag}${NC}"
-            echo -e "${YELLOW}[DRY RUN] Would tag: ${source_tag} → ${dockerhub_latest_tag}${NC}"
-            echo -e "${YELLOW}[DRY RUN] Would push: ${dockerhub_version_tag}${NC}"
-            echo -e "${YELLOW}[DRY RUN] Would push: ${dockerhub_latest_tag}${NC}"
-        else
-            docker tag "$source_tag" "$dockerhub_version_tag"
-            docker tag "$source_tag" "$dockerhub_latest_tag"
-
-            docker push "$dockerhub_version_tag"
-            docker push "$dockerhub_latest_tag"
-
-            echo -e "${GREEN}✓ Published to Docker Hub: ${remote_base}:${version} and :latest${NC}"
-        fi
+        for additional_registry_image in "${additional_registry_images[@]}"; do
+            docker buildx imagetools create --tag "${additional_registry_image}" "${registry_image}"
+            PUBLISHED_IMAGES+=("${additional_registry_image}")
+            echo -e "${GREEN}✓ Also published major: ${additional_registry_image}${NC}"
+        done
     fi
 
     return 0
 }
 
-# Core Rust containers (use RUST_VERSION)
-echo -e "${YELLOW}Step 1: Publishing Rust containers (version: $RUST_VERSION)${NC}"
-echo
+# Service images
+if [ ${#SERVICES[@]} -eq 0 ]; then
+    echo -e "${YELLOW}No service images to publish${NC}"
+else
+    echo -e "${YELLOW}Publishing ${#SERVICES[@]} service images (version: $SERVICE_TAG)${NC}"
+    echo
 
-RUST_CONTAINERS=(
-    "nuanced-lsp-wrapper"
-    "nuanced-lsp-proxy"
-    "nuanced-lsp-watchdog"
-)
+    failed=0
+    for image_name in "${SERVICES[@]}"; do
+        publish_image "nuanced-lsp-${image_name}:$SERVICE_TAG" || failed=$((failed + 1))
+    done
 
-failed=0
-for container in "${RUST_CONTAINERS[@]}"; do
-    publish_image "$container" "$container" "$RUST_VERSION" || failed=$((failed + 1))
-done
+    if [ $failed -gt 0 ]; then
+        echo -e "${RED}$failed service images failed to publish${NC}"
+        exit 1
+    fi
 
-if [ $failed -gt 0 ]; then
-    echo -e "${RED}$failed Rust containers failed to publish${NC}"
-    exit 1
+    echo
 fi
 
-echo
+# Language images
+echo -e "${YELLOW}Publishing images for ${#LANGUAGES[@]} languages (version: $LANGUAGE_TAG)${NC}"
 
-# Language containers (non-Ruby) - use LANGUAGE_TAG
-echo -e "${YELLOW}Step 2: Publishing language containers (version: $LANGUAGE_TAG)${NC}"
-echo
-
-LANGUAGES=(
-    "python"
-    "typescript"
-    "rust"
-    "golang"
-    "java"
-    "clangd"
-    "csharp"
-    "php"
-)
-
-failed=0
-for lang in "${LANGUAGES[@]}"; do
-    publish_image "nuanced-lsp-${lang}" "nuanced-lsp-${lang}" "$LANGUAGE_TAG" || failed=$((failed + 1))
-done
-
-if [ $failed -gt 0 ]; then
-    echo -e "${RED}$failed language containers failed to publish${NC}"
-    exit 1
-fi
-
-echo
-
-# Determine Ruby versions to publish (use LANGUAGE_TAG)
+# Separate languages into categories (ruby-sorbet must be built after ruby)
+UNVERSIONED_LANGUAGES=()
 RUBY_VERSIONS=()
-echo -e "${YELLOW}Step 3: Publishing supported Ruby versions (version: $LANGUAGE_TAG)${NC}"
-RUBY_VERSIONS=("${SUPPORTED_RUBY_VERSIONS[@]}")
-echo
+RUBY_SORBET_VERSIONS=()
 
-failed=0
-for ruby_version in "${RUBY_VERSIONS[@]}"; do
-    publish_image "nuanced-lsp-ruby-${ruby_version}" "nuanced-lsp-ruby-${ruby_version}" "$LANGUAGE_TAG" || failed=$((failed + 1))
+for lang in "${LANGUAGES[@]}"; do
+    if [[ "$lang" == "ruby" ]]; then
+        RUBY_VERSIONS+=("${SUPPORTED_RUBY_VERSIONS[@]}")
+    elif [[ "$lang" =~ ^ruby-[0-9] ]]; then
+        version="${lang#ruby-}"
+        RUBY_VERSIONS+=("$version")
+    elif [[ "$lang" == "ruby-sorbet" ]]; then
+        RUBY_SORBET_VERSIONS+=("${SUPPORTED_RUBY_VERSIONS[@]}")
+    elif [[ "$lang" =~ ^ruby-sorbet-[0-9] ]]; then
+        version="${lang#ruby-sorbet-}"
+        RUBY_SORBET_VERSIONS+=("$version")
+    else
+        UNVERSIONED_LANGUAGES+=("$lang")
+    fi
 done
 
-if [ $failed -gt 0 ]; then
-    echo -e "${RED}$failed Ruby containers failed to publish${NC}"
-    exit 1
+failed=0
+if [ ${#UNVERSIONED_LANGUAGES[@]} -eq 0 ]; then
+    echo -e "${YELLOW}No unversioned language images to publish${NC}"
+else
+    echo -e "${YELLOW}Publishing ${#UNVERSIONED_LANGUAGES[@]} language images${NC}"
+    for lang in "${UNVERSIONED_LANGUAGES[@]}"; do
+        local image_tags=("nuanced-lsp-${lang}:$LANGUAGE_TAG")
+
+        # Also tag with major version
+        local major_version
+        if major_version="$(extract_major_version "$LANGUAGE_TAG")"; then
+            image_tags+=("nuanced-lsp-${lang}:${major_version}")
+        fi
+
+        publish_image "${image_tags[@]}" || failed=$((failed + 1))
+    done
 fi
 
-echo
+if [ ${#RUBY_VERSIONS[@]} -eq 0 ]; then
+    echo -e "${YELLOW}No Ruby images to publish${NC}"
+else
+    echo -e "${YELLOW}Publishing Ruby images (${#RUBY_VERSIONS[@]} versions)${NC}"
+    for ruby_version in "${RUBY_VERSIONS[@]}"; do
+        local image_tags=("nuanced-lsp-ruby-${ruby_version}:$LANGUAGE_TAG")
 
-# Ruby Sorbet variants (use LANGUAGE_TAG)
-RUBY_SORBET_VERSIONS=()
-echo -e "${YELLOW}Step 4: Publishing supported Ruby Sorbet versions (version: $LANGUAGE_TAG)${NC}"
-RUBY_SORBET_VERSIONS=("${SUPPORTED_RUBY_VERSIONS[@]}")
-echo
+        # Also tag with major version
+        local major_version
+        if major_version="$(extract_major_version "$LANGUAGE_TAG")"; then
+            image_tags+=("nuanced-lsp-ruby-${ruby_version}:${major_version}")
+        fi
 
-failed=0
-for ruby_version in "${RUBY_SORBET_VERSIONS[@]}"; do
-    publish_image "nuanced-lsp-ruby-sorbet-${ruby_version}" "nuanced-lsp-ruby-sorbet-${ruby_version}" "$LANGUAGE_TAG" || failed=$((failed + 1))
-done
+        publish_image "${image_tags[@]}" || failed=$((failed + 1))
+    done
+fi
+
+if [ ${#RUBY_SORBET_VERSIONS[@]} -eq 0 ]; then
+    echo -e "${YELLOW}No Ruby Sorbet images to publish${NC}"
+else
+    echo -e "${YELLOW}Publishing Ruby Sorbet images (${#RUBY_SORBET_VERSIONS[@]} versions)${NC}"
+    for ruby_version in "${RUBY_SORBET_VERSIONS[@]}"; do
+        local image_tags=("nuanced-lsp-ruby-sorbet-${ruby_version}:$LANGUAGE_TAG")
+
+        # Also tag with major version
+        local major_version
+        if major_version="$(extract_major_version "$LANGUAGE_TAG")"; then
+            image_tags+=("nuanced-lsp-ruby-sorbet-${ruby_version}:${major_version}")
+        fi
+
+        publish_image "${image_tags[@]}" || failed=$((failed + 1))
+    done
+fi
 
 if [ $failed -gt 0 ]; then
-    echo -e "${RED}$failed Ruby Sorbet containers failed to publish${NC}"
+    echo -e "${RED}$failed language images failed to publish${NC}"
     exit 1
 fi
 
@@ -329,32 +319,17 @@ if [ "$DRY_RUN" = true ]; then
     echo -e "${GREEN}  No images were actually pushed${NC}"
 else
     echo -e "${GREEN}  All Images Published Successfully${NC}"
-    echo -e "${GREEN}  Rust containers: $RUST_VERSION${NC}"
-    echo -e "${GREEN}  Language containers: $LANGUAGE_TAG${NC}"
+    if [ ${#SERVICES[@]} -gt 0 ]; then
+        echo -e "${GREEN}  Service images: $SERVICE_TAG${NC}"
+    fi
+    if [ ${#LANGUAGES[@]} -gt 0 ]; then
+        echo -e "${GREEN}  Language images: $LANGUAGE_TAG${NC}"
+    fi
+    echo -e "${BLUE}Published images:${NC}"
+    for image in "${PUBLISHED_IMAGES[@]}"; do
+        echo -e "  ${image}"
+    done
+    echo
 fi
 echo -e "${GREEN}=========================================${NC}"
 echo
-
-if [ "$DRY_RUN" = false ]; then
-    echo -e "${BLUE}Published images:${NC}"
-
-    # List all images for each enabled registry
-    for registry in $([ "$PUBLISH_TO_GHCR" = true ] && echo "$GHCR_REGISTRY") $([ "$PUBLISH_TO_DOCKERHUB" = true ] && echo "$DOCKERHUB_REGISTRY"); do
-        if [ -n "$registry" ]; then
-            echo -e "${YELLOW}$registry:${NC}"
-            echo -e "  ${registry}/nuanced-lsp-wrapper:${RUST_VERSION}"
-            echo -e "  ${registry}/nuanced-lsp-proxy:${RUST_VERSION}"
-            echo -e "  ${registry}/nuanced-lsp-watchdog:${RUST_VERSION}"
-            for lang in "${LANGUAGES[@]}"; do
-                echo -e "  ${registry}/nuanced-lsp-${lang}:${LANGUAGE_TAG}"
-            done
-            for ruby_version in "${RUBY_VERSIONS[@]}"; do
-                echo -e "  ${registry}/nuanced-lsp-ruby-${ruby_version}:${LANGUAGE_TAG}"
-            done
-            for ruby_version in "${RUBY_SORBET_VERSIONS[@]}"; do
-                echo -e "  ${registry}/nuanced-lsp-ruby-sorbet-${ruby_version}:${LANGUAGE_TAG}"
-            done
-            echo
-        fi
-    done
-fi

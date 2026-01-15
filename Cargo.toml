@@ -7,30 +7,33 @@ members = [
 resolver = "2"
 
 [workspace.package]
-version = "0.4.8"
+version = "0.4.9"
 edition = "2021"
-authors = ["Nuanced"]
+authors = ["Nuanced Dev"]
+repository = "https://github.com/nuanced-dev/lsp"
+description = "Nuanced LSP containerized LSP service"
+license = "MIT"
+publish = false
 
 [workspace.dependencies]
-# Shared dependencies
 actix-web = "4.0"
 ast-grep = { version = "0.39", default-features = false }
-tokio = { version = "1.0", features = ["full", "process"] }
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-log = "0.4"
-env_logger = "0.10"
-clap = { version = "4.3", features = ["derive"] }
-thiserror = "1.0"
-lsp-types = "0.95"
 async-trait = "0.1"
+clap = { version = "4.3", features = ["derive"] }
+env_logger = "0.10"
 glob = "0.3"
 ignore = "0.4.23"  # Pin to avoid edition2024 requirement in 0.4.25+
-url = "2.5"
-utoipa = "5.4"
+log = "0.4"
+lsp-types = "0.95"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
 strum = "0.26"
 strum_macros = "0.26"
 tempfile = "3.8"
+thiserror = "1.0"
+tokio = { version = "1.0", features = ["full", "process"] }
+url = "2.5"
+utoipa = "5.4"
 
 # Common crate (internal)
 common = { path = "crates/common" }

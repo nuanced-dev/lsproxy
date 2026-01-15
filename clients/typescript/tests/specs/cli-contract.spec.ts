@@ -25,10 +25,9 @@ const HELP_PATTERNS: Record<string, RegExp[]> = {
     /workspace\b/i,
     /--host-port\b/i,
     /--bind-host\b/i,
-    /--language-container-version\b/i,
-    /--proxy-image\b/i,
-    /--watchdog-image\b/i,
-    /--wrapper-image\b/i,
+    /--language-image-version\b/i,
+    /--service-image-version\b/i,
+    /--container-registry\b/i,
     /--container-name\b/i,
     /--timeout\b/i,
     /--sudo\b/i,
@@ -60,7 +59,18 @@ const HELP_PATTERNS: Record<string, RegExp[]> = {
     /--json\b/i,
   ],
   status: [/--json\b/i, /--container-name\b/i, /--timeout\b/i, /--sudo\b/i],
-  pull: [/--proxy-image\b/i, /--sudo\b/i, /--stream\b/i, /--json\b/i],
+  pull: [
+    /--language-image-version\b/i,
+    /--service-image-version\b/i,
+    /--container-registry\b/i,
+    /--all-languages\b/i,
+    /--languages\b/i,
+    /--all-services\b/i,
+    /--services\b/i,
+    /--sudo\b/i,
+    /--stream\b/i,
+    /--json\b/i,
+  ],
   health: [/--lsp-url\b/i, /--lsp-port\b/i, /--timeout\b/i, /--json\b/i],
   "list-files": [/--lsp-url\b/i, /--lsp-port\b/i, /--timeout\b/i, /--json\b/i],
   "read-source": [
@@ -124,8 +134,8 @@ function runHelp(command: string, args: string[]): string {
   return result.stdout || "";
 }
 
-describe("CLI contract", () => {
-  describe("TypeScript client", () => {
+describe("TypeScript client", () => {
+  describe("CLI contract", () => {
     const [cmd, ...baseArgs] = CLIENT_COMMAND;
 
     it("includes required subcommands in top-level help", () => {

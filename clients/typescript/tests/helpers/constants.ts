@@ -1,11 +1,9 @@
 import path from "node:path";
+import process from "node:process";
 import { spawnSync } from "node:child_process";
+import { readdirSync, statSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-
-export interface LanguageSpec {
-  key: string;
-  label: string;
-}
+import { selectLanguages } from "../../src/constants.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -13,74 +11,29 @@ const ROOT = path.resolve(__dirname, "..", "..");
 
 export const CLIENT_COMMAND = [path.join(ROOT, "dist/cli.cjs")];
 
-const SUPPORTED_RUBY_VERSIONS = [
-  "3.2.2",
-  "3.2.6",
-  "3.3.5",
-  "3.3.6",
-  "3.3.7",
-  "3.3.8",
-  "3.3.9",
-  "3.3.10",
-  "3.4.0",
-  "3.4.1",
-  "3.4.2",
-  "3.4.3",
-  "3.4.4",
-  "3.4.5",
-  "3.4.6",
-  "3.4.7",
-] as const;
+const WORKSPACES_DIR = path.join(ROOT, "tests", "workspaces");
 
-const RUBY_LANGUAGES: LanguageSpec[] = [
-  { key: "ruby", label: "Ruby (ruby-lsp + sorbet)" },
-  ...SUPPORTED_RUBY_VERSIONS.map((version) => ({
-    key: `ruby-${version}`,
-    label: `Ruby ${version} (ruby-lsp + sorbet)`,
-  })),
-  { key: "ruby-no-sorbet", label: "Ruby (ruby-lsp)" },
-  ...SUPPORTED_RUBY_VERSIONS.map((version) => ({
-    key: `ruby-no-sorbet-${version}`,
-    label: `Ruby ${version} (ruby-lsp)`,
-  })),
-];
-
-const ALL_LANGUAGES: LanguageSpec[] = [
-  { key: "csharp", label: "C# (omnisharp)" },
-  { key: "cpp", label: "C/C++ (clangd)" },
-  { key: "go", label: "Go (gopls)" },
-  { key: "java", label: "Java (jdtls)" },
-  { key: "php", label: "PHP (phpactor)" },
-  { key: "python", label: "Python (pyright-langserver)" },
-  ...RUBY_LANGUAGES,
-  { key: "rust", label: "Rust (rust-analyzer)" },
-  { key: "ts", label: "TypeScript (typescript-language-server)" },
-  { key: "js", label: "JavaScript (typescript-language-server)" },
-];
-
-function selectLanguages(): LanguageSpec[] {
-  const raw = process.env.NUANCED_LANGUAGES ?? "all";
-  const tokens = raw
-    .split(",")
-    .map((value) => value.trim().toLowerCase())
-    .filter(Boolean);
-
-  if (tokens.length === 0 || tokens.includes("all") || tokens.includes("*")) {
-    return ALL_LANGUAGES;
+const ALL_WORKSPACES: string[] = (() => {
+  try {
+    return readdirSync(WORKSPACES_DIR).filter((entry: string) => {
+      const fullPath = path.join(WORKSPACES_DIR, entry);
+      return statSync(fullPath).isDirectory();
+    });
+  } catch {
+    return [];
   }
+})();
 
-  const selected = ALL_LANGUAGES.filter((lang) => {
-    const key = lang.key.toLowerCase();
-    return tokens.some((token) => key === token || key.startsWith(`${token}-`));
-  });
-  if (selected.length === 0) {
-    // If no languages match, default to all languages instead of just PHP
-    return ALL_LANGUAGES;
+export const TEST_WORKSPACES: string[] = (function () {
+  if (process.env.TEST_WORKSPACES) {
+    const names = process.env.TEST_WORKSPACES.split(",")
+      .map((value: string) => value.trim().toLowerCase())
+      .filter(Boolean);
+    return selectLanguages(names, ALL_WORKSPACES);
+  } else {
+    return ALL_WORKSPACES;
   }
-  return selected;
-}
-
-export const LANGUAGES: LanguageSpec[] = selectLanguages();
+})();
 
 const USE_EPHEMERAL_PORTS = (() => {
   const value =
@@ -108,12 +61,12 @@ export function workerIndex(): number {
   return Number.isFinite(parsed) ? Number(parsed) : 0;
 }
 
-function languageIndex(key: string): number {
-  const idx = LANGUAGES.findIndex((l) => l.key === key);
+function languageIndex(lang: string): number {
+  const idx = TEST_WORKSPACES.findIndex((l) => l === lang);
   return idx >= 0 ? idx : 0;
 }
 
-export function fixedPort(langKey: string): number {
+export function fixedPort(lang: string): number {
   const override = process.env.NUANCED_FIXED_HOST_PORT;
   if (override && override.length > 0) {
     const parsed = Number(override);
@@ -129,7 +82,7 @@ export function fixedPort(langKey: string): number {
   return (
     BASE_PORT +
     WORKER_STRIDE * workerIndex() +
-    LANG_STRIDE * languageIndex(langKey)
+    LANG_STRIDE * languageIndex(lang)
   );
 }
 
@@ -145,9 +98,9 @@ export function workspacePath(langKey: string): string {
 }
 
 export const TIMEOUT_SECONDS = Number(process.env.NUANCED_LSP_TIMEOUT ?? "120");
-export const PROXY_IMAGE_OVERRIDE = process.env.PROXY_IMAGE ?? "";
-export const WATCHDOG_IMAGE_OVERRIDE = process.env.WATCHDOG_IMAGE ?? "";
-export const WRAPPER_IMAGE_OVERRIDE = process.env.WRAPPER_IMAGE ?? "";
+export const CONTAINER_REGISTRY = process.env.REGISTRY ?? "";
+export const LANGUAGE_IMAGE_VERSION = process.env.LANGUAGE_TAG ?? "";
+export const SERVICE_IMAGE_VERSION = process.env.SERVICE_TAG ?? "";
 export const SYMBOL_SCENARIO_DELAY = Number(
   process.env.SYMBOL_SCENARIO_DELAY ?? "0",
 );
@@ -211,6 +164,6 @@ if (!DOCKER_AVAILABLE) {
   } else {
     console.warn("[nuanced-lsp] Test containers will use fixed host ports.");
   }
-  const selected = LANGUAGES.map((lang) => lang.key).join(", ");
-  console.warn(`[nuanced-lsp] Selected languages: ${selected}`);
+  const selected = TEST_WORKSPACES.join(", ");
+  console.warn(`[nuanced-lsp] Selected workspaces: ${selected}`);
 }

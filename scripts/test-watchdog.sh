@@ -1,22 +1,86 @@
 #!/usr/bin/env bash
 
-set -e
+set -eu
 
-# Test watchdog container functionality
-# Tests: watchdog spawning, clean shutdown, SIGKILL cleanup, multiple instances
+SCRIPT_DIR="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")" && pwd)"
 
-# Colors
-GREEN='\033[0;32m'
-RED='\033[0;31m'
-BLUE='\033[0;34m'
-YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
+source "$SCRIPT_DIR/include/colors.sh"
+source "$SCRIPT_DIR/include/constants.sh"
 
-WORKSPACE_PATH="${1:-sample_project/python}"
-WORKSPACE_PATH="$(cd "$WORKSPACE_PATH" && pwd)"
+help() {
+    echo "Test watchdog container functionality"
+    echo ""
+    echo "Usage: $0 [OPTIONS...]"
+    echo ""
+    echo "Options:"
+    echo "  --language-tag=TAG    Tag of language images to use"
+    echo "  --registry=REG        Container registry for service images (default: none)"
+    echo "  --service-tag=TAG     Tag of service images to use (default: $DEFAULT_SERVICE_TAG)"
+    echo "  --help, -h            Show this help"
+    echo ""
+    echo "Tests: watchdog spawning, clean shutdown, SIGKILL cleanup, multiple instances"
+}
 
-# Use RUST_IMAGE_VERSION from environment, default to "latest"
-RUST_VERSION="${RUST_IMAGE_VERSION:-latest}"
+# Default values
+LANGUAGE_TAG=""
+SERVICE_TAG=""
+REGISTRY=""
+
+# Parse options
+for arg in "$@"; do
+    case $arg in
+        --language-tag=*)
+            LANGUAGE_TAG="${arg#*=}"
+            ;;
+        --registry=*)
+            REGISTRY="${arg#*=}"
+            ;;
+        --service-tag=*)
+            SERVICE_TAG="${arg#*=}"
+            ;;
+        --help|-h)
+            help
+            exit 0
+            ;;
+        *)
+            echo -e "${RED}Unknown option: $arg${NC}"
+            exit 1
+            ;;
+    esac
+done
+
+# Configuration
+WORKSPACE_PATH="$(cd "$SCRIPT_DIR/../sample_project/python" && pwd)"
+
+DOCKER_ARGS=(
+    "-v" "/var/run/docker.sock:/var/run/docker.sock"
+    "-v" "${WORKSPACE_PATH}:/mnt/workspace"
+    "-e" "RUST_LOG=info,nuanced_lsp_proxy=debug,proxy=debug,nuanced_lsp_wrapper=debug,wrapper=debug"
+    "-e" "USE_AUTH=false"
+)
+# If tags were set via flags, pass them on
+if [ -n "$LANGUAGE_TAG" ]; then
+    DOCKER_ARGS+=("-e" "LANGUAGE_IMAGE_VERSION=${LANGUAGE_TAG}")
+fi
+if [ -n "$SERVICE_TAG" ]; then
+    DOCKER_ARGS+=("-e" "SERVICE_IMAGE_VERSION=${SERVICE_TAG}")
+fi
+if [ -n "$REGISTRY" ]; then
+    DOCKER_ARGS+=("-e" "CONTAINER_REGISTRY=${REGISTRY}")
+fi
+# If images were set in the environment, pass them on
+if [ -n "${WATCHDOG_IMAGE:+x}" ]; then
+    DOCKER_ARGS+=("-e" "WATCHDOG_IMAGE=${WATCHDOG_IMAGE}")
+fi
+if [ -n "${WRAPPER_IMAGE:+x}" ]; then
+    DOCKER_ARGS+=("-e" "WRAPPER_IMAGE=${WRAPPER_IMAGE}")
+fi
+# If languages were set in the environment, pass them on
+if [ -n "${ENABLED_LANGUAGES:+x}" ]; then
+    DOCKER_ARGS+=("-e" "ENABLED_LANGUAGES=${ENABLED_LANGUAGES}")
+fi
+
+PROXY_IMAGE="${REGISTRY:+$REGISTRY/}${PROXY_IMAGE:-nuanced-lsp-proxy:${SERVICE_TAG:-$DEFAULT_SERVICE_TAG}}"
 
 echo -e "${BLUE}=========================================${NC}"
 echo -e "${BLUE}  Watchdog Functionality Tests${NC}"
@@ -55,20 +119,24 @@ wait_for_service_ready() {
     echo -e "${YELLOW}Waiting for service to initialize (up to ${timeout}s)...${NC}"
     local ready=false
     for i in $(seq 1 "$timeout"); do
-        HEALTH=$(curl -sf "http://localhost:${port}/v1/system/health" || true)
+        HEALTH=$(curl -sf http://localhost:$port/v1/system/health || true)
         STATUS=$(echo "$HEALTH" | jq -r '.status' 2>/dev/null || echo "")
-        LANG_PENDING=$(echo "$HEALTH" | jq -r '.languages | to_entries[]? | select(.value != true) | .key' 2>/dev/null || true)
+        LANG_FAILED=$(echo "$HEALTH" | jq -r '.languages | to_entries[]? | select(.value == false) | .key' 2>/dev/null || true)
 
-        if [ "$STATUS" = "ok" ] && [ -z "$LANG_PENDING" ]; then
-            echo -e "${GREEN}Service healthy after ${i}s${NC}"
+        if [ "$STATUS" = "ok" ] && [ -n "$LANG_FAILED" ]; then
+            echo -e "${RED}✗ ERROR: Service failed to start languages:${NC}"
+            echo -e "${RED}${LANG_FAILED}${NC}"
+            exit 1
+        fi
+
+        if [ "$STATUS" = "ok" ]; then
+            echo -e "${GREEN}✓ Service and languages healthy after ${i}s${NC}"
             ready=true
             break
         fi
 
         if (( i % 5 == 0 )); then
-            waiting_list=$(IFS=', '; echo "${LANG_PENDING}")
-            [ -z "$waiting_list" ] && waiting_list="waiting for health endpoint..."
-            echo -e "${YELLOW}  [${i}s] Waiting: ${waiting_list}${NC}"
+            echo -e "${YELLOW}  [${i}s] Status: $STATUS...${NC}"
         else
             printf "${YELLOW}.${NC}"
         fi
@@ -174,7 +242,7 @@ cleanup() {
     fi
 
     echo -e "${GREEN}Cleanup complete${NC}"
-    exit $exit_code
+    exit "$exit_code"
 }
 
 # Register cleanup on exit
@@ -187,16 +255,12 @@ echo
 
 # Start service
 echo -e "${BLUE}Starting service container...${NC}"
+
 docker run -d \
     --name test-watchdog-svc \
     -p 4455:4444 \
-    -v /var/run/docker.sock:/var/run/docker.sock \
-    -v "$WORKSPACE_PATH:/mnt/workspace" \
-    -e RUST_LOG=info,nuanced_lsp_proxy=debug,proxy=debug,nuanced_lsp_wrapper=debug,wrapper=debug \
-    -e USE_AUTH=false \
-    -e WRAPPER_IMAGE=nuanced-lsp-wrapper:${RUST_VERSION} \
-    -e WATCHDOG_IMAGE=nuanced-lsp-watchdog:${RUST_VERSION} \
-    nuanced-lsp-proxy:${RUST_VERSION} > /dev/null
+    "${DOCKER_ARGS[@]}" \
+    "$PROXY_IMAGE" > /dev/null
 
 wait_for_service_ready 4455
 
@@ -260,13 +324,8 @@ echo -e "${BLUE}Starting service container...${NC}"
 docker run -d \
     --name test-watchdog-kill \
     -p 4456:4444 \
-    -v /var/run/docker.sock:/var/run/docker.sock \
-    -v "$WORKSPACE_PATH:/mnt/workspace" \
-    -e RUST_LOG=info,nuanced_lsp_proxy=debug,proxy=debug,nuanced_lsp_wrapper=debug,wrapper=debug \
-    -e USE_AUTH=false \
-    -e WRAPPER_IMAGE=nuanced-lsp-wrapper:${RUST_VERSION} \
-    -e WATCHDOG_IMAGE=nuanced-lsp-watchdog:${RUST_VERSION} \
-    nuanced-lsp-proxy:${RUST_VERSION} > /dev/null
+    "${DOCKER_ARGS[@]}" \
+    "$PROXY_IMAGE" > /dev/null
 
 wait_for_service_ready 4456
 
@@ -311,24 +370,14 @@ echo -e "${BLUE}Starting two service instances...${NC}"
 docker run -d \
     --name test-watchdog-multi1 \
     -p 4457:4444 \
-    -v /var/run/docker.sock:/var/run/docker.sock \
-    -v "$WORKSPACE_PATH:/mnt/workspace" \
-    -e RUST_LOG=info,nuanced_lsp_proxy=debug,proxy=debug,nuanced_lsp_wrapper=debug,wrapper=debug \
-    -e USE_AUTH=false \
-    -e WRAPPER_IMAGE=nuanced-lsp-wrapper:${RUST_VERSION} \
-    -e WATCHDOG_IMAGE=nuanced-lsp-watchdog:${RUST_VERSION} \
-    nuanced-lsp-proxy:${RUST_VERSION} > /dev/null
+    "${DOCKER_ARGS[@]}" \
+    "$PROXY_IMAGE" > /dev/null
 
 docker run -d \
     --name test-watchdog-multi2 \
     -p 4458:4444 \
-    -v /var/run/docker.sock:/var/run/docker.sock \
-    -v "$WORKSPACE_PATH:/mnt/workspace" \
-    -e RUST_LOG=info,nuanced_lsp_proxy=debug,proxy=debug,nuanced_lsp_wrapper=debug,wrapper=debug \
-    -e USE_AUTH=false \
-    -e WRAPPER_IMAGE=nuanced-lsp-wrapper:${RUST_VERSION} \
-    -e WATCHDOG_IMAGE=nuanced-lsp-watchdog:${RUST_VERSION} \
-    nuanced-lsp-proxy:${RUST_VERSION} > /dev/null
+    "${DOCKER_ARGS[@]}" \
+    "$PROXY_IMAGE" > /dev/null
 
 wait_for_service_ready 4457 120
 wait_for_service_ready 4458 120

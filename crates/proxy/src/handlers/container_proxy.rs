@@ -23,7 +23,10 @@ pub async fn get_container_client(
 
     // Spawn new container
     info!("Spawning container for {:?}", language);
-    match orchestrator.spawn_container(language.clone()).await {
+    match orchestrator
+        .spawn_language_container(language.clone())
+        .await
+    {
         Ok(container_info) => {
             info!(
                 "Container spawned for {:?}: {}",
