@@ -383,6 +383,8 @@ Language image versioning:
 
   For example, the language server was updated to a new patch version that fixed some bugs.
 
+_Language images are also published under their major version, and by default the service depends on the major version only. That way, new language container updates are picked up automatically._
+
 ## Release
 
 **Service images:**
