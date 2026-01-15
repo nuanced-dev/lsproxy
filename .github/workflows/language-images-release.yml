@@ -60,8 +60,6 @@ jobs:
           tag_name: ${{ github.ref_name }}
           name: ${{ steps.tag.outputs.LANGUAGE }} v${{ steps.tag.outputs.LANGUAGE_TAG }}
           body: |
-            ## ${{ steps.tag.outputs.LANGUAGE }} v${{ steps.tag.outputs.LANGUAGE_TAG }} release
-
             Published multi-platform Docker language images for ${{ steps.tag.outputs.LANGUAGE }} v${{ steps.tag.outputs.LANGUAGE_TAG }}.
 
             ### Changes
