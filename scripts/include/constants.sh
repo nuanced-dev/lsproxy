@@ -9,9 +9,10 @@ export DEFAULT_SERVICE_TAG
 
 export DEFAULT_REGISTRY="ghcr.io/nuanced-dev"
 
+# watchdog comes first because it builds fast and helps catch Docker issues early
 export ALL_SERVICES=( \
-    "proxy"
     "watchdog"
+    "proxy"
     "wrapper"
 )
 
