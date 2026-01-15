@@ -211,12 +211,12 @@ else
     echo
 fi
 
-# Add build args based on what's being built
-BUILD_CMD+=("--build-arg" "CONTAINER_REGISTRY=$REGISTRY")
-if [ ${#SERVICES[@]} -gt 0 ]; then
-    BUILD_CMD+=("--build-arg" "SERVICE_IMAGE_VERSION=$SERVICE_TAG")
-fi
-if [ ${#LANGUAGES[@]} -gt 0 ]; then
+# Add service build arguments
+BUILD_CMD+=(
+    "--build-arg" "CONTAINER_REGISTRY=$REGISTRY"
+    "--build-arg" "SERVICE_IMAGE_VERSION=$SERVICE_TAG"
+)
+if [ -n "$LANGUAGE_TAG" ]; then
     BUILD_CMD+=("--build-arg" "LANGUAGE_IMAGE_VERSION=$LANGUAGE_TAG")
 fi
 
@@ -243,9 +243,10 @@ compute_cache_flags() {
 
 build_image() {
     local dockerfile="$1"
-    local cache_name="$2"
-    local image_tag="$3"
-    local additional_image_tags=("${@:4}")
+    local target="$2"
+    local cache_name="$3"
+    local image_tag="$4"
+    local additional_image_tags=("${@:5}")
 
     echo -e "${BLUE}Building ${image_tag}...${NC}"
 
@@ -257,9 +258,14 @@ build_image() {
     local CACHE_FLAGS
     CACHE_FLAGS="$(compute_cache_flags "$cache_name")"
 
+    local TARGET_FLAGS=()
+    if [ -n "$target" ]; then
+        TARGET_FLAGS=("--target" "$target")
+    fi
+
     local log_file="/tmp/build-${cache_name}.log"
 
-    if "${BUILD_CMD[@]}" $CACHE_FLAGS -f "$dockerfile" -t "$image_tag" . > "$log_file" 2>&1; then
+    if "${BUILD_CMD[@]}" $CACHE_FLAGS "${TARGET_FLAGS[@]}" -f "$dockerfile" -t "$image_tag" . > "$log_file" 2>&1; then
         if [ "$MULTIPLATFORM" = true ]; then
             echo -e "${GREEN}✓ ${image_tag} built successfully (multi-platform)${NC}"
         else
@@ -293,7 +299,7 @@ build_service_image() {
     local image_tag="nuanced-lsp-${name}:${SERVICE_TAG}"
     local cache_name="$name"
 
-    build_image "$docker_file" "$cache_name" "$image_tag"
+    build_image "$docker_file" "" "$cache_name" "$image_tag"
 }
 
 # Build service images (proxy, watchdog, wrapper)
@@ -336,30 +342,27 @@ fi
 # ---------------------------------------
 
 build_language_image() {
-    local subdir="$1"  # Optional subdirectory (ruby or ruby-sorbet)
-    local lang="$2"
+    local lang_base="$1" # Optional
+    local lang_or_version="$2" # Language if lang_base is empty, otherwise a version
 
     local dockerfile
-    if [ -n "$subdir" ]; then
-        dockerfile="dockerfiles/${subdir}/${lang}.Dockerfile"
-    else
-        dockerfile="dockerfiles/${lang}.Dockerfile"
-    fi
-
-    # For Ruby images, the image name includes the Ruby version
-    # Format: nuanced-lsp-ruby-3.4.4 or nuanced-lsp-ruby-sorbet-3.4.4
+    local target=""
     local image_name
-    if [ -n "$subdir" ]; then
-        image_name="nuanced-lsp-${subdir}-${lang}"
+    local cache_name
+    if [ -n "$lang_base" ]; then
+        dockerfile="dockerfiles/${lang_base}/${lang_or_version}.Dockerfile"
+        image_name="nuanced-lsp-${lang_base}-${lang_or_version}"
+        cache_name="${lang_base}-${lang_or_version}"
     else
-        image_name="nuanced-lsp-${lang}"
+        dockerfile="dockerfiles/${lang_or_version}.Dockerfile"
+        image_name="nuanced-lsp-${lang_or_version}"
+        cache_name="${lang_or_version}"
     fi
 
-    local cache_name
-    if [ -n "$subdir" ]; then
-        cache_name="${subdir}-${lang}"
-    else
-        cache_name="${lang}"
+    # Override dockerfile and target for Ruby images
+    if [ "$lang_base" = "ruby" ] || [ "$lang_base" = "ruby-sorbet" ]; then
+        dockerfile="dockerfiles/ruby/${lang_or_version}.Dockerfile"
+        target="$lang_base"
     fi
 
     local image_tags=("${image_name}:${LANGUAGE_TAG}")
@@ -370,19 +373,19 @@ build_language_image() {
         image_tags+=("${image_name}:${major_version}")
     fi
 
-    build_image "$dockerfile" "$cache_name" "${image_tags[@]}"
+    build_image "$dockerfile" "$target" "$cache_name" "${image_tags[@]}"
 }
 
 # Throttled parallel build function
 # Runs builds in parallel but limits concurrency to JOBS
 # Arguments:
-#   $1 - subdir (empty string, "ruby", or "ruby-sorbet")
+#   $1 - lang_base (empty string for unversioned languages, or language name like "ruby"/"ruby-sorbet")
 #   $2... - items to build
-# If subdir is empty, the items are language names. Otherwise,
-# the subdir is the base and the items are language versions.
+# If lang_base is empty, the items are language names (no versions).
+# If lang is non-empty, the items are versions for that language.
 build_language_images_parallel() {
-    local subdir="$1"
-    local items=("${@:2}")
+    local lang_base="$1" # Optional
+    local items=("${@:2}") # Languages if lang_base is empty, otherwise versions
 
     local pids=()
     local failed=0
@@ -408,7 +411,7 @@ build_language_images_parallel() {
         done
 
         # Start new build
-        build_language_image "$subdir" "$item" &
+        build_language_image "$lang_base" "$item" &
         pids+=($!)
         running=$((running + 1))
     done
@@ -474,7 +477,7 @@ else
     echo
 fi
 
-# Build Ruby images (must complete before Sorbet images)
+# Build Ruby images
 if [ ${#RUBY_VERSIONS[@]} -eq 0 ]; then
     echo -e "${YELLOW}No Ruby images to build${NC}"
 else
@@ -502,7 +505,7 @@ else
     echo
 fi
 
-# Build Ruby Sorbet variants (depends on Ruby base images)
+# Build Ruby Sorbet variants
 if [ ${#RUBY_SORBET_VERSIONS[@]} -eq 0 ]; then
     echo -e "${YELLOW}No Ruby Sorbet images to build${NC}"
 else

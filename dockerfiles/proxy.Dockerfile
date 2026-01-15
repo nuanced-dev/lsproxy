@@ -9,8 +9,9 @@ ARG TARGETPLATFORM
 ARG TARGETARCH
 
 ARG CONTAINER_REGISTRY
-RUN test -n "$CONTAINER_REGISTRY" || (echo "Missing required build argument CONTAINER_REGISTRY" ; false)
+ARG LANGUAGE_IMAGE_VERSION
 ARG SERVICE_IMAGE_VERSION
+RUN test -n "$CONTAINER_REGISTRY" || (echo "Missing required build argument CONTAINER_REGISTRY" ; false)
 RUN test -n "$SERVICE_IMAGE_VERSION" || (echo "Missing required build argument SERVICE_IMAGE_VERSION" ; false)
 
 # Set up cross-compilation tools and target based on build/target platform
