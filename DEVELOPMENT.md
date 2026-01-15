@@ -413,6 +413,6 @@ To fix this, do the following:
 
 1. Find the package on https://github.com/orgs/nuanced-dev/packages. For example, <https://github.com/orgs/nuanced-dev/packages/container/package/nuanced-lsp-watchdog> for the watchdog. Link the package to the `nuanced-dev/lsp` repository, if it isn't already.
 
-1. Go to the package settings. For example, <https://github.com/orgs/nuanced-dev/packages/container/nuanced-lsp-watchdog/settings> for the watchdog. Add the `nuanced-dev/lsp` repository under "Actions access" and give it Admin role.
+1. Go to the package settings. For example, <https://github.com/orgs/nuanced-dev/packages/container/nuanced-lsp-watchdog/settings> for the watchdog. Add the `nuanced-dev/lsp` repository under "Actions access" and give it the Write role.
 
 _Unfortunately, there is no API or other way to do this in bulk. It has to be done in the UI for every package that has this issue._
