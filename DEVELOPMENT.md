@@ -409,4 +409,20 @@ Follow these steps to release a new version of the service images:
 
 **Language images:**
 
-TBD
+Follow these steps to release a new version of a language image:
+
+1. Open a branch for the new release.
+
+1. Determine the MAJOR.MINOR.PATCH language version you want to release.
+
+1. Run the release script:
+
+   ```bash
+   scripts/release-languages.sh --languages=LANGUAGE MAJOR.MINOR.PATCH
+   ```
+
+   The release script pushes a tag to GitHub that will trigger the release workflow. The release workflow builds the mutli-platform images, publishes them to GHCR under their version and major version, and creates a GitHub release for the new version.
+
+   The release script supports multiple languages, and even `--all-languages`, but releasing all languages is probably only necessary if the interface between the wrapper and the language containers changes (and thus the major version).
+
+1. If releases are successful, merge the release branch.
