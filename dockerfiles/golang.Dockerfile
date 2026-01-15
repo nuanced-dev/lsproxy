@@ -4,6 +4,7 @@
 
 # Builder stage: Install Go and build gopls
 FROM debian:bookworm-slim AS builder
+LABEL org.opencontainers.image.source https://github.com/nuanced-dev/lsp
 
 ARG GO_VERSION=1.24.2
 ARG TARGETPLATFORM
@@ -35,6 +36,7 @@ RUN go install golang.org/x/tools/gopls@latest
 # Runtime stage: Pure Debian base (standalone image with language-specific LSP server)
 # Wrapper binary will be mounted at runtime via --volumes-from
 FROM debian:bookworm-slim
+LABEL org.opencontainers.image.source https://github.com/nuanced-dev/lsp
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV HOME=/home/user

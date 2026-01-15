@@ -3,6 +3,7 @@
 # Supports linux/amd64 and linux/arm64
 
 FROM --platform=$BUILDPLATFORM rust:1.91.1-slim-bookworm AS builder
+LABEL org.opencontainers.image.source https://github.com/nuanced-dev/lsp
 ARG BUILDPLATFORM
 ARG BUILDARCH
 ARG TARGETPLATFORM
@@ -127,6 +128,7 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry,id=cargo-registry-proxy 
 
 # Runtime stage - minimal base
 FROM debian:bookworm-slim
+LABEL org.opencontainers.image.source https://github.com/nuanced-dev/lsp
 
 ENV DEBIAN_FRONTEND=noninteractive
 

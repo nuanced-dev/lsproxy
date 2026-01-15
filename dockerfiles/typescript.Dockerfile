@@ -3,6 +3,7 @@
 
 # Builder stage: Install Node.js and typescript-language-server
 FROM debian:bookworm-slim AS builder
+LABEL org.opencontainers.image.source https://github.com/nuanced-dev/lsp
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -21,6 +22,7 @@ RUN npm install -g typescript-language-server typescript && \
 # Runtime stage: Pure Debian base (standalone image with language-specific LSP server)
 # Wrapper binary will be mounted at runtime via --volumes-from
 FROM debian:bookworm-slim
+LABEL org.opencontainers.image.source https://github.com/nuanced-dev/lsp
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV HOME=/home/user

@@ -3,6 +3,7 @@
 
 # Builder stage: Install Ruby and ruby-lsp
 FROM debian:bookworm-slim AS builder
+LABEL org.opencontainers.image.source https://github.com/nuanced-dev/lsp
 
 ENV DEBIAN_FRONTEND=noninteractive
 ARG RUBY_VERSION=3.2.2
@@ -35,6 +36,7 @@ RUN eval "$("$RBENV_ROOT"/bin/rbenv init -)" && \
 
 # Runtime base stage: Pure Debian base with build tools for native gems
 FROM debian:bookworm-slim AS ruby-base
+LABEL org.opencontainers.image.source https://github.com/nuanced-dev/lsp
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV HOME=/home/user
@@ -86,6 +88,7 @@ ENTRYPOINT ["/opt/lsp-wrapper/bin/lsp-wrapper"]
 
 # Ruby target: Standard ruby-lsp server
 FROM ruby-base AS ruby
+LABEL org.opencontainers.image.source https://github.com/nuanced-dev/lsp
 
 # Create symlinks in standard PATH location (following TypeScript/Golang pattern)
 RUN ln -s ${RBENV_ROOT}/shims/ruby-lsp /usr/local/bin/ruby-lsp && \
@@ -97,6 +100,7 @@ CMD ["--lsp-command", "ruby-lsp", "--lsp-arg=--use-launcher"]
 
 # Ruby Sorbet target: Ruby with Sorbet type checker
 FROM ruby-base AS ruby-sorbet
+LABEL org.opencontainers.image.source https://github.com/nuanced-dev/lsp
 
 # Install sorbet gem using the existing Ruby installation
 RUN eval "$("$RBENV_ROOT"/bin/rbenv init -)" && \
