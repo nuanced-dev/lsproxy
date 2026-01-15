@@ -101,12 +101,6 @@ Common custom build workflows:
   scripts/build-images.sh --all-services --language-tag=dev
   ```
 
-- **Build multi-platform images:**
-
-  ```bash
-  scripts/build-images.sh --all-services --multi-platform
-  ```
-
 **Running:**
 
 Start the service for a workspace:
@@ -149,27 +143,19 @@ scripts/test.sh --help
 
 **Publishing:**
 
-_Note that publishing images through the release automation is preferred, especially for service images. Manual publishing can be useful for debugging. Be careful to only publish when you've built multi-platform images!_
+_Publishing images is done through release automation. For manual publishing during development:_
 
-Publish services images:
-
-```bash
-scripts/publish-images.sh --all-services
-```
-
-Flags can be used to control the container registry or image version to publish:
+Use `--publish` to build multi-platform images and push to the registry:
 
 ```bash
-scripts/publish-images.sh --help
+scripts/build-images.sh --all-services --publish
 ```
 
-Common custom publish workflows:
+To publish to a custom registry:
 
-- **Change registry:** publish to Dockerhub registry
-
-  ```bash
-  scripts/publish-images.sh --all-services --registry=nuanced
-  ```
+```bash
+scripts/build-images.sh --all-services --publish --registry=nuanced
+```
 
 ### Language images
 
@@ -203,35 +189,21 @@ Common custom build workflows:
   scripts/build-images.sh --all-languages --language-tag=dev
   ```
 
-- **Build multi-platform images:**
-
-  ```bash
-  scripts/build-images.sh --all-languages --multi-platform
-  ```
-
 **Publishing:**
 
-_Note that publishing images through the release automation is preferred. Manual publishing can be useful for debugging. Be careful to only publish when you've built multi-platform images!_
+_Publishing images is done through release automation. For manual publishing during development:_
 
-Publish services images:
-
-```bash
-scripts/publish-images.sh --all-languages
-```
-
-Flags can be used to control the container registry or image version to publish:
+Use `--publish` to build multi-platform images and push to the registry:
 
 ```bash
-scripts/publish-images.sh --help
+scripts/build-images.sh --all-languages --language-tag=1.0.0 --publish
 ```
 
-Common custom publish workflows:
+To publish to a custom registry:
 
-- **Change registry:** publish to Dockerhub registry
-
-  ```bash
-  scripts/publish-images.sh --all-languages --registry=nuanced
-  ```
+```bash
+scripts/build-images.sh --all-languages --language-tag=1.0.0 --publish --registry=nuanced
+```
 
 **Adding a language:**
 
@@ -403,7 +375,7 @@ Follow these steps to release a new version of the service images:
    scripts/release-service.sh --all-services
    ```
 
-   The release script pushes a tag to GitHub that will trigger the release workflow. The release workflow builds the mutli-platform images, publishes them to GHCR, and creates a GitHub release for the new version.
+   The release script pushes a tag to GitHub that will trigger the release workflow. The release workflow builds the multi-platform images, publishes them to GHCR, and creates a GitHub release for the new version.
 
 1. If releases are successful, merge the release branch.
 
@@ -423,8 +395,24 @@ Follow these steps to release a new version of a language image:
    scripts/release-languages.sh --languages=LANGUAGE MAJOR.MINOR.PATCH
    ```
 
-   The release script pushes a tag to GitHub that will trigger the release workflow. The release workflow builds the mutli-platform images, publishes them to GHCR under their version and major version, and creates a GitHub release for the new version.
+   The release script pushes a tag to GitHub that will trigger the release workflow. The release workflow builds the multi-platform images, publishes them to GHCR under their version and major version, and creates a GitHub release for the new version.
 
    The release script supports multiple languages, and even `--all-languages`, but releasing all languages is probably only necessary if the interface between the wrapper and the language containers changes (and thus the major version).
 
 1. If releases are successful, merge the release branch.
+
+### GHCR permission errors
+
+If the image release workflow fails with an error like the following, the package permissions on GitHub are wrong.
+
+```
+#15 ERROR: failed to push ghcr.io/nuanced-dev/nuanced-lsp-watchdog:0.4.9: denied: permission_denied: write_package
+```
+
+To fix this, do the following:
+
+1. Find the package on https://github.com/orgs/nuanced-dev/packages. For example, <https://github.com/orgs/nuanced-dev/packages/container/package/nuanced-lsp-watchdog> for the watchdog. Link the package to the `nuanced-dev/lsp` repository, if it isn't already.
+
+1. Go to the package settings. For example, <https://github.com/orgs/nuanced-dev/packages/container/nuanced-lsp-watchdog/settings> for the watchdog. Add the `nuanced-dev/lsp` repository under "Actions access" and give it the Write role.
+
+_Unfortunately, there is no API or other way to do this in bulk. It has to be done in the UI for every package that has this issue._

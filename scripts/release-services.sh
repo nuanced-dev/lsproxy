@@ -10,7 +10,7 @@ source "$SCRIPT_DIR/include/constants.sh"
 source "$SCRIPT_DIR/include/lib.sh"
 
 usage() {
-    echo "Usage: $0 [--dry-run|-N]"
+    echo "Usage: $0 [--dry-run|-N] [--force|-f]"
 }
 
 help() {
@@ -18,6 +18,7 @@ help() {
     echo ""
     echo "Options:"
     echo "  --dry-run, -N         Run all checks but only print the tag that would be pushed"
+    echo "  --force, -f           Force push tag even if it already exists"
     echo "  --help, -h            Show this help message"
     echo ""
     echo "Pre-release checks:"
@@ -30,6 +31,7 @@ help() {
 
 # Defaults
 DRY_RUN=false
+FORCE=false
 
 # Parse arguments
 for arg in "$@"; do
@@ -40,7 +42,9 @@ for arg in "$@"; do
             ;;
         --dry-run|-N)
             DRY_RUN=true
-            shift
+            ;;
+        --force|-f)
+            FORCE=true
             ;;
         *)
             echo -e "${YELLOW}Unknown argument: $arg${NC}"
@@ -77,13 +81,19 @@ if ! has_changelog_entry "$DEFAULT_SERVICE_TAG" "$CHANGELOG_FILE"; then
 fi
 echo -e "${GREEN}✓ Changelog entry exists for $DEFAULT_SERVICE_TAG${NC}"
 
-# Check tag doesn't exist
+# Check tag doesn't exist (unless --force is set)
 SERVICE_TAG="service-images-v$DEFAULT_SERVICE_TAG"
 if git_tag_exists "$SERVICE_TAG"; then
-    echo -e "${RED}Error: Git tag $SERVICE_TAG already exists${NC}"
-    exit 1
+    if [ "$FORCE" = false ]; then
+        echo -e "${RED}Error: Git tag $SERVICE_TAG already exists${NC}"
+        echo -e "${YELLOW}Use --force to override and push anyway${NC}"
+        exit 1
+    else
+        echo -e "${YELLOW}⚠ Git tag $SERVICE_TAG already exists (will force push)${NC}"
+    fi
+else
+    echo -e "${GREEN}✓ Git tag $SERVICE_TAG does not exist${NC}"
 fi
-echo -e "${GREEN}✓ Git tag $SERVICE_TAG does not exist${NC}"
 
 echo -e "${GREEN}All pre-release checks passed${NC}"
 echo
@@ -100,8 +110,13 @@ if [ "$DRY_RUN" = true ]; then
 else
     echo -e "${YELLOW}Pushing git tag...${NC}"
     echo -e "${BLUE}Creating and pushing tag: $SERVICE_TAG${NC}"
-    git tag "$SERVICE_TAG"
-    git push origin "$SERVICE_TAG"
+    if [ "$FORCE" = true ]; then
+        git tag --force "$SERVICE_TAG"
+        git push --force origin "$SERVICE_TAG"
+    else
+        git tag "$SERVICE_TAG"
+        git push origin "$SERVICE_TAG"
+    fi
     echo -e "${GREEN}✓ Tag $SERVICE_TAG pushed${NC}"
 
     echo

@@ -9,7 +9,7 @@ source "$SCRIPT_DIR/include/constants.sh"
 source "$SCRIPT_DIR/include/lib.sh"
 
 usage() {
-    echo "Usage: $0 [--all-languages] [--all-services] [--cache=MODE] [--jobs=N] [--language-tag=TAG] [--languages=LANG...] [--multi-platform] [--registry=REG] [--sequential] [--service-tag=TAG] [--services=SVC...]"
+    echo "Usage: $0 [--all-languages] [--all-services] [--cache=MODE] [--jobs=N] [--language-tag=TAG] [--languages=LANG...] [--publish] [--registry=REG] [--sequential] [--service-tag=TAG] [--services=SVC...]"
 }
 
 help() {
@@ -32,8 +32,11 @@ help() {
     echo "                        Language images use semver (e.g., 1.0.0) for API compatibility"
     echo "  --languages=LANG...   Build specific language(s) - comma-separated (default: none)"
     echo "                        Supports versioned Ruby: ruby-3.2.2, ruby-sorbet-3.2.2"
-    echo "  --multi-platform      Build for both linux/amd64 and linux/arm64 (default: local platform only)"
-    echo "  --registry=REG        Container registry where proxy expects missing service images (default: $DEFAULT_REGISTRY)"
+    echo "  --publish             Build multi-platform images (linux/amd64 and linux/arm64) and push to registry"
+    echo "                        Requires docker login to the registry"
+    echo "                        (default: build for local platform only, no push)"
+    echo "  --registry=REG        Container registry used by proxy and for publishing"
+    echo "                        (default: $DEFAULT_REGISTRY)"
     echo "  --sequential          Build images sequentially (shorthand for --jobs=1)"
     echo "  --service-tag=TAG     Tag service images with specified tag (default: $DEFAULT_SERVICE_TAG)"
     echo "  --services=SVC...     Build specific service(s) - comma-separated (default: none)"
@@ -51,6 +54,10 @@ help() {
     echo "Note: Language images use binary injection at runtime via --volumes-from. They only"
     echo "need to be rebuilt when language server versions change or when base dependencies change."
     echo ""
+    echo "Publishing:"
+    echo "  Use --publish to build multi-platform images and push them to the registry."
+    echo "  Local builds (without --publish) are for development/testing only."
+    echo ""
     echo "Available services: ${ALL_SERVICES[*]}"
     echo "Available languages: ${ALL_LANGUAGES[*]}"
     echo "Available Ruby versions: ${SUPPORTED_RUBY_VERSIONS[*]}"
@@ -59,7 +66,7 @@ help() {
     echo "  $0 --all-services --all-languages"
     echo "  $0 --services=proxy,watchdog --service-tag=0.4.8"
     echo "  $0 --languages=python,typescript --language-tag=1.0.0"
-    echo "  $0 --multi-platform --all-services --service-tag=0.4.8"
+    echo "  $0 --all-services --service-tag=0.4.8 --publish"
     echo "  $0 --cache=gha --all-services --service-tag=0.4.8"
     echo "  $0 --languages=ruby-3.2.2,ruby-sorbet-3.2.2 --language-tag=1.0.0"
 }
@@ -69,7 +76,7 @@ CACHE_MODE=none
 JOBS=4
 LANGUAGE_TAG=""
 LANGUAGES=()
-MULTIPLATFORM=false
+PUBLISH=false
 REGISTRY=""
 SERVICE_TAG=""
 SERVICES=()
@@ -107,8 +114,8 @@ for arg in "$@"; do
         --languages=*)
             IFS=',' read -ra LANGUAGES <<< "${arg#*=}"
             ;;
-        --multi-platform)
-            MULTIPLATFORM=true
+        --publish)
+            PUBLISH=true
             ;;
         --registry=*)
             REGISTRY="${arg#*=}"
@@ -144,7 +151,7 @@ if [ ${#LANGUAGES[@]} -gt 0 ] && [ -z "$LANGUAGE_TAG" ]; then
     exit 1
 fi
 
-# Fall back to default tags
+# Fall back to defaults
 SERVICE_TAG="${SERVICE_TAG:-$DEFAULT_SERVICE_TAG}"
 REGISTRY="${REGISTRY:-$DEFAULT_REGISTRY}"
 
@@ -179,45 +186,34 @@ fi
 # Build Commands
 # ---------------------------------------
 
-BUILD_CMD=()
-if [ "$MULTIPLATFORM" = true ]; then
-    BUILD_CMD=("docker" "buildx" "build" "--platform" "linux/amd64,linux/arm64")
+if [ "$PUBLISH" = true ]; then
     echo -e "${BLUE}=========================================${NC}"
-    echo -e "${BLUE}  Building Multi-Arch Images${NC}"
+    echo -e "${BLUE}  Publishing Multi-Platform Images${NC}"
     echo -e "${BLUE}  Platforms: linux/amd64, linux/arm64${NC}"
-    if [ ${#SERVICES[@]} -gt 0 ]; then
-        echo -e "${BLUE}  Service images: $SERVICE_TAG${NC}"
-    fi
-    if [ ${#LANGUAGES[@]} -gt 0 ]; then
-        echo -e "${BLUE}  Language images: $LANGUAGE_TAG${NC}"
-    fi
-    echo -e "${BLUE}  Jobs: $JOBS${NC}"
-    echo -e "${BLUE}  Cache: $CACHE_MODE${NC}"
-    echo -e "${BLUE}=========================================${NC}"
-    echo
+    echo -e "${BLUE}  Registry: $REGISTRY${NC}"
 else
-    BUILD_CMD=("docker" "build")
     echo -e "${BLUE}=========================================${NC}"
     echo -e "${BLUE}  Building Images (Local Platform)${NC}"
-    if [ ${#SERVICES[@]} -gt 0 ]; then
-        echo -e "${BLUE}  Service images: $SERVICE_TAG${NC}"
-    fi
-    if [ ${#LANGUAGES[@]} -gt 0 ]; then
-        echo -e "${BLUE}  Language images: $LANGUAGE_TAG${NC}"
-    fi
-    echo -e "${BLUE}  Jobs: $JOBS${NC}"
-    echo -e "${BLUE}  Cache: $CACHE_MODE${NC}"
-    echo -e "${BLUE}=========================================${NC}"
-    echo
 fi
+if [ ${#SERVICES[@]} -gt 0 ]; then
+    echo -e "${BLUE}  Service images: $SERVICE_TAG${NC}"
+fi
+if [ ${#LANGUAGES[@]} -gt 0 ]; then
+    echo -e "${BLUE}  Language images: $LANGUAGE_TAG${NC}"
+fi
+echo -e "${BLUE}  Jobs: $JOBS${NC}"
+echo -e "${BLUE}  Cache: $CACHE_MODE${NC}"
+echo -e "${BLUE}=========================================${NC}"
+echo
 
 # Add service build arguments
-BUILD_CMD+=(
+BUILD_FLAGS=()
+BUILD_FLAGS+=(
     "--build-arg" "CONTAINER_REGISTRY=$REGISTRY"
     "--build-arg" "SERVICE_IMAGE_VERSION=$SERVICE_TAG"
 )
 if [ -n "$LANGUAGE_TAG" ]; then
-    BUILD_CMD+=("--build-arg" "LANGUAGE_IMAGE_VERSION=$LANGUAGE_TAG")
+    BUILD_FLAGS+=("--build-arg" "LANGUAGE_IMAGE_VERSION=$LANGUAGE_TAG")
 fi
 
 compute_cache_flags() {
@@ -259,27 +255,45 @@ build_image() {
 
     local log_file="/tmp/build-${cache_name}.log"
 
-    if "${BUILD_CMD[@]}" $CACHE_FLAGS "${TARGET_FLAGS[@]}" -f "$dockerfile" -t "$image_tag" . > "$log_file" 2>&1; then
-        if [ "$MULTIPLATFORM" = true ]; then
-            echo -e "${GREEN}✓ ${image_tag} built successfully (multi-platform)${NC}"
-        else
-            local size
-            size=$(docker images "${image_tag}" --format "{{.Size}}")
-            echo -e "${GREEN}✓ ${image_tag} built successfully ($size)${NC}"
+
+    if [ "$PUBLISH" = true ]; then
+        build_tag="${REGISTRY}/${image_tag}"
+        if ! docker buildx build --platform linux/amd64,linux/arm64 --push "${BUILD_FLAGS[@]}" $CACHE_FLAGS "${TARGET_FLAGS[@]}" -f "$dockerfile" -t "${build_tag}" . > "$log_file" 2>&1; then
+            echo -e "${RED}✗ ${build_tag} failed to build${NC}"
+            echo -e "${YELLOW}See ${log_file} for details${NC}"
+            tail -20 "${log_file}" || true
+            return 1
         fi
+
+        echo -e "${GREEN}✓ ${build_tag} built and pushed successfully (multi-platform)${NC}"
+
+        for additional_image_tag in "${additional_image_tags[@]}"; do
+            local additional_build_tag="${REGISTRY}/${additional_image_tag}"
+            if docker buildx imagetools create --tag "$additional_build_tag" "$build_tag" >> "$log_file" 2>&1; then
+                echo -e "${GREEN}  Also tagged: ${additional_build_tag}${NC}"
+            else
+                echo -e "${YELLOW}  Warning: Failed to create additional tag ${additional_build_tag}${NC}"
+            fi
+        done
+    else
+        if ! docker build "${BUILD_FLAGS[@]}" $CACHE_FLAGS "${TARGET_FLAGS[@]}" -f "$dockerfile" -t "${image_tag}" . > "$log_file" 2>&1; then
+            echo -e "${RED}✗ ${image_tag} failed to build${NC}"
+            echo -e "${YELLOW}See ${log_file} for details${NC}"
+            tail -20 "${log_file}" || true
+            return 1
+        fi
+
+        local size
+        size=$(docker images "${image_tag}" --format "{{.Size}}")
+        echo -e "${GREEN}✓ ${image_tag} built successfully ($size)${NC}"
 
         for additional_image_tag in "${additional_image_tags[@]}"; do
             docker tag "$image_tag" "$additional_image_tag" >> "$log_file" 2>&1
             echo -e "${GREEN}  Also tagged: ${additional_image_tag}${NC}"
         done
-
-        return 0
-    else
-        echo -e "${RED}✗ ${image_tag} failed to build${NC}"
-        echo -e "${YELLOW}See ${log_file} for details${NC}"
-        tail -20 "${log_file}" || true
-        return 1
     fi
+
+
 }
 
 # ---------------------------------------
@@ -533,45 +547,71 @@ echo -e "${GREEN}  All Images Built Successfully${NC}"
 echo -e "${GREEN}=========================================${NC}"
 echo
 
-if [ ${#SERVICES[@]} -gt 0 ]; then
-    echo -e "${BLUE}Service Images (Local):${NC}"
-    docker images | grep "nuanced-lsp-" | grep -E "(proxy|watchdog|wrapper)" | grep -F "$SERVICE_TAG" | awk '{printf "  %-30s %10s\n", $1":"$2, $7}'
+if [ "$PUBLISH" = true ]; then
+    echo -e "${BLUE}Multi-platform images built and pushed to: ${REGISTRY}${NC}"
     echo
-fi
 
-if [ ${#LANGUAGES[@]} -gt 0 ]; then
-    echo -e "${BLUE}Language Images (Local):${NC}"
-    docker images | grep "nuanced-lsp-" | grep -v -E "(proxy|watchdog|wrapper)" | grep -F "$LANGUAGE_TAG" | awk '{printf "  %-40s %10s\n", $1":"$2, $7}'
-    echo
-fi
-
-if [ ${#SERVICES[@]} -gt 0 ] || [ ${#LANGUAGES[@]} -gt 0 ]; then
-    echo -e "${BLUE}Total size:${NC}"
-    (
-        if [ ${#SERVICES[@]} -gt 0 ]; then
-            docker images | grep "nuanced-lsp-" | grep -E "(proxy|watchdog|wrapper)" | grep -F "$SERVICE_TAG"
-        fi
-        if [ ${#LANGUAGES[@]} -gt 0 ]; then
-            docker images | grep "nuanced-lsp-" | grep -v -E "(proxy|watchdog|wrapper)" | grep -F "$LANGUAGE_TAG"
-        fi
-    ) | awk '{size+=$7} END {print "  ~" size " (approximate)"}'
-    echo
-fi
-
-if [ "$MULTIPLATFORM" = true ]; then
-    echo
-    echo -e "${BLUE}Multi-platform images built and cached${NC}"
-    echo
-    echo -e "${YELLOW}To verify multi-platform builds:${NC}"
     if [ ${#SERVICES[@]} -gt 0 ]; then
+        echo -e "${BLUE}Service Images:${NC}"
         for service in "${SERVICES[@]}"; do
-            echo -e "  docker buildx imagetools inspect nuanced-lsp-${service}:${SERVICE_TAG}"
+            echo -e "  ${REGISTRY}/nuanced-lsp-${service}:${SERVICE_TAG}"
         done
+        echo
     fi
+
     if [ ${#LANGUAGES[@]} -gt 0 ]; then
-        echo -e "  docker buildx imagetools inspect nuanced-lsp-<language>:${LANGUAGE_TAG}"
+        echo -e "${BLUE}Language Images:${NC}"
+        # Show unversioned languages
+        for lang in "${UNVERSIONED_LANGUAGES[@]}"; do
+            echo -e "  ${REGISTRY}/nuanced-lsp-${lang}:${LANGUAGE_TAG}"
+            if major_version="$(extract_major_version "$LANGUAGE_TAG")"; then
+                echo -e "  ${REGISTRY}/nuanced-lsp-${lang}:${major_version}"
+            fi
+        done
+        # Show Ruby versions
+        for version in "${RUBY_VERSIONS[@]}"; do
+            echo -e "  ${REGISTRY}/nuanced-lsp-ruby-${version}:${LANGUAGE_TAG}"
+            if major_version="$(extract_major_version "$LANGUAGE_TAG")"; then
+                echo -e "  ${REGISTRY}/nuanced-lsp-ruby-${version}:${major_version}"
+            fi
+        done
+        # Show Ruby Sorbet versions
+        for version in "${RUBY_SORBET_VERSIONS[@]}"; do
+            echo -e "  ${REGISTRY}/nuanced-lsp-ruby-sorbet-${version}:${LANGUAGE_TAG}"
+            if major_version="$(extract_major_version "$LANGUAGE_TAG")"; then
+                echo -e "  ${REGISTRY}/nuanced-lsp-ruby-sorbet-${version}:${major_version}"
+            fi
+        done
+        echo
     fi
     echo
-    echo -e "${YELLOW}To publish multi-platform images to registries:${NC}"
-    echo -e "  $(dirname "$0")/publish-images.sh"
+else
+    if [ ${#SERVICES[@]} -gt 0 ]; then
+        echo -e "${BLUE}Service Images (Local):${NC}"
+        docker images | grep "nuanced-lsp-" | grep -E "(proxy|watchdog|wrapper)" | grep -F "$SERVICE_TAG" | awk '{printf "  %-30s %10s\n", $1":"$2, $7}'
+        echo
+    fi
+
+    if [ ${#LANGUAGES[@]} -gt 0 ]; then
+        echo -e "${BLUE}Language Images (Local):${NC}"
+        docker images | grep "nuanced-lsp-" | grep -v -E "(proxy|watchdog|wrapper)" | grep -F "$LANGUAGE_TAG" | awk '{printf "  %-40s %10s\n", $1":"$2, $7}'
+        echo
+    fi
+
+    if [ ${#SERVICES[@]} -gt 0 ] || [ ${#LANGUAGES[@]} -gt 0 ]; then
+        echo -e "${BLUE}Total size:${NC}"
+        (
+            if [ ${#SERVICES[@]} -gt 0 ]; then
+                docker images | grep "nuanced-lsp-" | grep -E "(proxy|watchdog|wrapper)" | grep -F "$SERVICE_TAG"
+            fi
+            if [ ${#LANGUAGES[@]} -gt 0 ]; then
+                docker images | grep "nuanced-lsp-" | grep -v -E "(proxy|watchdog|wrapper)" | grep -F "$LANGUAGE_TAG"
+            fi
+        ) | awk '{size+=$7} END {print "  ~" size " (approximate)"}'
+        echo
+    fi
+
+    echo -e "${YELLOW}Note: Local images are for development/testing only.${NC}"
+    echo -e "${YELLOW}To publish to a registry, rebuild with --publish${NC}"
+    echo
 fi

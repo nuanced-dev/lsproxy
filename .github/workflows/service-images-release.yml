@@ -14,7 +14,7 @@ env:
 
 jobs:
   build-and-publish:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest-large
     steps:
       - uses: actions/checkout@v6
 
@@ -23,6 +23,8 @@ jobs:
       - uses: docker/setup-qemu-action@v3
 
       - uses: docker/setup-buildx-action@v3
+        with:
+          driver-opts: network=host
 
       - name: Validate tag version
         id: version
@@ -48,19 +50,13 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build multi-platform service images
+      - name: Build and publish service images
         run: |
           ./scripts/build-images.sh \
             --all-services \
-            --multi-platform \
+            --publish \
             --cache=gha \
             --sequential
-
-      - name: Publish service images
-        run: |
-          ./scripts/publish-images.sh \
-            --all-services \
-            --registry=${{ env.REGISTRY }}
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -68,9 +64,7 @@ jobs:
           tag_name: ${{ github.ref_name }}
           name: Services v${{ steps.version.outputs.SERVICE_TAG }}
           body: |
-            ## Services v${{ steps.version.outputs.SERVICE_TAG }} release
-
-            Published multi-platform Docker service images to ${{ env.REGISTRY }}.
+            Published multi-platform container images for service v${{ steps.version.outputs.SERVICE_TAG }} to ${{ env.REGISTRY }}.
 
             ### Changes
 

@@ -10,7 +10,7 @@ source "$SCRIPT_DIR/include/constants.sh"
 source "$SCRIPT_DIR/include/lib.sh"
 
 usage() {
-    echo "Usage: $0 [--all-languages] [--languages=LANG...] [--dry-run|-N] LANGUAGE_TAG"
+    echo "Usage: $0 [--all-languages] [--dry-run|-N] [--force|-f] [--languages=LANG...] LANGUAGE_TAG"
 }
 
 help() {
@@ -20,9 +20,10 @@ help() {
     echo ""
     echo "Options:"
     echo "  --all-languages       Release all language images (shorthand for --languages=<all>)"
+    echo "  --dry-run, -N         Run all checks but only print the tags that would be pushed"
+    echo "  --force, -f           Force push tags even if they already exist"
     echo "  --languages=LANG...   Release specific language(s) - comma-separated"
     echo "                        Supports versioned Ruby: ruby-3.2.2, ruby-sorbet-3.2.2"
-    echo "  --dry-run, -N         Run all checks but only print the tags that would be pushed"
     echo "  --help, -h            Show this help message"
     echo ""
     echo "Arguments:"
@@ -51,38 +52,38 @@ help() {
 LANGUAGES=()
 LANGUAGE_TAG=""
 DRY_RUN=false
+FORCE=false
 
 # Parse options
-while [[ $# -gt 0 ]]; do
-    case $1 in
+for arg in "$@"; do
+    case "$arg" in
         --help|-h)
             help
             exit 0
             ;;
         --all-languages)
             LANGUAGES=("${ALL_LANGUAGES[@]}")
-            shift
             ;;
         --languages=*)
-            IFS=',' read -ra LANGUAGES <<< "${1#*=}"
-            shift
+            IFS=',' read -ra LANGUAGES <<< "${arg#*=}"
             ;;
         --dry-run|-N)
             DRY_RUN=true
-            shift
+            ;;
+        --force|-f)
+            FORCE=true
             ;;
         -*)
-            echo -e "${YELLOW}Unknown option: $1${NC}"
+            echo -e "${YELLOW}Unknown option: $arg{NC}"
             usage
             exit 1
             ;;
         *)
             # Positional argument - should be LANGUAGE_TAG
             if [ -z "$LANGUAGE_TAG" ]; then
-                LANGUAGE_TAG="$1"
-                shift
+                LANGUAGE_TAG="$arg"
             else
-                echo -e "${YELLOW}Unexpected argument: $1${NC}"
+                echo -e "${YELLOW}Unexpected argument: $arg${NC}"
                 usage
                 exit 1
             fi
@@ -173,17 +174,23 @@ for lang in "${EXPANDED_LANGUAGES[@]}"; do
 done
 echo -e "${GREEN}✓ Changelog entries exist for all languages${NC}"
 
-# Check tags don't exist for any language
+# Check tags don't exist for any language (unless --force is set)
 TAGS_TO_CREATE=()
 for lang in "${EXPANDED_LANGUAGES[@]}"; do
     local_tag="language-images-${lang}-v${LANGUAGE_TAG}"
     if git_tag_exists "$local_tag"; then
-        echo -e "${RED}Error: Git tag $local_tag already exists${NC}"
-        exit 1
+        if [ "$FORCE" = false ]; then
+            echo -e "${RED}Error: Git tag $local_tag already exists${NC}"
+            echo -e "${YELLOW}Use --force to override and push anyway${NC}"
+            exit 1
+        else
+            echo -e "${YELLOW}⚠ Git tag $local_tag already exists (will force push)${NC}"
+        fi
+    else
+        echo -e "${GREEN}✓ Git tag $local_tag does not exist${NC}"
     fi
     TAGS_TO_CREATE+=("$local_tag")
 done
-echo -e "${GREEN}✓ Git tags do not exist for any language${NC}"
 
 echo -e "${GREEN}All pre-release checks passed${NC}"
 echo
@@ -204,8 +211,13 @@ else
     echo -e "${YELLOW}Creating and pushing git tags...${NC}"
     for tag in "${TAGS_TO_CREATE[@]}"; do
         echo -e "${BLUE}Creating and pushing tag: $tag${NC}"
-        git tag "$tag"
-        git push origin "$tag"
+        if [ "$FORCE" = true ]; then
+            git tag --force "$tag"
+            git push --force origin "$tag"
+        else
+            git tag "$tag"
+            git push origin "$tag"
+        fi
         echo -e "${GREEN}✓ Tag $tag pushed${NC}"
     done
 

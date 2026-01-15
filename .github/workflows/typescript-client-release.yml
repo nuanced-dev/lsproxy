@@ -10,7 +10,7 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: read
+  contents: write
   id-token: write # allows trusted publishing to NPM
 
 defaults:
@@ -59,14 +59,12 @@ jobs:
           tag_name: typescript-client-v${{ steps.version.outputs.VERSION }}
           name: TypeScript Client v${{ steps.version.outputs.VERSION }}
           body: |
-            ## TypeScript Client Release v${{ steps.version.outputs.VERSION }}
-
             Published package [@nuanced-dev/lsp](https://www.npmjs.com/package/@nuanced-dev/lsp) to NPM.
 
             ### Installation
 
             ```bash
-            npm install @nuanced-dev/lsp@${{ steps.version.outputs.VERSION }}
+            npm install -g @nuanced-dev/lsp@${{ steps.version.outputs.VERSION }}
             ```
 
             ### Changes

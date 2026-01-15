@@ -12,7 +12,7 @@ PACKAGE_VERSION=$(node -p "require('$CLIENT_DIR/package.json').version")
 export PACKAGE_VERSION
 
 usage() {
-    echo "Usage: $0 [--dry-run|-N]"
+    echo "Usage: $0 [--dry-run|-N] [--force|-f]"
 }
 
 help() {
@@ -22,6 +22,7 @@ help() {
     echo ""
     echo "Options:"
     echo "  --dry-run, -N         Run all checks but only print the tag that would be pushed"
+    echo "  --force, -f           Force push tag even if it already exists"
     echo "  --help, -h            Show this help message"
     echo ""
     echo "Pre-release checks:"
@@ -34,6 +35,7 @@ help() {
 
 # Defaults
 DRY_RUN=false
+FORCE=false
 
 # Parse arguments
 for arg in "$@"; do
@@ -44,7 +46,9 @@ for arg in "$@"; do
             ;;
         --dry-run|-N)
             DRY_RUN=true
-            shift
+            ;;
+        --force|-f)
+            FORCE=true
             ;;
         *)
             echo -e "${YELLOW}Unknown argument: $arg${NC}"
@@ -88,13 +92,19 @@ if ! has_changelog_entry "$PACKAGE_VERSION" "$CLIENT_DIR/CHANGELOG.md"; then
 fi
 echo -e "${GREEN}✓ Changelog entry exists for version $PACKAGE_VERSION${NC}"
 
-# Check tag doesn't exist
+# Check tag doesn't exist (unless --force is set)
 TAG="typescript-client-v$PACKAGE_VERSION"
 if git_tag_exists "$TAG"; then
-    echo -e "${RED}Error: Git tag $TAG already exists${NC}"
-    exit 1
+    if [ "$FORCE" = false ]; then
+        echo -e "${RED}Error: Git tag $TAG already exists${NC}"
+        echo -e "${YELLOW}Use --force to override and push anyway${NC}"
+        exit 1
+    else
+        echo -e "${YELLOW}⚠ Git tag $TAG already exists (will force push)${NC}"
+    fi
+else
+    echo -e "${GREEN}✓ Git tag $TAG does not exist${NC}"
 fi
-echo -e "${GREEN}✓ Git tag $TAG does not exist${NC}"
 
 echo -e "${GREEN}All pre-release checks passed${NC}"
 echo
@@ -111,8 +121,13 @@ if [ "$DRY_RUN" = true ]; then
 else
     echo -e "${YELLOW}Pushing git tag...${NC}"
     echo -e "${BLUE}Creating and pushing tag: $TAG${NC}"
-    git tag "$TAG"
-    git push origin "$TAG"
+    if [ "$FORCE" = true ]; then
+        git tag --force "$TAG"
+        git push --force origin "$TAG"
+    else
+        git tag "$TAG"
+        git push origin "$TAG"
+    fi
     echo -e "${GREEN}✓ Tag $TAG pushed${NC}"
 
     echo

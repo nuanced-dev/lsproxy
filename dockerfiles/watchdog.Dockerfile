@@ -2,6 +2,7 @@
 # and cleans up orphaned language server containers if the service dies unexpectedly
 
 FROM alpine:3.19
+LABEL org.opencontainers.image.source=https://github.com/nuanced-dev/lsp
 
 # Install Docker CLI (needed to monitor and cleanup containers)
 RUN apk add --no-cache docker-cli
