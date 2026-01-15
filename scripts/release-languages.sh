@@ -81,7 +81,7 @@ for arg in "$@"; do
         *)
             # Positional argument - should be LANGUAGE_TAG
             if [ -z "$LANGUAGE_TAG" ]; then
-                LANGUAGE_TAG="$1"
+                LANGUAGE_TAG="$arg"
             else
                 echo -e "${YELLOW}Unexpected argument: $arg${NC}"
                 usage
