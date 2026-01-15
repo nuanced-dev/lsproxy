@@ -62,3 +62,14 @@ git_tag_exists() {
     local tag="$1"
     git rev-parse "$tag" >/dev/null 2>&1
 }
+
+# Check if first argument is in the remaining arguments
+# Usage: contains NEEDLE HAYSTACK...
+contains() {
+    local needle="$1"
+    local haystack=("${@:2}")
+    for candidate in "${haystack[@]}"; do
+        [[ "$candidate" == "$needle" ]] && return 0
+    done
+    return 1
+}

@@ -1,13 +1,12 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "lsproxy",
+    "title": "nuanced-lsp",
     "description": "",
     "license": {
-      "name": "Apache-2.0",
-      "url": "https://www.apache.org/licenses/LICENSE-2.0"
+      "name": "MIT"
     },
-    "version": "0.2.1"
+    "version": "0.4.9"
   },
   "servers": [
     {
@@ -21,8 +20,7 @@
         "tags": [
           "symbol"
         ],
-        "summary": "Get symbols in a specific file (uses ast-grep)",
-        "description": "Returns a list of symbols (functions, classes, variables, etc.) defined in the specified file.\n\nOnly the variabels defined at the file level are included.\n\nThe returned positions point to the start of the symbol's identifier.\n\ne.g. for `User` on line 0 of `src/main.py`:\n```\n0: class User:\n_________^\n1:     def __init__(self, name, age):\n2:         self.name = name\n3:         self.age = age\n```",
+        "summary": "Get all symbol definitions in a file",
         "operationId": "definitions_in_file",
         "parameters": [
           {
@@ -64,7 +62,6 @@
           "symbol"
         ],
         "summary": "Get the definition of a symbol at a specific position in a file",
-        "description": "Returns the location of the definition for the symbol at the given position.\n\nThe input position should point inside the symbol's identifier, e.g.\n\nThe returned position points to the identifier of the symbol, and the file_path from workspace root\n\ne.g. for the definition of `User` on line 5 of `src/main.py` with the code:\n```\n0: class User:\noutput___^\n1:     def __init__(self, name, age):\n2:         self.name = name\n3:         self.age = age\n4:\n5: user = User(\"John\", 30)\ninput_____^^^^\n```",
         "operationId": "find_definition",
         "requestBody": {
           "content": {
@@ -101,8 +98,7 @@
         "tags": [
           "symbol"
         ],
-        "summary": "Finds occurrences of an identifier by name in a file",
-        "description": "Given a file path and identifier name, returns:\n- Without position: All matching identifiers in the file\n- With position: The exact identifier with that name at that position, or 3 closest identifiers with that name\n\nExample finding all occurrences of \"user_name\":\n```\nlet user_name = \"John\";  // First occurrence\nprintln!(\"{}\", user_name); // Second occurrence\n```\n\nWhen a position is provided, it searches for an exact match at that location.\nIf no exact match exists, returns the 3 identifiers closest to the position\nbased on line and character distance, prioritizing lines.",
+        "summary": "Find an identifier by name",
         "operationId": "find_identifier",
         "requestBody": {
           "content": {
@@ -116,7 +112,7 @@
         },
         "responses": {
           "200": {
-            "description": "Identifier retrieved successfully",
+            "description": "Identifier found successfully",
             "content": {
               "application/json": {
                 "schema": {
@@ -139,8 +135,7 @@
         "tags": [
           "symbol"
         ],
-        "summary": "Find all symbols that are referenced from a given symbol's definition",
-        "description": "The input position must point to a symbol (e.g. function name, class name, variable name).\nReturns all symbols referenced within that symbol's implementation, categorized into:\n- Workspace symbols (with their definitions)\n- External symbols (built-in functions like 'len', 'print' or from external libraries)\n- Symbols that couldn't be found\n\ne.g. for a function definition in `main.py`:\n```python\n@log_execution_time     # Reference to decorator\ndef process_user():     # <-- Input position here\n    user = User()       # Reference to User class\n    print(\"Done\")       # Reference to built-in function\n```\nThis would return:\n- Workspace symbols: [\n    log_execution_time (with definition from decorators.py),\n    User (with definition from models.py)\n  ]\n- External symbols: print (Python built-in)",
+        "summary": "Find all symbols referenced within a given symbol",
         "operationId": "find_referenced_symbols",
         "requestBody": {
           "content": {
@@ -177,8 +172,7 @@
         "tags": [
           "symbol"
         ],
-        "summary": "Find all references to a symbol",
-        "description": "The input position should point to the identifier of the symbol you want to get the references for.\n\nReturns a list of locations where the symbol at the given position is referenced.\n\nThe returned positions point to the start of the reference identifier.\n\ne.g. for `User` on line 0 of `src/main.py`:\n```\n 0: class User:\n input____^^^^\n 1:     def __init__(self, name, age):\n 2:         self.name = name\n 3:         self.age = age\n 4:\n 5: user = User(\"John\", 30)\n output____^\n```",
+        "summary": "Get all references to a symbol",
         "operationId": "find_references",
         "requestBody": {
           "content": {
@@ -216,11 +210,11 @@
           "system"
         ],
         "summary": "Get health status of the LSP proxy service",
-        "description": "Returns the service status, version and language server availability",
+        "description": "Returns the service status, version and language server availability\nReturns 503 Service Unavailable while initialization is in progress",
         "operationId": "health_check",
         "responses": {
           "200": {
-            "description": "Health check successful",
+            "description": "Service is healthy and initialized",
             "content": {
               "application/json": {
                 "schema": {
@@ -231,6 +225,16 @@
           },
           "500": {
             "description": "Internal server error"
+          },
+          "503": {
+            "description": "Service is initializing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -238,27 +242,13 @@
     "/workspace/list-files": {
       "get": {
         "tags": [
-          "workspace"
+          "file"
         ],
-        "summary": "Get a list of all files in the workspace",
-        "description": "Returns an array of file paths for all files in the current workspace.\n\nThis is a convenience endpoint that does not use the underlying Language Servers directly, but it does apply the same filtering.",
+        "summary": "List all files in the workspace",
         "operationId": "list_files",
         "responses": {
           "200": {
-            "description": "Workspace files retrieved successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad request"
+            "description": "Files listed successfully"
           },
           "500": {
             "description": "Internal server error"
@@ -269,10 +259,9 @@
     "/workspace/read-source-code": {
       "post": {
         "tags": [
-          "workspace"
+          "file"
         ],
-        "summary": "Read source code from a file in the workspace",
-        "description": "Returns the contents of the specified file.",
+        "summary": "Read source code from a file",
         "operationId": "read_source_code",
         "requestBody": {
           "content": {
@@ -286,14 +275,7 @@
         },
         "responses": {
           "200": {
-            "description": "Source code retrieved successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ReadSourceCodeResponse"
-                }
-              }
-            }
+            "description": "Source code retrieved successfully"
           },
           "400": {
             "description": "Bad request"
@@ -324,7 +306,7 @@
       },
       "DefinitionResponse": {
         "type": "object",
-        "description": "Response to a definition request.\n\nThe definition(s) of the symbol.\nPoints to the start position of the symbol's identifier.\n\ne.g. for the definition of `User` on line 5 of `src/main.py` with the code:\n```\n0: class User:\n_________^\n1:     def __init__(self, name, age):\n2:         self.name = name\n3:         self.age = age\n4:\n5: user = User(\"John\", 30)\n__________^\n```\nThe definition(s) will be `[{\"path\": \"src/main.py\", \"line\": 0, \"character\": 6}]`.",
+        "description": "Response to a definition request.\n\nThe definition(s) of the symbol.\nPoints to the start position of the symbol's identifier.\n\ne.g. for the definition of `User` on line 5 of `src/main.py` with the code:\n```text\n0: class User:\n_________^\n1:     def __init__(self, name, age):\n2:         self.name = name\n3:         self.age = age\n4:\n5: user = User(\"John\", 30)\n__________^\n```\nThe definition(s) will be `[{\"path\": \"src/main.py\", \"line\": 0, \"character\": 6}]`.",
         "required": [
           "definitions",
           "selected_identifier"
@@ -526,24 +508,95 @@
         "properties": {
           "languages": {
             "type": "object",
-            "description": "Map of supported languages and whether they are currently available",
+            "description": "Map of supported languages and whether they are currently available (healthy)",
             "additionalProperties": {
               "type": "boolean"
             },
             "propertyNames": {
-              "type": "string",
-              "enum": [
-                "python",
-                "typescript_javascript",
-                "rust",
-                "cpp",
-                "csharp",
-                "java",
-                "golang",
-                "php",
-                "ruby",
-                "ruby_sorbet"
-              ]
+              "oneOf": [
+                {
+                  "type": "string",
+                  "enum": [
+                    "Python"
+                  ]
+                },
+                {
+                  "type": "string",
+                  "description": "TypeScript and JavaScript are handled by the same langserver",
+                  "enum": [
+                    "TypeScriptJavaScript"
+                  ]
+                },
+                {
+                  "type": "string",
+                  "enum": [
+                    "Rust"
+                  ]
+                },
+                {
+                  "type": "string",
+                  "enum": [
+                    "CPP"
+                  ]
+                },
+                {
+                  "type": "string",
+                  "enum": [
+                    "CSharp"
+                  ]
+                },
+                {
+                  "type": "string",
+                  "enum": [
+                    "Java"
+                  ]
+                },
+                {
+                  "type": "string",
+                  "enum": [
+                    "Golang"
+                  ]
+                },
+                {
+                  "type": "string",
+                  "enum": [
+                    "PHP"
+                  ]
+                },
+                {
+                  "type": "object",
+                  "description": "Ruby with version and optional Sorbet variant",
+                  "required": [
+                    "Ruby"
+                  ],
+                  "properties": {
+                    "Ruby": {
+                      "type": "object",
+                      "description": "Ruby with version and optional Sorbet variant",
+                      "required": [
+                        "version",
+                        "variant"
+                      ],
+                      "properties": {
+                        "sorbet_config_dir": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "For Sorbet variant: the directory containing sorbet/config (relative to workspace root)\nThis is used to pass --dir to Sorbet so it can find its config in nested projects\nThis field is runtime-only and not exposed in the API schema"
+                        },
+                        "variant": {
+                          "$ref": "#/components/schemas/LanguageVariant"
+                        },
+                        "version": {
+                          "$ref": "#/components/schemas/LanguageVersion"
+                        }
+                      }
+                    }
+                  }
+                }
+              ],
+              "description": "Supported programming languages with optional version information\n\nThis enum represents languages that can be analyzed by the LSP proxy.\nLanguages with version detection (like Ruby) carry version information,\nwhile others use a single unversioned container."
             }
           },
           "status": {
@@ -590,6 +643,18 @@
             }
           }
         }
+      },
+      "LanguageVariant": {
+        "type": "string",
+        "description": "Language variant for languages that have multiple type system modes\n\nSome languages support different type-checking modes that require different\nlanguage servers or configurations. This enum captures those variants.",
+        "enum": [
+          "standard",
+          "sorbet"
+        ]
+      },
+      "LanguageVersion": {
+        "type": "string",
+        "description": "Language version string (e.g., \"3.4.4\" for Ruby, \"3.12\" for Python)\n\nThis represents the runtime/compiler version of a language, not the container image version.\nFor languages without version detection, this may be None."
       },
       "Position": {
         "type": "object",
@@ -656,17 +721,6 @@
           }
         }
       },
-      "ReadSourceCodeResponse": {
-        "type": "object",
-        "required": [
-          "source_code"
-        ],
-        "properties": {
-          "source_code": {
-            "type": "string"
-          }
-        }
-      },
       "ReferenceWithSymbolDefinitions": {
         "type": "object",
         "description": "A reference to a symbol along with its definition(s) found in the workspace\n\ne.g. for a reference to `User` in `main.py`:\n```python\nuser = User(\"John\", 30)\n_______^\n```\nThis would contain:\n- The reference location and name (\"User\" at line 0)\n- The symbol definition(s) (e.g. \"class User\" in models.py)",
@@ -717,7 +771,7 @@
       },
       "ReferencesResponse": {
         "type": "object",
-        "description": "Response to a references request.\n\nPoints to the start position of the symbol's identifier.\n\ne.g. for the references of `User` on line 0 character 6 of `src/main.py` with the code:\n```\n0: class User:\n1:     def __init__(self, name, age):\n2:         self.name = name\n3:         self.age = age\n4:\n5: user = User(\"John\", 30)\n_________^\n6:\n7: print(user.name)\n```\nThe references will be `[{\"path\": \"src/main.py\", \"line\": 5, \"character\": 7}]`.",
+        "description": "Response to a references request.\n\nPoints to the start position of the symbol's identifier.\n\ne.g. for the references of `User` on line 0 character 6 of `src/main.py` with the code:\n```text\n0: class User:\n1:     def __init__(self, name, age):\n2:         self.name = name\n3:         self.age = age\n4:\n5: user = User(\"John\", 30)\n_________^\n6:\n7: print(user.name)\n```\nThe references will be `[{\"path\": \"src/main.py\", \"line\": 5, \"character\": 7}]`.",
         "required": [
           "references",
           "selected_identifier"
@@ -749,18 +803,90 @@
         }
       },
       "SupportedLanguages": {
-        "type": "string",
-        "enum": [
-          "python",
-          "typescript_javascript",
-          "rust",
-          "cpp",
-          "csharp",
-          "java",
-          "golang",
-          "php",
-          "ruby"
-        ]
+        "oneOf": [
+          {
+            "type": "string",
+            "enum": [
+              "Python"
+            ]
+          },
+          {
+            "type": "string",
+            "description": "TypeScript and JavaScript are handled by the same langserver",
+            "enum": [
+              "TypeScriptJavaScript"
+            ]
+          },
+          {
+            "type": "string",
+            "enum": [
+              "Rust"
+            ]
+          },
+          {
+            "type": "string",
+            "enum": [
+              "CPP"
+            ]
+          },
+          {
+            "type": "string",
+            "enum": [
+              "CSharp"
+            ]
+          },
+          {
+            "type": "string",
+            "enum": [
+              "Java"
+            ]
+          },
+          {
+            "type": "string",
+            "enum": [
+              "Golang"
+            ]
+          },
+          {
+            "type": "string",
+            "enum": [
+              "PHP"
+            ]
+          },
+          {
+            "type": "object",
+            "description": "Ruby with version and optional Sorbet variant",
+            "required": [
+              "Ruby"
+            ],
+            "properties": {
+              "Ruby": {
+                "type": "object",
+                "description": "Ruby with version and optional Sorbet variant",
+                "required": [
+                  "version",
+                  "variant"
+                ],
+                "properties": {
+                  "sorbet_config_dir": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "description": "For Sorbet variant: the directory containing sorbet/config (relative to workspace root)\nThis is used to pass --dir to Sorbet so it can find its config in nested projects\nThis field is runtime-only and not exposed in the API schema"
+                  },
+                  "variant": {
+                    "$ref": "#/components/schemas/LanguageVariant"
+                  },
+                  "version": {
+                    "$ref": "#/components/schemas/LanguageVersion"
+                  }
+                }
+              }
+            }
+          }
+        ],
+        "description": "Supported programming languages with optional version information\n\nThis enum represents languages that can be analyzed by the LSP proxy.\nLanguages with version detection (like Ruby) carry version information,\nwhile others use a single unversioned container."
       },
       "Symbol": {
         "type": "object",
@@ -839,8 +965,8 @@
   ],
   "tags": [
     {
-      "name": "lsproxy-api",
-      "description": "LSP Proxy API"
+      "name": "nuanced-lsp-api",
+      "description": "Nuanced LSP API"
     }
   ]
 }

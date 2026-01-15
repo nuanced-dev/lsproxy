@@ -12,7 +12,7 @@ edition = "2021"
 authors = ["Nuanced Dev"]
 repository = "https://github.com/nuanced-dev/lsp"
 description = "Nuanced LSP containerized LSP service"
-license = "Apache-2.0"
+license = "MIT"
 publish = false
 
 [workspace.dependencies]

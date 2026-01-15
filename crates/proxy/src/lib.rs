@@ -44,9 +44,8 @@ pub fn check_mount_dir() -> std::io::Result<()> {
         title = "nuanced-lsp",
         version = env!("CARGO_PKG_VERSION"),
         license(
-            name = "Apache-2.0",
-            url = "https://www.apache.org/licenses/LICENSE-2.0"
-        )
+            name = "MIT",
+        ),
     ),
     security(
         ("bearer_auth" = [])
