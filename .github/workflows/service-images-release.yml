@@ -64,7 +64,7 @@ jobs:
           tag_name: ${{ github.ref_name }}
           name: Services v${{ steps.version.outputs.SERVICE_TAG }}
           body: |
-            Published multi-platform Docker service images to ${{ env.REGISTRY }}.
+            Published multi-platform container images for service v${{ steps.version.outputs.SERVICE_TAG }} to ${{ env.REGISTRY }}.
 
             ### Changes
 

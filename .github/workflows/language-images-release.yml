@@ -58,9 +58,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          name: ${{ steps.tag.outputs.LANGUAGE }} v${{ steps.tag.outputs.LANGUAGE_TAG }}
+          name: Language ${{ steps.tag.outputs.LANGUAGE }} v${{ steps.tag.outputs.LANGUAGE_TAG }}
           body: |
-            Published multi-platform Docker language images for ${{ steps.tag.outputs.LANGUAGE }} v${{ steps.tag.outputs.LANGUAGE_TAG }}.
+            Published multi-platform container images for language ${{ steps.tag.outputs.LANGUAGE }} v${{ steps.tag.outputs.LANGUAGE_TAG }} to ${{ env.REGISTRY }}.
 
             ### Changes
 
