@@ -67,11 +67,6 @@ async function findImage(
         return `${registry}/${image}`;
       })();
 
-  // Check if registry image already exists locally
-  if (imageExists(registryImage, sudo)) {
-    return ok(registryImage);
-  }
-
   // Try to pull from registry
   const pullRes = await pull(registryImage, sudo, stream);
   if (!pullRes.ok) {

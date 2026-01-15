@@ -164,12 +164,6 @@ pub async fn find_image(docker: &Docker, image: String) -> Result<String, Orches
         format!("{}/{}", container_registry(), image)
     };
 
-    // Check if registry image already exists locally
-    if docker.inspect_image(&registry_image).await.is_ok() {
-        log::debug!("Using existing registry image: {registry_image}");
-        return Ok(registry_image);
-    }
-
     log::info!("Pulling from registry: {registry_image}");
     let create_options = CreateImageOptions {
         from_image: registry_image.clone(),
