@@ -45,6 +45,7 @@ pub fn check_mount_dir() -> std::io::Result<()> {
         version = env!("CARGO_PKG_VERSION"),
         license(
             name = "MIT",
+            url = "https://opensource.org/licenses/MIT",
         ),
     ),
     security(
