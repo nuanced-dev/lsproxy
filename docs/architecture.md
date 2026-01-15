@@ -136,10 +136,10 @@ This sequence diagram shows how a client request is handled:
 
 ```mermaid
 sequenceDiagram
-    actor Client
-    actor Proxy as nuanced-lsp-proxy
-    actor Wrapper as nuanced-lsp-wrapper
-    actor Python as nuanced-lsp-python<br />Jedi language server
+    participant Client
+    participant Proxy as nuanced-lsp-proxy
+    participant Wrapper as nuanced-lsp-wrapper
+    participant Python as nuanced-lsp-python<br />Jedi language server
 
     Client->>+Proxy: POST /v1/symbol/find-definition<br/>{file: "main.py", position: {line: 10, character: 5}}
     Note over Proxy: Route to Python LSP server container based on file
