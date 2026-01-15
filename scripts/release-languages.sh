@@ -10,7 +10,7 @@ source "$SCRIPT_DIR/include/constants.sh"
 source "$SCRIPT_DIR/include/lib.sh"
 
 usage() {
-    echo "Usage: $0 [--all-languages] [--languages=LANG...] LANGUAGE_TAG"
+    echo "Usage: $0 [--all-languages] [--languages=LANG...] [--dry-run|-N] LANGUAGE_TAG"
 }
 
 help() {
@@ -22,6 +22,7 @@ help() {
     echo "  --all-languages       Release all language images (shorthand for --languages=<all>)"
     echo "  --languages=LANG...   Release specific language(s) - comma-separated"
     echo "                        Supports versioned Ruby: ruby-3.2.2, ruby-sorbet-3.2.2"
+    echo "  --dry-run, -N         Run all checks but only print the tags that would be pushed"
     echo "  --help, -h            Show this help message"
     echo ""
     echo "Arguments:"
@@ -49,6 +50,7 @@ help() {
 # Defaults
 LANGUAGES=()
 LANGUAGE_TAG=""
+DRY_RUN=false
 
 # Parse options
 while [[ $# -gt 0 ]]; do
@@ -63,6 +65,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --languages=*)
             IFS=',' read -ra LANGUAGES <<< "${1#*=}"
+            shift
+            ;;
+        --dry-run|-N)
+            DRY_RUN=true
             shift
             ;;
         -*)
@@ -183,23 +189,36 @@ echo -e "${GREEN}All pre-release checks passed${NC}"
 echo
 
 # Push tags
-echo -e "${YELLOW}Creating and pushing git tags...${NC}"
-for tag in "${TAGS_TO_CREATE[@]}"; do
-    echo -e "${BLUE}Creating and pushing tag: $tag${NC}"
-    git tag "$tag"
-    git push origin "$tag"
-    echo -e "${GREEN}✓ Tag $tag pushed${NC}"
-done
+if [ "$DRY_RUN" = true ]; then
+    echo -e "${YELLOW}DRY RUN: Would create and push the following tags:${NC}"
+    for tag in "${TAGS_TO_CREATE[@]}"; do
+        echo -e "${BLUE}  $tag${NC}"
+    done
+    echo
+    echo -e "${GREEN}=========================================${NC}"
+    echo -e "${GREEN}  Dry Run Complete${NC}"
+    echo -e "${GREEN}=========================================${NC}"
+    echo
+    echo -e "${BLUE}Would push ${#TAGS_TO_CREATE[@]} tag(s)${NC}"
+else
+    echo -e "${YELLOW}Creating and pushing git tags...${NC}"
+    for tag in "${TAGS_TO_CREATE[@]}"; do
+        echo -e "${BLUE}Creating and pushing tag: $tag${NC}"
+        git tag "$tag"
+        git push origin "$tag"
+        echo -e "${GREEN}✓ Tag $tag pushed${NC}"
+    done
 
-echo
-echo -e "${GREEN}=========================================${NC}"
-echo -e "${GREEN}  Release Complete${NC}"
-echo -e "${GREEN}=========================================${NC}"
-echo
-echo -e "${BLUE}GitHub Actions workflow will now:${NC}"
-for lang in "${EXPANDED_LANGUAGES[@]}"; do
-    echo -e "${BLUE}  - Build and publish $lang images${NC}"
-done
-echo -e "${BLUE}  - Tag with: $LANGUAGE_TAG${NC}"
-echo -e "${BLUE}  - Create GitHub releases${NC}"
-echo
+    echo
+    echo -e "${GREEN}=========================================${NC}"
+    echo -e "${GREEN}  Release Complete${NC}"
+    echo -e "${GREEN}=========================================${NC}"
+    echo
+    echo -e "${BLUE}GitHub Actions workflow will now:${NC}"
+    for lang in "${EXPANDED_LANGUAGES[@]}"; do
+        echo -e "${BLUE}  - Build and publish $lang images${NC}"
+    done
+    echo -e "${BLUE}  - Tag with: $LANGUAGE_TAG${NC}"
+    echo -e "${BLUE}  - Create GitHub releases${NC}"
+    echo
+fi

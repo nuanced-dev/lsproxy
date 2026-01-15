@@ -12,7 +12,7 @@ PACKAGE_VERSION=$(node -p "require('$CLIENT_DIR/package.json').version")
 export PACKAGE_VERSION
 
 usage() {
-    echo "Usage: $0"
+    echo "Usage: $0 [--dry-run|-N]"
 }
 
 help() {
@@ -21,6 +21,7 @@ help() {
     echo "Usage: $0 [OPTIONS...]"
     echo ""
     echo "Options:"
+    echo "  --dry-run, -N         Run all checks but only print the tag that would be pushed"
     echo "  --help, -h            Show this help message"
     echo ""
     echo "Pre-release checks:"
@@ -31,12 +32,19 @@ help() {
     echo "This will push tag: typescript-client-v${PACKAGE_VERSION}"
 }
 
+# Defaults
+DRY_RUN=false
+
 # Parse arguments
 for arg in "$@"; do
     case $arg in
         --help|-h)
             help
             exit 0
+            ;;
+        --dry-run|-N)
+            DRY_RUN=true
+            shift
             ;;
         *)
             echo -e "${YELLOW}Unknown argument: $arg${NC}"
@@ -92,20 +100,30 @@ echo -e "${GREEN}All pre-release checks passed${NC}"
 echo
 
 # Push tag
-echo -e "${YELLOW}Pushing git tag...${NC}"
-echo -e "${BLUE}Creating and pushing tag: $TAG${NC}"
-git tag "$TAG"
-git push origin "$TAG"
-echo -e "${GREEN}✓ Tag $TAG pushed${NC}"
+if [ "$DRY_RUN" = true ]; then
+    echo -e "${YELLOW}DRY RUN: Would create and push tag: $TAG${NC}"
+    echo
+    echo -e "${GREEN}=========================================${NC}"
+    echo -e "${GREEN}  Dry Run Complete${NC}"
+    echo -e "${GREEN}=========================================${NC}"
+    echo
+    echo -e "${BLUE}Would push tag: $TAG${NC}"
+else
+    echo -e "${YELLOW}Pushing git tag...${NC}"
+    echo -e "${BLUE}Creating and pushing tag: $TAG${NC}"
+    git tag "$TAG"
+    git push origin "$TAG"
+    echo -e "${GREEN}✓ Tag $TAG pushed${NC}"
 
-echo
-echo -e "${GREEN}=========================================${NC}"
-echo -e "${GREEN}  Release Complete${NC}"
-echo -e "${GREEN}=========================================${NC}"
-echo
-echo -e "${BLUE}GitHub Actions workflow will now:${NC}"
-echo -e "${BLUE}  1. Run tests${NC}"
-echo -e "${BLUE}  2. Build the package${NC}"
-echo -e "${BLUE}  3. Publish to npm${NC}"
-echo -e "${BLUE}  4. Create GitHub release for $TAG${NC}"
-echo
+    echo
+    echo -e "${GREEN}=========================================${NC}"
+    echo -e "${GREEN}  Release Complete${NC}"
+    echo -e "${GREEN}=========================================${NC}"
+    echo
+    echo -e "${BLUE}GitHub Actions workflow will now:${NC}"
+    echo -e "${BLUE}  1. Run tests${NC}"
+    echo -e "${BLUE}  2. Build the package${NC}"
+    echo -e "${BLUE}  3. Publish to npm${NC}"
+    echo -e "${BLUE}  4. Create GitHub release for $TAG${NC}"
+    echo
+fi
