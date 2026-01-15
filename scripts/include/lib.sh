@@ -21,7 +21,7 @@ has_changelog_entry() {
     if [ ! -f "$file" ]; then
         return 0
     fi
-    if ! cat "$file" | grep -F "## [$version]" | grep -qE '- [0-9]{4}-[0-9]{2}-[0-9]{2}'; then
+    if ! cat "$file" | grep -F "## [$version]" | grep -qE -- '- [0-9]{4}-[0-9]{2}-[0-9]{2}'; then
         return 1
     fi
     return 0
