@@ -5,7 +5,9 @@ on:
     tags:
       - 'service-images-v*'
 
-permissions: write-all
+permissions:
+  contents: write
+  packages: write
 
 env:
   REGISTRY: ghcr.io/nuanced-dev
