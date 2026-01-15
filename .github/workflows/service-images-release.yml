@@ -14,7 +14,7 @@ env:
 
 jobs:
   build-and-publish:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest-large
     steps:
       - uses: actions/checkout@v6
 
@@ -48,19 +48,13 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build multi-platform service images
+      - name: Build and publish service images
         run: |
           ./scripts/build-images.sh \
             --all-services \
-            --multi-platform \
+            --publish \
             --cache=gha \
             --sequential
-
-      - name: Publish service images
-        run: |
-          ./scripts/publish-images.sh \
-            --all-services \
-            --registry=${{ env.REGISTRY }}
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
