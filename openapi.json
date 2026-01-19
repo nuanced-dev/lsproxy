@@ -7,12 +7,12 @@
       "name": "MIT",
       "url": "https://opensource.org/licenses/MIT"
     },
-    "version": "0.4.9"
+    "version": "0.5.0"
   },
   "servers": [
     {
       "url": "http://localhost:4444/v1",
-      "description": "Nuanced LSP API v1"
+      "description": "API server v1"
     }
   ],
   "paths": {
@@ -249,7 +249,17 @@
         "operationId": "list_files",
         "responses": {
           "200": {
-            "description": "Files listed successfully"
+            "description": "Files listed successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
           },
           "500": {
             "description": "Internal server error"
@@ -276,7 +286,14 @@
         },
         "responses": {
           "200": {
-            "description": "Source code retrieved successfully"
+            "description": "Source code retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadSourceCodeResponse"
+                }
+              }
+            }
           },
           "400": {
             "description": "Bad request"
@@ -307,7 +324,7 @@
       },
       "DefinitionsInFileRequest": {
         "type": "object",
-        "description": "Response to a definition request.\n\nThe definition(s) of the symbol.\nPoints to the start position of the symbol's identifier.\n\ne.g. for the definition of `User` on line 5 of `src/main.py` with the code:\n```text\n0: class User:\n_________^\n1:     def __init__(self, name, age):\n2:         self.name = name\n3:         self.age = age\n4:\n5: user = User(\"John\", 30)\n__________^\n```\nThe definition(s) will be `[{\"path\": \"src/main.py\", \"line\": 0, \"character\": 6}]`.",
+        "description": "Request to get the symbols in a file.",
         "required": [
           "file_path"
         ],
@@ -719,18 +736,6 @@
         "type": "string",
         "description": "Language version string (e.g., \"3.4.4\" for Ruby, \"3.12\" for Python)\n\nThis represents the runtime/compiler version of a language, not the container image version.\nFor languages without version detection, this may be None."
       },
-      "LanguageVariant": {
-        "type": "string",
-        "description": "Language variant for languages that have multiple type system modes\n\nSome languages support different type-checking modes that require different\nlanguage servers or configurations. This enum captures those variants.",
-        "enum": [
-          "standard",
-          "sorbet"
-        ]
-      },
-      "LanguageVersion": {
-        "type": "string",
-        "description": "Language version string (e.g., \"3.4.4\" for Ruby, \"3.12\" for Python)\n\nThis represents the runtime/compiler version of a language, not the container image version.\nFor languages without version detection, this may be None."
-      },
       "Position": {
         "type": "object",
         "description": "A position within a text document, using 0-based indexing",
@@ -796,6 +801,17 @@
           }
         }
       },
+      "ReadSourceCodeResponse": {
+        "type": "object",
+        "required": [
+          "source_code"
+        ],
+        "properties": {
+          "source_code": {
+            "type": "string"
+          }
+        }
+      },
       "ReferenceWithSymbolDefinitions": {
         "type": "object",
         "description": "A reference to a symbol along with its definition(s) found in the workspace\n\ne.g. for a reference to `User` in `main.py`:\n```python\nuser = User(\"John\", 30)\n_______^\n```\nThis would contain:\n- The reference location and name (\"User\" at line 0)\n- The symbol definition(s) (e.g. \"class User\" in models.py)",
@@ -812,68 +828,6 @@
           },
           "reference": {
             "$ref": "#/components/schemas/Identifier"
-          }
-        }
-      },
-      "ReferencedSymbolsResponse": {
-        "type": "object",
-        "description": "Response containing symbols referenced from the requested position\n\nThe symbols are categorized into:\n- workspace_symbols: References to symbols that were found and have definitions in the workspace\n- external_symbols: References to symbols from outside the workspace (built-in functions, external libraries)\n- not_found: References where the symbol definition could not be found",
-        "required": [
-          "workspace_symbols",
-          "external_symbols",
-          "not_found"
-        ],
-        "properties": {
-          "external_symbols": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/Identifier"
-            }
-          },
-          "not_found": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/Identifier"
-            }
-          },
-          "workspace_symbols": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ReferenceWithSymbolDefinitions"
-            }
-          }
-        }
-      },
-      "ReferencesResponse": {
-        "type": "object",
-        "description": "Response to a references request.\n\nPoints to the start position of the symbol's identifier.\n\ne.g. for the references of `User` on line 0 character 6 of `src/main.py` with the code:\n```text\n0: class User:\n1:     def __init__(self, name, age):\n2:         self.name = name\n3:         self.age = age\n4:\n5: user = User(\"John\", 30)\n_________^\n6:\n7: print(user.name)\n```\nThe references will be `[{\"path\": \"src/main.py\", \"line\": 5, \"character\": 7}]`.",
-        "required": [
-          "references",
-          "selected_identifier"
-        ],
-        "properties": {
-          "context": {
-            "type": [
-              "array",
-              "null"
-            ],
-            "items": {
-              "$ref": "#/components/schemas/CodeContext"
-            },
-            "description": "The source code around the references."
-          },
-          "raw_response": {
-            "description": "The raw response from the langserver.\n\nhttps://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_references"
-          },
-          "references": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/FilePosition"
-            }
-          },
-          "selected_identifier": {
-            "$ref": "#/components/schemas/Identifier",
-            "description": "The identifier that was \"clicked-on\" to get the references."
           }
         }
       },
@@ -989,38 +943,6 @@
             "type": "string",
             "description": "The name of the symbol.",
             "example": "User"
-          }
-        }
-      },
-      "Vec": {
-        "type": "array",
-        "items": {
-          "type": "object",
-          "required": [
-            "name",
-            "kind",
-            "identifier_position",
-            "file_range"
-          ],
-          "properties": {
-            "file_range": {
-              "$ref": "#/components/schemas/FileRange",
-              "description": "The full range of the symbol."
-            },
-            "identifier_position": {
-              "$ref": "#/components/schemas/FilePosition",
-              "description": "The start position of the symbol's identifier."
-            },
-            "kind": {
-              "type": "string",
-              "description": "The kind of the symbol (e.g., function, class).",
-              "example": "class"
-            },
-            "name": {
-              "type": "string",
-              "description": "The name of the symbol.",
-              "example": "User"
-            }
           }
         }
       }

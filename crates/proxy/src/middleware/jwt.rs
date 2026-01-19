@@ -23,7 +23,9 @@ pub struct JwtMiddleware {
 impl JwtMiddleware {
     /// Create middleware with auth disabled
     pub fn disabled() -> Self {
-        Self { secret: String::default() }
+        Self {
+            secret: String::default(),
+        }
     }
 
     /// Create middleware from environment variable (for production use)

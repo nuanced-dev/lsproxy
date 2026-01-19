@@ -28,8 +28,9 @@ use common::api_types::{
     get_mount_dir, set_global_mount_dir, CodeContext, DefinitionsInFileRequest, ErrorResponse,
     FilePosition, FileRange, FindDefinitionRequest, FindDefinitionResponse, FindIdentifierRequest,
     FindIdentifierResponse, FindReferencedSymbolsRequest, FindReferencedSymbolsResponse,
-    FindReferencesRequest, FindReferencesResponse, HealthResponse, Position,
-    ReferenceWithSymbolDefinitions, SupportedLanguages, Symbol, SymbolResponse,
+    FindReferencesRequest, FindReferencesResponse, HealthResponse, Identifier, Position, Range,
+    ReadSourceCodeRequest, ReadSourceCodeResponse, ReferenceWithSymbolDefinitions,
+    SupportedLanguages, Symbol,
 };
 
 pub fn check_mount_dir() -> std::io::Result<()> {
@@ -66,11 +67,14 @@ pub fn check_mount_dir() -> std::io::Result<()> {
             FindReferencesRequest,
             FindReferencesResponse,
             HealthResponse,
+            Identifier,
             Position,
+            Range,
+            ReadSourceCodeRequest,
+            ReadSourceCodeResponse,
             ReferenceWithSymbolDefinitions,
             SupportedLanguages,
             Symbol,
-            SymbolResponse,
         )
     ),
     paths(

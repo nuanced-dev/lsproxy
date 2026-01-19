@@ -783,8 +783,6 @@ pub struct FindReferencedSymbolsResponse {
     pub not_found: Vec<Identifier>,
 }
 
-pub type SymbolResponse = Vec<Symbol>;
-
 impl From<Location> for FilePosition {
     fn from(location: Location) -> Self {
         FilePosition {
@@ -843,6 +841,11 @@ pub struct ReadSourceCodeRequest {
     pub path: String,
     /// Optional range within the file to read
     pub range: Option<Range>,
+}
+
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+pub struct ReadSourceCodeResponse {
+    pub source_code: String,
 }
 
 /// Unified JSON-RPC message
