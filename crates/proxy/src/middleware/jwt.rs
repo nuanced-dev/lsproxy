@@ -21,6 +21,11 @@ pub struct JwtMiddleware {
 }
 
 impl JwtMiddleware {
+    /// Create middleware with auth disabled
+    pub fn disabled() -> Self {
+        Self { secret: String::default() }
+    }
+
     /// Create middleware from environment variable (for production use)
     pub fn from_env() -> Result<Self, String> {
         let secret = env::var("JWT_SECRET")
@@ -73,6 +78,10 @@ where
     forward_ready!(service);
 
     fn call(&self, req: ServiceRequest) -> Self::Future {
+        if self.secret.is_empty() {
+            return Box::pin(self.service.call(req));
+        }
+
         let auth_header = req.headers().get("Authorization");
         let secret = self.secret.clone();
 

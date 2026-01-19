@@ -582,14 +582,6 @@ while IFS='|' read -r lang test_file symbol_name symbol_line symbol_char health_
         "jq -e 'type == \"object\"' > /dev/null"
 
     # Find Definition (assert selected identifier and at least one definition)
-    test_http_endpoint "LSP GoTo Definition ($lang)" \
-        "POST" \
-        "/lsp" \
-        "{\"jsonrpc\":\"2.0\",\"id\":\"$TOTAL_TESTS\",\"method\":\"textDocument/definition\",\"params\":{\"textDocument\":{\"uri\":\"$test_uri\"},\"position\":{\"line\":$symbol_line,\"character\":$symbol_char}}}" \
-        "200" \
-        "jq -e '.result | if type == \"array\" then . else [.] end | length > 0' > /dev/null"
-
-    # Find Definition (assert selected identifier and at least one definition)
     test_ws_endpoint "LSP-WS GoTo Definition ($lang)" \
         "/lsp/ws" \
         "{\"jsonrpc\":\"2.0\",\"id\":\"$TOTAL_TESTS\",\"method\":\"textDocument/definition\",\"params\":{\"textDocument\":{\"uri\":\"$test_uri\"},\"position\":{\"line\":$symbol_line,\"character\":$symbol_char}}}" \

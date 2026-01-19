@@ -1,26 +1,53 @@
+use crate::container::ContainerOrchestrator;
 use crate::handlers::container_proxy;
-use crate::handlers::lsp::{
-    convert_json_paths_container_to_host, convert_json_paths_host_to_container,
-    extract_document_uri, handle_lifecycle_request,
-};
 use crate::AppState;
 use actix_web::web::{Data, Payload};
 use actix_web::{HttpRequest, HttpResponse};
 use actix_ws::{Message as WsMessage, MessageStream, Session};
-use common::api_types::{JsonRpcMessage, SupportedLanguages};
+use common::api_types::{JsonRpcErrorCode, JsonRpcMessage, SupportedLanguages};
 use common::utils::language_utils::detect_language;
 use futures_util::stream::SplitSink;
 use futures_util::{SinkExt, StreamExt};
 use log::{debug, error, info, warn};
+use lsp_types::{
+    DeclarationCapability, FoldingRangeProviderCapability, HoverProviderCapability,
+    ImplementationProviderCapability, InitializeResult, OneOf, PositionEncodingKind,
+    ServerCapabilities, ServerInfo, TextDocumentSyncKind, TextDocumentSyncOptions,
+};
+use serde_json::Value;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock};
 use tokio_tungstenite::tungstenite::Message as TungsteniteMessage;
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
 use url::Url;
 
 type ContainerWsConnection = WebSocketStream<MaybeTlsStream<tokio::net::TcpStream>>;
 type ContainerWsSink = SplitSink<ContainerWsConnection, TungsteniteMessage>;
+
+static SERVER_CAPABILITES: LazyLock<ServerCapabilities> = LazyLock::new(|| {
+    let mut capabilities = ServerCapabilities::default();
+    capabilities.call_hierarchy_provider = Some(true.into());
+    capabilities.declaration_provider = Some(DeclarationCapability::Simple(true));
+    capabilities.definition_provider = Some(OneOf::Left(true));
+    capabilities.document_symbol_provider = Some(OneOf::Left(true));
+    capabilities.folding_range_provider = Some(FoldingRangeProviderCapability::Simple(true));
+    capabilities.hover_provider = Some(HoverProviderCapability::Simple(false));
+    capabilities.implementation_provider = Some(ImplementationProviderCapability::Simple(true));
+    capabilities.inline_value_provider = Some(OneOf::Left(true));
+    capabilities.position_encoding = Some(PositionEncodingKind::UTF16);
+    capabilities.references_provider = Some(OneOf::Left(true));
+    capabilities.text_document_sync = Some(
+        TextDocumentSyncOptions {
+            open_close: Some(true),
+            change: Some(TextDocumentSyncKind::FULL),
+            ..Default::default()
+        }
+        .into(),
+    );
+    capabilities.type_definition_provider = Some(true.into());
+    capabilities
+});
 
 /// WebSocket endpoint for bidirectional LSP communication
 pub async fn lsp_ws(
@@ -293,4 +320,102 @@ async fn send_to_container(
     sink.send(TungsteniteMessage::Text(converted_text))
         .await
         .map_err(|e| e.into())
+}
+
+/// Handle lifecycle requests locally, returning a JSON-RPC response if handled
+fn handle_lifecycle_request(request: &JsonRpcMessage) -> Result<Option<JsonRpcMessage>, ()> {
+    let req_id = request.id.clone();
+    let Some(method) = request.method.as_ref() else {
+        return Err(());
+    };
+    let response = match method.as_str() {
+        "initialize" => Some(JsonRpcMessage::new_result_response(
+            req_id,
+            InitializeResult {
+                capabilities: SERVER_CAPABILITES.clone(),
+                server_info: Some(ServerInfo {
+                    name: "nuanced-lsp".to_string(),
+                    version: Some(env!("CARGO_PKG_VERSION").to_string()),
+                }),
+            },
+        )),
+        "initialized" | "exit" => None, // No response for notifications
+        "shutdown" => Some(JsonRpcMessage::new_result_response(req_id, Value::Null)),
+        dollar_method if dollar_method.starts_with("$/") => {
+            if req_id.is_some() {
+                Some(JsonRpcMessage::new_error_response(
+                    req_id,
+                    JsonRpcErrorCode::MethodNotFound as i32,
+                    "Method not found".to_string(),
+                ))
+            } else {
+                None
+            }
+        }
+        _ => return Err(()),
+    };
+    Ok(response)
+}
+
+/// Extract document URI from JSON-RPC request
+fn extract_document_uri(request: &JsonRpcMessage) -> Option<String> {
+    request
+        .params
+        .as_ref()?
+        .get("textDocument")
+        .and_then(|td| td.get("uri"))
+        .and_then(|u| u.as_str())
+        .map(|uri| uri.to_string())
+}
+
+/// Recursively convert paths in JSON value from host to container
+fn convert_json_paths_host_to_container<'a>(
+    orchestrator: &'a Arc<ContainerOrchestrator>,
+    value: &'a mut Value,
+) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<(), String>> + 'a>> {
+    Box::pin(async move {
+        let host_workspace = orchestrator
+            .get_host_workspace_path()
+            .await
+            .ok_or_else(|| "Failed to get host workspace path".to_string())?;
+
+        convert_json_paths_recursive(value, &host_workspace, "/mnt/workspace");
+        Ok(())
+    })
+}
+
+/// Recursively replace path strings in JSON values
+fn convert_json_paths_recursive(value: &mut Value, from: &str, to: &str) {
+    match value {
+        Value::String(s) => {
+            *s = s.replace(from, to);
+        }
+        Value::Object(map) => {
+            for (_, v) in map.iter_mut() {
+                convert_json_paths_recursive(v, from, to);
+            }
+        }
+        Value::Array(arr) => {
+            for item in arr.iter_mut() {
+                convert_json_paths_recursive(item, from, to);
+            }
+        }
+        _ => {}
+    }
+}
+
+/// Recursively convert paths in JSON value from container to host
+fn convert_json_paths_container_to_host<'a>(
+    orchestrator: &'a Arc<ContainerOrchestrator>,
+    value: &'a mut Value,
+) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<(), String>> + 'a>> {
+    Box::pin(async move {
+        let host_workspace = orchestrator
+            .get_host_workspace_path()
+            .await
+            .ok_or_else(|| "Failed to get host workspace path".to_string())?;
+
+        convert_json_paths_recursive(value, "/mnt/workspace", &host_workspace);
+        Ok(())
+    })
 }
