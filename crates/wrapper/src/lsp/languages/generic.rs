@@ -4,9 +4,10 @@ use async_trait::async_trait;
 use common::utils::file_utils::{search_paths, FileType};
 use common::utils::workspace_documents::{DidOpenConfiguration, DEFAULT_EXCLUDE_PATTERNS};
 use log::warn;
-use lsp_types::{InitializeParams, Url, WorkspaceFolder};
+use lsp_types::{InitializeParams, WorkspaceFolder};
 use std::error::Error;
 use std::path::Path;
+use url::Url;
 
 #[derive(Clone)]
 pub struct GenericConfig {

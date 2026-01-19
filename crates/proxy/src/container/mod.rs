@@ -1,6 +1,9 @@
+use bollard::image::CreateImageOptions;
 use bollard::Docker;
+use futures_util::stream::StreamExt;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::sync::Mutex;
 
 use common::api_types::{LanguageVariant, SupportedLanguages};
@@ -10,24 +13,35 @@ pub mod language_manager;
 pub mod orchestrator;
 
 // Container image configuration
-// These correspond to the Docker images built by scripts/build-rust-images.sh
-// and scripts/build-language-images.sh
+// These correspond to the Docker images built by scripts/build-images.sh --all-services
 
 /// Default version tag for Rust containers (wrapper, proxy, watchdog)
-/// Can be overridden with RUST_IMAGE_VERSION environment variable
-pub const DEFAULT_RUST_IMAGE_VERSION: &str = "0.5.0";
+/// Can be overridden with SERVICE_IMAGE_VERSION environment variable at
+/// build or runtime.
+const DEFAULT_SERVICE_IMAGE_VERSION: &str = env!("CARGO_PKG_VERSION");
+
+/// Override version tag for Rust containers specified at runtime.
+const BUILD_SERVICE_IMAGE_VERSION: Option<&'static str> = option_env!("SERVICE_IMAGE_VERSION");
 
 /// Default version tag for language containers (python, ruby, typescript, etc.)
-/// Can be overridden with LANGUAGE_IMAGE_VERSION environment variable
-pub const DEFAULT_LANGUAGE_IMAGE_VERSION: &str = "1.0.0";
+/// Uses major version only to enable sticky image versions across patch updates.
+/// Can be overridden with LANGUAGE_IMAGE_VERSION environment variable at build
+/// or runtime.
+const DEFAULT_LANGUAGE_IMAGE_VERSION: &str = "1";
+
+/// Override version tag for Rust containers specified at runtime.
+const BUILD_LANGUAGE_IMAGE_VERSION: Option<&'static str> = option_env!("LANGUAGE_IMAGE_VERSION");
 
 /// Base image names (without version tags)
 pub const PROXY_IMAGE_BASE: &str = "nuanced-lsp-proxy";
 pub const WRAPPER_IMAGE_BASE: &str = "nuanced-lsp-wrapper";
 pub const WATCHDOG_IMAGE_BASE: &str = "nuanced-lsp-watchdog";
 
-/// Container registry for published images
-pub const CONTAINER_REGISTRY: &str = "ghcr.io/nuanced-dev";
+/// Default container registry for published images
+const DEFAULT_CONTAINER_REGISTRY: &str = "ghcr.io/nuanced-dev";
+
+/// Override container registry specified at build time.
+const BUILD_CONTAINER_REGISTRY: Option<&'static str> = option_env!("CONTAINER_REGISTRY");
 
 /// Get language image base name
 ///
@@ -63,31 +77,55 @@ pub fn language_image_base(language: &SupportedLanguages) -> String {
     }
 }
 
-/// Get Rust image version from environment or use default
-pub fn rust_image_version() -> String {
-    std::env::var("RUST_IMAGE_VERSION").unwrap_or_else(|_| DEFAULT_RUST_IMAGE_VERSION.to_string())
+/// Get service image version from environment or use default
+pub fn service_image_version() -> String {
+    // Tags are trimmed in case they end in newlines from files or tool output
+    if let Ok(tag) = std::env::var("SERVICE_IMAGE_VERSION") {
+        tag.trim().to_string()
+    } else if let Some(tag) = BUILD_SERVICE_IMAGE_VERSION {
+        tag.trim().to_string()
+    } else {
+        DEFAULT_SERVICE_IMAGE_VERSION.trim().to_string()
+    }
 }
 
 /// Get language image version from environment or use default
 pub fn language_image_version() -> String {
-    std::env::var("LANGUAGE_IMAGE_VERSION")
-        .unwrap_or_else(|_| DEFAULT_LANGUAGE_IMAGE_VERSION.to_string())
+    // Tags are trimmed in case they end in newlines from files or tool output
+    if let Ok(tag) = std::env::var("LANGUAGE_IMAGE_VERSION") {
+        tag.trim().to_string()
+    } else if let Some(tag) = BUILD_LANGUAGE_IMAGE_VERSION {
+        tag.trim().to_string()
+    } else {
+        DEFAULT_LANGUAGE_IMAGE_VERSION.trim().to_string()
+    }
+}
+
+/// Get container registry from environment or use default
+pub fn container_registry() -> String {
+    if let Ok(registry) = std::env::var("CONTAINER_REGISTRY") {
+        registry.trim().to_string()
+    } else if let Some(registry) = BUILD_CONTAINER_REGISTRY {
+        registry.trim().to_string()
+    } else {
+        DEFAULT_CONTAINER_REGISTRY.to_string()
+    }
 }
 
 /// Helper functions to get full image names with version tags
 pub fn proxy_image() -> String {
     std::env::var("PROXY_IMAGE")
-        .unwrap_or_else(|_| format!("{}:{}", PROXY_IMAGE_BASE, rust_image_version()))
+        .unwrap_or_else(|_| format!("{}:{}", PROXY_IMAGE_BASE, service_image_version()))
 }
 
 pub fn wrapper_image() -> String {
     std::env::var("WRAPPER_IMAGE")
-        .unwrap_or_else(|_| format!("{}:{}", WRAPPER_IMAGE_BASE, rust_image_version()))
+        .unwrap_or_else(|_| format!("{}:{}", WRAPPER_IMAGE_BASE, service_image_version()))
 }
 
 pub fn watchdog_image() -> String {
     std::env::var("WATCHDOG_IMAGE")
-        .unwrap_or_else(|_| format!("{}:{}", WATCHDOG_IMAGE_BASE, rust_image_version()))
+        .unwrap_or_else(|_| format!("{}:{}", WATCHDOG_IMAGE_BASE, service_image_version()))
 }
 
 pub fn language_image(language: &SupportedLanguages) -> String {
@@ -98,40 +136,52 @@ pub fn language_image(language: &SupportedLanguages) -> String {
     )
 }
 
-pub fn proxy_image_ghcr() -> String {
-    format!(
-        "{}/{}:{}",
-        CONTAINER_REGISTRY,
-        PROXY_IMAGE_BASE,
-        rust_image_version()
-    )
-}
+/// Find the right Docker image for a given image name:tag string
+///
+/// This method implements a fallback strategy to locate or pull container images:
+/// 1. If image contains '/', treat it as a registry image - skip local check and pull directly
+/// 2. Check if the local image exists - if so, return it
+/// 3. Otherwise, check if the image prefixed with the container registry exists locally
+/// 4. If not, try to pull the prefixed image from the container registry
+/// 5. If pull fails, return an error
+///
+/// # Arguments
+/// * `image` - The image name:tag string (e.g., "nuanced-lsp-wrapper:1.0.0")
+///
+/// # Returns
+/// The image name to use when creating a container
+pub async fn find_image(docker: &Docker, image: String) -> Result<String, OrchestratorError> {
+    let registry_image = if image.contains('/') {
+        image
+    } else {
+        // Check if local image exists
+        if docker.inspect_image(&image).await.is_ok() {
+            log::debug!("Using local image: {image}");
+            return Ok(image);
+        }
 
-pub fn watchdog_image_ghcr() -> String {
-    format!(
-        "{}/{}:{}",
-        CONTAINER_REGISTRY,
-        WATCHDOG_IMAGE_BASE,
-        rust_image_version()
-    )
-}
+        // Build the registry-prefixed image name
+        format!("{}/{}", container_registry(), image)
+    };
 
-pub fn wrapper_image_ghcr() -> String {
-    format!(
-        "{}/{}:{}",
-        CONTAINER_REGISTRY,
-        WRAPPER_IMAGE_BASE,
-        rust_image_version()
-    )
-}
+    log::info!("Pulling from registry: {registry_image}");
+    let create_options = CreateImageOptions {
+        from_image: registry_image.clone(),
+        ..Default::default()
+    };
+    let mut stream = docker.create_image(Some(create_options), None, None);
+    while let Some(info) = stream.next().await {
+        match info {
+            Ok(_) => {}
+            Err(e) => {
+                log::error!("Failed to pull image: {registry_image}: {e}");
+                return Err(e.into());
+            }
+        }
+    }
 
-pub fn language_image_ghcr(language: &SupportedLanguages) -> String {
-    format!(
-        "{}/{}:{}",
-        CONTAINER_REGISTRY,
-        language_image_base(language),
-        language_image_version()
-    )
+    log::info!("Successfully pulled image: {registry_image}");
+    Ok(registry_image)
 }
 
 pub use api_client::ContainerApiClient;
@@ -161,6 +211,9 @@ pub struct ContainerOrchestrator {
 pub enum OrchestratorError {
     #[error("Docker error: {0}")]
     Docker(#[from] bollard::errors::Error),
+
+    #[error("Container image not found : {0}")]
+    ImageNotFound(String),
 
     #[error("Container health check failed: {0}")]
     HealthCheck(String),
@@ -192,7 +245,7 @@ impl ContainerOrchestrator {
     }
 
     /// Mark health status for a container
-    pub async fn set_container_health(
+    async fn set_container_health(
         &self,
         language: SupportedLanguages,
         status: ContainerHealthStatus,
@@ -201,17 +254,11 @@ impl ContainerOrchestrator {
         guard.insert(language, status);
     }
 
-    /// Get health status for a container if known
-    pub async fn get_container_health(
+    /// Get all languages with tracked health status
+    pub async fn get_all_containers_health(
         &self,
-        language: &SupportedLanguages,
-    ) -> Option<ContainerHealthStatus> {
-        self.container_health.lock().await.get(language).copied()
-    }
-
-    /// Remove health tracking for a container
-    pub async fn remove_container_health(&self, language: &SupportedLanguages) {
-        self.container_health.lock().await.remove(language);
+    ) -> HashMap<SupportedLanguages, ContainerHealthStatus> {
+        self.container_health.lock().await.clone()
     }
 
     /// Get the short-form identifier used for labels/names (12 chars)
@@ -465,12 +512,15 @@ impl ContainerOrchestrator {
 
         // Spawn all containers in parallel
         let spawn_futures: Vec<_> = languages_needing_spawn
-            .into_iter()
+            .iter()
+            .cloned()
             .map(|language| {
                 let orchestrator = self.clone();
                 async move {
                     log::info!("Spawning container for {:?}", language);
-                    let result = orchestrator.spawn_container(language.clone()).await;
+                    let result = orchestrator
+                        .spawn_language_container(language.clone())
+                        .await;
                     (language, result)
                 }
             })
@@ -479,28 +529,40 @@ impl ContainerOrchestrator {
         // Wait for all spawns to complete
         let results = futures::future::join_all(spawn_futures).await;
 
-        // Check results and spawn background health checks
-        let mut any_errors = false;
+        // Check results - log successes and failures
         for (language, result) in results {
             match result {
                 Ok(info) => {
                     log::info!(
-                        "Container for {:?} created at {}, starting health checks in background",
+                        "Container for {:?} created at {}, health checks running",
                         language,
                         info.endpoint
                     );
                 }
                 Err(e) => {
                     log::error!("Failed to spawn container for {:?}: {}", language, e);
-                    any_errors = true;
                 }
             }
         }
 
-        if any_errors {
-            return Err(OrchestratorError::Configuration(
-                "One or more language containers failed to spawn".to_string(),
-            ));
+        // Wait for all initialization containers to report non-Pending status
+        log::info!("Waiting for all language containers to report their status...");
+        loop {
+            let all_ready;
+            {
+                let health_statuses = self.container_health.lock().await;
+                all_ready = health_statuses
+                    .values()
+                    .all(|status| *status != ContainerHealthStatus::Pending);
+                // lock is released
+            }
+
+            if all_ready {
+                log::info!("All language containers have reported their status");
+                break;
+            }
+
+            tokio::time::sleep(Duration::from_millis(100)).await;
         }
 
         Ok(())
@@ -514,7 +576,7 @@ impl ContainerOrchestrator {
     /// Spawn the wrapper container
     /// The wrapper container holds the lsp-wrapper binary and ast-grep configs
     /// that will be mounted into language containers via --volumes-from
-    pub async fn ensure_wrapper_container(&self) -> Result<String, OrchestratorError> {
+    pub async fn spawn_wrapper_container(&self) -> Result<String, OrchestratorError> {
         use bollard::container::{Config, CreateContainerOptions};
         use bollard::models::HostConfig;
 
@@ -537,7 +599,7 @@ impl ContainerOrchestrator {
         }
 
         let id_short = self.instance_id_short();
-        let wrapper_name = format!("nuanced-lsp-wrapper-{}", id_short);
+        let wrapper_name = format!("{WRAPPER_IMAGE_BASE}-{}", id_short);
 
         // Check if wrapper container already exists (by name)
         if let Ok(info) = self.docker.inspect_container(&wrapper_name, None).await {
@@ -562,8 +624,11 @@ impl ContainerOrchestrator {
         // Create new wrapper container
         log::info!("Creating new wrapper container");
 
+        // Find the right image to use
+        let image = find_image(&self.docker, wrapper_image()).await?;
+
         let config = Config {
-            image: Some(wrapper_image()),
+            image: Some(image),
             labels: Some({
                 let mut l = HashMap::new();
                 l.insert("nuanced.role".to_string(), "wrapper".to_string());
@@ -582,66 +647,7 @@ impl ContainerOrchestrator {
             ..Default::default()
         };
 
-        // Try creating container with local image first
-        let container_result = self
-            .docker
-            .create_container(Some(options.clone()), config.clone())
-            .await;
-
-        let container = match container_result {
-            Ok(c) => c,
-            Err(e) => {
-                // If image not found locally, check if GHCR image exists or pull it
-                let err_msg = e.to_string();
-                if err_msg.contains("404") || err_msg.contains("No such image") {
-                    let ghcr_image = wrapper_image_ghcr();
-
-                    // Check if GHCR image already exists locally
-                    let image_exists = self.docker.inspect_image(&ghcr_image).await.is_ok();
-
-                    if !image_exists {
-                        log::info!(
-                            "{} not found locally, pulling from GHCR: {}",
-                            wrapper_image(),
-                            ghcr_image
-                        );
-
-                        use bollard::image::CreateImageOptions;
-                        use futures_util::stream::StreamExt;
-
-                        let create_options = CreateImageOptions {
-                            from_image: ghcr_image.clone(),
-                            ..Default::default()
-                        };
-
-                        let mut stream = self.docker.create_image(Some(create_options), None, None);
-                        while let Some(info) = stream.next().await {
-                            match info {
-                                Ok(_) => {}
-                                Err(e) => {
-                                    log::error!("Failed to pull wrapper image from GHCR: {}", e);
-                                    return Err(e.into());
-                                }
-                            }
-                        }
-
-                        log::info!("Successfully pulled wrapper image from GHCR");
-                    } else {
-                        log::info!("Using existing wrapper GHCR image: {}", ghcr_image);
-                    }
-
-                    // Create container using GHCR image name
-                    let mut config_ghcr = config.clone();
-                    config_ghcr.image = Some(ghcr_image);
-
-                    self.docker
-                        .create_container(Some(options), config_ghcr)
-                        .await?
-                } else {
-                    return Err(e.into());
-                }
-            }
-        };
+        let container = self.docker.create_container(Some(options), config).await?;
 
         let container_id = container.id;
 
@@ -742,7 +748,7 @@ impl ContainerOrchestrator {
 
     /// Spawn a watchdog container to monitor this service and cleanup on unexpected death
     /// Returns the watchdog container ID
-    pub async fn spawn_watchdog(&self) -> Result<String, OrchestratorError> {
+    pub async fn spawn_watchdog_container(&self) -> Result<String, OrchestratorError> {
         use bollard::container::{Config, CreateContainerOptions};
         use bollard::models::HostConfig;
 
@@ -753,7 +759,7 @@ impl ContainerOrchestrator {
             parent_id
         );
 
-        let watchdog_name = format!("nuanced-lsp-watchdog-{}", self.instance_id_short());
+        let watchdog_name = format!("{WATCHDOG_IMAGE_BASE}-{}", self.instance_id_short());
 
         // Check if watchdog already exists
         if let Ok(_) = self.docker.inspect_container(&watchdog_name, None).await {
@@ -761,8 +767,11 @@ impl ContainerOrchestrator {
             return Ok(watchdog_name);
         }
 
+        // Find the right image to use
+        let image = find_image(&self.docker, watchdog_image()).await?;
+
         let config = Config {
-            image: Some(watchdog_image()),
+            image: Some(image),
             env: Some(vec![format!("PARENT_CONTAINER_ID={}", parent_id)]),
             host_config: Some(HostConfig {
                 binds: Some(vec!["/var/run/docker.sock:/var/run/docker.sock".to_string()]),
@@ -777,66 +786,7 @@ impl ContainerOrchestrator {
             ..Default::default()
         };
 
-        // Try creating container with local image first
-        let container_result = self
-            .docker
-            .create_container(Some(options.clone()), config.clone())
-            .await;
-
-        let container = match container_result {
-            Ok(c) => c,
-            Err(e) => {
-                // If image not found locally, check if GHCR image exists or pull it
-                let err_msg = e.to_string();
-                if err_msg.contains("404") || err_msg.contains("No such image") {
-                    let ghcr_image = watchdog_image_ghcr();
-
-                    // Check if GHCR image already exists locally
-                    let image_exists = self.docker.inspect_image(&ghcr_image).await.is_ok();
-
-                    if !image_exists {
-                        log::info!(
-                            "{} not found locally, pulling from GHCR: {}",
-                            watchdog_image(),
-                            ghcr_image
-                        );
-
-                        use bollard::image::CreateImageOptions;
-                        use futures_util::stream::StreamExt;
-
-                        let create_options = CreateImageOptions {
-                            from_image: ghcr_image.clone(),
-                            ..Default::default()
-                        };
-
-                        let mut stream = self.docker.create_image(Some(create_options), None, None);
-                        while let Some(info) = stream.next().await {
-                            match info {
-                                Ok(_) => {}
-                                Err(e) => {
-                                    log::error!("Failed to pull watchdog image from GHCR: {}", e);
-                                    return Err(e.into());
-                                }
-                            }
-                        }
-
-                        log::info!("Successfully pulled watchdog image from GHCR");
-                    } else {
-                        log::info!("Using existing watchdog GHCR image: {}", ghcr_image);
-                    }
-
-                    // Create container using GHCR image name
-                    let mut config_ghcr = config.clone();
-                    config_ghcr.image = Some(ghcr_image);
-
-                    self.docker
-                        .create_container(Some(options), config_ghcr)
-                        .await?
-                } else {
-                    return Err(e.into());
-                }
-            }
-        };
+        let container = self.docker.create_container(Some(options), config).await?;
 
         self.docker
             .start_container::<String>(&container.id, None)
@@ -852,11 +802,11 @@ impl ContainerOrchestrator {
     }
 
     /// Stop the watchdog container
-    pub async fn stop_watchdog(&self) -> Result<(), OrchestratorError> {
+    pub async fn stop_watchdog_container(&self) -> Result<(), OrchestratorError> {
         use bollard::container::RemoveContainerOptions;
 
         // Use instance_id (parent container ID preferred) for unique watchdog name
-        let watchdog_name = format!("nuanced-lsp-watchdog-{}", self.instance_id_short());
+        let watchdog_name = format!("{WATCHDOG_IMAGE_BASE}-{}", self.instance_id_short());
 
         // Try to remove the watchdog (force=true handles running containers)
         let remove_options = RemoveContainerOptions {
@@ -914,6 +864,7 @@ mod tests {
     use serial_test::serial;
 
     #[tokio::test]
+    #[cfg_attr(not(feature = "docker-tests"), ignore)]
     async fn test_docker_connection() -> Result<(), OrchestratorError> {
         // This test requires Docker to be running
         let orchestrator = ContainerOrchestrator::new().await?;

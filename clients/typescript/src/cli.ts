@@ -37,16 +37,16 @@ import type {
   UpCommandOptions,
   UpResult,
 } from "./types.js";
-import { VERSION, LANGUAGE_IMAGE_VERSION } from "./__generated/version.js";
 import {
   DEFAULT_BIND_HOST,
   DEFAULT_CONTAINER_NAME,
+  DEFAULT_CONTAINER_REGISTRY,
   DEFAULT_HOST_PORT,
   DEFAULT_HOST_URL,
-  DEFAULT_PROXY_IMAGE,
+  DEFAULT_LANGUAGE_IMAGE_VERSION,
+  DEFAULT_SERVICE_IMAGE_VERSION,
   DEFAULT_TIMEOUT_SECS,
-  DEFAULT_WATCHDOG_IMAGE,
-  DEFAULT_WRAPPER_IMAGE,
+  VERSION,
 } from "./defaults.js";
 import type { NuancedLspClient } from "./client.js";
 
@@ -76,8 +76,8 @@ async function lspClient(opts: {
   const { NuancedLspClient } = await import("./client.js");
   return new NuancedLspClient({
     containerName: opts.containerName ?? process.env.NUANCED_LSP_CONTAINER_NAME,
-    lsProxyUrl: opts.lspUrl ?? process.env.NUANCED_LSP_URL,
-    lsProxyPort:
+    proxyUrl: opts.lspUrl ?? process.env.NUANCED_LSP_URL,
+    proxyPort:
       opts.lspPort ??
       (process.env.NUANCED_LSP_PORT
         ? parseInt(process.env.NUANCED_LSP_PORT)
@@ -241,10 +241,12 @@ async function upCommand(
     log.info(`Starting Nuanced LSP container '${client.containerName}'...`);
 
   const res = await client.up(workspace, {
-    languageContainerVersion: opts.languageContainerVersion,
-    proxyImage: opts.proxyImage,
-    watchdogImage: opts.watchdogImage,
-    wrapperImage: opts.wrapperImage,
+    containerRegistry:
+      opts.containerRegistry ?? process.env.CONTAINER_REGISTRTY,
+    languageImageVersion:
+      opts.languageImageVersion ?? process.env.LANGUAGE_IMAGE_VERSION,
+    serviceImageVersion:
+      opts.serviceImageVersion ?? process.env.SERVICE_IMAGE_VERSION,
     timeout: opts.timeout,
     stream: opts.stream,
     ro: opts.ro,
@@ -405,19 +407,92 @@ async function pullCommand(opts: PullCommandOptions): Promise<void> {
   const client = await lspClient({
     sudo: getSudoFlag(opts),
   });
-  const image = opts.image ?? DEFAULT_PROXY_IMAGE;
 
-  if (!opts.json) log.info(`Pulling image '${image}'...`);
+  // Import constants
+  const { ALL_SERVICES, ALL_LANGUAGES, selectLanguages } =
+    await import("./constants.js");
 
-  const res = await client.pull(image, opts.stream);
+  // Parse services
+  let services: string[] = [];
+  if (opts.allServices) {
+    services = [...ALL_SERVICES];
+  } else if (opts.services) {
+    services = opts.services
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+  }
 
-  handleResult<PullResult, DockerErr>(res, {
-    json: !!opts.json,
-    fallbackErrMsg: `Failed to pull image '${image}'`,
-    onSuccess: (data: PullResult) => {
-      log.info(`Successfully pulled image: ${data.image}`);
-    },
-  });
+  // Parse languages and expand "ruby" and "ruby-sorbet" into all supported versions
+  let languages: string[] = [];
+  if (opts.allLanguages) {
+    languages = [...ALL_LANGUAGES];
+  } else if (opts.languages) {
+    const names = opts.languages
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    languages = selectLanguages(names, ALL_LANGUAGES);
+  }
+
+  // Validate at least one of services or languages is specified
+  if (services.length === 0 && languages.length === 0) {
+    log.err(
+      "At least one of, --all-languages --all-services, --languages=, or --services= must be specified",
+    );
+    process.exit(1);
+  }
+
+  // Get registry and image versions
+  const containerRegistry =
+    opts.containerRegistry ??
+    process.env.CONTAINER_REGISTRTY ??
+    DEFAULT_CONTAINER_REGISTRY;
+  const languageVersion =
+    opts.languageImageVersion ??
+    process.env.LANGUAGE_IMAGE_VERSION ??
+    DEFAULT_LANGUAGE_IMAGE_VERSION;
+  const serviceVersion =
+    opts.serviceImageVersion ??
+    process.env.SERVICE_IMAGE_VERSION ??
+    DEFAULT_SERVICE_IMAGE_VERSION;
+
+  // Build list of images to pull
+  const images: string[] = [];
+  for (const service of services) {
+    images.push(
+      `${containerRegistry}/nuanced-lsp-${service}:${serviceVersion}`,
+    );
+  }
+  for (const language of languages) {
+    images.push(
+      `${containerRegistry}/nuanced-lsp-${language}:${languageVersion}`,
+    );
+  }
+
+  // Pull each image
+  let failed = false;
+  for (const image of images) {
+    if (!opts.json) log.info(`Pulling image '${image}'...`);
+
+    const res = await client.pull(image, opts.stream);
+
+    handleResult<PullResult, DockerErr>(res, {
+      json: !!opts.json,
+      fallbackErrMsg: `Failed to pull image '${image}`,
+      onSuccess: (data: PullResult) => {
+        log.info(`Successfully pulled image: ${data.image}`);
+      },
+      onError: (err) => {
+        log.err(`Failed to pull image '${image}: ${err.message}`);
+        failed = true;
+      },
+    });
+  }
+
+  if (failed) {
+    process.exit(1);
+  }
 }
 
 async function healthCommand(opts: HealthCommandOptions): Promise<void> {
@@ -639,7 +714,8 @@ program
   .option("--json", "Output machine-readable JSON") // harmless, consistent
   .action(versionCommand);
 
-// lifecycle commands
+program.commandsGroup("Lifecycle commands:");
+
 program
   .command("up")
   .description(ansi.pink("Start the Nuanced LSP container locally in Docker."))
@@ -655,20 +731,16 @@ program
     DEFAULT_BIND_HOST,
   )
   .option(
-    "--proxy-image <ref>",
-    `Nuanced LSP proxy image (default: ${DEFAULT_PROXY_IMAGE})`,
+    "--container-registry <registry>",
+    `Container registry (default: ${DEFAULT_CONTAINER_REGISTRY})`,
   )
   .option(
-    "--watchdog-image <ref>",
-    `Nuanced LSP watchdog image (default: ${DEFAULT_WATCHDOG_IMAGE})`,
+    "--language-image-version <version>",
+    "Language image version (default: from service)",
   )
   .option(
-    "--wrapper-image <ref>",
-    `Nuanced LSP wrapper image (default: ${DEFAULT_WRAPPER_IMAGE})`,
-  )
-  .option(
-    "--language-container-version <version>",
-    `Nuanced LSP language container version (default: ${LANGUAGE_IMAGE_VERSION})`,
+    "--service-image-version <version>",
+    `Nuanced LSP service image version (default: ${DEFAULT_SERVICE_IMAGE_VERSION})`,
   )
   .option(
     "--container-name <name>",
@@ -714,14 +786,16 @@ program
     DEFAULT_BIND_HOST,
   )
   .option(
-    "--proxy-image <ref>",
-    `Nuanced LSP proxy image (default: ${DEFAULT_PROXY_IMAGE})`,
+    "--container-registry <registry>",
+    `Container registry (default: ${DEFAULT_CONTAINER_REGISTRY})`,
   )
-  .option("--watchdog-image <ref>", "Nuanced LSP watchdog image")
-  .option("--wrapper-image <ref>", "Nuanced LSP wrapper image")
   .option(
-    "--language-container-version <version>",
-    `Nuanced LSP language container version (default: ${LANGUAGE_IMAGE_VERSION})`,
+    "--language-image-version <version>",
+    "Language image version (default: from service)",
+  )
+  .option(
+    "--service-image-version <version>",
+    `Nuanced LSP service image version (default: ${DEFAULT_SERVICE_IMAGE_VERSION})`,
   )
   .option(
     "--timeout <s>",
@@ -826,17 +900,36 @@ program
 
 program
   .command("pull")
-  .description(ansi.pink("Pull Nuanced LSProxy image."))
+  .description(ansi.pink("Pull Nuanced LSP images."))
   .option(
-    "--proxy-image <ref>",
-    `Nuanced LSP proxy image to pull (default: ${DEFAULT_PROXY_IMAGE})`,
+    "--container-registry <registry>",
+    `Container registry (default: ${DEFAULT_CONTAINER_REGISTRY})`,
+  )
+  .option("--all-languages", "Pull all language images")
+  .option("--all-services", "Pull all service images")
+  .option(
+    "--language-image-version <version>",
+    `Language image version (default: ${DEFAULT_LANGUAGE_IMAGE_VERSION})`,
+  )
+  .option(
+    "--languages <list>",
+    "Pull specific language images (comma-separated)",
+  )
+  .option(
+    "--service-image-version <version>",
+    `Service image version (default: ${DEFAULT_SERVICE_IMAGE_VERSION})`,
+  )
+  .option(
+    "--services <list>",
+    "Pull specific service images (comma-separated: proxy,watchdog,wrapper)",
   )
   .option("--sudo", "Run Docker commands with sudo")
   .option("--stream", "Stream process stdout and stderr")
   .option("--json", "Output machine-readable JSON")
   .action(pullCommand);
 
-// LSProxy workspace/API commands
+program.commandsGroup("System commands:");
+
 program
   .command("health")
   .description(ansi.pink("Check Nuanced LSP system health."))
@@ -853,6 +946,8 @@ program
   )
   .option("--json", "Output machine-readable JSON")
   .action(healthCommand);
+
+program.commandsGroup("Workspace commands:");
 
 program
   .command("list-files")
@@ -892,6 +987,8 @@ program
   )
   .option("--json", "Output machine-readable JSON")
   .action(readSourceCommand);
+
+program.commandsGroup("Symbols commands:");
 
 program
   .command("definitions-in-file <file>")

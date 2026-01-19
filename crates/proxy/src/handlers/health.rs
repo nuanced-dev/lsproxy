@@ -32,17 +32,23 @@ pub async fn health_check(data: Data<AppState>) -> HttpResponse {
         });
     }
 
-    // Get all currently running containers from the orchestrator
-    let running_containers = data.orchestrator.all_containers().await;
+    // Get all languages with tracked health status
+    // This includes both successfully spawned containers and those that failed to spawn
+    let all_containers_health = data.orchestrator.get_all_containers_health().await;
 
     let mut languages = HashMap::new();
-    for (lang, _info) in running_containers {
-        let healthy = match data.orchestrator.get_container_health(&lang).await {
-            Some(ContainerHealthStatus::Healthy) => true,
-            // Treat pending/unhealthy/unknown as not ready yet
-            _ => false,
-        };
-        languages.insert(lang, healthy);
+    for (lang, health_status) in all_containers_health {
+        match health_status {
+            ContainerHealthStatus::Healthy => {
+                languages.insert(lang, true);
+            }
+            ContainerHealthStatus::Unhealthy => {
+                languages.insert(lang, false);
+            }
+            ContainerHealthStatus::Pending => {
+                // Don't include pending languages in the response
+            }
+        }
     }
 
     HttpResponse::Ok().json(HealthResponse {

@@ -9,16 +9,13 @@ mod handlers;
 mod lsp;
 mod managers;
 
-use lsp::client::LspClient;
-use lsp::languages::{GoplsConfig, SorbetConfig};
-use lsp::languages::{
-    CSHARP_CONFIG, C_AND_CPP_CONFIG, JAVA_CONFIG, PHP_CONFIG, PYTHON_CONFIG, RUBY_CONFIG,
-    RUST_CONFIG, TYPESCRIPT_AND_JAVASCRIPT_CONFIG,
+use crate::lsp::client::{LspClient, LspConfig};
+use crate::lsp::languages::{
+    GoplsConfig, SorbetConfig, CSHARP_CONFIG, C_AND_CPP_CONFIG, JAVA_CONFIG, PHP_CONFIG,
+    PYTHON_CONFIG, RUBY_CONFIG, RUST_CONFIG, TYPESCRIPT_AND_JAVASCRIPT_CONFIG,
 };
-use lsp::ProcessHandler;
-use managers::api::ApiManager;
-
-use crate::lsp::client::LspConfig;
+use crate::lsp::process::ProcessHandler;
+use crate::managers::api::ApiManager;
 
 /// HTTP wrapper for LSP servers
 /// Provides HTTP endpoints for LSP JSON-RPC communication

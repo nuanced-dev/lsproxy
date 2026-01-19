@@ -335,10 +335,9 @@ export type BaseCommandOptions = Named<
 export const UpCommandOptionsSchema = BaseCommandOptionsSchema.extend({
   containerName: z.string().optional(),
   hostPort: z.number().int().min(0).optional(),
-  languageContainerVersion: z.string().optional(),
-  proxyImage: z.string().optional(),
-  wrapperImage: z.string().optional(),
-  watchdogImage: z.string().optional(),
+  containerRegistry: z.string().optional(),
+  languageImageVersion: z.string().optional(),
+  serviceImageVersion: z.string().optional(),
   timeout: z.number().optional(),
   sudo: z.boolean().optional(),
   stream: z.boolean().optional(),
@@ -400,7 +399,13 @@ export type StatusCommandOptions = Named<
 >;
 
 export const PullCommandOptionsSchema = BaseCommandOptionsSchema.extend({
-  image: z.string().optional(),
+  containerRegistry: z.string().optional(),
+  allLanguages: z.boolean().optional(),
+  allServices: z.boolean().optional(),
+  languageImageVersion: z.string().optional(),
+  languages: z.string().optional(),
+  serviceImageVersion: z.string().optional(),
+  services: z.string().optional(),
   stream: z.boolean().optional(),
   sudo: z.boolean().optional(),
 });
@@ -470,10 +475,9 @@ export type FindReferencesOptions = Named<
 
 export const ServerCommandOptionsSchema = BaseCommandOptionsSchema.extend({
   hostPort: z.number().int().min(0).optional(),
-  proxyImage: z.string().optional(),
-  wrapperImage: z.string().optional(),
-  watchdogImage: z.string().optional(),
-  languageContainerVersion: z.string().optional(),
+  containerRegistry: z.string().optional(),
+  languageImageVersion: z.string().optional(),
+  serviceImageVersion: z.string().optional(),
   timeout: z.number().optional(),
   sudo: z.boolean().optional(),
   ro: z.boolean().optional(),

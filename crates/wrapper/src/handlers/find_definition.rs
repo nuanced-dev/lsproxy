@@ -2,14 +2,15 @@ use crate::handlers::error::IntoHttpResponse;
 use crate::managers::api::{ApiManager, ApiManagerError};
 use actix_web::web::{Data, Json};
 use actix_web::HttpResponse;
-use common::api_types::{CodeContext, FileRange, Position, Range};
+use common::api_types::{
+    CodeContext, FileRange, FindDefinitionRequest, FindDefinitionResponse, Position, Range,
+};
 use common::utils::file_utils::uri_to_relative_path_string;
 use log::{error, info, warn};
 
 use crate::handlers::utils;
 use crate::AppState;
 use common::api_types::{ErrorResponse, FilePosition};
-use common::api_types::{FindDefinitionRequest, FindDefinitionResponse};
 use lsp_types::{GotoDefinitionResponse, Location, Position as LspPosition, Range as LspRange};
 /// Get the definition of a symbol at a specific position in a file
 ///

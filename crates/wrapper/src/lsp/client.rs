@@ -18,10 +18,9 @@ use common::utils::workspace_documents::{
     DidOpenConfiguration, WorkspaceDocuments, WorkspaceDocumentsHandler,
 };
 
-use super::PendingRequests;
 use crate::lsp::json_rpc::JsonRpc;
 use crate::lsp::process::Process;
-use crate::lsp::{ExpectedMessageKey, JsonRpcHandler, ProcessHandler};
+use crate::lsp::{ExpectedMessageKey, JsonRpcHandler, PendingRequests, ProcessHandler};
 
 #[async_trait]
 pub trait LspConfig: Send + Sync {

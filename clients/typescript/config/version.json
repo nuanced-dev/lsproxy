@@ -1,7 +1,0 @@
-{
-  "lsp-version": "0.3.19",
-  "lsp-proxy-version": "0.5.0",
-  "lsp-wrapper-version": "0.5.0",
-  "lsp-watchdog-version": "0.5.0",
-  "language-container-version": "1.0.0"
-}

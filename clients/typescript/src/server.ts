@@ -91,12 +91,10 @@ class LspServer {
 
     if (mustStartServer) {
       const res = await this.client.up(this.workspace, {
-        proxyImage: this.opts.proxyImage,
-        watchdogImage: this.opts.watchdogImage,
-        wrapperImage: this.opts.wrapperImage,
-        languageContainerVersion: this.opts.languageContainerVersion,
+        containerRegistry: this.opts.containerRegistry,
+        languageImageVersion: this.opts.languageImageVersion,
+        serviceImageVersion: this.opts.serviceImageVersion,
         timeout: this.opts.timeout,
-        stream: false,
         ro: this.opts.ro,
         bindHost: this.opts.bindHost,
         debug: this.opts.debug,
