@@ -61,7 +61,7 @@ for arg in "$@"; do
 done
 
 # Configuration
-BASE_URL="http://localhost:4444/v1"
+BASE_URL="http://localhost:4444"
 WORKSPACE_PATH="$(cd "$SCRIPT_DIR/../sample_project/all" && pwd)"
 
 # Counters
@@ -445,6 +445,7 @@ else
     ready=false
     for i in $(seq 1 100); do
         HEALTH=$(curl -sf "${BASE_URL}/v1/system/health" || true)
+        echo "$HEALTH" | jq .
         STATUS=$(echo "$HEALTH" | jq -r '.status' 2>/dev/null || echo "")
         LANG_FAILED=$(echo "$HEALTH" | jq -r '.languages | to_entries[]? | select(.value == false) | .key' 2>/dev/null || true)
 
