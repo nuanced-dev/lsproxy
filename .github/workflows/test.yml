@@ -198,7 +198,9 @@ jobs:
       fail-fast: false
       matrix:
         node-version: [18.x, 20.x, 22.x, 24.x]
-
+    defaults:
+        run:
+            working-directory: clients/typescript
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -217,11 +219,14 @@ jobs:
       - name: Lint
         run: npm run lint
 
-  test-typescript-client:
+  typescript-client-test:
     runs-on: ubuntu-latest
     needs:
       - typescript-client-check
       - build-service-images
+    defaults:
+        run:
+            working-directory: clients/typescript
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -278,3 +283,30 @@ jobs:
         env:
           NUANCED_LSP_TIMEOUT: 240
           FAIL_FAST: 1
+
+  vscode-client-check:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [18.x, 20.x, 22.x, 24.x]
+    defaults:
+        run:
+            working-directory: clients/vscode
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build
+        run: npm run build
+
+      - name: Lint
+        run: npm run lint
