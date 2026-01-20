@@ -10,6 +10,50 @@ use super::workspace_documents::{
     TYPESCRIPT_AND_JAVASCRIPT_EXTENSIONS, TYPESCRIPT_EXTENSIONS,
 };
 
+/// Detect Ruby workspace and version configuration from a file path.
+///
+/// Walks up the directory tree from the file path to find workspace markers
+/// (.ruby-version or Gemfile), then detects the Ruby version and Sorbet configuration.
+/// Returns the appropriate SupportedLanguages variant with version and config info.
+fn detect_ruby_language(file_path: &Path) -> SupportedLanguages {
+    let mut workspace_path = file_path;
+    while let Some(parent) = workspace_path.parent() {
+        let has_ruby_version = parent.join(".ruby-version").exists();
+        let has_gemfile = parent.join("Gemfile").exists();
+
+        if has_ruby_version || has_gemfile {
+            let version = detect_ruby_version(parent);
+
+            // Only use Sorbet if BOTH conditions are met:
+            // 1. File has type annotations (# typed: comment)
+            // 2. Workspace has sorbet/config file
+            // This prevents spawning broken Sorbet containers that spin at 100% CPU
+            let sorbet_config_dir = if has_sorbet_type_annotation(file_path) {
+                find_sorbet_config_dir(file_path)
+            } else {
+                None
+            };
+            let is_sorbet = sorbet_config_dir.is_some();
+
+            return SupportedLanguages::from_ruby_version_with_config(
+                &version,
+                is_sorbet,
+                sorbet_config_dir,
+            );
+        }
+
+        workspace_path = parent;
+
+        // Stop at root directory
+        if parent.parent().is_none() {
+            break;
+        }
+    }
+
+    // Fallback to default version if no workspace markers found
+    SupportedLanguages::ruby_default()
+}
+
 /// Detect the programming language from a file path.
 ///
 /// Returns a `SupportedLanguages` enum variant based on the file extension.
@@ -33,47 +77,7 @@ pub fn detect_language(file_path: &str) -> Result<SupportedLanguages, LspError> 
         ext if JAVA_EXTENSIONS.contains(&ext) => Ok(SupportedLanguages::Java),
         ext if GOLANG_EXTENSIONS.contains(&ext) => Ok(SupportedLanguages::Golang),
         ext if PHP_EXTENSIONS.contains(&ext) => Ok(SupportedLanguages::PHP),
-        ext if RUBY_EXTENSIONS.contains(&ext) => {
-            let path = Path::new(file_path);
-
-            // Detect Ruby version by walking up to find .ruby-version or Gemfile
-            let mut workspace_path = path;
-            while let Some(parent) = workspace_path.parent() {
-                let has_ruby_version = parent.join(".ruby-version").exists();
-                let has_gemfile = parent.join("Gemfile").exists();
-
-                if has_ruby_version || has_gemfile {
-                    let version = detect_ruby_version(parent);
-
-                    // Only use Sorbet if BOTH conditions are met:
-                    // 1. File has type annotations (# typed: comment)
-                    // 2. Workspace has sorbet/config file
-                    // This prevents spawning broken Sorbet containers that spin at 100% CPU
-                    let sorbet_config_dir = if has_sorbet_type_annotation(path) {
-                        find_sorbet_config_dir(path)
-                    } else {
-                        None
-                    };
-                    let is_sorbet = sorbet_config_dir.is_some();
-
-                    return Ok(SupportedLanguages::from_ruby_version_with_config(
-                        &version,
-                        is_sorbet,
-                        sorbet_config_dir,
-                    ));
-                }
-
-                workspace_path = parent;
-
-                // Stop at root directory
-                if parent.parent().is_none() {
-                    break;
-                }
-            }
-
-            // Fallback to default version if no workspace markers found
-            Ok(SupportedLanguages::ruby_default())
-        }
+        ext if RUBY_EXTENSIONS.contains(&ext) => Ok(detect_ruby_language(Path::new(file_path))),
         _ => Err(LspError::UnsupportedFileType(file_path.to_string())),
     }
 }

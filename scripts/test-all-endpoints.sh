@@ -6,6 +6,7 @@ SCRIPT_DIR="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")" && pwd)"
 
 source "$SCRIPT_DIR/include/colors.sh"
 source "$SCRIPT_DIR/include/constants.sh"
+source "$SCRIPT_DIR/include/lib.sh"
 
 usage() {
     echo "Usage: $0 [--language-tag=TAG] [--no-cleanup] [--service-tag=TAG]"
@@ -60,7 +61,7 @@ for arg in "$@"; do
 done
 
 # Configuration
-BASE_URL="${BASE_URL:-http://localhost:4444/v1}"
+BASE_URL="http://localhost:4444"
 WORKSPACE_PATH="$(cd "$SCRIPT_DIR/../sample_project/all" && pwd)"
 
 # Counters
@@ -70,6 +71,15 @@ FAILED_TESTS=0
 
 # Track if we started the service (to know if we should clean it up)
 STARTED_SERVICE=false
+
+# Workspace URI for testing LSP endpoint
+WORKSPACE_URI="file://$(realpath "$WORKSPACE_PATH")"
+
+# Check required commands
+if ! missing=$(has_commands curl docker websocat); then
+    echo -e "${RED}Missing required commands: $missing${NC}"
+    exit 1
+fi
 
 # Cleanup function
 cleanup() {
@@ -112,17 +122,16 @@ trap cleanup EXIT INT TERM
 # Language configurations
 # Format: language_key test_file symbol_name symbol_line symbol_char health_key
 LANGUAGE_CONFIGS="
-python|main.py|main|14|4|python
-typescript|src/main.ts|main|5|6|typescript_javascript
-javascript|src/main.ts|main|5|6|typescript_javascript
-rust|src/main.rs|main|10|3|rust
-go|main.go|main|7|5|golang
-java|Main.java|main|5|23|java
 cpp|astar_search.cpp|main|2|4|cpp
 csharp|Program.cs|Main|4|20|csharp
+go|main.go|main|7|5|golang
+java|Main.java|main|5|23|java
+javascript|src/main.ts|main|5|6|typescript_javascript
 php|AStar.php|findPathTo|26|20|php
+python|main.py|main|14|4|python
 ruby|main.rb|main|35|4|ruby_3_4_4
-ruby-sorbet|user_service.rb|create_user|15|6|ruby_sorbet_3_4_4
+rust|src/main.rs|main|10|3|rust
+typescript|src/main.ts|main|5|6|typescript_javascript
 "
 
 # Deep validation for find-referenced-symbols (ast-grep backed)
@@ -147,22 +156,21 @@ ruby-sorbet|user_service.rb|create_user|15|6|ruby_sorbet_3_4_4
 # Note: All languages have identifier and symbol rules, but find-referenced-symbols
 # specifically requires reference rules to find symbol usages within a method body.
 FIND_REF_TESTS="
-python|main.py|14|4|1|AStarGraph
-typescript|src/astar.ts|60|12|2|isInBounds,isWalkable
 csharp|AStar.cs|23|27|1|AddNeighborsToOpenList
 php|AStar.php|26|20|1|addNeighborsToOpenList
+python|main.py|14|4|1|AStarGraph
+typescript|src/astar.ts|60|12|2|isInBounds,isWalkable
 "
 
 # Tests that are not working (commented out - need ast-grep reference rules)
-# ruby|search.rb|31|15|1|initialize_search
-# golang|golang_astar/astar.go|??|??|1|??
-# rust|src/astar.rs|??|??|1|??
-# java|AStar.java|39|22|1|??
 # clangd|astar_search.cpp|??|??|1|??
+# golang|golang_astar/astar.go|??|??|1|??
+# java|AStar.java|39|22|1|??
+# ruby|search.rb|31|15|1|initialize_search
+# rust|src/astar.rs|??|??|1|??
 #"
 
-# Test function
-test_endpoint() {
+test_http_endpoint() {
     local test_name="$1"
     local method="$2"
     local endpoint="$3"
@@ -175,14 +183,14 @@ test_endpoint() {
     echo -n "  Testing $test_name... "
 
     # Build curl command with timeout
-    local curl_cmd="curl -s -w '\n%{http_code}' --max-time 30 -X $method"
+    local curl_cmd=("curl" "-s" "-w" '\n%{http_code}' "--max-time" "30" "-X" "$method")
     if [ -n "$data" ]; then
-        curl_cmd="$curl_cmd -H 'Content-Type: application/json' -d '$data'"
+        curl_cmd+=("-H" "Content-Type: application/json" "-d" "$data")
     fi
-    curl_cmd="$curl_cmd '$BASE_URL$endpoint'"
+    curl_cmd+=("$BASE_URL$endpoint")
 
     # Execute request (curl has built-in timeout via --max-time)
-    if response=$(eval "$curl_cmd" 2>&1); then
+    if response=$("${curl_cmd[@]}" 2>&1); then
         # Split response body and status code
         local body status
         body=$(echo "$response" | sed '$d')
@@ -231,7 +239,67 @@ test_endpoint() {
     fi
 }
 
-# Enhanced test function for find-referenced-symbols with deep validation
+test_ws_endpoint() {
+    local test_name="$1"
+    local endpoint="$2"
+    local method="$3"
+    local params="$4"
+    local validation_check="$5"
+
+    TOTAL_TESTS=$((TOTAL_TESTS + 1))
+
+    echo -n "  Testing $test_name... "
+
+    # Build request
+    local url="ws${BASE_URL#http}$endpoint"
+    local request="{\"jsonrpc\":\"2.0\",\"id\":\"$TOTAL_TESTS\",\"method\":\"textDocument/references\",\"params\":$params}"
+
+    # Execute request
+    # This is a bit tricky because of websocat exit. It can either
+    # exit when stdin is closed, but will do so before the response is
+    # received, or it will never exit. Using `timeout` isn't possible,
+    # because `timeout` exists with an error code. We use sleep to delay
+    # the closing of stdin. Hopefully 5 seconds is enough, because the
+    # test will always wait for the full delay, even if the response
+    # comes earlier.
+    if response=$((echo "$request" ; sleep 5) | websocat -q --exit-on-eof "$url" | jq -c --unbuffered "select(.id == \"$TOTAL_TESTS\") | .result , halt" 2>&1); then
+        local body="$response"
+
+        # Validate JSON structure
+        if ! echo "$body" | jq . > /dev/null 2>&1; then
+            echo -e "${RED}✗ FAIL${NC} - Invalid JSON response"
+            echo "    Response: $body" | head -3
+            FAILED_TESTS=$((FAILED_TESTS + 1))
+            return 1
+        fi
+
+        # Run custom validation if provided
+        if [ -n "$validation_check" ]; then
+            if ! echo "$body" | eval "$validation_check"; then
+                echo -e "${RED}✗ FAIL${NC} - Validation check failed"
+                echo "    Check: $validation_check"
+                echo "    Response: $body" | head -5
+                FAILED_TESTS=$((FAILED_TESTS + 1))
+                return 1
+            fi
+        fi
+
+        echo -e "${GREEN}✓ PASS${NC}"
+        PASSED_TESTS=$((PASSED_TESTS + 1))
+        return 0
+    else
+        local exit_code=$?
+        if [ $exit_code -eq 28 ]; then
+            echo -e "${RED}✗ FAIL${NC} - Timeout (30s)"
+        else
+            echo -e "${RED}✗ FAIL${NC} - Request failed (exit code: $exit_code)"
+            echo "    Error: $response" | head -3
+        fi
+        FAILED_TESTS=$((FAILED_TESTS + 1))
+        return 1
+    fi
+}
+
 test_find_referenced_symbols_enhanced() {
     local lang="$1"
     local file="$2"
@@ -247,7 +315,7 @@ test_find_referenced_symbols_enhanced() {
     local data="{\"identifier_position\":{\"path\":\"$file\",\"position\":{\"line\":$line,\"character\":$char}},\"full_scan\":false}"
 
     # Make request
-    local curl_cmd="curl -s -w '\n%{http_code}' --max-time 30 -X POST -H 'Content-Type: application/json' -d '$data' '$BASE_URL/symbol/find-referenced-symbols'"
+    local curl_cmd="curl -s -w '\n%{http_code}' --max-time 30 -X POST -H 'Content-Type: application/json' -d '$data' '$BASE_URL/v1/symbol/find-referenced-symbols'"
 
     if response=$(eval "$curl_cmd" 2>&1); then
         # Split response body and status code
@@ -384,7 +452,8 @@ else
     echo -e "${YELLOW}  Waiting for service and language health (up to 100s)...${NC}"
     ready=false
     for i in $(seq 1 100); do
-        HEALTH=$(curl -sf "${BASE_URL}/system/health" || true)
+        HEALTH=$(curl -sf "${BASE_URL}/v1/system/health" || true)
+        echo "$HEALTH" | jq .
         STATUS=$(echo "$HEALTH" | jq -r '.status' 2>/dev/null || echo "")
         LANG_FAILED=$(echo "$HEALTH" | jq -r '.languages | to_entries[]? | select(.value == false) | .key' 2>/dev/null || true)
 
@@ -425,9 +494,9 @@ echo
 
 # Test 1: System Health
 echo -e "${YELLOW}1. System Health Check${NC}"
-test_endpoint "Health Check" \
+test_http_endpoint "Health Check" \
     "GET" \
-    "/system/health" \
+    "/v1/system/health" \
     "" \
     "200" \
     "jq -e '.status == \"ok\"' > /dev/null"
@@ -435,9 +504,9 @@ echo
 
 # Test 2: List Files (language-agnostic)
 echo -e "${YELLOW}2. Workspace Endpoints (Language-Agnostic)${NC}"
-test_endpoint "List Files" \
+test_http_endpoint "List Files" \
     "GET" \
-    "/workspace/list-files" \
+    "/v1/workspace/list-files" \
     "" \
     "200" \
     "jq -e 'type == \"array\" and length > 0' > /dev/null"
@@ -454,71 +523,80 @@ while IFS='|' read -r lang test_file symbol_name symbol_line symbol_char health_
     # Skip empty lines
     [ -z "$lang" ] && continue
 
+    test_uri="$WORKSPACE_URI/$test_file"
+
     echo -e "${BLUE}Testing language: $(echo "$lang" | tr '[:lower:]' '[:upper:]')${NC}"
 
     # Health check for this language
-    test_endpoint "Health ($lang)" \
+    test_http_endpoint "Health ($lang)" \
         "GET" \
-        "/system/health" \
+        "/v1/system/health" \
         "" \
         "200" \
         "jq -e '.languages.$health_key == true' > /dev/null"
 
     # Read Source Code
-    test_endpoint "Read Source ($lang)" \
+    test_http_endpoint "Read Source ($lang)" \
         "POST" \
-        "/workspace/read-source-code" \
+        "/v1/workspace/read-source-code" \
         "{\"path\":\"$test_file\"}" \
         "200" \
         "jq -e '.source_code | type == \"string\" and length > 0' > /dev/null"
 
     # Read Source Code with Range
-    test_endpoint "Read Source with Range ($lang)" \
+    test_http_endpoint "Read Source with Range ($lang)" \
         "POST" \
-        "/workspace/read-source-code" \
+        "/v1/workspace/read-source-code" \
         "{\"path\":\"$test_file\",\"range\":{\"start\":{\"line\":0,\"character\":0},\"end\":{\"line\":1,\"character\":0}}}" \
         "200" \
         "jq -e '.source_code | type == \"string\"' > /dev/null"
 
     # Find Definition (assert selected identifier and at least one definition)
-    test_endpoint "Find Definition ($lang)" \
+    test_http_endpoint "Find Definition ($lang)" \
         "POST" \
-        "/symbol/find-definition" \
+        "/v1/symbol/find-definition" \
         "{\"position\":{\"path\":\"$test_file\",\"position\":{\"line\":$symbol_line,\"character\":$symbol_char}},\"include_source_code\":false,\"include_raw_response\":false}" \
         "200" \
         "jq -e '.selected_identifier.name == \"$symbol_name\" and (.definitions | length) >= 0 and (.selected_identifier.file_range.path == \"$test_file\")' > /dev/null"
 
     # Find References (assert selected identifier matches and references is an array)
-    test_endpoint "Find References ($lang)" \
+    test_http_endpoint "Find References ($lang)" \
         "POST" \
-        "/symbol/find-references" \
+        "/v1/symbol/find-references" \
         "{\"identifier_position\":{\"path\":\"$test_file\",\"position\":{\"line\":$symbol_line,\"character\":$symbol_char}},\"include_code_context_lines\":0}" \
         "200" \
         "jq -e '.selected_identifier.name == \"$symbol_name\" and .selected_identifier.file_range.path == \"$test_file\" and (.references | type == \"array\")' > /dev/null"
 
     # Find Referenced Symbols
-    test_endpoint "Find Referenced Symbols ($lang)" \
+    test_http_endpoint "Find Referenced Symbols ($lang)" \
         "POST" \
-        "/symbol/find-referenced-symbols" \
+        "/v1/symbol/find-referenced-symbols" \
         "{\"identifier_position\":{\"path\":\"$test_file\",\"position\":{\"line\":$symbol_line,\"character\":$symbol_char}},\"full_scan\":false}" \
         "200" \
         "jq -e 'type == \"object\"' > /dev/null"
 
     # Definitions in File
-    test_endpoint "Definitions in File ($lang)" \
+    test_http_endpoint "Definitions in File ($lang)" \
         "GET" \
-        "/symbol/definitions-in-file?file_path=$test_file" \
+        "/v1/symbol/definitions-in-file?file_path=$test_file" \
         "" \
         "200" \
         "jq -e 'type == \"array\"' > /dev/null"
 
     # Find Identifier
-    test_endpoint "Find Identifier ($lang)" \
+    test_http_endpoint "Find Identifier ($lang)" \
         "POST" \
-        "/symbol/find-identifier" \
+        "/v1/symbol/find-identifier" \
         "{\"path\":\"$test_file\",\"name\":\"$symbol_name\"}" \
         "200" \
         "jq -e 'type == \"object\"' > /dev/null"
+
+    # Find Definition (assert selected identifier and at least one definition)
+    test_ws_endpoint "LSP textDocument/references ($lang)" \
+        "/lsp/ws" \
+        "textDocument/references" \
+        "{\"textDocument\":{\"uri\":\"$test_uri\"},\"position\":{\"line\":$symbol_line,\"character\":$symbol_char},\"context\":{\"includeDeclaration\":true}}" \
+        "jq -e 'type == \"array\"' > /dev/null"
 
     echo
 done <<< "$LANGUAGE_CONFIGS"

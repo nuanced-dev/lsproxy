@@ -1,14 +1,15 @@
 use crate::handlers::error::IntoHttpResponse;
-use crate::manager::{LspManagerError, Manager};
+use crate::managers::api::{ApiManager, ApiManagerError};
 use actix_web::web::{Data, Json};
 use actix_web::HttpResponse;
-use common::api_types::{CodeContext, FileRange, Position, Range};
+use common::api_types::{
+    CodeContext, FileRange, FindDefinitionRequest, FindDefinitionResponse, Position, Range,
+};
 use common::utils::file_utils::uri_to_relative_path_string;
 use log::{error, info, warn};
 
 use crate::handlers::utils;
 use crate::AppState;
-use common::api_types::{DefinitionResponse, GetDefinitionRequest};
 use common::api_types::{ErrorResponse, FilePosition};
 use lsp_types::{GotoDefinitionResponse, Location, Position as LspPosition, Range as LspRange};
 /// Get the definition of a symbol at a specific position in a file
@@ -34,16 +35,16 @@ use lsp_types::{GotoDefinitionResponse, Location, Position as LspPosition, Range
     post,
     path = "/symbol/find-definition",
     tag = "symbol",
-    request_body = GetDefinitionRequest,
+    request_body = FindDefinitionRequest,
     responses(
-        (status = 200, description = "Definition retrieved successfully", body = DefinitionResponse),
+        (status = 200, description = "Definition retrieved successfully", body = FindDefinitionResponse),
         (status = 400, description = "Bad request"),
         (status = 500, description = "Internal server error")
     )
 )]
 pub async fn find_definition(
     data: Data<AppState>,
-    info: Json<GetDefinitionRequest>,
+    info: Json<FindDefinitionRequest>,
 ) -> HttpResponse {
     info!(
         "Received definition request for file: {}, line: {}, character: {}",
@@ -56,7 +57,11 @@ pub async fn find_definition(
         position: info.position.position.clone(),
     };
 
-    let file_identifiers = match data.manager.get_file_identifiers(&file_position.path).await {
+    let file_identifiers = match data
+        .api_manager
+        .get_file_identifiers(&file_position.path)
+        .await
+    {
         Ok(identifiers) => identifiers,
         Err(e) => {
             error!("Failed to get file identifiers: {:?}", e);
@@ -77,7 +82,7 @@ pub async fn find_definition(
 
     // Call LSP directly (no ast-grep for identifier detection)
     let definitions = match data
-        .manager
+        .api_manager
         .find_definition(
             &info.position.path,
             LspPosition {
@@ -94,7 +99,7 @@ pub async fn find_definition(
     };
 
     let source_code_context = if info.include_source_code {
-        match fetch_definition_source_code(&data.manager, &definitions).await {
+        match fetch_definition_source_code(&data.api_manager, &definitions).await {
             Ok(context) => Some(context),
             Err(e) => {
                 error!("Failed to fetch definition source code: {:?}", e);
@@ -105,7 +110,7 @@ pub async fn find_definition(
         None
     };
 
-    HttpResponse::Ok().json(DefinitionResponse {
+    HttpResponse::Ok().json(FindDefinitionResponse {
         raw_response: if info.include_raw_response {
             Some(serde_json::to_value(&definitions).unwrap())
         } else {
@@ -134,9 +139,9 @@ pub async fn find_definition(
 }
 
 async fn fetch_definition_source_code(
-    manager: &Manager,
+    manager: &ApiManager,
     definitions_response: &GotoDefinitionResponse,
-) -> Result<Vec<CodeContext>, LspManagerError> {
+) -> Result<Vec<CodeContext>, ApiManagerError> {
     let mut code_contexts = Vec::new();
     let definitions: &Vec<Location> = match definitions_response {
         GotoDefinitionResponse::Scalar(definition) => &vec![definition.clone()],

@@ -1,4 +1,4 @@
-# Relation to LSProxy 
+# Relation to LSProxy
 
 Nuanced LSP started as a fork of `agentic-labs/lsproxy`. We celebrate and call out the capabilities and contribution from Agentic Labs, and thank them for graciously providing `lsproxy` as an open-source project. We applaud the originality and creativity of using `ast-grep` in combination with LSP capabilities like `find-definition` and `find-references` within a single binary that makes it easy to "proxy" to LSP servers. The Agentic Labs vision of `lsproxy` is still a shining example of what building code intelligence tooling for AI workflows can be, and we are grateful for the opportunity to build on `lsproxy`.
 

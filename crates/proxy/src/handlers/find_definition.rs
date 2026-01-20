@@ -2,7 +2,7 @@ use crate::handlers::container_proxy;
 use crate::AppState;
 use actix_web::web::{Data, Json};
 use actix_web::HttpResponse;
-use common::api_types::{DefinitionResponse, ErrorResponse, GetDefinitionRequest};
+use common::api_types::{ErrorResponse, FindDefinitionRequest, FindDefinitionResponse};
 use log::{error, info};
 
 /// Get the definition of a symbol at a specific position in a file
@@ -10,16 +10,16 @@ use log::{error, info};
     post,
     path = "/symbol/find-definition",
     tag = "symbol",
-    request_body = GetDefinitionRequest,
+    request_body = FindDefinitionRequest,
     responses(
-        (status = 200, description = "Definition retrieved successfully", body = DefinitionResponse),
+        (status = 200, description = "Definition retrieved successfully", body = FindDefinitionResponse),
         (status = 400, description = "Bad request"),
         (status = 500, description = "Internal server error")
     )
 )]
 pub async fn find_definition(
     data: Data<AppState>,
-    info: Json<GetDefinitionRequest>,
+    info: Json<FindDefinitionRequest>,
 ) -> HttpResponse {
     info!(
         "Received definition request for file: {}, line: {}, character: {}",
@@ -28,7 +28,9 @@ pub async fn find_definition(
 
     // Get container client for this file's language
     let client =
-        match container_proxy::get_client_for_file(&data.orchestrator, &info.position.path).await {
+        match container_proxy::get_api_client_for_file(&data.orchestrator, &info.position.path)
+            .await
+        {
             Ok(client) => client,
             Err(e) => {
                 error!("Failed to get container client: {}", e);

@@ -627,7 +627,7 @@ pub struct Identifier {
 }
 
 #[derive(Serialize, Deserialize, ToSchema, IntoParams)]
-pub struct GetDefinitionRequest {
+pub struct FindDefinitionRequest {
     pub position: FilePosition,
 
     /// Whether to include the source code around the symbol's identifier in the response.
@@ -645,7 +645,7 @@ pub struct GetDefinitionRequest {
 }
 
 #[derive(Serialize, Deserialize, ToSchema, IntoParams)]
-pub struct GetReferencesRequest {
+pub struct FindReferencesRequest {
     pub identifier_position: FilePosition,
 
     /// Whether to include the source code of the symbol in the response.
@@ -669,7 +669,7 @@ pub struct GetReferencesRequest {
 /// For example, if the position points to a function name, the response will include
 /// all symbols referenced within that function's implementation.
 #[derive(Serialize, Deserialize, ToSchema, IntoParams)]
-pub struct GetReferencedSymbolsRequest {
+pub struct FindReferencedSymbolsRequest {
     /// Whether to use the more permissive rules to find referenced symbols. This will be not just
     /// code that is executed but also things like type hints and chained indirection.
     /// Defaults to false.
@@ -683,7 +683,7 @@ pub struct GetReferencedSymbolsRequest {
 
 /// Request to get the symbols in a file.
 #[derive(Serialize, Deserialize, ToSchema, IntoParams)]
-pub struct FileSymbolsRequest {
+pub struct DefinitionsInFileRequest {
     /// The path to the file to get the symbols for, relative to the root of the workspace.
     #[schema(example = "src/main.py")]
     pub file_path: String,
@@ -722,7 +722,7 @@ pub struct WorkspaceSymbolsRequest {
 /// ```
 /// The definition(s) will be `[{"path": "src/main.py", "line": 0, "character": 6}]`.
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize, ToSchema)]
-pub struct DefinitionResponse {
+pub struct FindDefinitionResponse {
     #[serde(skip_serializing_if = "Option::is_none")]
     /// The raw response from the langserver.
     ///
@@ -754,7 +754,7 @@ pub struct DefinitionResponse {
 /// ```
 /// The references will be `[{"path": "src/main.py", "line": 5, "character": 7}]`.
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize, ToSchema)]
-pub struct ReferencesResponse {
+pub struct FindReferencesResponse {
     #[serde(skip_serializing_if = "Option::is_none")]
     /// The raw response from the langserver.
     ///
@@ -777,13 +777,11 @@ pub struct ReferencesResponse {
 /// - external_symbols: References to symbols from outside the workspace (built-in functions, external libraries)
 /// - not_found: References where the symbol definition could not be found
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize, ToSchema)]
-pub struct ReferencedSymbolsResponse {
+pub struct FindReferencedSymbolsResponse {
     pub workspace_symbols: Vec<ReferenceWithSymbolDefinitions>,
     pub external_symbols: Vec<Identifier>,
     pub not_found: Vec<Identifier>,
 }
-
-pub type SymbolResponse = Vec<Symbol>;
 
 impl From<Location> for FilePosition {
     fn from(location: Location) -> Self {
@@ -824,7 +822,7 @@ pub struct FindIdentifierRequest {
 
 #[derive(Serialize, Deserialize, Debug, Clone, ToSchema)]
 #[serde(rename_all = "camelCase")]
-pub struct IdentifierResponse {
+pub struct FindIdentifierResponse {
     pub identifiers: Vec<Identifier>,
 }
 
@@ -843,6 +841,165 @@ pub struct ReadSourceCodeRequest {
     pub path: String,
     /// Optional range within the file to read
     pub range: Option<Range>,
+}
+
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+pub struct ReadSourceCodeResponse {
+    pub source_code: String,
+}
+
+/// Unified JSON-RPC message
+///
+/// Because multiple message types flow in both directions (requests & notifications
+/// from the client, responses & notifications fro the server), it is easier to work
+/// with a unified message type.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, IntoParams)]
+pub struct JsonRpcMessage {
+    /// The JSON-RPC version (always "2.0")
+    #[schema(example = "2.0")]
+    pub jsonrpc: String,
+
+    /// Request ID (required for requests and responses)
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_option_value"
+    )]
+    pub id: Option<Value>,
+
+    /// Method name (required for requests and notifications)
+    #[schema(example = "textDocument/hover")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub method: Option<String>,
+
+    /// Parameters (optional for requests and notifications)
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_option_value"
+    )]
+    pub params: Option<Value>,
+
+    /// Result (required for responses, unless error is present)
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_option_value"
+    )]
+    pub result: Option<Value>,
+
+    /// Error (required for responses, unless result is present)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<JsonRpcError>,
+}
+
+impl JsonRpcMessage {
+    pub fn new_notification<Id: Serialize, R: Serialize>(
+        method: String,
+        params: Option<R>,
+    ) -> Self {
+        Self {
+            jsonrpc: "2.0".to_string(),
+            id: None,
+            method: Some(method),
+            params: params.map(|params| serde_json::to_value(params).unwrap()),
+            result: None,
+            error: None,
+        }
+    }
+
+    pub fn new_request<Id: Serialize, R: Serialize>(
+        id: Id,
+        method: String,
+        params: Option<R>,
+    ) -> Self {
+        Self {
+            jsonrpc: "2.0".to_string(),
+            id: Some(serde_json::to_value(id).unwrap()),
+            method: Some(method),
+            params: params.map(|params| serde_json::to_value(params).unwrap()),
+            result: None,
+            error: None,
+        }
+    }
+
+    pub fn new_result_response<Id: Serialize, R: Serialize>(id: Option<Id>, result: R) -> Self {
+        Self {
+            jsonrpc: "2.0".to_string(),
+            id: Some(id.map_or(Value::Null, |id| serde_json::to_value(id).unwrap())),
+            method: None,
+            params: None,
+            result: Some(serde_json::to_value(result).unwrap()),
+            error: None,
+        }
+    }
+
+    pub fn new_error_response<Id: Serialize>(
+        id: Option<Id>,
+        code: i32,
+        message: impl ToString,
+    ) -> Self {
+        Self {
+            jsonrpc: "2.0".to_string(),
+            id: Some(id.map_or(Value::Null, |id| serde_json::to_value(id).unwrap())),
+            method: None,
+            params: None,
+            result: None,
+            error: Some(JsonRpcError {
+                code,
+                message: message.to_string(),
+                data: None,
+            }),
+        }
+    }
+}
+
+/// JSON-RPC error
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct JsonRpcError {
+    /// Code
+    pub code: i32,
+
+    /// Message
+    pub message: String,
+
+    /// Optional additional error data
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub data: Option<Value>,
+}
+
+impl fmt::Display for JsonRpcError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Error {}: {}", self.code, self.message)
+    }
+}
+
+impl std::error::Error for JsonRpcError {}
+
+#[allow(non_snake_case, non_upper_case_globals)]
+pub mod JsonRpcErrorCode {
+    pub const ParseError: i32 = -32700;
+    pub const InvalidRequest: i32 = -32600;
+    pub const MethodNotFound: i32 = -32601;
+    pub const InvalidParams: i32 = -32602;
+    pub const InternalError: i32 = -32603;
+}
+
+/// Custom deserialize function to ensure `Some(Null)` is not reduced to `None`.
+/// Fields need to be annotated as follows:
+/// ```skip
+/// #[serde(
+///     default,
+///     skip_serializing_if = "Option::is_none",
+///     deserialize_with = "deserialize_option_value"
+/// )]
+/// ```
+/// Solution from: <https://github.com/serde-rs/serde/issues/984#issuecomment-314143738>
+fn deserialize_option_value<'de, D>(deserializer: D) -> Result<Option<Value>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    Deserialize::deserialize(deserializer).map(Some)
 }
 
 #[cfg(test)]

@@ -325,7 +325,7 @@ impl ContainerOrchestrator {
         Ok(info)
     }
 
-    /// Check if a container is healthy by polling its /health endpoint
+    /// Check if a container is healthy by polling its /system/health endpoint
     ///
     /// This requires the HTTP wrapper (Phase 4) to be implemented in the container.
     /// The health check simply verifies the wrapper is responding (simple mode).
@@ -342,7 +342,7 @@ impl ContainerOrchestrator {
         &self,
         info: &ContainerInfo,
     ) -> Result<(), OrchestratorError> {
-        let health_url = format!("{}/health", info.endpoint);
+        let health_url = format!("{}/system/health", info.endpoint);
         let client = reqwest::Client::new();
 
         log::info!("Checking health of {} at {}", info.image_name, health_url);

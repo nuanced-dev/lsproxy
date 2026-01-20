@@ -1,36 +1,142 @@
-use crate::lsp::json_rpc::JsonRpc;
-use crate::lsp::process::Process;
-use crate::lsp::{ExpectedMessageKey, JsonRpcHandler, ProcessHandler};
 use async_trait::async_trait;
-use common::utils::file_utils::{fix_relative_uris, search_paths, FileType};
+use common::utils::file_utils::fix_relative_uris;
 use common::utils::language_utils::detect_language_string;
 use log::{debug, error, info, warn};
 use lsp_types::{
     ClientCapabilities, DidOpenTextDocumentParams, DocumentSymbolClientCapabilities,
-    GotoDefinitionParams, GotoDefinitionResponse, InitializeParams, InitializeResult, Location,
-    PartialResultParams, Position, PublishDiagnosticsClientCapabilities, ReferenceContext,
-    ReferenceParams, TagSupport, TextDocumentClientCapabilities, TextDocumentIdentifier,
-    TextDocumentItem, TextDocumentPositionParams, Url, WorkDoneProgressParams, WorkspaceFolder,
+    GeneralClientCapabilities, GotoDefinitionParams, GotoDefinitionResponse, InitializeParams,
+    InitializeResult, Location, PartialResultParams, Position, PositionEncodingKind,
+    PublishDiagnosticsClientCapabilities, ReferenceContext, ReferenceParams, TagSupport,
+    TextDocumentClientCapabilities, TextDocumentIdentifier, TextDocumentItem,
+    TextDocumentPositionParams, Url, WorkDoneProgressParams,
 };
 use std::error::Error;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
+use std::sync::LazyLock;
 
 use common::utils::workspace_documents::{
-    DidOpenConfiguration, WorkspaceDocuments, WorkspaceDocumentsHandler, DEFAULT_EXCLUDE_PATTERNS,
+    DidOpenConfiguration, WorkspaceDocuments, WorkspaceDocumentsHandler,
 };
 
-use super::PendingRequests;
+use crate::lsp::json_rpc::JsonRpc;
+use crate::lsp::process::Process;
+use crate::lsp::{ExpectedMessageKey, JsonRpcHandler, PendingRequests, ProcessHandler};
+
+#[derive(Clone, Debug)]
+pub enum PostInitializeMessage {
+    Request {
+        method: String,
+        params: Option<serde_json::Value>,
+    },
+    Notification {
+        method: String,
+        params: Option<serde_json::Value>,
+    },
+    ExpectNotification {
+        method: String,
+        params: serde_json::Value,
+    },
+}
 
 #[async_trait]
-pub trait LspClient: Send {
-    async fn initialize(
+pub trait LspConfig: Send + Sync {
+    async fn get_initialize_params(
+        &mut self,
+        root_path: String,
+    ) -> Result<InitializeParams, Box<dyn Error + Send + Sync>>;
+
+    fn get_post_initialize_messages(&self) -> Vec<PostInitializeMessage> {
+        vec![]
+    }
+
+    fn get_root_files(&mut self) -> Vec<String> {
+        vec![".git".to_string()]
+    }
+
+    fn include_patterns(&self) -> Vec<String>;
+
+    fn exclude_patterns(&self) -> Vec<String>;
+
+    fn did_open_configuration(&self) -> DidOpenConfiguration;
+}
+
+pub(crate) static CLIENT_CAPABILITES: LazyLock<ClientCapabilities> = LazyLock::new(|| {
+    let mut capabilities = ClientCapabilities::default();
+    capabilities.general = Some(GeneralClientCapabilities {
+        position_encodings: Some(vec![PositionEncodingKind::UTF16]),
+        ..Default::default()
+    });
+    capabilities.text_document = Some(TextDocumentClientCapabilities {
+        document_symbol: Some(DocumentSymbolClientCapabilities {
+            dynamic_registration: Some(false),
+            hierarchical_document_symbol_support: Some(true),
+            ..Default::default()
+        }),
+        // Turn off diagnostics for performance, we don't use them at the moment
+        publish_diagnostics: Some(PublishDiagnosticsClientCapabilities {
+            related_information: Some(false),
+            tag_support: Some(TagSupport { value_set: vec![] }),
+            code_description_support: Some(false),
+            data_support: Some(false),
+            version_support: Some(false),
+        }),
+        ..Default::default()
+    });
+
+    capabilities.experimental = Some(serde_json::json!({
+        "serverStatusNotification": true
+    }));
+    capabilities
+});
+
+pub struct LspClient {
+    config: Box<dyn LspConfig>,
+    process: ProcessHandler,
+    json_rpc: JsonRpcHandler,
+    workspace_documents: WorkspaceDocumentsHandler,
+    pending_requests: PendingRequests,
+    unexpected_notifications_tx: tokio::sync::broadcast::Sender<common::api_types::JsonRpcMessage>,
+}
+
+impl LspClient {
+    pub fn new(config: Box<dyn LspConfig>, process: ProcessHandler, root_path: &str) -> Self {
+        let json_rpc = JsonRpcHandler::new();
+        let pending_requests = PendingRequests::new();
+        let (unexpected_notifications_tx, _) =
+            tokio::sync::broadcast::channel::<common::api_types::JsonRpcMessage>(1);
+        let (_, workspace_docs_rx) =
+            tokio::sync::broadcast::channel::<notify_debouncer_mini::DebouncedEvent>(1);
+
+        let include_patterns = config.include_patterns();
+        let exclude_patterns = config.exclude_patterns();
+        let did_open_configuration = config.did_open_configuration();
+
+        let workspace_documents = WorkspaceDocumentsHandler::new(
+            std::path::Path::new(root_path),
+            include_patterns,
+            exclude_patterns,
+            workspace_docs_rx,
+            did_open_configuration,
+        );
+
+        Self {
+            config,
+            process,
+            json_rpc,
+            workspace_documents,
+            pending_requests,
+            unexpected_notifications_tx,
+        }
+    }
+
+    pub async fn initialize(
         &mut self,
         root_path: String,
     ) -> Result<InitializeResult, Box<dyn Error + Send + Sync>> {
         info!("Initializing LSP client with root path: {:?}", root_path);
         self.start_response_listener().await?;
 
-        let params = self.get_initialize_params(root_path.clone()).await?;
+        let params = self.config.get_initialize_params(root_path.clone()).await?;
 
         let result = self
             .send_request("initialize", Some(serde_json::to_value(params)?))
@@ -39,61 +145,54 @@ pub trait LspClient: Send {
         debug!("Initialization successful: {:?}", init_result);
         self.send_initialized().await?;
 
+        for message in self.config.get_post_initialize_messages() {
+            match message {
+                PostInitializeMessage::Request { method, params } => {
+                    debug!("Post-init: calling request method: {}", method);
+                    self.send_request(&method, params).await?;
+                }
+                PostInitializeMessage::Notification { method, params } => {
+                    debug!("Post-init: sending notification: {}", method);
+                    self.send_notification(&method, params).await?;
+                }
+                PostInitializeMessage::ExpectNotification { method, params } => {
+                    debug!("Post-init: waiting for notification: {}", method);
+                    let mut notification_rx = self
+                        .expect_notification(ExpectedMessageKey { method, params })
+                        .await?;
+                    // Wait indefinitely for ServiceReady notification
+                    // The orchestrator health check and CLI timeout control overall timing
+                    notification_rx.recv().await?;
+                }
+            }
+        }
+        debug!("Post-init successful");
+
         Ok(init_result)
     }
 
-    fn get_capabilities(&mut self) -> ClientCapabilities {
-        let mut capabilities = ClientCapabilities::default();
-        capabilities.text_document = Some(TextDocumentClientCapabilities {
-            document_symbol: Some(DocumentSymbolClientCapabilities {
-                dynamic_registration: Some(false),
-                hierarchical_document_symbol_support: Some(true),
-                ..Default::default()
-            }),
-            // Turn off diagnostics for performance, we don't use them at the moment
-            publish_diagnostics: Some(PublishDiagnosticsClientCapabilities {
-                related_information: Some(false),
-                tag_support: Some(TagSupport { value_set: vec![] }),
-                code_description_support: Some(false),
-                data_support: Some(false),
-                version_support: Some(false),
-            }),
-            ..Default::default()
-        });
-
-        capabilities.experimental = Some(serde_json::json!({
-            "serverStatusNotification": true
-        }));
-        capabilities
-    }
-
-    async fn get_initialize_params(
+    pub async fn send_notification(
         &mut self,
-        root_path: String,
-    ) -> Result<InitializeParams, Box<dyn Error + Send + Sync>> {
-        let workspace_folders = self.find_workspace_folders(root_path.clone()).await?;
-        #[allow(deprecated)]
-        let params = InitializeParams {
-            capabilities: self.get_capabilities(),
-            workspace_folders: Some(workspace_folders),
-            root_uri: Some(Url::from_file_path(&root_path).unwrap()), // primarily for python
-            ..Default::default()
-        };
-        Ok(params)
+        method: &str,
+        params: Option<serde_json::Value>,
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
+        let notification = self.json_rpc.create_notification(method, params);
+        debug!("Sending notification: {}", method);
+        self.process.send(&notification).await?;
+        Ok(())
     }
 
-    async fn send_request(
+    pub async fn send_request(
         &mut self,
         method: &str,
         params: Option<serde_json::Value>,
     ) -> Result<serde_json::Value, Box<dyn Error + Send + Sync>> {
-        let (id, request) = self.get_json_rpc().create_request(method, params);
+        let (id, request) = self.json_rpc.create_request(method, params);
 
-        let mut response_receiver = self.get_pending_requests().add_request(id).await?;
+        let mut response_receiver = self.pending_requests.add_request(id).await?;
 
-        let message = format!("Content-Length: {}\r\n\r\n{}", request.len(), request);
-        debug!("Message: {:?}", message);
-        self.get_process().send(&message).await?;
+        debug!("Sending request {}: {}", id, method);
+        self.process.send(&request).await?;
 
         let response = response_receiver
             .recv()
@@ -114,44 +213,50 @@ pub trait LspClient: Send {
     }
 
     async fn start_response_listener(&mut self) -> Result<(), Box<dyn Error + Send + Sync>> {
-        let mut process = self.get_process().clone();
-        let pending_requests = self.get_pending_requests().clone();
-        let json_rpc = self.get_json_rpc().clone();
+        let mut process = self.process.clone();
+        let pending_requests = self.pending_requests.clone();
+        let json_rpc = self.json_rpc.clone();
+        let notification_channel = self.unexpected_notifications_tx.clone();
 
         tokio::spawn(async move {
             loop {
                 if let Ok(raw_response) = process.receive().await {
                     if let Ok(message) = json_rpc.parse_message(&raw_response) {
-                        if let Some(id) = message.id {
+                        if let Some(id) = &message.id {
+                            // we always use u64 ids here, so the server process should respond with those as well
+                            let Some(id) = id.as_u64() else {
+                                debug!("Message has invalid id type: {:?}", message.id);
+                                continue;
+                            };
                             debug!("Received response for request {}", id);
                             if let Ok(Some(sender)) = pending_requests.remove_request(id).await {
                                 if sender.send(message.clone()).is_err() {
                                     error!("Failed to send response for request {}", id);
                                 }
                             } else {
-                                debug!(
-                                    "Responding to server message {} - Message: {:?}",
-                                    id, message
-                                );
                                 let response = json_rpc.create_success_response(id);
-
-                                let message = format!(
-                                    "Content-Length: {}\r\n\r\n{}",
-                                    response.len(),
-                                    response
-                                );
-                                let _ = process.send(&message).await;
+                                let _ = process.send(&response).await;
                             }
-                        } else if let Some(params) = message.params.clone() {
-                            let message_key = ExpectedMessageKey {
-                                method: message.method.clone().unwrap(),
-                                params,
-                            };
-                            if let Some(sender) =
-                                pending_requests.remove_notification(message_key).await
-                            {
-                                sender.send(message).unwrap();
+                        } else if let Some(method) = message.method.clone() {
+                            debug!("Received notification {}", method);
+                            let mut handled = false;
+                            if let Some(params) = &message.params {
+                                let message_key = ExpectedMessageKey {
+                                    method,
+                                    params: params.clone(),
+                                };
+                                if let Some(sender) =
+                                    pending_requests.remove_notification(message_key).await
+                                {
+                                    handled = true;
+                                    sender.send(message.clone()).unwrap();
+                                }
                             }
+                            if !handled {
+                                let _ = notification_channel.send(message);
+                            }
+                        } else {
+                            debug!("Received unexpected message: {:?}", message);
                         }
                     }
                 }
@@ -162,16 +267,9 @@ pub trait LspClient: Send {
     }
 
     async fn send_initialized(&mut self) -> Result<(), Box<dyn Error + Send + Sync>> {
-        debug!("Sending 'initialized' notification");
-        let notification = self
-            .get_json_rpc()
-            .create_notification("initialized", serde_json::json!({}));
-        let message = format!(
-            "Content-Length: {}\r\n\r\n{}",
-            notification.len(),
-            notification
-        );
-        self.get_process().send(&message).await
+        info!("Sending initialized");
+        self.send_notification("initialized", Some(serde_json::json!({})))
+            .await
     }
 
     async fn text_document_did_open(
@@ -181,18 +279,11 @@ pub trait LspClient: Send {
         let params = DidOpenTextDocumentParams {
             text_document: item,
         };
-        let notification = self
-            .get_json_rpc()
-            .create_notification("textDocument/didOpen", serde_json::to_value(params)?);
-        let message = format!(
-            "Content-Length: {}\r\n\r\n{}",
-            notification.len(),
-            notification
-        );
-        self.get_process().send(&message).await
+        self.send_notification("textDocument/didOpen", Some(serde_json::to_value(params)?))
+            .await
     }
 
-    async fn text_document_definition(
+    pub async fn text_document_definition(
         &mut self,
         file_path: &str,
         position: Position,
@@ -203,7 +294,7 @@ pub trait LspClient: Send {
         );
 
         let needs_open = {
-            let workspace_documents = self.get_workspace_documents();
+            let workspace_documents = &self.workspace_documents;
             workspace_documents.get_did_open_configuration() == DidOpenConfiguration::Lazy
                 && !workspace_documents.is_did_open_document(file_path)
         };
@@ -212,7 +303,7 @@ pub trait LspClient: Send {
         if needs_open {
             info!("Sending textDocument/didOpen for {}", file_path);
             let document_text = self
-                .get_workspace_documents()
+                .workspace_documents
                 .read_text_document(&PathBuf::from(file_path), None)
                 .await?;
 
@@ -224,8 +315,7 @@ pub trait LspClient: Send {
             })
             .await?;
 
-            self.get_workspace_documents()
-                .add_did_open_document(file_path);
+            self.workspace_documents.add_did_open_document(file_path);
         }
 
         let params = GotoDefinitionParams {
@@ -252,7 +342,7 @@ pub trait LspClient: Send {
         } else {
             // Pre-process the result to fix relative URIs (Sorbet issue)
             let workspace_path = self
-                .get_workspace_documents()
+                .workspace_documents
                 .root_path()
                 .to_str()
                 .ok_or("Invalid workspace path")?;
@@ -296,14 +386,19 @@ pub trait LspClient: Send {
         Ok(goto_resp)
     }
 
-    async fn text_document_reference(
+    pub async fn text_document_reference(
         &mut self,
         file_path: &str,
         position: Position,
     ) -> Result<Vec<Location>, Box<dyn Error + Send + Sync>> {
+        debug!(
+            "Requesting goto references for {}, line {}, character {}",
+            file_path, position.line, position.character
+        );
+
         // Get the configuration and check if document is opened first
         let needs_open = {
-            let workspace_documents = self.get_workspace_documents();
+            let workspace_documents = &self.workspace_documents;
             workspace_documents.get_did_open_configuration() == DidOpenConfiguration::Lazy
                 && !workspace_documents.is_did_open_document(file_path)
         };
@@ -312,7 +407,7 @@ pub trait LspClient: Send {
         if needs_open {
             info!("Sending textDocument/didOpen for {}", file_path);
             let document_text = self
-                .get_workspace_documents()
+                .workspace_documents
                 .read_text_document(&PathBuf::from(file_path), None)
                 .await?;
 
@@ -324,8 +419,7 @@ pub trait LspClient: Send {
             })
             .await?;
 
-            self.get_workspace_documents()
-                .add_did_open_document(file_path);
+            self.workspace_documents.add_did_open_document(file_path);
         }
 
         let params = ReferenceParams {
@@ -354,7 +448,7 @@ pub trait LspClient: Send {
         } else {
             // Pre-process the result to fix relative URIs (Sorbet issue)
             let workspace_path = self
-                .get_workspace_documents()
+                .workspace_documents
                 .root_path()
                 .to_str()
                 .ok_or("Invalid workspace path")?;
@@ -365,91 +459,23 @@ pub trait LspClient: Send {
         Ok(ref_resp)
     }
 
-    fn get_process(&mut self) -> &mut ProcessHandler;
-
-    fn get_json_rpc(&mut self) -> &mut JsonRpcHandler;
-
-    fn get_root_files(&mut self) -> Vec<String> {
-        vec![".git".to_string()]
+    pub fn subscribe_to_unexpected_notifications(
+        &self,
+    ) -> tokio::sync::broadcast::Receiver<common::api_types::JsonRpcMessage> {
+        self.unexpected_notifications_tx.subscribe()
     }
 
-    fn get_pending_requests(&mut self) -> &mut PendingRequests;
-
-    fn get_workspace_documents(&mut self) -> &mut WorkspaceDocumentsHandler;
-
-    /// Sets up the workspace for the language server.
-    ///
-    /// Some language servers require specific commands to be run before
-    /// workspace-wide features are available. For example:
-    /// - TypeScript Language Server needs an explicit didOpen notification for each file
-    /// - Rust Analyzer needs a reloadWorkspace command
-    ///
-    /// # Arguments
-    ///
-    /// * `root_path` - The root path of the workspace
-    ///
-    /// # Returns
-    ///
-    /// A Result containing () if successful, or a boxed Error if an error occurred
-    #[allow(unused)]
-    async fn setup_workspace(
+    pub async fn expect_notification(
         &mut self,
-        root_path: &str,
-    ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        Ok(())
+        key: ExpectedMessageKey,
+    ) -> Result<
+        tokio::sync::broadcast::Receiver<common::api_types::JsonRpcMessage>,
+        Box<dyn Error + Send + Sync>,
+    > {
+        self.pending_requests.add_notification(key).await
     }
 
-    async fn find_workspace_folders(
-        &mut self,
-        root_path: String,
-    ) -> Result<Vec<WorkspaceFolder>, Box<dyn Error + Send + Sync>> {
-        let mut workspace_folders: Vec<WorkspaceFolder> = Vec::new();
-        let include_patterns = self
-            .get_root_files()
-            .into_iter()
-            .map(|f| format!("**/{f}"))
-            .collect();
-        let exclude_patterns = DEFAULT_EXCLUDE_PATTERNS
-            .iter()
-            .map(|&s| s.to_string())
-            .collect();
-
-        match search_paths(
-            Path::new(&root_path),
-            include_patterns,
-            exclude_patterns,
-            true,
-            FileType::Dir,
-        ) {
-            Ok(dirs) => {
-                for dir in dirs {
-                    let folder_path = Path::new(&root_path).join(&dir);
-                    if let Ok(uri) = Url::from_file_path(&folder_path) {
-                        workspace_folders.push(WorkspaceFolder {
-                            uri,
-                            name: folder_path
-                                .file_name()
-                                .and_then(|n| n.to_str())
-                                .unwrap_or("")
-                                .to_string(),
-                        });
-                    }
-                }
-            }
-            Err(e) => return Err(Box::new(e)),
-        }
-
-        if workspace_folders.is_empty() {
-            // Fallback: use the root_path itself as a workspace folder
-            warn!("No workspace folders found. Using root path as workspace.");
-            if let Ok(uri) = Url::from_file_path(&root_path) {
-                workspace_folders.push(WorkspaceFolder {
-                    uri,
-                    name: root_path.to_string(),
-                });
-            }
-        }
-
-        Ok(workspace_folders.into_iter().collect())
+    pub fn get_workspace_documents(&self) -> &WorkspaceDocumentsHandler {
+        &self.workspace_documents
     }
 }

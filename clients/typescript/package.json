@@ -1,6 +1,6 @@
 {
   "name": "@nuanced-dev/lsp",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "TypeScript library and CLI for Nuanced LSP",
   "license": "MIT",
   "author": "Nuanced",
@@ -43,12 +43,14 @@
   },
   "dependencies": {
     "commander": "^14.0.2",
+    "ws": "^8.18.0",
     "zod": "^3.23.8"
   },
   "devDependencies": {
     "@eslint/js": "^9.37.0",
     "@stylistic/eslint-plugin": "^5.4.0",
     "@types/node": "^20.19.25",
+    "@types/ws": "^8.5.13",
     "esbuild": "^0.25.9",
     "eslint": "^9.33.0",
     "eslint-config-prettier": "^10.1.5",

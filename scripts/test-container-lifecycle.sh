@@ -6,6 +6,7 @@ SCRIPT_DIR="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")" && pwd)"
 
 source "$SCRIPT_DIR/include/colors.sh"
 source "$SCRIPT_DIR/include/constants.sh"
+source "$SCRIPT_DIR/include/lib.sh"
 
 help() {
     echo "Test container lifecycle: build, run, health check, cleanup"
@@ -82,6 +83,12 @@ PROXY_IMAGE="${REGISTRY:+$REGISTRY/}${PROXY_IMAGE:-nuanced-lsp-proxy:${SERVICE_T
 
 # Flag to track if we started containers
 CONTAINERS_STARTED=false
+
+# Check required commands
+if ! missing=$(has_commands curl docker); then
+    echo -e "${RED}Missing required commands: $missing${NC}"
+    exit 1
+fi
 
 echo -e "${BLUE}=========================================${NC}"
 echo -e "${BLUE}  Container Lifecycle Tests${NC}"

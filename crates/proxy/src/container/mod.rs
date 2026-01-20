@@ -8,7 +8,7 @@ use tokio::sync::Mutex;
 
 use common::api_types::{LanguageVariant, SupportedLanguages};
 
-pub mod http_client;
+pub mod api_client;
 pub mod language_manager;
 pub mod orchestrator;
 
@@ -184,7 +184,7 @@ pub async fn find_image(docker: &Docker, image: String) -> Result<String, Orches
     Ok(registry_image)
 }
 
-pub use http_client::ContainerHttpClient;
+pub use api_client::ContainerApiClient;
 
 #[derive(Debug, Clone)]
 pub struct ContainerInfo {
@@ -955,7 +955,9 @@ mod tests {
     #[serial]
     fn test_get_enabled_languages_not_set() {
         // Ensure variable is not set
-        std::env::remove_var("ENABLED_LANGUAGES");
+        unsafe {
+            std::env::remove_var("ENABLED_LANGUAGES");
+        }
 
         let result = ContainerOrchestrator::get_enabled_languages();
         assert!(result.is_none(), "Should return None when variable not set");
@@ -964,7 +966,9 @@ mod tests {
     #[test]
     #[serial]
     fn test_get_enabled_languages_single() {
-        std::env::set_var("ENABLED_LANGUAGES", "python");
+        unsafe {
+            std::env::set_var("ENABLED_LANGUAGES", "python");
+        }
 
         let result = ContainerOrchestrator::get_enabled_languages();
         assert!(result.is_some());
@@ -973,13 +977,17 @@ mod tests {
         assert_eq!(languages.len(), 1);
         assert!(languages.contains(&SupportedLanguages::Python));
 
-        std::env::remove_var("ENABLED_LANGUAGES");
+        unsafe {
+            std::env::remove_var("ENABLED_LANGUAGES");
+        }
     }
 
     #[test]
     #[serial]
     fn test_get_enabled_languages_multiple() {
-        std::env::set_var("ENABLED_LANGUAGES", "python,rust,typescript");
+        unsafe {
+            std::env::set_var("ENABLED_LANGUAGES", "python,rust,typescript");
+        }
 
         let result = ContainerOrchestrator::get_enabled_languages();
         assert!(result.is_some());
@@ -990,13 +998,17 @@ mod tests {
         assert!(languages.contains(&SupportedLanguages::Rust));
         assert!(languages.contains(&SupportedLanguages::TypeScriptJavaScript));
 
-        std::env::remove_var("ENABLED_LANGUAGES");
+        unsafe {
+            std::env::remove_var("ENABLED_LANGUAGES");
+        }
     }
 
     #[test]
     #[serial]
     fn test_get_enabled_languages_with_spaces() {
-        std::env::set_var("ENABLED_LANGUAGES", " python , rust , go ");
+        unsafe {
+            std::env::set_var("ENABLED_LANGUAGES", " python , rust , go ");
+        }
 
         let result = ContainerOrchestrator::get_enabled_languages();
         assert!(result.is_some());
@@ -1007,13 +1019,17 @@ mod tests {
         assert!(languages.contains(&SupportedLanguages::Rust));
         assert!(languages.contains(&SupportedLanguages::Golang));
 
-        std::env::remove_var("ENABLED_LANGUAGES");
+        unsafe {
+            std::env::remove_var("ENABLED_LANGUAGES");
+        }
     }
 
     #[test]
     #[serial]
     fn test_get_enabled_languages_with_invalid() {
-        std::env::set_var("ENABLED_LANGUAGES", "python,invalid,rust");
+        unsafe {
+            std::env::set_var("ENABLED_LANGUAGES", "python,invalid,rust");
+        }
 
         let result = ContainerOrchestrator::get_enabled_languages();
         assert!(result.is_some());
@@ -1024,13 +1040,17 @@ mod tests {
         assert!(languages.contains(&SupportedLanguages::Python));
         assert!(languages.contains(&SupportedLanguages::Rust));
 
-        std::env::remove_var("ENABLED_LANGUAGES");
+        unsafe {
+            std::env::remove_var("ENABLED_LANGUAGES");
+        }
     }
 
     #[test]
     #[serial]
     fn test_get_enabled_languages_empty_string() {
-        std::env::set_var("ENABLED_LANGUAGES", "");
+        unsafe {
+            std::env::set_var("ENABLED_LANGUAGES", "");
+        }
 
         let result = ContainerOrchestrator::get_enabled_languages();
         assert!(result.is_some());
@@ -1039,6 +1059,8 @@ mod tests {
         // Empty string results in empty set
         assert_eq!(languages.len(), 0);
 
-        std::env::remove_var("ENABLED_LANGUAGES");
+        unsafe {
+            std::env::remove_var("ENABLED_LANGUAGES");
+        }
     }
 }

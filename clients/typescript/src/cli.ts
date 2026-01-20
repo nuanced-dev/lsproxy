@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { Command } from "commander";
+import { Command, Option } from "commander";
 import { isErr } from "./types.js";
 import type {
   BaseCommandOptions,
@@ -31,6 +31,7 @@ import type {
   Result,
   RunCommandOptions,
   RunResult,
+  ServerCommandOptions,
   StatusCommandOptions,
   StatusResult,
   UpCommandOptions,
@@ -48,6 +49,21 @@ import {
   VERSION,
 } from "./defaults.js";
 import type { NuancedLspClient } from "./client.js";
+
+async function generateRandomContainerName(): Promise<string> {
+  const { randomUUID } = await import("node:crypto");
+  const id = randomUUID().slice(0, 8);
+  return `nuanced-lsp-${id}`;
+}
+
+async function generateSharedContainerName(workspace: string): Promise<string> {
+  const { createHash } = await import("node:crypto");
+  const { resolve } = await import("node:path");
+  const absolutePath = resolve(workspace);
+  const hash = createHash("sha256").update(absolutePath).digest("hex");
+  const shortHash = hash.slice(0, 12);
+  return `nuanced-lsp-${shortHash}`;
+}
 
 // Lazy-load client (avoids startup cost if user only runs --help, etc.)
 async function lspClient(opts: {
@@ -251,6 +267,38 @@ async function upCommand(
   });
 }
 
+async function serverCommand(
+  workspace: string,
+  opts: ServerCommandOptions,
+): Promise<void> {
+  let containerName: string;
+  if (opts.shared) {
+    containerName = await generateSharedContainerName(workspace);
+  } else {
+    containerName = await generateRandomContainerName();
+  }
+
+  const client = await lspClient({
+    containerName,
+    ...opts,
+    lspPort: opts.hostPort,
+  });
+
+  if (opts.shared && opts.sharedMode === "down") {
+    await client.down();
+    return;
+  }
+
+  try {
+    // Run the LSP server stdio loop
+    const { runLspServer } = await import("./server.js");
+    await runLspServer(client, workspace, opts, process.stdin, process.stdout);
+  } catch {
+    // Fatal errors are already logged via window/logMessage
+    process.exitCode = 1;
+  }
+}
+
 async function downCommand(opts: DownCommandOptions): Promise<void> {
   const client = await lspClient({
     ...opts,
@@ -360,14 +408,10 @@ async function pullCommand(opts: PullCommandOptions): Promise<void> {
     sudo: getSudoFlag(opts),
   });
 
-  // Import constants
-  const { ALL_SERVICES, ALL_LANGUAGES, selectLanguages } =
-    await import("./constants.js");
-
   // Parse services
-  let services: string[] = [];
+  let services: "all" | string[] | undefined;
   if (opts.allServices) {
-    services = [...ALL_SERVICES];
+    services = "all";
   } else if (opts.services) {
     services = opts.services
       .split(",")
@@ -375,76 +419,43 @@ async function pullCommand(opts: PullCommandOptions): Promise<void> {
       .filter(Boolean);
   }
 
-  // Parse languages and expand "ruby" and "ruby-sorbet" into all supported versions
-  let languages: string[] = [];
+  // Parse languages
+  let languages: "all" | string[] | undefined;
   if (opts.allLanguages) {
-    languages = [...ALL_LANGUAGES];
+    languages = "all";
   } else if (opts.languages) {
-    const names = opts.languages
+    languages = opts.languages
       .split(",")
       .map((s) => s.trim())
       .filter(Boolean);
-    languages = selectLanguages(names, ALL_LANGUAGES);
   }
 
   // Validate at least one of services or languages is specified
-  if (services.length === 0 && languages.length === 0) {
+  if (services == undefined && languages == undefined) {
     log.err(
       "At least one of, --all-languages --all-services, --languages=, or --services= must be specified",
     );
     process.exit(1);
   }
 
-  // Get registry and image versions
-  const containerRegistry =
-    opts.containerRegistry ??
-    process.env.CONTAINER_REGISTRTY ??
-    DEFAULT_CONTAINER_REGISTRY;
-  const languageVersion =
-    opts.languageImageVersion ??
-    process.env.LANGUAGE_IMAGE_VERSION ??
-    DEFAULT_LANGUAGE_IMAGE_VERSION;
-  const serviceVersion =
-    opts.serviceImageVersion ??
-    process.env.SERVICE_IMAGE_VERSION ??
-    DEFAULT_SERVICE_IMAGE_VERSION;
+  const res = await client.pull({
+    services,
+    languages,
+    containerRegistry: opts.containerRegistry,
+    languageImageVersion: opts.languageImageVersion,
+    serviceImageVersion: opts.serviceImageVersion,
+    stream: opts.stream,
+  });
 
-  // Build list of images to pull
-  const images: string[] = [];
-  for (const service of services) {
-    images.push(
-      `${containerRegistry}/nuanced-lsp-${service}:${serviceVersion}`,
-    );
-  }
-  for (const language of languages) {
-    images.push(
-      `${containerRegistry}/nuanced-lsp-${language}:${languageVersion}`,
-    );
-  }
-
-  // Pull each image
-  let failed = false;
-  for (const image of images) {
-    if (!opts.json) log.info(`Pulling image '${image}'...`);
-
-    const res = await client.pull(image, opts.stream);
-
-    handleResult<PullResult, DockerErr>(res, {
-      json: !!opts.json,
-      fallbackErrMsg: `Failed to pull image '${image}`,
-      onSuccess: (data: PullResult) => {
-        log.info(`Successfully pulled image: ${data.image}`);
-      },
-      onError: (err) => {
-        log.err(`Failed to pull image '${image}: ${err.message}`);
-        failed = true;
-      },
-    });
-  }
-
-  if (failed) {
-    process.exit(1);
-  }
+  handleResult<PullResult[], DockerErr>(res, {
+    json: !!opts.json,
+    fallbackErrMsg: "Failed to pull images",
+    onSuccess: (data: PullResult[]) => {
+      for (const result of data) {
+        log.info(`Successfully pulled image: ${result.image}`);
+      }
+    },
+  });
 }
 
 async function healthCommand(opts: HealthCommandOptions): Promise<void> {
@@ -718,6 +729,60 @@ program
   )
   .option("--env-file <path>", "Path to an env file")
   .action(upCommand);
+
+program
+  .command("server")
+  .description(
+    ansi.pink(
+      "Start a stdio LSP server that forwards requests to the Nuanced LSP container.",
+    ),
+  )
+  .argument("<workspace>", "Host workspace directory to mount")
+  .option(
+    "--host-port <n>",
+    `Host port to map to ${DEFAULT_HOST_PORT}. Note: Use port 0 for a dynamically assigned host port from Docker.`,
+    (v: string) => parseInt(v, 10),
+  )
+  .option(
+    "--bind-host <host>",
+    "Host/IP to bind (e.g. 127.0.0.1, 0.0.0.0, 192.168.1.10)",
+    DEFAULT_BIND_HOST,
+  )
+  .option(
+    "--container-registry <registry>",
+    `Container registry (default: ${DEFAULT_CONTAINER_REGISTRY})`,
+  )
+  .option(
+    "--language-image-version <version>",
+    "Language image version (default: from service)",
+  )
+  .option(
+    "--service-image-version <version>",
+    `Nuanced LSP service image version (default: ${DEFAULT_SERVICE_IMAGE_VERSION})`,
+  )
+  .option(
+    "--timeout <s>",
+    `Health check poll loop timeout seconds (<=0 to skip) (default: ${DEFAULT_TIMEOUT_SECS})`,
+    (v: string) => parseInt(v, 10),
+  )
+  .option("--sudo", "Run Docker commands with sudo")
+  .option("--ro", "Mount workspace as read-only (default is read-write)")
+  .option("--debug", "Run the container with debug logging enabled")
+  .option(
+    "--env <k=v>",
+    "Set environment variable (repeatable)",
+    (v: string, prev: string[] | undefined) => (prev ? prev.concat(v) : [v]),
+  )
+  .option("--env-file <path>", "Path to an env file")
+  .option("--shared", "Share container across multiple server instances")
+  .addOption(
+    new Option("--shared-mode <mode>", "Mode for shared container").choices([
+      "up",
+      "down",
+      "use",
+    ]),
+  )
+  .action(serverCommand);
 
 program
   .command("down")

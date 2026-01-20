@@ -55,17 +55,13 @@ async function findImage(
   sudo?: boolean,
   stream?: boolean,
 ): Promise<DockerResult<string>> {
-  const registryImage = image.includes("/")
-    ? image
-    : (() => {
-        // Check if local image exists
-        if (imageExists(image, sudo)) {
-          return image;
-        }
+  // Check if local image exists
+  if (imageExists(image, sudo)) {
+    return ok(image);
+  }
 
-        // Build the registry-prefixed image name
-        return `${registry}/${image}`;
-      })();
+  // Build the registry-prefixed image name
+  const registryImage = image.includes("/") ? image : `${registry}/${image}`;
 
   // Try to pull from registry
   const pullRes = await pull(registryImage, sudo, stream);
@@ -413,7 +409,7 @@ export async function up(
         const httpErr = h.data;
         return err<DockerErr>({
           error_code: httpErr.status_code ?? 1,
-          message: `Health check polling loop timed out before successful response: ${httpErr.error}`,
+          message: `Health check polling loop timed out before successful response: ${JSON.stringify(httpErr.error)}`,
           stdout: "",
           stderr: "",
         });
@@ -677,14 +673,11 @@ export async function status(
 
 /** Pull image. Supports optional streaming. Never throws. */
 export async function pull(
-  image?: string,
+  image: string,
   sudo?: boolean,
   stream?: boolean,
 ): Promise<DockerResult<PullResult>> {
-  const img =
-    image ??
-    `${DEFAULT_CONTAINER_REGISTRY}/${PROXY_IMAGE_BASE}:${DEFAULT_SERVICE_IMAGE_VERSION}`;
-  const args = ["pull", img];
+  const args = ["pull", image];
   const r = runDockerCmd(args, { sudo, stream });
   if (!r.ok) {
     return err<DockerErr>({
@@ -694,5 +687,5 @@ export async function pull(
       stderr: r.stderr.trim(),
     });
   }
-  return ok<PullResult>({ image: img, stdout: r.stdout.trim() });
+  return ok<PullResult>({ image, stdout: r.stdout.trim() });
 }

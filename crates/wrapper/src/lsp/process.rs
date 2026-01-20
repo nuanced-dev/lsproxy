@@ -30,9 +30,11 @@ impl ProcessHandler {
 
 #[async_trait::async_trait]
 impl Process for ProcessHandler {
-    async fn send(&mut self, data: &str) -> Result<(), Box<dyn Error + Send + Sync>> {
+    async fn send(&mut self, content: &str) -> Result<(), Box<dyn Error + Send + Sync>> {
+        let message = format!("Content-Length: {}\r\n\r\n{}", content.len(), content);
         let mut stdin = self.stdin.lock().await;
-        stdin.write_all(data.as_bytes()).await?;
+        debug!("Sending content: {}", content);
+        stdin.write_all(message.as_bytes()).await?;
         stdin.flush().await?;
         Ok(())
     }

@@ -1,133 +1,136 @@
-use std::path::Path;
-
-use crate::lsp::{JsonRpcHandler, LspClient, PendingRequests, ProcessHandler};
+use crate::lsp::client::{LspConfig, PostInitializeMessage, CLIENT_CAPABILITES};
 
 use async_trait::async_trait;
-use common::utils::workspace_documents::{
-    DidOpenConfiguration, WorkspaceDocumentsHandler, DEFAULT_EXCLUDE_PATTERNS,
-};
-use lsp_types::InitializeParams;
+use common::utils::file_utils::{search_paths, FileType};
+use common::utils::workspace_documents::{DidOpenConfiguration, DEFAULT_EXCLUDE_PATTERNS};
+use log::warn;
+use lsp_types::{InitializeParams, WorkspaceFolder};
 use std::error::Error;
+use std::path::Path;
+use url::Url;
 
-pub struct GenericLspClient {
-    process: ProcessHandler,
-    json_rpc: JsonRpcHandler,
-    workspace_documents: WorkspaceDocumentsHandler,
-    pending_requests: PendingRequests,
+#[derive(Clone)]
+pub struct GenericConfig {
     initialization_options: Option<serde_json::Value>,
-    setup_workspace_method: Option<String>,
+    post_initialize_messages: Vec<PostInitializeMessage>,
+    file_patterns: Vec<String>,
+    exclude_patterns: Vec<String>,
+    did_open_configuration: DidOpenConfiguration,
 }
 
 #[async_trait]
-impl LspClient for GenericLspClient {
-    fn get_process(&mut self) -> &mut ProcessHandler {
-        &mut self.process
-    }
-
-    fn get_json_rpc(&mut self) -> &mut JsonRpcHandler {
-        &mut self.json_rpc
-    }
-
-    fn get_root_files(&mut self) -> Vec<String> {
-        vec![] // Generic client doesn't specify root files
-    }
-
-    fn get_workspace_documents(&mut self) -> &mut WorkspaceDocumentsHandler {
-        &mut self.workspace_documents
-    }
-
-    fn get_pending_requests(&mut self) -> &mut PendingRequests {
-        &mut self.pending_requests
-    }
-
-    #[allow(deprecated)]
-
+impl LspConfig for GenericConfig {
     async fn get_initialize_params(
         &mut self,
         root_path: String,
     ) -> Result<InitializeParams, Box<dyn Error + Send + Sync>> {
         let workspace_folders = self.find_workspace_folders(root_path.clone()).await?;
         Ok(InitializeParams {
-            capabilities: self.get_capabilities(),
+            capabilities: CLIENT_CAPABILITES.clone(),
             workspace_folders: Some(workspace_folders),
-            root_uri: Some(lsp_types::Url::from_file_path(&root_path).unwrap()),
+            #[allow(deprecated)]
+            root_uri: Some(Url::from_file_path(&root_path).unwrap()),
             initialization_options: self.initialization_options.clone(),
             ..Default::default()
         })
     }
 
-    async fn setup_workspace(
-        &mut self,
-        _root_path: &str,
-    ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        if let Some(method) = self.setup_workspace_method.clone() {
-            log::info!("Calling setup workspace method: {}", method);
-            self.send_request(&method, None).await?;
-        }
-        Ok(())
+    fn get_post_initialize_messages(&self) -> Vec<PostInitializeMessage> {
+        self.post_initialize_messages.clone()
+    }
+
+    fn get_root_files(&mut self) -> Vec<String> {
+        vec![]
+    }
+
+    fn include_patterns(&self) -> Vec<String> {
+        self.file_patterns.clone()
+    }
+
+    fn exclude_patterns(&self) -> Vec<String> {
+        self.exclude_patterns.clone()
+    }
+
+    fn did_open_configuration(&self) -> DidOpenConfiguration {
+        self.did_open_configuration.clone()
     }
 }
 
-impl GenericLspClient {
-    /// Create a new GenericLspClient with configurable file patterns and did-open behavior
+impl GenericConfig {
     pub fn new(
-        process: ProcessHandler,
-        root_path: String,
         file_patterns: Vec<String>,
-        did_open_config: DidOpenConfiguration,
+        exclude_patterns: Vec<String>,
+        did_open_configuration: DidOpenConfiguration,
     ) -> Self {
-        let (_tx, rx) = tokio::sync::broadcast::channel(1);
-
-        let workspace_documents = WorkspaceDocumentsHandler::new(
-            Path::new(&root_path),
-            file_patterns,
-            DEFAULT_EXCLUDE_PATTERNS
-                .iter()
-                .map(|&s| s.to_string())
-                .collect(),
-            rx,
-            did_open_config,
-        );
-
-        let json_rpc_handler = JsonRpcHandler::new();
-
         Self {
-            process,
-            json_rpc: json_rpc_handler,
-            workspace_documents,
-            pending_requests: PendingRequests::new(),
             initialization_options: None,
-            setup_workspace_method: None,
+            post_initialize_messages: vec![],
+            file_patterns,
+            exclude_patterns,
+            did_open_configuration,
         }
     }
 
-    /// Set initialization options for the LSP server (e.g., Rust cargo.sysroot)
+    async fn find_workspace_folders(
+        &mut self,
+        root_path: String,
+    ) -> Result<Vec<WorkspaceFolder>, Box<dyn Error + Send + Sync>> {
+        let mut workspace_folders: Vec<WorkspaceFolder> = Vec::new();
+        let include_patterns = self
+            .get_root_files()
+            .into_iter()
+            .map(|f| format!("**/{f}"))
+            .collect();
+        let exclude_patterns = DEFAULT_EXCLUDE_PATTERNS
+            .iter()
+            .map(|&s| s.to_string())
+            .collect();
+
+        match search_paths(
+            Path::new(&root_path),
+            include_patterns,
+            exclude_patterns,
+            true,
+            FileType::Dir,
+        ) {
+            Ok(dirs) => {
+                for dir in dirs {
+                    let folder_path = Path::new(&root_path).join(&dir);
+                    if let Ok(uri) = Url::from_file_path(&folder_path) {
+                        workspace_folders.push(WorkspaceFolder {
+                            uri,
+                            name: folder_path
+                                .file_name()
+                                .and_then(|n| n.to_str())
+                                .unwrap_or("")
+                                .to_string(),
+                        });
+                    }
+                }
+            }
+            Err(e) => return Err(Box::new(e)),
+        }
+
+        if workspace_folders.is_empty() {
+            warn!("No workspace folders found. Using root path as workspace.");
+            if let Ok(uri) = Url::from_file_path(&root_path) {
+                workspace_folders.push(WorkspaceFolder {
+                    uri,
+                    name: root_path.to_string(),
+                });
+            }
+        }
+
+        Ok(workspace_folders.into_iter().collect())
+    }
+
     pub fn with_initialization_options(mut self, options: serde_json::Value) -> Self {
         self.initialization_options = Some(options);
         self
     }
 
-    /// Set setup workspace method to call after initialization (e.g., rust-analyzer/reloadWorkspace)
-    pub fn with_setup_workspace_method(mut self, method: String) -> Self {
-        self.setup_workspace_method = Some(method);
+    pub fn with_post_initialize_messages(mut self, messages: Vec<PostInitializeMessage>) -> Self {
+        self.post_initialize_messages = messages;
         self
-    }
-
-    /// Extract all components at once (consumes self)
-    /// Returns (ProcessHandler, JsonRpcHandler, WorkspaceDocumentsHandler, PendingRequests)
-    pub fn into_components(
-        self,
-    ) -> (
-        ProcessHandler,
-        JsonRpcHandler,
-        WorkspaceDocumentsHandler,
-        PendingRequests,
-    ) {
-        (
-            self.process,
-            self.json_rpc,
-            self.workspace_documents,
-            self.pending_requests,
-        )
     }
 }

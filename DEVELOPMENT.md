@@ -217,6 +217,14 @@ Follow these steps to add a new language:
 
 ## Debugging
 
+**Run endpoint tests without cleaning up containers:**
+
+```bash
+scripts/test-all-endpoints.sh --no-cleanup
+```
+
+This leaves all containers running after the tests and allows inspecting the logs for troubleshooting.
+
 **View service logs:**
 
 ```bash

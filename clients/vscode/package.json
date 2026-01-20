@@ -1,0 +1,77 @@
+{
+  "name": "@nuanced-dev/lsp-vscode",
+  "displayName": "Nuanced LSP",
+  "description": "VSCode extension for Nuanced LSP server",
+  "version": "0.1.0",
+  "publisher": "nuanced-dev",
+  "engines": {
+    "vscode": "^1.75.0",
+    "node": ">=18"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "main": "./dist/extension.js",
+  "activationEvents": [
+    "onLanguage:cpp",
+    "onLanguage:csharp",
+    "onLanguage:go",
+    "onLanguage:java",
+    "onLanguage:javascript",
+    "onLanguage:php",
+    "onLanguage:python",
+    "onLanguage:ruby",
+    "onLanguage:rust",
+    "onLanguage:typescript"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "nuancedLsp.restart",
+        "title": "Nuanced LSP: Restart Server"
+      }
+    ],
+    "configuration": {
+      "title": "Nuanced LSP",
+      "properties": {
+        "nuancedLsp.command": {
+          "anyOf": [
+            { "type": "string" },
+            { "type": "array", "items": { "type": "string" } }
+          ],
+          "description": "Command to run the Nuanced LSP server. Can be a string (command only) or an array where the first element is the command and the rest are arguments. Default: [\"nuanced-lsp\", \"server\"]"
+        },
+        "nuancedLsp.env": {
+          "type": "object",
+          "default": {},
+          "description": "Environment variables to pass to the LSP server command"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "clean": "rm -rf dist nuanced-lsp-vscode-*.vsix",
+    "lint": "eslint",
+    "lint:fix": "eslint --fix",
+    "package": "vsce package",
+    "vscode:prepublish": "bun run build"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.37.0",
+    "@stylistic/eslint-plugin": "^5.4.0",
+    "@types/node": "^20.11.30",
+    "@types/vscode": "^1.75.0",
+    "@vscode/vsce": "^3.2.1",
+    "eslint": "^9.33.0",
+    "eslint-config-prettier": "^10.1.5",
+    "eslint-import-resolver-typescript": "^4.4.4",
+    "eslint-plugin-import": "^2.32.0",
+    "eslint-plugin-prettier": "^5.4.1",
+    "typescript": "^5.5.4",
+    "typescript-eslint": "^8.45.0"
+  }
+}

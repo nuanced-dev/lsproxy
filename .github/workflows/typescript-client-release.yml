@@ -50,6 +50,12 @@ jobs:
         working-directory: clients/typescript
         run: npm install
 
+      - name: Build
+        run: npm run build
+
+      - name: Pull images to ensure they are published
+        run: dist/cli.cjs pull --all-services --all-languages
+
       - name: Publish to npm
         run: npm publish
 

@@ -3,14 +3,16 @@
 # Check if all given commands are present
 # Usage: has_commands COMMAND...
 has_commands() {
-    result=0
+    local missing=()
     for cmd in "$@"; do
         if ! command -v "$cmd" &> /dev/null; then
-            echo "missing command: $cmd" >&2
-            result=1
+            missing+=("$cmd")
         fi
     done
-    return $result
+    if [ "${#missing[@]}" -gt 0 ]; then
+        echo "${missing[@]}"
+        return 1
+    fi
 }
 
 # Ensure there's a line `[version] - YYYY-MM-DD` in a changelog file

@@ -6,6 +6,7 @@ SCRIPT_DIR="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")" && pwd)"
 
 source "$SCRIPT_DIR/include/colors.sh"
 source "$SCRIPT_DIR/include/constants.sh"
+source "$SCRIPT_DIR/include/lib.sh"
 
 help() {
     echo "Test watchdog container functionality"
@@ -81,6 +82,12 @@ if [ -n "${ENABLED_LANGUAGES:+x}" ]; then
 fi
 
 PROXY_IMAGE="${REGISTRY:+$REGISTRY/}${PROXY_IMAGE:-nuanced-lsp-proxy:${SERVICE_TAG:-$DEFAULT_SERVICE_TAG}}"
+
+# Check required commands
+if ! missing=$(has_commands curl docker); then
+    echo -e "${RED}Missing required commands: $missing${NC}"
+    exit 1
+fi
 
 echo -e "${BLUE}=========================================${NC}"
 echo -e "${BLUE}  Watchdog Functionality Tests${NC}"

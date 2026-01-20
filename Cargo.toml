@@ -7,7 +7,7 @@ members = [
 resolver = "2"
 
 [workspace.package]
-version = "0.4.9"
+version = "0.5.0"
 edition = "2021"
 authors = ["Nuanced Dev"]
 repository = "https://github.com/nuanced-dev/lsp"
@@ -17,6 +17,7 @@ publish = false
 
 [workspace.dependencies]
 actix-web = "4.0"
+actix-ws = "0.3"
 ast-grep = { version = "0.39", default-features = false }
 async-trait = "0.1"
 clap = { version = "4.3", features = ["derive"] }
@@ -24,7 +25,7 @@ env_logger = "0.10"
 glob = "0.3"
 ignore = "0.4.23"  # Pin to avoid edition2024 requirement in 0.4.25+
 log = "0.4"
-lsp-types = "0.95"
+lsp-types = "0.95" # Upgrade needs resolution or workaround for https://github.com/gluon-lang/lsp-types/issues/284
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 strum = "0.26"

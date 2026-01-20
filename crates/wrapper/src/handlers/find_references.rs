@@ -5,11 +5,11 @@ use lsp_types::{Location, Position as LspPosition};
 
 use crate::handlers::error::IntoHttpResponse;
 use crate::handlers::utils;
-use crate::manager::{LspManagerError, Manager};
+use crate::managers::api::{ApiManager, ApiManagerError};
 use crate::AppState;
 use common::api_types::{
-    get_mount_dir, CodeContext, ErrorResponse, FilePosition, FileRange, GetReferencesRequest,
-    Position, Range, ReferencesResponse,
+    get_mount_dir, CodeContext, ErrorResponse, FilePosition, FileRange, FindReferencesRequest,
+    FindReferencesResponse, Position, Range,
 };
 use common::utils::file_utils::uri_to_relative_path_string;
 
@@ -36,16 +36,16 @@ use common::utils::file_utils::uri_to_relative_path_string;
     post,
     path = "/symbol/find-references",
     tag = "symbol",
-    request_body = GetReferencesRequest,
+    request_body = FindReferencesRequest,
     responses(
-        (status = 200, description = "References retrieved successfully", body = ReferencesResponse),
+        (status = 200, description = "References retrieved successfully", body = FindReferencesResponse),
         (status = 400, description = "Bad request"),
         (status = 500, description = "Internal server error")
     )
 )]
 pub async fn find_references(
     data: Data<AppState>,
-    info: Json<GetReferencesRequest>,
+    info: Json<FindReferencesRequest>,
 ) -> HttpResponse {
     info!(
         "Received references request for file: {}, line: {}, character: {}",
@@ -55,7 +55,7 @@ pub async fn find_references(
     );
 
     let file_identifiers = match data
-        .manager
+        .api_manager
         .get_file_identifiers(&info.identifier_position.path)
         .await
     {
@@ -81,9 +81,9 @@ pub async fn find_references(
         };
 
     let references_result =
-        find_and_filter_references(&data.manager, &info.identifier_position).await;
+        find_and_filter_references(&data.api_manager, &info.identifier_position).await;
     let code_contexts_result = get_code_contexts(
-        &data.manager,
+        &data.api_manager,
         &references_result,
         info.include_code_context_lines,
     )
@@ -103,7 +103,7 @@ pub async fn find_references(
                 None
             };
 
-            let response = ReferencesResponse {
+            let response = FindReferencesResponse {
                 raw_response,
                 references: references
                     .into_iter()
@@ -131,9 +131,9 @@ pub async fn find_references(
 }
 
 async fn find_and_filter_references(
-    manager: &Manager,
+    manager: &ApiManager,
     position: &FilePosition,
-) -> Result<Vec<Location>, LspManagerError> {
+) -> Result<Vec<Location>, ApiManagerError> {
     let references = manager
         .find_references(
             &position.path,
@@ -166,10 +166,10 @@ async fn find_and_filter_references(
 }
 
 async fn get_code_contexts(
-    manager: &Manager,
-    references_result: &Result<Vec<Location>, LspManagerError>,
+    manager: &ApiManager,
+    references_result: &Result<Vec<Location>, ApiManagerError>,
     context_lines: Option<u32>,
-) -> Result<Option<Vec<CodeContext>>, LspManagerError> {
+) -> Result<Option<Vec<CodeContext>>, ApiManagerError> {
     match (references_result, context_lines) {
         (Ok(refs), Some(lines)) => fetch_code_context(manager, refs.clone(), lines)
             .await
@@ -178,15 +178,15 @@ async fn get_code_contexts(
     }
 }
 
-fn handle_lsp_error(e: LspManagerError) -> HttpResponse {
+fn handle_lsp_error(e: ApiManagerError) -> HttpResponse {
     e.into_http_response()
 }
 
 async fn fetch_code_context(
-    manager: &Manager,
+    manager: &ApiManager,
     references: Vec<Location>,
     context_lines: u32,
-) -> Result<Vec<CodeContext>, LspManagerError> {
+) -> Result<Vec<CodeContext>, ApiManagerError> {
     let mut code_contexts = Vec::new();
     for reference in references {
         let range = lsp_types::Range {

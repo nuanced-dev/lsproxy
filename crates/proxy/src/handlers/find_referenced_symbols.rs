@@ -2,7 +2,9 @@ use crate::handlers::container_proxy;
 use crate::AppState;
 use actix_web::web::{Data, Json};
 use actix_web::HttpResponse;
-use common::api_types::{ErrorResponse, GetReferencedSymbolsRequest, ReferencedSymbolsResponse};
+use common::api_types::{
+    ErrorResponse, FindReferencedSymbolsRequest, FindReferencedSymbolsResponse,
+};
 use log::{error, info};
 
 /// Find all symbols referenced within a given symbol
@@ -10,16 +12,16 @@ use log::{error, info};
     post,
     path = "/symbol/find-referenced-symbols",
     tag = "symbol",
-    request_body = GetReferencedSymbolsRequest,
+    request_body = FindReferencedSymbolsRequest,
     responses(
-        (status = 200, description = "Referenced symbols retrieved successfully", body = ReferencedSymbolsResponse),
+        (status = 200, description = "Referenced symbols retrieved successfully", body = FindReferencedSymbolsResponse),
         (status = 400, description = "Bad request"),
         (status = 500, description = "Internal server error")
     )
 )]
 pub async fn find_referenced_symbols(
     data: Data<AppState>,
-    info: Json<GetReferencedSymbolsRequest>,
+    info: Json<FindReferencedSymbolsRequest>,
 ) -> HttpResponse {
     info!(
         "Received find referenced symbols request for file: {}, line: {}, character: {}",
@@ -29,7 +31,7 @@ pub async fn find_referenced_symbols(
     );
 
     // Get container client for this file's language
-    let client = match container_proxy::get_client_for_file(
+    let client = match container_proxy::get_api_client_for_file(
         &data.orchestrator,
         &info.identifier_position.path,
     )

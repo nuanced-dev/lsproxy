@@ -2,7 +2,7 @@ use crate::handlers::container_proxy;
 use crate::AppState;
 use actix_web::web::{Data, Json};
 use actix_web::HttpResponse;
-use common::api_types::{ErrorResponse, GetReferencesRequest, ReferencesResponse};
+use common::api_types::{ErrorResponse, FindReferencesRequest, FindReferencesResponse};
 use log::{error, info};
 
 /// Get all references to a symbol
@@ -10,16 +10,16 @@ use log::{error, info};
     post,
     path = "/symbol/find-references",
     tag = "symbol",
-    request_body = GetReferencesRequest,
+    request_body = FindReferencesRequest,
     responses(
-        (status = 200, description = "References retrieved successfully", body = ReferencesResponse),
+        (status = 200, description = "References retrieved successfully", body = FindReferencesResponse),
         (status = 400, description = "Bad request"),
         (status = 500, description = "Internal server error")
     )
 )]
 pub async fn find_references(
     data: Data<AppState>,
-    info: Json<GetReferencesRequest>,
+    info: Json<FindReferencesRequest>,
 ) -> HttpResponse {
     info!(
         "Received references request for file: {}, line: {}, character: {}",
@@ -29,7 +29,7 @@ pub async fn find_references(
     );
 
     // Get container client for this file's language
-    let client = match container_proxy::get_client_for_file(
+    let client = match container_proxy::get_api_client_for_file(
         &data.orchestrator,
         &info.identifier_position.path,
     )

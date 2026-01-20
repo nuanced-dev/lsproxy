@@ -1,13 +1,12 @@
 use actix_cors::Cors;
 mod middleware;
 use actix_web::{
-    web::{get, post, resource, scope, Data},
+    web::{get, post, scope, Data},
     App, HttpServer,
 };
-use common::api_types::{FindIdentifierRequest, IdentifierResponse};
-use handlers::{find_identifier, read_source_code};
 use log::{error, info, warn};
 use middleware::JwtMiddleware;
+use std::env;
 use std::fs;
 use std::fs::File;
 use std::io::Write;
@@ -22,16 +21,17 @@ pub mod container;
 mod handlers;
 
 use crate::handlers::{
-    definitions_in_file, find_definition, find_referenced_symbols, find_references, health_check,
-    list_files,
+    definitions_in_file, find_definition, find_identifier, find_referenced_symbols,
+    find_references, health_check, list_files, lsp_ws, read_source_code,
 };
 use common::api_types::{
-    get_mount_dir, set_global_mount_dir, CodeContext, DefinitionResponse, ErrorResponse,
-    FilePosition, FileRange, FileSymbolsRequest, GetDefinitionRequest, GetReferencedSymbolsRequest,
-    GetReferencesRequest, HealthResponse, Position, ReferenceWithSymbolDefinitions,
-    ReferencedSymbolsResponse, ReferencesResponse, SupportedLanguages, Symbol, SymbolResponse,
+    get_mount_dir, set_global_mount_dir, CodeContext, DefinitionsInFileRequest, ErrorResponse,
+    FilePosition, FileRange, FindDefinitionRequest, FindDefinitionResponse, FindIdentifierRequest,
+    FindIdentifierResponse, FindReferencedSymbolsRequest, FindReferencedSymbolsResponse,
+    FindReferencesRequest, FindReferencesResponse, HealthResponse, Identifier, Position, Range,
+    ReadSourceCodeRequest, ReadSourceCodeResponse, ReferenceWithSymbolDefinitions,
+    SupportedLanguages, Symbol,
 };
-// use common::utils::doc_utils::make_code_sample;
 
 pub fn check_mount_dir() -> std::io::Result<()> {
     fs::read_dir(get_mount_dir())?;
@@ -53,42 +53,45 @@ pub fn check_mount_dir() -> std::io::Result<()> {
     ),
     components(
         schemas(
-            FileSymbolsRequest,
-            GetDefinitionRequest,
-            GetReferencesRequest,
-            GetReferencedSymbolsRequest,
-            SupportedLanguages,
-            DefinitionResponse,
-            ReferencesResponse,
-            ReferencedSymbolsResponse,
-            SymbolResponse,
-            ReferenceWithSymbolDefinitions,
-            FilePosition,
-            Position,
-            Symbol,
-            ErrorResponse,
             CodeContext,
+            DefinitionsInFileRequest,
+            ErrorResponse,
+            FilePosition,
             FileRange,
-            HealthResponse,
+            FindDefinitionRequest,
+            FindDefinitionResponse,
             FindIdentifierRequest,
-            IdentifierResponse,
+            FindIdentifierResponse,
+            FindReferencedSymbolsRequest,
+            FindReferencedSymbolsResponse,
+            FindReferencesRequest,
+            FindReferencesResponse,
+            HealthResponse,
+            Identifier,
+            Position,
+            Range,
+            ReadSourceCodeRequest,
+            ReadSourceCodeResponse,
+            ReferenceWithSymbolDefinitions,
+            SupportedLanguages,
+            Symbol,
         )
     ),
     paths(
         crate::handlers::definitions_in_file,
         crate::handlers::find_definition,
+        crate::handlers::find_identifier,
+        crate::handlers::find_referenced_symbols,
         crate::handlers::find_references,
         crate::handlers::health_check,
         crate::handlers::list_files,
         crate::handlers::read_source_code,
-        crate::handlers::find_referenced_symbols,
-        crate::handlers::find_identifier,
     ),
     tags(
         (name = "nuanced-lsp-api", description = "Nuanced LSP API")
     ),
     servers(
-        (url = "http://localhost:4444/v1", description = "API server v1")
+        (url = "http://localhost:4444/v1", description = "API server v1"),
     )
 )]
 pub struct ApiDoc;
@@ -177,13 +180,6 @@ pub async fn initialize_app_state_with_mount_dir(
     }))
 }
 
-// Helper enum for cleaner matching
-#[derive(Debug)]
-enum Method {
-    Get,
-    Post,
-}
-
 pub async fn run_server(app_state: Data<AppState>) -> std::io::Result<()> {
     run_server_with_host(app_state, "0.0.0.0").await
 }
@@ -234,68 +230,37 @@ pub async fn run_server_with_port_and_host(
     // Initialize JWT middleware once before creating workers to fail fast
     // If this panics, it happens in the main thread before any workers start
     let jwt_middleware = if middleware::is_auth_enabled() {
-        match JwtMiddleware::from_env() {
-            Ok(middleware) => Some(middleware),
-            Err(e) => {
-                error!("Failed to initialize JWT middleware: {}", e);
-                std::process::exit(1);
-            }
-        }
+        JwtMiddleware::from_env().unwrap_or_else(|e| {
+            error!("Failed to initialize JWT middleware: {}", e);
+            std::process::exit(1);
+        })
     } else {
-        None
+        JwtMiddleware::disabled()
     };
 
     HttpServer::new(move || {
-        let mut api_scope = scope(format!("/{}", server_path).as_str());
-
-        // Add routes based on OpenAPI paths
-        for (path, path_item) in openapi.paths.paths.iter() {
-            let method = if path_item.get.is_some() {
-                Some(Method::Get)
-            } else if path_item.post.is_some() {
-                Some(Method::Post)
-            } else {
-                None
-            };
-
-            api_scope = match (path.as_str(), method) {
-                ("/symbol/find-definition", Some(Method::Post)) =>
-                    api_scope.service(resource(path).route(post().to(find_definition))),
-                ("/symbol/find-references", Some(Method::Post)) =>
-                    api_scope.service(resource(path).route(post().to(find_references))),
-                ("/symbol/find-referenced-symbols", Some(Method::Post)) =>
-                    api_scope.service(resource(path).route(post().to(find_referenced_symbols))),
-                ("/symbol/find-identifier", Some(Method::Post)) =>
-                    api_scope.service(resource(path).route(post().to(find_identifier))),
-                ("/symbol/definitions-in-file", Some(Method::Get)) =>
-                    api_scope.service(resource(path).route(get().to(definitions_in_file))),
-                ("/workspace/list-files", Some(Method::Get)) =>
-                    api_scope.service(resource(path).route(get().to(list_files))),
-                ("/workspace/read-source-code", Some(Method::Post)) =>
-                    api_scope.service(resource(path).route(post().to(read_source_code))),
-                ("/system/health", Some(Method::Get)) =>
-                    api_scope.service(resource(path).route(get().to(health_check))),
-                (p, m) => panic!(
-                    "Invalid path configuration for {}: {:?}. Ensure the OpenAPI spec matches your handlers.",
-                    p,
-                    m
-                )
-            };
-        }
-
         App::new()
             .wrap(Cors::permissive())
+            .wrap(jwt_middleware.clone())
             .app_data(app_state.clone())
             .configure(|cfg| {
-                if let Some(ref middleware) = jwt_middleware {
-                    cfg.service(api_scope.wrap(middleware.clone()));
-                } else {
-                    cfg.service(api_scope);
-                }
+                cfg.route("/lsp/ws", get().to(lsp_ws)).service(
+                    scope(format!("/{}", server_path).as_str())
+                        .route("/symbol/definitions-in-file", get().to(definitions_in_file))
+                        .route("/symbol/find-definition", post().to(find_definition))
+                        .route("/symbol/find-identifier", post().to(find_identifier))
+                        .route(
+                            "/symbol/find-referenced-symbols",
+                            post().to(find_referenced_symbols),
+                        )
+                        .route("/symbol/find-references", post().to(find_references))
+                        .route("/system/health", get().to(health_check))
+                        .route("/workspace/list-files", get().to(list_files))
+                        .route("/workspace/read-source-code", post().to(read_source_code)),
+                );
             })
             .service(
-                SwaggerUi::new("/swagger-ui/{_:.*}")
-                    .url("/api-docs/openapi.json", openapi.clone())
+                SwaggerUi::new("/swagger-ui/{_:.*}").url("/api-docs/openapi.json", openapi.clone()),
             )
     })
     .bind(format!("{}:{}", host, port))?
@@ -303,28 +268,10 @@ pub async fn run_server_with_port_and_host(
     .await
 }
 
-// const PYTHON_SAMPLE: &str = r#"
-// import requests
-
-// def get_pet(pet_id: int):
-//     response = requests.get(f'/pets/{pet_id}')
-//     return response.json()
-// "#;
-
 pub fn write_openapi_to_file(file_path: &PathBuf) -> std::io::Result<()> {
     // We use a clone since we're just adding the docs and writing it to the file. We don't need
     // this for runtime
     let mut openapi = ApiDoc::openapi().clone();
-    // if let Some(path_item) = openapi.paths.paths.get_mut("/symbol/find-definition") {
-    //     if let Some(post_op) = &mut path_item.post {
-    //         let mut extensions = Extensions::default();
-    //         extensions.insert(
-    //             String::from("x-codeSamples"),
-    //             serde_json::json!(vec![make_code_sample("python", PYTHON_SAMPLE),]),
-    //         );
-    //         post_op.extensions = Some(extensions);
-    //     }
-    // }
 
     // Create components if none exist
     if openapi.components.is_none() {

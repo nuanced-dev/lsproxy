@@ -71,6 +71,19 @@ export const PullResultSchema = z.object({
 });
 export type PullResult = Named<typeof PullResultSchema, "PullResult">;
 
+export const ClientPullOptionsSchema = z.object({
+  services: z.union([z.literal("all"), z.array(z.string())]).optional(),
+  languages: z.union([z.literal("all"), z.array(z.string())]).optional(),
+  containerRegistry: z.string().optional(),
+  languageImageVersion: z.string().optional(),
+  serviceImageVersion: z.string().optional(),
+  stream: z.boolean().optional(),
+});
+export type ClientPullOptions = Named<
+  typeof ClientPullOptionsSchema,
+  "ClientPullOptions"
+>;
+
 // ---- General HttpResult types -----------------------------------------------
 export const HttpErrSchema = z.object({
   status_code: z.number().nullable(),
@@ -298,6 +311,31 @@ export type FindReferencesResult = Named<
   "FindReferencesResult"
 >;
 
+// ---- JSON-RPC types ---------------------------------------------------------
+
+export interface JsonRpcMessage {
+  jsonrpc: "2.0";
+  id?: string | number | null;
+  method?: string;
+  params?: any;
+  result?: any;
+  error?: JsonRpcError;
+}
+
+export interface JsonRpcError {
+  code: JsonRpcErrorCode;
+  message: string;
+  data?: any;
+}
+
+export enum JsonRpcErrorCode {
+  ParseError = -32700,
+  InvalidRequest = -32600,
+  MethodNotFound = -32601,
+  InvalidParams = -32602,
+  InternalError = -32603,
+}
+
 // ---- CLI Command Options ---------------------------------------------------
 export const BaseCommandOptionsSchema = z.object({
   json: z.boolean().optional(),
@@ -446,4 +484,26 @@ export const FindReferencesOptionsSchema = LspCommandOptionsSchema.extend({
 export type FindReferencesOptions = Named<
   typeof FindReferencesOptionsSchema,
   "FindReferencesOptions"
+>;
+
+export const ServerCommandOptionsSchema = BaseCommandOptionsSchema.extend({
+  hostPort: z.number().int().min(0).optional(),
+  containerRegistry: z.string().optional(),
+  languageImageVersion: z.string().optional(),
+  serviceImageVersion: z.string().optional(),
+  timeout: z.number().optional(),
+  sudo: z.boolean().optional(),
+  ro: z.boolean().optional(),
+  bindHost: z.string().optional(),
+  debug: z.boolean().optional(),
+  env: z.array(z.string()).optional(),
+  envFile: z.string().optional(),
+  shared: z.boolean().optional(),
+  sharedMode: z
+    .union([z.literal("up"), z.literal("down"), z.literal("use")])
+    .optional(),
+});
+export type ServerCommandOptions = Named<
+  typeof ServerCommandOptionsSchema,
+  "ServerCommandOptions"
 >;

@@ -9,7 +9,7 @@ use crate::{
 };
 
 use common::api_types::{
-    ErrorResponse, FilePosition, FindIdentifierRequest, Identifier, IdentifierResponse,
+    ErrorResponse, FilePosition, FindIdentifierRequest, FindIdentifierResponse, Identifier,
 };
 use log::{error, info};
 
@@ -34,7 +34,7 @@ use log::{error, info};
     tag = "symbol",
     request_body = FindIdentifierRequest,
     responses(
-        (status = 200, description = "Identifier retrieved successfully", body = IdentifierResponse),
+        (status = 200, description = "Identifier retrieved successfully", body = FindIdentifierResponse),
         (status = 400, description = "Bad request"),
         (status = 500, description = "Internal server error")
     )
@@ -47,7 +47,7 @@ pub async fn find_identifier(
         "Received identifier request for file: {}, name: {}, position: {:?}",
         info.path, info.name, info.position
     );
-    let file_identifiers = match data.manager.get_file_identifiers(&info.path).await {
+    let file_identifiers = match data.api_manager.get_file_identifiers(&info.path).await {
         Ok(identifiers) => identifiers,
         Err(e) => {
             error!("Failed to get file identifiers: {:?}", e);
@@ -64,7 +64,7 @@ pub async fn find_identifier(
         .collect();
 
     if name_matched_identifiers.is_empty() {
-        return HttpResponse::Ok().json(IdentifierResponse {
+        return HttpResponse::Ok().json(FindIdentifierResponse {
             identifiers: vec![],
         });
     }
@@ -79,18 +79,18 @@ pub async fn find_identifier(
         )
         .await
         {
-            Ok(identifier) => HttpResponse::Ok().json(IdentifierResponse {
+            Ok(identifier) => HttpResponse::Ok().json(FindIdentifierResponse {
                 identifiers: vec![identifier],
             }),
             Err(PositionError::IdentifierNotFound { closest }) => {
                 // Not an error case, just closest matches
-                HttpResponse::Ok().json(IdentifierResponse {
+                HttpResponse::Ok().json(FindIdentifierResponse {
                     identifiers: closest,
                 })
             }
         }
     } else {
-        HttpResponse::Ok().json(IdentifierResponse {
+        HttpResponse::Ok().json(FindIdentifierResponse {
             identifiers: name_matched_identifiers,
         })
     }

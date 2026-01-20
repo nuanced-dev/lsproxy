@@ -2,7 +2,7 @@ use crate::handlers::container_proxy;
 use crate::AppState;
 use actix_web::web::{Data, Query};
 use actix_web::HttpResponse;
-use common::api_types::{ErrorResponse, FileSymbolsRequest, Symbol};
+use common::api_types::{DefinitionsInFileRequest, ErrorResponse, Symbol};
 use log::{error, info};
 
 /// Get all symbol definitions in a file
@@ -10,7 +10,7 @@ use log::{error, info};
     get,
     path = "/symbol/definitions-in-file",
     tag = "symbol",
-    params(FileSymbolsRequest),
+    params(DefinitionsInFileRequest),
     responses(
         (status = 200, description = "Symbols retrieved successfully", body = Vec<Symbol>),
         (status = 400, description = "Bad request"),
@@ -19,7 +19,7 @@ use log::{error, info};
 )]
 pub async fn definitions_in_file(
     data: Data<AppState>,
-    info: Query<FileSymbolsRequest>,
+    info: Query<DefinitionsInFileRequest>,
 ) -> HttpResponse {
     info!(
         "Received definitions in file request for file: {}",
@@ -28,7 +28,7 @@ pub async fn definitions_in_file(
 
     // Get container client for this file's language
     let client =
-        match container_proxy::get_client_for_file(&data.orchestrator, &info.file_path).await {
+        match container_proxy::get_api_client_for_file(&data.orchestrator, &info.file_path).await {
             Ok(client) => client,
             Err(e) => {
                 error!("Failed to get container client: {}", e);

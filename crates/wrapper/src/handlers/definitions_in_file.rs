@@ -3,7 +3,7 @@ use actix_web::HttpResponse;
 use log::info;
 
 use crate::AppState;
-use common::api_types::{ErrorResponse, FileSymbolsRequest, Symbol};
+use common::api_types::{DefinitionsInFileRequest, ErrorResponse, Symbol};
 
 /// Get symbols in a specific file (uses ast-grep)
 ///
@@ -25,7 +25,7 @@ use common::api_types::{ErrorResponse, FileSymbolsRequest, Symbol};
     get,
     path = "/symbol/definitions-in-file",
     tag = "symbol",
-    params(FileSymbolsRequest),
+    params(DefinitionsInFileRequest),
     responses(
         (status = 200, description = "Symbols retrieved successfully", body = Vec<Symbol>),
         (status = 400, description = "Bad request"),
@@ -34,14 +34,18 @@ use common::api_types::{ErrorResponse, FileSymbolsRequest, Symbol};
 )]
 pub async fn definitions_in_file(
     data: Data<AppState>,
-    info: Query<FileSymbolsRequest>,
+    info: Query<DefinitionsInFileRequest>,
 ) -> HttpResponse {
     info!(
         "Received definitions in file request for file: {}",
         info.file_path
     );
 
-    match data.manager.get_definitions_in_file(&info.file_path).await {
+    match data
+        .api_manager
+        .get_definitions_in_file(&info.file_path)
+        .await
+    {
         Ok(symbols) => {
             let symbol_response: Vec<Symbol> = symbols
                 .into_iter()

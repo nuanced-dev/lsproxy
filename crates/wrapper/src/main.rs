@@ -7,17 +7,15 @@ const DEFAULT_RBENV_ROOT: &str = "/opt/rbenv";
 
 mod handlers;
 mod lsp;
-mod manager;
+mod managers;
 
-use common::utils::workspace_documents::{
-    DidOpenConfiguration, CSHARP_FILE_PATTERNS, C_AND_CPP_FILE_PATTERNS, GOLANG_FILE_PATTERNS,
-    JAVA_FILE_PATTERNS, PHP_FILE_PATTERNS, PYTHON_FILE_PATTERNS, RUBY_FILE_PATTERNS,
-    RUST_FILE_PATTERNS, TYPESCRIPT_AND_JAVASCRIPT_FILE_PATTERNS,
+use crate::lsp::client::{LspClient, LspConfig};
+use crate::lsp::languages::{
+    GoplsConfig, SorbetConfig, CSHARP_CONFIG, C_AND_CPP_CONFIG, JAVA_CONFIG, PHP_CONFIG,
+    PYTHON_CONFIG, RUBY_CONFIG, RUST_CONFIG, TYPESCRIPT_AND_JAVASCRIPT_CONFIG,
 };
-use lsp::client::LspClient;
-use lsp::languages::{GenericLspClient, GoplsClient, SorbetClient};
-use lsp::process::ProcessHandler;
-use manager::Manager;
+use crate::lsp::process::ProcessHandler;
+use crate::managers::api::ApiManager;
 
 /// HTTP wrapper for LSP servers
 /// Provides HTTP endpoints for LSP JSON-RPC communication
@@ -44,10 +42,12 @@ struct Args {
 
 /// Application state shared across handlers
 pub struct AppState {
-    pub manager: Manager,
+    pub api_manager: ApiManager,
 }
 
-/// Health check endpoint - simple version that just returns OK
+/// Health check endpoint
+///
+/// The HTTP server only starts after the LSP server has initialized, so it simply returns OK.
 async fn health() -> impl Responder {
     HttpResponse::Ok().body("ok")
 }
@@ -159,88 +159,51 @@ async fn main() -> std::io::Result<()> {
         std::io::Error::new(std::io::ErrorKind::Other, e)
     })?;
 
-    // Configure based on language
-    let (file_patterns, did_open_config) = match language.as_str() {
-        "php" => (PHP_FILE_PATTERNS.to_vec(), DidOpenConfiguration::Lazy),
-        "python" => (PYTHON_FILE_PATTERNS.to_vec(), DidOpenConfiguration::None),
-        "ruby" => (RUBY_FILE_PATTERNS.to_vec(), DidOpenConfiguration::None),
-        "ruby-sorbet" => {
-            info!("Detected ruby-sorbet language - using Lazy didOpen configuration");
-            (RUBY_FILE_PATTERNS.to_vec(), DidOpenConfiguration::Lazy)
-        }
-        "typescript" | "javascript" => (
-            TYPESCRIPT_AND_JAVASCRIPT_FILE_PATTERNS.to_vec(),
-            DidOpenConfiguration::Lazy,
-        ),
-        "rust" => (RUST_FILE_PATTERNS.to_vec(), DidOpenConfiguration::None),
-        "go" => (GOLANG_FILE_PATTERNS.to_vec(), DidOpenConfiguration::None),
-        "java" => (JAVA_FILE_PATTERNS.to_vec(), DidOpenConfiguration::None),
-        "cpp" | "c" => (C_AND_CPP_FILE_PATTERNS.to_vec(), DidOpenConfiguration::Lazy),
-        "csharp" => (CSHARP_FILE_PATTERNS.to_vec(), DidOpenConfiguration::None),
-        _ => {
-            error!("Unknown language '{}'. Supported languages: php, python, ruby, ruby-sorbet, typescript, javascript, rust, go, java, cpp, c, csharp", language);
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                format!("Unsupported language: {}", language),
-            ));
-        }
-    };
-
-    // Create base client
-    let base_client = GenericLspClient::new(
-        process_handler,
-        args.workspace_path.clone(),
-        file_patterns.iter().map(|&s| s.to_string()).collect(),
-        did_open_config,
-    );
-
-    // Apply language-specific initialization and setup
+    // Apply language-specific configuration
     info!(
         "Checking LSP command for language-specific configuration: '{}'",
         args.lsp_command
     );
-    let mut client: Box<dyn LspClient> = match args.lsp_command.as_str() {
+
+    let config: Box<dyn LspConfig> = match args.lsp_command.as_str() {
         "srb" => {
             info!("Configuring Sorbet with custom workspace folder detection (sorbet/config)");
-            // Convert GenericLspClient components to SorbetClient
-            let (process, json_rpc, workspace_documents, pending_requests) =
-                base_client.into_components();
-            let sorbet_client =
-                SorbetClient::new(process, json_rpc, workspace_documents, pending_requests);
-            Box::new(sorbet_client)
+            Box::new(SorbetConfig::new())
         }
         _ => match language.as_str() {
-            "go" => {
-                info!("Configuring Go with custom workspace folder detection (go.work/go.mod)");
-                // Convert GenericLspClient components to GoplsClient
-                let (process, json_rpc, workspace_documents, pending_requests) =
-                    base_client.into_components();
-                let gopls_client =
-                    GoplsClient::new(process, json_rpc, workspace_documents, pending_requests);
-                Box::new(gopls_client)
+            "php" => Box::new(PHP_CONFIG.clone()),
+            "python" => Box::new(PYTHON_CONFIG.clone()),
+            "ruby" => Box::new(RUBY_CONFIG.clone()),
+            "ruby-sorbet" => {
+                info!("Detected ruby-sorbet language - using Sorbet config");
+                Box::new(SorbetConfig::new())
             }
+            "typescript" | "javascript" => Box::new(TYPESCRIPT_AND_JAVASCRIPT_CONFIG.clone()),
             "rust" => {
                 info!("Configuring Rust with initialization options and setup workspace");
-                let configured_client = base_client
-                    .with_initialization_options(serde_json::json!({
-                        "cargo": {
-                            "sysroot": serde_json::Value::Null
-                        }
-                    }))
-                    .with_setup_workspace_method("rust-analyzer/reloadWorkspace".to_string());
-                Box::new(configured_client)
+                Box::new(RUST_CONFIG.clone())
             }
+            "go" => {
+                info!("Configuring Go with custom workspace folder detection (go.work/go.mod)");
+                Box::new(GoplsConfig::new())
+            }
+            "java" => Box::new(JAVA_CONFIG.clone()),
             "cpp" | "c" => {
                 info!("Configuring C/C++ with clangd initialization options");
-                let configured_client =
-                    base_client.with_initialization_options(serde_json::json!({
-                        "clangdFileStatus": true
-                    }));
-                Box::new(configured_client)
+                Box::new(C_AND_CPP_CONFIG.clone())
             }
-            _ => Box::new(base_client),
+            "csharp" => Box::new(CSHARP_CONFIG.clone()),
+            _ => {
+                error!("Unknown language '{}'. Supported languages: php, python, ruby, ruby-sorbet, typescript, javascript, rust, go, java, cpp, c, csharp", language);
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    format!("Unsupported language: {}", language),
+                ));
+            }
         },
     };
+
+    let mut client = LspClient::new(config, process_handler, &args.workspace_path);
 
     // Initialize the LSP server
     client
@@ -251,76 +214,39 @@ async fn main() -> std::io::Result<()> {
             std::io::Error::new(std::io::ErrorKind::Other, e)
         })?;
 
-    // Java-specific: Wait for ServiceReady notification
-    if language.as_str() == "java" {
-        use lsp::ExpectedMessageKey;
-        info!("Java: waiting for ServiceReady notification (no timeout - caller controls overall timeout)...");
-
-        let mut notification_rx = client
-            .get_pending_requests()
-            .add_notification(ExpectedMessageKey {
-                method: "language/status".to_string(),
-                params: serde_json::json!({
-                    "type": "ServiceReady",
-                    "message": "ServiceReady"
-                }),
-            })
-            .await
-            .map_err(|e| {
-                error!("Failed to add ServiceReady notification listener: {}", e);
-                std::io::Error::new(std::io::ErrorKind::Other, e)
-            })?;
-
-        // Wait indefinitely for ServiceReady notification
-        // The orchestrator health check and CLI timeout control overall timing
-        notification_rx.recv().await.map_err(|e| {
-            error!("Error receiving ServiceReady notification: {}", e);
-            std::io::Error::new(std::io::ErrorKind::Other, e)
-        })?;
-
-        info!("Java: ServiceReady notification received!");
-    }
-
-    // Setup workspace (e.g., rust-analyzer/reloadWorkspace)
-    client
-        .setup_workspace(&args.workspace_path)
-        .await
-        .map_err(|e| {
-            error!("Failed to setup workspace: {}", e);
-            std::io::Error::new(std::io::ErrorKind::Other, e)
-        })?;
-
     info!("LSP server started and initialized successfully");
 
-    let manager = Manager::new(Arc::new(tokio::sync::Mutex::new(client)));
+    let lsp_client = Arc::new(tokio::sync::Mutex::new(client));
+    let api_manager = ApiManager::new(lsp_client);
 
-    let app_state = web::Data::new(AppState { manager });
+    let app_state = web::Data::new(AppState { api_manager });
 
     // Start HTTP server
     HttpServer::new(move || {
         App::new()
             .app_data(app_state.clone())
-            .route("/health", web::get().to(health))
+            .route("/lsp/ws", web::get().to(handlers::lsp_ws::lsp_ws))
             .route(
-                "/symbol/find-identifier",
-                web::post().to(handlers::find_identifier::find_identifier),
+                "/symbol/definitions-in-file",
+                web::get().to(handlers::definitions_in_file::definitions_in_file),
             )
             .route(
                 "/symbol/find-definition",
                 web::post().to(handlers::find_definition::find_definition),
             )
             .route(
-                "/symbol/find-references",
-                web::post().to(handlers::find_references::find_references),
+                "/symbol/find-identifier",
+                web::post().to(handlers::find_identifier::find_identifier),
             )
             .route(
                 "/symbol/find-referenced-symbols",
                 web::post().to(handlers::find_referenced_symbols::find_referenced_symbols),
             )
             .route(
-                "/symbol/definitions-in-file",
-                web::get().to(handlers::definitions_in_file::definitions_in_file),
+                "/symbol/find-references",
+                web::post().to(handlers::find_references::find_references),
             )
+            .route("/system/health", web::get().to(health))
     })
     .bind(("0.0.0.0", args.port))?
     .run()
