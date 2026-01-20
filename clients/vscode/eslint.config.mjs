@@ -1,10 +1,14 @@
-const js = require("@eslint/js");
-const typescript = require("typescript-eslint");
-const prettierConfigRecommended = require("eslint-plugin-prettier/recommended");
-const importPlugin = require("eslint-plugin-import");
-const stylistic = require("@stylistic/eslint-plugin");
+import { fileURLToPath } from "url";
+import { dirname } from "path";
+import js from "@eslint/js";
+import typescript from "typescript-eslint";
+import prettierConfigRecommended from "eslint-plugin-prettier/recommended";
+import importPlugin from "eslint-plugin-import";
+import stylistic from "@stylistic/eslint-plugin";
 
-module.exports = [
+const __dirname = dirname(fileURLToPath(import.meta.url));
+
+export default [
   js.configs.recommended,
   ...typescript.configs.recommended,
   prettierConfigRecommended,
@@ -68,6 +72,6 @@ module.exports = [
     },
   },
   {
-    ignores: ["dist/", "*.config.cjs", "node_modules/"],
+    ignores: ["*.config.cjs", "*.config.mjs", "dist/", "node_modules/"],
   },
 ];
