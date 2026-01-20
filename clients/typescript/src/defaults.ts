@@ -10,7 +10,7 @@ export const DEFAULT_CONTAINER_REGISTRY = "ghcr.io/nuanced-dev";
 export const DEFAULT_LANGUAGE_IMAGE_VERSION = "1";
 
 // Service image version
-export const DEFAULT_SERVICE_IMAGE_VERSION = "0.4.9";
+export const DEFAULT_SERVICE_IMAGE_VERSION = "0.5.0";
 
 // DEFAULT_BIND_HOST is the default host address to which the LSProxy container binds.
 // The default is the local loopback, implying the container only accepts connections from the same machine.
