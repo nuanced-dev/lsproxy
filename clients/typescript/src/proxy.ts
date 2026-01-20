@@ -55,17 +55,13 @@ async function findImage(
   sudo?: boolean,
   stream?: boolean,
 ): Promise<DockerResult<string>> {
-  const registryImage = image.includes("/")
-    ? image
-    : (() => {
-        // Check if local image exists
-        if (imageExists(image, sudo)) {
-          return image;
-        }
+  // Check if local image exists
+  if (imageExists(image, sudo)) {
+    return ok(image);
+  }
 
-        // Build the registry-prefixed image name
-        return `${registry}/${image}`;
-      })();
+  // Build the registry-prefixed image name
+  const registryImage = image.includes("/") ? image : `${registry}/${image}`;
 
   // Try to pull from registry
   const pullRes = await pull(registryImage, sudo, stream);
