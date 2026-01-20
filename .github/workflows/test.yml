@@ -112,7 +112,7 @@ jobs:
           name: service-images
 
       - name: Load service images
-        run: docker load -i ${{ steps.download-service-images.outputs.download-path }}
+        run: docker load -i ${{ steps.download-service-images.outputs.download-path }}/service-images.tar
 
       - name: Pre-pull Python language image from GHCR
         run: docker pull ghcr.io/nuanced-dev/nuanced-lsp-python:${{ env.LANGUAGE_TAG }}
@@ -137,7 +137,7 @@ jobs:
           name: service-images
 
       - name: Load service images
-        run: docker load -i ${{ steps.download-service-images.outputs.download-path }}
+        run: docker load -i ${{ steps.download-service-images.outputs.download-path }}/service-images.tar
 
       - name: Pre-pull Python language image from GHCR
         run: docker pull ghcr.io/nuanced-dev/nuanced-lsp-python:${{ env.LANGUAGE_TAG }}
@@ -159,7 +159,7 @@ jobs:
           name: service-images
 
       - name: Load service images
-        run: docker load -i ${{ steps.download-service-images.outputs.download-path }}
+        run: docker load -i ${{ steps.download-service-images.outputs.download-path }}/service-images.tar
 
       - name: Pre-pull Python language image from GHCR
         run: docker pull ghcr.io/nuanced-dev/nuanced-lsp-python:${{ env.LANGUAGE_TAG }}
@@ -190,7 +190,7 @@ jobs:
           name: service-images
 
       - name: Load service images
-        run: docker load -i ${{ steps.download-service-images.outputs.download-path }}
+        run: docker load -i ${{ steps.download-service-images.outputs.download-path }}/service-images.tar
 
       - name: Pre-pull all language images from GHCR
         run: |
@@ -268,7 +268,7 @@ jobs:
           name: service-images
 
       - name: Load service images
-        run: docker load -i ${{ steps.download-service-images.outputs.download-path }}
+        run: docker load -i ${{ steps.download-service-images.outputs.download-path }}/service-images.tar
 
       - name: Pre-pull all language images from GHCR
         run: |
