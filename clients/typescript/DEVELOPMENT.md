@@ -112,11 +112,11 @@ For `0.x.y` versions, the minor version is treated like the major version.
 
 **Image versions:**
 
-The TypeScript client depends on **published** versions of the service and language images. The versions used by the client are defined in `src/defaults.ts`.
+The TypeScript client depend on the image versions defined in `src/defaults.ts`.
 
-It is intentional that the client does not automatically depend the image versions in the repository. This allows developing the service before moving the client to this new version.
+A local test run will use locally built images if available. The testing workflow will have service images built from the repo available.
 
-_Note that if images and the client are updated in the same pull request, the images need to be released before the client tests can succeed in CI._
+The release workflow will **not** build any images and verify that all images can be pulled from the registry before publishign the release.
 
 ## Release
 
