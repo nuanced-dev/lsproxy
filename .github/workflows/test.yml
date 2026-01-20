@@ -94,13 +94,14 @@ jobs:
         with:
           cache-on-failure: true
 
-      - uses: actions/download-artifact@v6
+      - name: Download service images
+        id:  download-service-images
+        uses: actions/download-artifact@v6
         with:
           name: service-images
-          path: build-artifacts
 
       - name: Load service images
-        run: docker load -i build-artifacts/service-images.tar
+        run: docker load -i ${{ steps.download-service-images.outputs.download-path }}
 
       - name: Pre-pull Python language image from GHCR
         run: docker pull ghcr.io/nuanced-dev/nuanced-lsp-python:${{ env.LANGUAGE_TAG }}
@@ -117,13 +118,14 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - uses: actions/download-artifact@v6
+      - name: Download service images
+        id:  download-service-images
+        uses: actions/download-artifact@v6
         with:
           name: service-images
-          path: build-artifacts
 
-      - name: Load images
-        run: docker load -i build-artifacts/service-images.tar
+      - name: Load service images
+        run: docker load -i ${{ steps.download-service-images.outputs.download-path }}
 
       - name: Pre-pull Python language image from GHCR
         run: docker pull ghcr.io/nuanced-dev/nuanced-lsp-python:${{ env.LANGUAGE_TAG }}
@@ -137,13 +139,14 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - uses: actions/download-artifact@v6
+      - name: Download service images
+        id:  download-service-images
+        uses: actions/download-artifact@v6
         with:
           name: service-images
-          path: build-artifacts
 
-      - name: Load images
-        run: docker load -i build-artifacts/service-images.tar
+      - name: Load service images
+        run: docker load -i ${{ steps.download-service-images.outputs.download-path }}
 
       - name: Pre-pull Python language image from GHCR
         run: docker pull ghcr.io/nuanced-dev/nuanced-lsp-python:${{ env.LANGUAGE_TAG }}
@@ -165,13 +168,14 @@ jobs:
             rename-to: websocat
             chmod: 0755
 
-      - uses: actions/download-artifact@v6
+      - name: Download service images
+        id:  download-service-images
+        uses: actions/download-artifact@v6
         with:
           name: service-images
-          path: build-artifacts
 
-      - name: Load images
-        run: docker load -i build-artifacts/service-images.tar
+      - name: Load service images
+        run: docker load -i ${{ steps.download-service-images.outputs.download-path }}
 
       - name: Pre-pull all language images from GHCR
         run: |
@@ -242,13 +246,14 @@ jobs:
       - name: Build
         run: npm run build
 
-      - uses: actions/download-artifact@v6
+      - name: Download service images
+        id:  download-service-images
+        uses: actions/download-artifact@v6
         with:
           name: service-images
-          path: build-artifacts
 
-      - name: Load images
-        run: docker load -i build-artifacts/service-images.tar
+      - name: Load service images
+        run: docker load -i ${{ steps.download-service-images.outputs.download-path }}
 
       - name: Pre-pull all language images from GHCR
         run: |
