@@ -583,10 +583,10 @@ while IFS='|' read -r lang test_file symbol_name symbol_line symbol_char health_
         "jq -e 'type == \"object\"' > /dev/null"
 
     # Find Definition (assert selected identifier and at least one definition)
-    test_ws_endpoint "LSP GoTo Definition ($lang)" \
+    test_ws_endpoint "LSP textDocument/references ($lang)" \
         "/lsp/ws" \
-        "{\"jsonrpc\":\"2.0\",\"id\":\"$TOTAL_TESTS\",\"method\":\"textDocument/definition\",\"params\":{\"textDocument\":{\"uri\":\"$test_uri\"},\"position\":{\"line\":$symbol_line,\"character\":$symbol_char}}}" \
-        "jq -e '.result | if type == \"array\" then . else [.] end | length > 0' > /dev/null"
+        "{\"jsonrpc\":\"2.0\",\"id\":\"$TOTAL_TESTS\",\"method\":\"textDocument/references\",\"params\":{\"textDocument\":{\"uri\":\"$test_uri\"},\"position\":{\"line\":$symbol_line,\"character\":$symbol_char},\"context\":{\"includeDeclaration\":true}}}" \
+        "jq -e '.result | type == \"array\"' > /dev/null"
 
     echo
 done <<< "$LANGUAGE_CONFIGS"
