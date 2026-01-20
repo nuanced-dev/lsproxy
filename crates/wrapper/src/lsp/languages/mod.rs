@@ -4,6 +4,7 @@ pub mod golang;
 pub mod python;
 pub mod sorbet;
 
+use crate::lsp::client::PostInitializeMessage;
 use common::utils::workspace_documents::{
     DidOpenConfiguration, CSHARP_FILE_PATTERNS, C_AND_CPP_FILE_PATTERNS, DEFAULT_EXCLUDE_PATTERNS,
     JAVA_FILE_PATTERNS, PHP_FILE_PATTERNS, PYTHON_FILE_PATTERNS, RUBY_FILE_PATTERNS,
@@ -79,7 +80,10 @@ pub static RUST_CONFIG: LazyLock<GenericConfig> = LazyLock::new(|| {
             "sysroot": serde_json::Value::Null
         }
     }))
-    .with_setup_workspace_method("rust-analyzer/reloadWorkspace".to_string())
+    .with_post_initialize_messages(vec![PostInitializeMessage::Request {
+        method: "rust-analyzer/reloadWorkspace".to_string(),
+        params: None,
+    }])
 });
 
 pub static JAVA_CONFIG: LazyLock<GenericConfig> = LazyLock::new(|| {
@@ -91,6 +95,13 @@ pub static JAVA_CONFIG: LazyLock<GenericConfig> = LazyLock::new(|| {
             .collect(),
         DidOpenConfiguration::None,
     )
+    .with_post_initialize_messages(vec![PostInitializeMessage::ExpectNotification {
+        method: "language/status".to_string(),
+        params: serde_json::json!({
+            "type": "ServiceReady",
+            "message": "ServiceReady"
+        }),
+    }])
 });
 
 pub static C_AND_CPP_CONFIG: LazyLock<GenericConfig> = LazyLock::new(|| {

@@ -45,7 +45,9 @@ pub struct AppState {
     pub api_manager: ApiManager,
 }
 
-/// Health check endpoint - simple version that just returns OK
+/// Health check endpoint
+///
+/// The HTTP server only starts after the LSP server has initialized, so it simply returns OK.
 async fn health() -> impl Responder {
     HttpResponse::Ok().body("ok")
 }
@@ -209,44 +211,6 @@ async fn main() -> std::io::Result<()> {
         .await
         .map_err(|e| {
             error!("Failed to initialize LSP server: {}", e);
-            std::io::Error::new(std::io::ErrorKind::Other, e)
-        })?;
-
-    // Java-specific: Wait for ServiceReady notification
-    if language.as_str() == "java" {
-        use lsp::ExpectedMessageKey;
-        info!("Java: waiting for ServiceReady notification (no timeout - caller controls overall timeout)...");
-
-        let mut notification_rx = client
-            .expect_notification(ExpectedMessageKey {
-                method: "language/status".to_string(),
-                params: serde_json::json!({
-                    "type": "ServiceReady",
-                    "message": "ServiceReady"
-                }),
-            })
-            .await
-            .map_err(|e| {
-                error!("Failed to add ServiceReady notification listener: {}", e);
-                std::io::Error::new(std::io::ErrorKind::Other, e)
-            })?;
-
-        // Wait indefinitely for ServiceReady notification
-        // The orchestrator health check and CLI timeout control overall timing
-        notification_rx.recv().await.map_err(|e| {
-            error!("Error receiving ServiceReady notification: {}", e);
-            std::io::Error::new(std::io::ErrorKind::Other, e)
-        })?;
-
-        info!("Java: ServiceReady notification received!");
-    }
-
-    // Setup workspace (e.g., rust-analyzer/reloadWorkspace)
-    client
-        .setup_workspace(&args.workspace_path)
-        .await
-        .map_err(|e| {
-            error!("Failed to setup workspace: {}", e);
             std::io::Error::new(std::io::ErrorKind::Other, e)
         })?;
 
