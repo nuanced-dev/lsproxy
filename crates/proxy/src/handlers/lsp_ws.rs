@@ -155,7 +155,7 @@ async fn handle_client_text_message(
         .map_err(|e| format!("Failed to detect language for {}: {}", file_path, e))?;
 
     debug!(
-        "Routing message for file {} (language: {:?})",
+        "Routing message for file {} (language: {})",
         file_path, language
     );
 
@@ -229,7 +229,7 @@ async fn ensure_container_connection<'a>(
 
             let (container_ws, _) = tokio_tungstenite::connect_async(&container_ws_url).await?;
 
-            info!("Connected to container WebSocket for {:?}", language);
+            info!("Connected to container WebSocket for {}", language);
 
             // Split WebSocket into read and write halves
             let (sink, stream) = container_ws.split();
@@ -259,7 +259,7 @@ fn spawn_container_reader(
         while let Some(msg_result) = stream.next().await {
             match msg_result {
                 Ok(TungsteniteMessage::Text(text)) => {
-                    debug!("Container -> Client from {:?}: {}", language, text);
+                    debug!("Container -> Client from {}: {}", language, text);
 
                     if let Err(e) = forward_container_message_to_client(
                         text,
@@ -273,12 +273,12 @@ fn spawn_container_reader(
                     }
                 }
                 Ok(TungsteniteMessage::Close(_)) => {
-                    debug!("Container WebSocket closed for {:?}", language);
+                    debug!("Container WebSocket closed for {}", language);
                     break;
                 }
                 Err(e) => {
                     error!(
-                        "Error reading from container WebSocket for {:?}: {}",
+                        "Error reading from container WebSocket for {}: {}",
                         language, e
                     );
                     break;
