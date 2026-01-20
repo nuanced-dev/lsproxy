@@ -122,17 +122,16 @@ trap cleanup EXIT INT TERM
 # Language configurations
 # Format: language_key test_file symbol_name symbol_line symbol_char health_key
 LANGUAGE_CONFIGS="
-python|main.py|main|14|4|python
-typescript|src/main.ts|main|5|6|typescript_javascript
-javascript|src/main.ts|main|5|6|typescript_javascript
-rust|src/main.rs|main|10|3|rust
-go|main.go|main|7|5|golang
-java|Main.java|main|5|23|java
 cpp|astar_search.cpp|main|2|4|cpp
 csharp|Program.cs|Main|4|20|csharp
+go|main.go|main|7|5|golang
+java|Main.java|main|5|23|java
+javascript|src/main.ts|main|5|6|typescript_javascript
 php|AStar.php|findPathTo|26|20|php
+python|main.py|main|14|4|python
 ruby|main.rb|main|35|4|ruby_3_4_4
-ruby-sorbet|user_service.rb|create_user|15|6|ruby_sorbet_3_4_4
+rust|src/main.rs|main|10|3|rust
+typescript|src/main.ts|main|5|6|typescript_javascript
 "
 
 # Deep validation for find-referenced-symbols (ast-grep backed)
@@ -157,18 +156,18 @@ ruby-sorbet|user_service.rb|create_user|15|6|ruby_sorbet_3_4_4
 # Note: All languages have identifier and symbol rules, but find-referenced-symbols
 # specifically requires reference rules to find symbol usages within a method body.
 FIND_REF_TESTS="
-python|main.py|14|4|1|AStarGraph
-typescript|src/astar.ts|60|12|2|isInBounds,isWalkable
 csharp|AStar.cs|23|27|1|AddNeighborsToOpenList
 php|AStar.php|26|20|1|addNeighborsToOpenList
+python|main.py|14|4|1|AStarGraph
+typescript|src/astar.ts|60|12|2|isInBounds,isWalkable
 "
 
 # Tests that are not working (commented out - need ast-grep reference rules)
-# ruby|search.rb|31|15|1|initialize_search
-# golang|golang_astar/astar.go|??|??|1|??
-# rust|src/astar.rs|??|??|1|??
-# java|AStar.java|39|22|1|??
 # clangd|astar_search.cpp|??|??|1|??
+# golang|golang_astar/astar.go|??|??|1|??
+# java|AStar.java|39|22|1|??
+# ruby|search.rb|31|15|1|initialize_search
+# rust|src/astar.rs|??|??|1|??
 #"
 
 test_http_endpoint() {
@@ -251,10 +250,11 @@ test_ws_endpoint() {
     echo -n "  Testing $test_name... "
 
     # Build curl command with timeout
-    local curl_cmd=("websocat" "-q1" "ws${BASE_URL#http}$endpoint")
+    local ws_cmd=("websocat" "-q1" "ws${BASE_URL#http}$endpoint")
+    echo "${ws_cmd[@]}"
 
-    # Execute request (curl has built-in timeout via --max-time)
-    if response=$(echo "$data" | timeout 30 "${curl_cmd[@]}" 2>&1); then
+    # Execute request
+    if response=$(echo "$data" | timeout 30 "${ws_cmd[@]}" 2>&1); then
         local body="$response"
 
         # Validate JSON structure
@@ -584,7 +584,7 @@ while IFS='|' read -r lang test_file symbol_name symbol_line symbol_char health_
         "jq -e 'type == \"object\"' > /dev/null"
 
     # Find Definition (assert selected identifier and at least one definition)
-    test_ws_endpoint "LSP-WS GoTo Definition ($lang)" \
+    test_ws_endpoint "LSP GoTo Definition ($lang)" \
         "/lsp/ws" \
         "{\"jsonrpc\":\"2.0\",\"id\":\"$TOTAL_TESTS\",\"method\":\"textDocument/definition\",\"params\":{\"textDocument\":{\"uri\":\"$test_uri\"},\"position\":{\"line\":$symbol_line,\"character\":$symbol_char}}}" \
         "jq -e '.result | if type == \"array\" then . else [.] end | length > 0' > /dev/null"
