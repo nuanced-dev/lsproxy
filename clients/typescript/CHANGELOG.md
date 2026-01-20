@@ -7,12 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Support using Nuanced LSP as an LSP server through CLI and in VS Code.
+### Added
 
-- `nuanced-lsp` version 0.4.1
-- `nuanced-lsp-proxy` image version 0.5.0
-- `nuanced-lsp-watchdog` image version 0.5.0
-- `nuanced-lsp-wrapper` image version 0.5.0
+- A new `server` command runs Nuanced LSP as an LSP server.
+
+### Changed
+
+- Updated service dependency to version to 0.5.0.
+
+- The `pull` method now follows the command, and supports pulling service
+  and/or language images without having to construct the iamge names.
 
 ## [0.4.0] - 2025-01-14
 
