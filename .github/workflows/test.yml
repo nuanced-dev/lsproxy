@@ -59,7 +59,7 @@ jobs:
       # This gives us reproducible builds while still caching Rust compilation.
       - name: Build service images
         run: |
-          ./scripts/build-service-images.sh \
+          ./scripts/build-images.sh \
             --all-services --service-tag=${{ env.SERVICE_TAG }} \
             --language-tag=${{ env.LANGUAGE_TAG }} \
             --cache=gha \
