@@ -9,8 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Support for the proxy to act as a proper LSP server via the `/lsp/ws`
-  WebSocket endpoint.
+- A new `/lsp/ws` WebSocket endpoints exposes the proxy as a proper LSP server.
 
 ## [0.4.9] - 2025-01-15
 
