@@ -251,7 +251,6 @@ test_ws_endpoint() {
 
     # Build curl command with timeout
     local ws_cmd=("websocat" "-q1" "ws${BASE_URL#http}$endpoint")
-    echo "${ws_cmd[@]}"
 
     # Execute request
     if response=$(echo "$data" | timeout 30 "${ws_cmd[@]}" 2>&1); then
