@@ -242,18 +242,27 @@ test_http_endpoint() {
 test_ws_endpoint() {
     local test_name="$1"
     local endpoint="$2"
-    local data="$3"
-    local validation_check="$4"
+    local method="$3"
+    local params="$4"
+    local validation_check="$5"
 
     TOTAL_TESTS=$((TOTAL_TESTS + 1))
 
     echo -n "  Testing $test_name... "
 
-    # Build curl command with timeout
-    local ws_cmd=("websocat" "-q1" "ws${BASE_URL#http}$endpoint")
+    # Build request
+    local url="ws${BASE_URL#http}$endpoint"
+    local request="{\"jsonrpc\":\"2.0\",\"id\":\"$TOTAL_TESTS\",\"method\":\"textDocument/references\",\"params\":$params}"
 
     # Execute request
-    if response=$(echo "$data" | timeout 30 "${ws_cmd[@]}" 2>&1); then
+    # This is a bit tricky because of websocat exit. It can either
+    # exit when stdin is closed, but will do so before the response is
+    # received, or it will never exit. Using `timeout` isn't possible,
+    # because `timeout` exists with an error code. We use sleep to delay
+    # the closing of stdin. Hopefully 5 seconds is enough, because the
+    # test will always wait for the full delay, even if the response
+    # comes earlier.
+    if response=$((echo "$request" ; sleep 5) | websocat -q --exit-on-eof "$url" | jq -c --unbuffered "select(.id == \"$TOTAL_TESTS\") | .result , halt" 2>&1); then
         local body="$response"
 
         # Validate JSON structure
@@ -585,8 +594,9 @@ while IFS='|' read -r lang test_file symbol_name symbol_line symbol_char health_
     # Find Definition (assert selected identifier and at least one definition)
     test_ws_endpoint "LSP textDocument/references ($lang)" \
         "/lsp/ws" \
-        "{\"jsonrpc\":\"2.0\",\"id\":\"$TOTAL_TESTS\",\"method\":\"textDocument/references\",\"params\":{\"textDocument\":{\"uri\":\"$test_uri\"},\"position\":{\"line\":$symbol_line,\"character\":$symbol_char},\"context\":{\"includeDeclaration\":true}}}" \
-        "jq -e '.result | type == \"array\"' > /dev/null"
+        "textDocument/references" \
+        "{\"textDocument\":{\"uri\":\"$test_uri\"},\"position\":{\"line\":$symbol_line,\"character\":$symbol_char},\"context\":{\"includeDeclaration\":true}}" \
+        "jq -e 'type == \"array\"' > /dev/null"
 
     echo
 done <<< "$LANGUAGE_CONFIGS"
