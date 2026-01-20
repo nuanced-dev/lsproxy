@@ -13,16 +13,16 @@
   ],
   "main": "./dist/extension.js",
   "activationEvents": [
-    "onLanguage:python",
-    "onLanguage:typescript",
-    "onLanguage:javascript",
-    "onLanguage:rust",
     "onLanguage:cpp",
     "onLanguage:csharp",
-    "onLanguage:java",
     "onLanguage:go",
+    "onLanguage:java",
+    "onLanguage:javascript",
     "onLanguage:php",
-    "onLanguage:ruby"
+    "onLanguage:python",
+    "onLanguage:ruby",
+    "onLanguage:rust",
+    "onLanguage:typescript"
   ],
   "contributes": {
     "commands": [

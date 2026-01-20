@@ -1,8 +1,0 @@
-#!/usr/bin/env bash
-
-set -eu
-
-script_dir="$(dirname "$0")"
-vscode_dir="$(realpath "$script_dir/../clients/vscode")"
-
-exec code --extensionDevelopmentPath="$vscode_dir" "$@"

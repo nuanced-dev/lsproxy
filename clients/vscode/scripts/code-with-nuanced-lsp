@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+
+set -eu
+
+SCRIPT_DIR="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")" && pwd)"
+
+VSCODE_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+exec code --extensionDevelopmentPath="$VSCODE_DIR" "$@"
