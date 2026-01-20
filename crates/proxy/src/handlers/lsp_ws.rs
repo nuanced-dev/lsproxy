@@ -145,9 +145,13 @@ async fn handle_client_text_message(
     let document_uri =
         extract_document_uri(&json_rpc_msg).ok_or("Could not extract document URI from message")?;
 
-    // Convert file:// URI to path and detect language
+    // Convert file:// URI to path
     let file_path = uri_to_file_path(&document_uri)?;
-    let language = detect_language(&file_path)
+
+    // Convert host path to container path for language detection
+    // The proxy only has access to the workspace at /mnt/workspace, not the host path
+    let container_path = host_path_to_container_path(&data.orchestrator, &file_path).await?;
+    let language = detect_language(&container_path)
         .map_err(|e| format!("Failed to detect language for {}: {}", file_path, e))?;
 
     debug!(
@@ -176,6 +180,27 @@ fn uri_to_file_path(uri: &str) -> Result<String, Box<dyn std::error::Error + Sen
         .to_file_path()
         .map_err(|_| format!("Invalid file URI path: {}", uri))?;
     Ok(path.to_string_lossy().to_string())
+}
+
+/// Convert a host file path to the container path
+async fn host_path_to_container_path(
+    orchestrator: &Arc<ContainerOrchestrator>,
+    host_path: &str,
+) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+    let host_workspace = orchestrator
+        .get_host_workspace_path()
+        .await
+        .ok_or_else(|| "Failed to get host workspace path".to_string())?;
+
+    if let Some(relative_path) = host_path.strip_prefix(&host_workspace) {
+        Ok(format!("/mnt/workspace{}", relative_path))
+    } else {
+        Err(format!(
+            "Path {} is not within workspace {}",
+            host_path, host_workspace
+        )
+        .into())
+    }
 }
 
 /// Ensure a container connection exists for the given language and return the sink
