@@ -71,6 +71,19 @@ export const PullResultSchema = z.object({
 });
 export type PullResult = Named<typeof PullResultSchema, "PullResult">;
 
+export const ClientPullOptionsSchema = z.object({
+  services: z.union([z.literal("all"), z.array(z.string())]).optional(),
+  languages: z.union([z.literal("all"), z.array(z.string())]).optional(),
+  containerRegistry: z.string().optional(),
+  languageImageVersion: z.string().optional(),
+  serviceImageVersion: z.string().optional(),
+  stream: z.boolean().optional(),
+});
+export type ClientPullOptions = Named<
+  typeof ClientPullOptionsSchema,
+  "ClientPullOptions"
+>;
+
 // ---- General HttpResult types -----------------------------------------------
 export const HttpErrSchema = z.object({
   status_code: z.number().nullable(),

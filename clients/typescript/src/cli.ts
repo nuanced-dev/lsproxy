@@ -408,14 +408,10 @@ async function pullCommand(opts: PullCommandOptions): Promise<void> {
     sudo: getSudoFlag(opts),
   });
 
-  // Import constants
-  const { ALL_SERVICES, ALL_LANGUAGES, selectLanguages } =
-    await import("./constants.js");
-
   // Parse services
-  let services: string[] = [];
+  let services: "all" | string[] | undefined;
   if (opts.allServices) {
-    services = [...ALL_SERVICES];
+    services = "all";
   } else if (opts.services) {
     services = opts.services
       .split(",")
@@ -423,76 +419,43 @@ async function pullCommand(opts: PullCommandOptions): Promise<void> {
       .filter(Boolean);
   }
 
-  // Parse languages and expand "ruby" and "ruby-sorbet" into all supported versions
-  let languages: string[] = [];
+  // Parse languages
+  let languages: "all" | string[] | undefined;
   if (opts.allLanguages) {
-    languages = [...ALL_LANGUAGES];
+    languages = "all";
   } else if (opts.languages) {
-    const names = opts.languages
+    languages = opts.languages
       .split(",")
       .map((s) => s.trim())
       .filter(Boolean);
-    languages = selectLanguages(names, ALL_LANGUAGES);
   }
 
   // Validate at least one of services or languages is specified
-  if (services.length === 0 && languages.length === 0) {
+  if (services == undefined && languages == undefined) {
     log.err(
       "At least one of, --all-languages --all-services, --languages=, or --services= must be specified",
     );
     process.exit(1);
   }
 
-  // Get registry and image versions
-  const containerRegistry =
-    opts.containerRegistry ??
-    process.env.CONTAINER_REGISTRTY ??
-    DEFAULT_CONTAINER_REGISTRY;
-  const languageVersion =
-    opts.languageImageVersion ??
-    process.env.LANGUAGE_IMAGE_VERSION ??
-    DEFAULT_LANGUAGE_IMAGE_VERSION;
-  const serviceVersion =
-    opts.serviceImageVersion ??
-    process.env.SERVICE_IMAGE_VERSION ??
-    DEFAULT_SERVICE_IMAGE_VERSION;
+  const res = await client.pull({
+    services,
+    languages,
+    containerRegistry: opts.containerRegistry,
+    languageImageVersion: opts.languageImageVersion,
+    serviceImageVersion: opts.serviceImageVersion,
+    stream: opts.stream,
+  });
 
-  // Build list of images to pull
-  const images: string[] = [];
-  for (const service of services) {
-    images.push(
-      `${containerRegistry}/nuanced-lsp-${service}:${serviceVersion}`,
-    );
-  }
-  for (const language of languages) {
-    images.push(
-      `${containerRegistry}/nuanced-lsp-${language}:${languageVersion}`,
-    );
-  }
-
-  // Pull each image
-  let failed = false;
-  for (const image of images) {
-    if (!opts.json) log.info(`Pulling image '${image}'...`);
-
-    const res = await client.pull(image, opts.stream);
-
-    handleResult<PullResult, DockerErr>(res, {
-      json: !!opts.json,
-      fallbackErrMsg: `Failed to pull image '${image}`,
-      onSuccess: (data: PullResult) => {
-        log.info(`Successfully pulled image: ${data.image}`);
-      },
-      onError: (err) => {
-        log.err(`Failed to pull image '${image}: ${err.message}`);
-        failed = true;
-      },
-    });
-  }
-
-  if (failed) {
-    process.exit(1);
-  }
+  handleResult<PullResult[], DockerErr>(res, {
+    json: !!opts.json,
+    fallbackErrMsg: "Failed to pull images",
+    onSuccess: (data: PullResult[]) => {
+      for (const result of data) {
+        log.info(`Successfully pulled image: ${result.image}`);
+      }
+    },
+  });
 }
 
 async function healthCommand(opts: HealthCommandOptions): Promise<void> {

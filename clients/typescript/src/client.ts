@@ -1,35 +1,39 @@
 import type WebSocket from "ws";
 import type {
+  ClientPullOptions,
   DefinitionsInFileResult,
   DockerResult,
   DownResult,
   FilePosition,
   FindDefinitionResult,
   FindIdentifierResult,
-  FindReferencesResult,
   FindReferencedSymbolsResult,
+  FindReferencesResult,
   HealthResult,
   HttpResult,
   IdentifierPosition,
-  UpResult,
+  JsonRpcMessage,
   ListFilesResult,
+  LogsResult,
   LspPosition,
   LspRange,
+  PullResult,
   ReadSourceResult,
   RunResult,
   StatusResult,
-  LogsResult,
-  PullResult,
-  JsonRpcMessage,
+  UpResult,
 } from "./types.js";
 
 import {
   DEFAULT_CONTAINER_NAME,
   DEFAULT_CONTAINER_PORT,
+  DEFAULT_CONTAINER_REGISTRY,
   DEFAULT_HOST_PORT,
   DEFAULT_HOST_URL,
-  DEFAULT_TIMEOUT_SECS,
+  DEFAULT_LANGUAGE_IMAGE_VERSION,
   DEFAULT_RETRIES,
+  DEFAULT_SERVICE_IMAGE_VERSION,
+  DEFAULT_TIMEOUT_SECS,
 } from "./defaults.js";
 import { err, ok } from "./types.js";
 
@@ -217,12 +221,67 @@ export class NuancedLspClient {
     return status(this.containerName, this.sudo);
   }
 
-  async pull(
-    image?: string,
-    stream?: boolean,
-  ): Promise<DockerResult<PullResult>> {
+  async pull(opts: ClientPullOptions): Promise<DockerResult<PullResult[]>> {
     const { pull } = await proxy();
-    return pull(image, this.sudo, stream);
+
+    // Import constants
+    const { ALL_SERVICES, ALL_LANGUAGES, selectLanguages } =
+      await import("./constants.js");
+
+    // Parse services
+    let services: string[] = [];
+    if (opts.services === "all") {
+      services = [...ALL_SERVICES];
+    } else if (Array.isArray(opts.services)) {
+      services = opts.services;
+    }
+
+    // Parse languages and expand "ruby" and "ruby-sorbet" into all supported versions
+    let languages: string[] = [];
+    if (opts.languages === "all") {
+      languages = [...ALL_LANGUAGES];
+    } else if (Array.isArray(opts.languages)) {
+      languages = selectLanguages(opts.languages, ALL_LANGUAGES);
+    }
+
+    // Get registry and image versions
+    const containerRegistry =
+      opts.containerRegistry ??
+      process.env.CONTAINER_REGISTRTY ??
+      DEFAULT_CONTAINER_REGISTRY;
+    const languageVersion =
+      opts.languageImageVersion ??
+      process.env.LANGUAGE_IMAGE_VERSION ??
+      DEFAULT_LANGUAGE_IMAGE_VERSION;
+    const serviceVersion =
+      opts.serviceImageVersion ??
+      process.env.SERVICE_IMAGE_VERSION ??
+      DEFAULT_SERVICE_IMAGE_VERSION;
+
+    // Build list of images to pull
+    const images: string[] = [];
+    for (const service of services) {
+      images.push(
+        `${containerRegistry}/nuanced-lsp-${service}:${serviceVersion}`,
+      );
+    }
+    for (const language of languages) {
+      images.push(
+        `${containerRegistry}/nuanced-lsp-${language}:${languageVersion}`,
+      );
+    }
+
+    // Pull each image
+    const results: PullResult[] = [];
+    for (const image of images) {
+      const res = await pull(image, this.sudo, opts.stream);
+      if (!res.ok) {
+        return res as DockerResult<PullResult[]>;
+      }
+      results.push(res.data);
+    }
+
+    return { ok: true, data: results };
   }
 
   // ---- Health (data-plane) --------------------------------------------------

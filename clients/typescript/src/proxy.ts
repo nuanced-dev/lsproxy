@@ -677,14 +677,11 @@ export async function status(
 
 /** Pull image. Supports optional streaming. Never throws. */
 export async function pull(
-  image?: string,
+  image: string,
   sudo?: boolean,
   stream?: boolean,
 ): Promise<DockerResult<PullResult>> {
-  const img =
-    image ??
-    `${DEFAULT_CONTAINER_REGISTRY}/${PROXY_IMAGE_BASE}:${DEFAULT_SERVICE_IMAGE_VERSION}`;
-  const args = ["pull", img];
+  const args = ["pull", image];
   const r = runDockerCmd(args, { sudo, stream });
   if (!r.ok) {
     return err<DockerErr>({
@@ -694,5 +691,5 @@ export async function pull(
       stderr: r.stderr.trim(),
     });
   }
-  return ok<PullResult>({ image: img, stdout: r.stdout.trim() });
+  return ok<PullResult>({ image, stdout: r.stdout.trim() });
 }
