@@ -1,0 +1,12 @@
+# NPM
+dist/
+node_modules/
+
+# Archives
+*.tar.gz
+*.tgz
+*.zip
+
+# Keep everything in bin (MUST come after exclusion rules!)
+!bin/**
+

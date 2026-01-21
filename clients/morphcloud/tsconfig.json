@@ -14,9 +14,8 @@
     "strict": true,
     "skipLibCheck": true,
 
-    "declaration": true,
-    "declarationMap": true,
-    "emitDeclarationOnly": false,
+    "declaration": false,
+    "declarationMap": false,
 
     "types": ["node"]
   },

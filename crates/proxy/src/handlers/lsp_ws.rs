@@ -142,8 +142,10 @@ async fn handle_client_text_message(
     }
 
     // Extract document URI to determine routing
-    let document_uri =
-        extract_document_uri(&json_rpc_msg).ok_or("Could not extract document URI from message")?;
+    let document_uri = extract_document_uri(&json_rpc_msg).ok_or(format!(
+        "Could not extract document URI from message with method: {}",
+        json_rpc_msg.method.as_ref().map_or("???", |m| m),
+    ))?;
 
     // Convert file:// URI to path
     let file_path = uri_to_file_path(&document_uri)?;

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { Command, Option } from "commander";
+import { Command } from "commander";
 import { isErr } from "./types.js";
 import type {
   BaseCommandOptions,
@@ -54,15 +54,6 @@ async function generateRandomContainerName(): Promise<string> {
   const { randomUUID } = await import("node:crypto");
   const id = randomUUID().slice(0, 8);
   return `nuanced-lsp-${id}`;
-}
-
-async function generateSharedContainerName(workspace: string): Promise<string> {
-  const { createHash } = await import("node:crypto");
-  const { resolve } = await import("node:path");
-  const absolutePath = resolve(workspace);
-  const hash = createHash("sha256").update(absolutePath).digest("hex");
-  const shortHash = hash.slice(0, 12);
-  return `nuanced-lsp-${shortHash}`;
 }
 
 // Lazy-load client (avoids startup cost if user only runs --help, etc.)
@@ -268,31 +259,30 @@ async function upCommand(
 }
 
 async function serverCommand(
-  workspace: string,
+  workspace: string | undefined,
   opts: ServerCommandOptions,
 ): Promise<void> {
-  let containerName: string;
-  if (opts.shared) {
-    containerName = await generateSharedContainerName(workspace);
-  } else {
-    containerName = await generateRandomContainerName();
+  // Validate that exactly one of workspace or containerName is provided
+  if (
+    (opts.containerName && workspace) ||
+    (!opts.containerName && !workspace)
+  ) {
+    log.err(
+      "Must specify either workspace or --container-name. Provide a workspace to start a new container, or --container-name to use an existing one.",
+    );
+    process.exit(1);
   }
 
   const client = await lspClient({
-    containerName,
     ...opts,
-    lspPort: opts.hostPort,
+    containerName: opts.containerName ?? (await generateRandomContainerName()),
+    lspPort: opts.hostPort ?? 0,
   });
-
-  if (opts.shared && opts.sharedMode === "down") {
-    await client.down();
-    return;
-  }
 
   try {
     // Run the LSP server stdio loop
     const { runLspServer } = await import("./server.js");
-    await runLspServer(client, workspace, opts, process.stdin, process.stdout);
+    await runLspServer(client, workspace!, opts, process.stdin, process.stdout);
   } catch {
     // Fatal errors are already logged via window/logMessage
     process.exitCode = 1;
@@ -737,10 +727,17 @@ program
       "Start a stdio LSP server that forwards requests to the Nuanced LSP container.",
     ),
   )
-  .argument("<workspace>", "Host workspace directory to mount")
+  .argument(
+    "[workspace]",
+    "Host workspace directory to mount (required when starting a new container, omit when using --container-name)",
+  )
+  .option(
+    "--container-name <name>",
+    "Name of an already running container to use. When specified, workspace argument must be omitted.",
+  )
   .option(
     "--host-port <n>",
-    `Host port to map to ${DEFAULT_HOST_PORT}. Note: Use port 0 for a dynamically assigned host port from Docker.`,
+    `Host port to map to ${DEFAULT_HOST_PORT} (default: port 0 for a dynamically assigned host port from Docker).`,
     (v: string) => parseInt(v, 10),
   )
   .option(
@@ -774,14 +771,6 @@ program
     (v: string, prev: string[] | undefined) => (prev ? prev.concat(v) : [v]),
   )
   .option("--env-file <path>", "Path to an env file")
-  .option("--shared", "Share container across multiple server instances")
-  .addOption(
-    new Option("--shared-mode <mode>", "Mode for shared container").choices([
-      "up",
-      "down",
-      "use",
-    ]),
-  )
   .action(serverCommand);
 
 program

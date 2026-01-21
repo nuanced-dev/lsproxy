@@ -1,4 +1,4 @@
-# Nuanced LSP
+# Nuanced LSP TypeScript Client
 
 This is the TypeScript library and CLI for the Nuanced LSP containerized code navigation service.
 
