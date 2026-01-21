@@ -32,7 +32,7 @@ jobs:
       - name: Validate tag version
         id: version
         run: |
-          TAG_VERSION="${GITHUB_REF#refs/tags/typescript-client-v}"
+          TAG_VERSION="${GITHUB_REF#refs/tags/morphcloud-client-v}"
           PACKAGE_VERSION=$(node -p "require('./package.json').version")
 
           echo "Tag version: $TAG_VERSION"
@@ -47,7 +47,6 @@ jobs:
           echo "VERSION=$PACKAGE_VERSION" >> $GITHUB_OUTPUT
 
       - name: Install dependencies
-        working-directory: clients/typescript
         run: npm install
 
       - name: Build
@@ -59,8 +58,8 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: typescript-client-v${{ steps.version.outputs.VERSION }}
-          name: TypeScript Client v${{ steps.version.outputs.VERSION }}
+          tag_name: morphcloud-client-v${{ steps.version.outputs.VERSION }}
+          name: Morph Cloud Client v${{ steps.version.outputs.VERSION }}
           body: |
             Published package [@nuanced-dev/lsp-morphcloud](https://www.npmjs.com/package/@nuanced-dev/lsp-morphcloud) to NPM.
 
