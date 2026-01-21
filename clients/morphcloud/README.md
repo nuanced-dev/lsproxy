@@ -17,6 +17,7 @@ _Note that this client is experimental and not considered stable!_
 **Future possibilities:**
 
 - Use instances from other branches of the same repo to improve cold start time. For example, if an instance is available for the main branch, feature branches could start from that and reuse existing state as much as possible.
+- Support creating multiple, named, service snapshots with different resource or languages preloaded.
 
 ## Requirements
 

@@ -16,7 +16,7 @@ service
   .description("Create service snapshot")
   .action(async () => {
     const { serviceCreate: serviceSetup } =
-      await import("./commands/service-create");
+      await import("./commands/service-create.js");
     serviceSetup().catch(console.error);
   });
 
@@ -24,7 +24,7 @@ service
   .command("status")
   .description("Show service status")
   .action(async () => {
-    const { serviceStatus } = await import("./commands/service-status");
+    const { serviceStatus } = await import("./commands/service-status.js");
     serviceStatus().catch(console.error);
   });
 
@@ -32,7 +32,7 @@ service
   .command("delete")
   .description("Delete service snapshot")
   .action(async () => {
-    const { serviceDelete } = await import("./commands/service-delete");
+    const { serviceDelete } = await import("./commands/service-delete.js");
     serviceDelete().catch(console.error);
   });
 
@@ -46,7 +46,7 @@ workspace
   .argument("<directory>", "Workspace directory")
   .action(async (directory: string) => {
     const { workspaceServer: workspaceLsp } =
-      await import("./commands/workspace-server");
+      await import("./commands/workspace-server.js");
     workspaceLsp(directory).catch(console.error);
   });
 
@@ -55,7 +55,7 @@ workspace
   .description("Show workspace status")
   .argument("<directory>", "Workspace directory")
   .action(async (directory: string) => {
-    const { workspaceStatus } = await import("./commands/workspace-status");
+    const { workspaceStatus } = await import("./commands/workspace-status.js");
     workspaceStatus(directory).catch(console.error);
   });
 
@@ -65,7 +65,7 @@ workspace
   .argument("<directory>", "Workspace directory")
   .action(async (directory: string) => {
     const { workspaceDelete: workspaceStop } =
-      await import("./commands/workspace-delete");
+      await import("./commands/workspace-delete.js");
     workspaceStop(directory).catch(console.error);
   });
 

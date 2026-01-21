@@ -17,6 +17,7 @@
     "declaration": true,
     "declarationMap": true,
     "emitDeclarationOnly": false,
+
     "types": ["node"]
   },
   "include": ["src/**/*"]

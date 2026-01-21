@@ -2,8 +2,12 @@ import { Instance, MorphCloudClient } from "morphcloud";
 import {
   LABEL_NUANCED_LSP_ROLE,
   NUANCED_LSP_ROLE_SERVICE,
-} from "../util/constants";
-import { execOrThrow, findSnapshot, startInstance } from "../util/morphcloud";
+} from "../util/constants.js";
+import {
+  execOrThrow,
+  findSnapshot,
+  startInstance,
+} from "../util/morphcloud.js";
 
 const VCPU_COUNT = 2;
 const MEM_SIZE_MB = 16384;

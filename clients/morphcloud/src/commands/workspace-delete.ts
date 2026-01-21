@@ -6,9 +6,9 @@ import {
   LABEL_NUANCED_LSP_WORKSPACE_PATH,
   LABEL_NUANCED_LSP_WORKSPACE_MACHINE_ID,
   NUANCED_LSP_ROLE_WORKSPACE,
-} from "../util/constants";
-import { findInstance } from "../util/morphcloud";
-import { MutagenClient } from "../util/mutagen";
+} from "../util/constants.js";
+import { findInstance } from "../util/morphcloud.js";
+import { MutagenClient } from "../util/mutagen.js";
 
 const MACHINE_ID = machineIdSync();
 

@@ -2,8 +2,8 @@ import { MorphCloudClient } from "morphcloud";
 import {
   LABEL_NUANCED_LSP_ROLE,
   NUANCED_LSP_ROLE_SERVICE,
-} from "../util/constants";
-import { findSnapshot } from "../util/morphcloud";
+} from "../util/constants.js";
+import { findSnapshot } from "../util/morphcloud.js";
 
 export async function serviceDelete() {
   const client = new MorphCloudClient();

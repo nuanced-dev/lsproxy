@@ -1,4 +1,5 @@
 import { realpathSync } from "fs";
+import { hostname } from "os";
 import { Instance, MorphCloudClient } from "morphcloud";
 import { machineIdSync } from "node-machine-id";
 import {
@@ -7,17 +8,18 @@ import {
   LABEL_NUANCED_LSP_ROLE,
   LABEL_NUANCED_LSP_WORKSPACE_PATH,
   LABEL_NUANCED_LSP_WORKSPACE_MACHINE_ID,
-} from "../util/constants";
+  LABEL_NUANCED_LSP_WORKSPACE_HOSTNAME,
+} from "../util/constants.js";
 import {
   findSnapshot,
   startInstance,
   findInstance,
   execOrThrow,
-} from "../util/morphcloud";
-import { MutagenClient } from "../util/mutagen";
-import { sshExec } from "../util/ssh";
-import { getWorkspaceProcessRcPath } from "../util/config";
-import { ProcessRc } from "../util/process-rc";
+} from "../util/morphcloud.js";
+import { MutagenClient } from "../util/mutagen.js";
+import { sshExec } from "../util/ssh.js";
+import { getWorkspaceProcessRcPath } from "../util/config.js";
+import { ProcessRc } from "../util/process-rc.js";
 
 const MACHINE_ID = machineIdSync();
 
@@ -92,6 +94,7 @@ export async function workspaceServer(workspaceDir: string) {
     [LABEL_NUANCED_LSP_ROLE]: NUANCED_LSP_ROLE_WORKSPACE,
     [LABEL_NUANCED_LSP_WORKSPACE_PATH]: workspaceRealDir,
     [LABEL_NUANCED_LSP_WORKSPACE_MACHINE_ID]: MACHINE_ID,
+    [LABEL_NUANCED_LSP_WORKSPACE_HOSTNAME]: hostname(),
   };
 
   const processRcPath = await getWorkspaceProcessRcPath(workspaceRealDir);

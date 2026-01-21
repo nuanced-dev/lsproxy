@@ -6,8 +6,8 @@ import {
   LABEL_NUANCED_LSP_WORKSPACE_PATH,
   LABEL_NUANCED_LSP_WORKSPACE_MACHINE_ID,
   NUANCED_LSP_ROLE_WORKSPACE,
-} from "../util/constants";
-import { findInstance } from "../util/morphcloud";
+} from "../util/constants.js";
+import { findInstance } from "../util/morphcloud.js";
 
 const MACHINE_ID = machineIdSync();
 

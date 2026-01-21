@@ -3,8 +3,8 @@ import { platform, arch } from "os";
 import { mkdir } from "fs/promises";
 import { Instance } from "morphcloud";
 import { spawn } from "child-process-promise";
-import { ensureConfigDirectory } from "./config";
-import { getSshConfig, removeSshConfig } from "./ssh";
+import { ensureConfigDirectory } from "./config.js";
+import { getSshConfig, removeSshConfig } from "./ssh.js";
 
 const MISSING_SESSION_ERROR = "unable to locate requested session";
 

@@ -4,7 +4,7 @@ import stream from "stream";
 import { Instance } from "morphcloud";
 import { NodeSSH } from "node-ssh";
 import { ClientChannel } from "ssh2";
-import { ensureInstanceConfigDirectory } from "./config";
+import { ensureInstanceConfigDirectory } from "./config.js";
 
 const MORPH_SSH_HOST = "ssh.cloud.morph.so";
 
