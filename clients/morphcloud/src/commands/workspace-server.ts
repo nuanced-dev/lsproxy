@@ -1,7 +1,6 @@
 import { realpathSync } from "fs";
 import { hostname } from "os";
 import { Instance, MorphCloudClient } from "morphcloud";
-import { machineIdSync } from "node-machine-id";
 import {
   NUANCED_LSP_ROLE_SERVICE,
   NUANCED_LSP_ROLE_WORKSPACE,
@@ -9,6 +8,7 @@ import {
   LABEL_NUANCED_LSP_WORKSPACE_PATH,
   LABEL_NUANCED_LSP_WORKSPACE_MACHINE_ID,
   LABEL_NUANCED_LSP_WORKSPACE_HOSTNAME,
+  MACHINE_ID,
 } from "../util/constants.js";
 import {
   findSnapshot,
@@ -20,8 +20,6 @@ import { MutagenClient } from "../util/mutagen.js";
 import { sshExec } from "../util/ssh.js";
 import { getWorkspaceProcessRcPath } from "../util/config.js";
 import { ProcessRc } from "../util/process-rc.js";
-
-const MACHINE_ID = machineIdSync();
 
 async function ensureWorkspaceInstance(
   client: MorphCloudClient,

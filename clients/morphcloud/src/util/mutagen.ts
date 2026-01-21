@@ -124,7 +124,7 @@ function getMutagenBinaryPath(): string {
   const platformArch = `${platform()}_${arch()}`;
   const binaryName = platform() === "win32" ? "mutagen.exe" : "mutagen";
   const binPath = join(
-    __dirname,
+    import.meta.dirname,
     "..",
     "..",
     "bin",

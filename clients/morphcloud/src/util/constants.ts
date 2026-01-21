@@ -1,3 +1,7 @@
+import nodeMachineId from "node-machine-id";
+
+export const MACHINE_ID = nodeMachineId.machineIdSync();
+
 export const LABEL_NUANCED_LSP_ROLE = "nuanced-lsp.role";
 export const NUANCED_LSP_ROLE_SERVICE = "service";
 export const NUANCED_LSP_ROLE_WORKSPACE = "workspace";

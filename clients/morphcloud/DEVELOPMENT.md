@@ -35,6 +35,23 @@ Run the CLI from source:
 npm run dev
 ```
 
+## Mutagen
+
+This project uses Mutagen for file syncing. It uses an isolated configuration so it does not interfere with other uses of Mutagen on the system.
+
+To run `mutagen` with the right configuration to see the file syncs created by this project, run:
+
+```bash
+scripts/mutagen.sh
+```
+
+We use a [modified](https://github.com/nuanced-dev/mutagen/tree/hendrikvanantwerpen/custom-ssh-config) Mutagen version. The binaries are shipped as part of the NPM package.
+
+If these need changing:
+
+- Run `go run scripts/build.go --mode=release-slim` in a Mutagen checkout
+- Run `scripts/updarte-mutagen-assets.sh /path/to/mutagen/checkout`
+
 ## Release
 
 Follow these steps to release a new version:

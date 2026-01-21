@@ -6,13 +6,14 @@ _Note that this client is experimental and not considered stable!_
 
 **Current features:**
 
-- Run Nuanced LSP instances for a workspace remotely in the Morph Cloud
-- Sync files from the local workspace to the remote instance
-- Resume a previous LSP instance for the same workspace for fast startup
+- Run Nuanced LSP instances for a workspace remotely in the Morph Cloud.
+- Sync files from the local workspace to the remote instance.
+- Resume a previous LSP instance for the same workspace for fast startup.
 
 **Known issues:**
 
-- File syncs are sometimes not properly resumed, in which case the workspace instance needs to be recreated
+- File syncs are sometimes not properly resumed, in which case the workspace instance needs to be recreated.
+- Morph Cloud retains snapshots for instances that have been deleted. These snapshots do not inherit the metadata of the instance and we currently cannot clean them up.
 
 **Future possibilities:**
 

@@ -47,6 +47,7 @@ export async function serviceCreate() {
     console.log(`Started service instance: ${serviceInstance.id}`);
 
     console.log("Installing packages...");
+
     console.log("- Installing system commands...");
     await execOrThrow(
       serviceInstance,
@@ -79,6 +80,12 @@ export async function serviceCreate() {
       verbose: VERBOSE,
       prefix: "  | ",
     });
+    const nuancedVersion = await execOrThrow(
+      serviceInstance,
+      "nuanced-lsp --version",
+    );
+    console.log(`  Installed ${nuancedVersion.trim()}`);
+
     console.log("Installed packages");
 
     console.log("Pulling service images...");
