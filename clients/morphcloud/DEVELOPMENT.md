@@ -34,3 +34,23 @@ Run the CLI from source:
 ```bash
 npm run dev
 ```
+
+## Release
+
+Follow these steps to release a new version:
+
+1. Open a branch for the new release.
+
+1. Update the package version in `package.json` to the desired new version.
+
+1. Update the [changelog](CHANGELOG.md) to include an entry for the new version.
+
+1. Run the release script:
+
+   ```bash
+   scripts/release.sh
+   ```
+
+   The release script pushes a tag to GitHub that will trigger the release workflow. The release workflow publishes the NPM package and creates a GitHub release for the new version.
+
+1. If releases are successful, merge the release branch.

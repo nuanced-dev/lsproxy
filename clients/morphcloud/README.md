@@ -1,6 +1,8 @@
 # Nuanced LSP Morph Cloud Client
 
-This is an **experimental** client to run Nuanced LSP remotely on [Morph Cloud](https://cloud.morph.so).
+This is a client to run Nuanced LSP remotely on [Morph Cloud](https://cloud.morph.so).
+
+_Note that this client is experimental and not considered stable!_
 
 **Current features:**
 
