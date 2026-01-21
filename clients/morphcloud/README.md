@@ -4,11 +4,17 @@ This is an **experimental** client to run Nuanced LSP remotely on [Morph Cloud](
 
 **Current features:**
 
-- TBD
+- Run Nuanced LSP instances for a workspace remotely in the Morph Cloud
+- Sync files from the local workspace to the remote instance
+- Resume a previous LSP instance for the same workspace for fast startup
 
-**Open issues:**
+**Known issues:**
 
-- TBD
+- File syncs are sometimes not properly resumed, in which case the workspace instance needs to be recreated
+
+**Future possibilities:**
+
+- Use instances from other branches of the same repo to improve cold start time. For example, if an instance is available for the main branch, feature branches could start from that and reuse existing state as much as possible.
 
 ## Requirements
 
@@ -17,7 +23,47 @@ This is an **experimental** client to run Nuanced LSP remotely on [Morph Cloud](
 
 ## Quick start
 
-TBD
+**Create the service snapshot:**
+
+```bash
+nuanced-lsp-morphcloud service create
+```
+
+This creates the base snapshot from which the workspace instances are spawned.
+
+**Check service status:**
+
+```bash
+nuanced-lsp-morphcloud service status
+```
+
+**Delete service snapshot:**
+
+```bash
+nuanced-lsp-morphcloud service delete
+```
+
+This can be useful if you want to recreate the service snapshot. The old snapshot must be removed first.
+
+**Start a remove LSP server for a workspace:**
+
+```bash
+nuanced-lsp-morphcloud workspace server /path/to/workspace
+```
+
+**Check workspace status:**
+
+```bash
+nuanced-lsp-morphcloud workspace status /path/to/workspace
+```
+
+**Remove a workspace status:**
+
+```bash
+nuanced-lsp-morphcloud workspace delete /path/to/workspace
+```
+
+This can be useful if you want to recreate the workspace instance.
 
 ## License
 
