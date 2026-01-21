@@ -48,12 +48,8 @@ class LspServer {
   async run(): Promise<void> {
     try {
       await this.startServer();
-      if (this.opts.shared && this.opts.sharedMode === "up") {
-        await this.sendLogMessage(MessageType.Info, "Nuanced LSP started");
-        return;
-      }
-      this.setupSignalHandlers();
       await this.sendLogMessage(MessageType.Info, "Nuanced LSP started");
+      this.setupSignalHandlers();
       await this.processMessages();
     } catch (err) {
       await this.sendLogMessage(
@@ -63,33 +59,13 @@ class LspServer {
       throw err;
     } finally {
       await this.stopServer();
-      if (!this.opts.shared) {
-        await this.sendLogMessage(MessageType.Info, "Nuanced LSP stopped");
-      } else {
-        await this.sendLogMessage(
-          MessageType.Info,
-          "Nuanced LSP disconnected (shared container left running)",
-        );
-      }
+      await this.sendLogMessage(MessageType.Info, "Nuanced LSP stopped");
       process.exit(0);
     }
   }
 
   private async startServer(): Promise<void> {
-    let mustStartServer = true;
-
-    if (this.opts.shared) {
-      const statusRes = await this.client.status();
-      if (statusRes.ok) {
-        await this.sendLogMessage(
-          MessageType.Info,
-          `Using existing shared container '${this.client.containerName}'`,
-        );
-        mustStartServer = false;
-      }
-    }
-
-    if (mustStartServer) {
+    if (!this.opts.containerName) {
       const res = await this.client.up(this.workspace, {
         containerRegistry: this.opts.containerRegistry,
         languageImageVersion: this.opts.languageImageVersion,
@@ -206,7 +182,7 @@ class LspServer {
       this.ws = null;
     }
 
-    if (!this.opts.shared) {
+    if (!this.opts.containerName) {
       await this.client.down();
     }
   }

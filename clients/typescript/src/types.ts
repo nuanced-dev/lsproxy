@@ -487,6 +487,7 @@ export type FindReferencesOptions = Named<
 >;
 
 export const ServerCommandOptionsSchema = BaseCommandOptionsSchema.extend({
+  containerName: z.string().optional(),
   hostPort: z.number().int().min(0).optional(),
   containerRegistry: z.string().optional(),
   languageImageVersion: z.string().optional(),
@@ -498,10 +499,6 @@ export const ServerCommandOptionsSchema = BaseCommandOptionsSchema.extend({
   debug: z.boolean().optional(),
   env: z.array(z.string()).optional(),
   envFile: z.string().optional(),
-  shared: z.boolean().optional(),
-  sharedMode: z
-    .union([z.literal("up"), z.literal("down"), z.literal("use")])
-    .optional(),
 });
 export type ServerCommandOptions = Named<
   typeof ServerCommandOptionsSchema,
