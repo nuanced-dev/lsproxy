@@ -47,7 +47,6 @@ jobs:
           echo "VERSION=$PACKAGE_VERSION" >> $GITHUB_OUTPUT
 
       - name: Install dependencies
-        working-directory: clients/typescript
         run: npm install
 
       - name: Build

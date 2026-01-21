@@ -1,6 +1,6 @@
 import { join } from "path";
 import { platform, arch } from "os";
-import { mkdir } from "fs/promises";
+import { mkdir, access } from "fs/promises";
 import { Instance } from "morphcloud";
 import { spawn } from "child-process-promise";
 import { ensureConfigDirectory } from "./config.js";
@@ -104,7 +104,7 @@ export class MutagenClient {
     const mutagenDataDir = join(await ensureConfigDirectory(), "mutagen");
     await mkdir(mutagenDataDir, { recursive: true });
 
-    const spawnCommand = getMutagenBinaryPath();
+    const spawnCommand = await getMutagenBinaryPath();
     const spawnArgs = [...args];
     const spawnEnv = {
       ...opts?.env,
@@ -120,7 +120,7 @@ export class MutagenClient {
   }
 }
 
-function getMutagenBinaryPath(): string {
+async function getMutagenBinaryPath(): Promise<string> {
   const platformArch = `${platform()}_${arch()}`;
   const binaryName = platform() === "win32" ? "mutagen.exe" : "mutagen";
   const binPath = join(
@@ -132,6 +132,14 @@ function getMutagenBinaryPath(): string {
     platformArch,
     binaryName,
   );
+
+  try {
+    await access(binPath);
+  } catch {
+    throw new Error(
+      `Mutagen not supported for platform ${platform()} and architecture ${arch()}. Missing ${binPath}.`,
+    );
+  }
 
   return binPath;
 }
