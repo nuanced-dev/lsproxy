@@ -20,6 +20,7 @@ See [architecture](docs/architecture.md) documentation for more details.
 
 | Path              | Description                                                       |
 |-------------------|-------------------------------------------------------------------|
+| `clients`         | Clients, each in their own subdirectory                           |
 | `crates/common`   | Shared logic between the proxy and wrapper                        |
 | `crates/proxy`    | Proxy service code                                                |
 | `crates/wrapper`  | Wrapper service code                                              |

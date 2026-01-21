@@ -1,6 +1,6 @@
 # Nuanced LSP VSCode Extension
 
-VSCode extension for Nuanced LSP server providing advanced language features.
+VSCode extension for Nuanced LSP server.
 
 _This is not meant to be a full-featured language plugin! Merely a way to showcase the LSP capabilities and do interactive debugging._
 
@@ -40,3 +40,7 @@ This will create a `.vsix` file that can be installed in VSCode via:
 ```bash
 code --install-extension nuanced-lsp-vscode-0.1.0.vsix
 ```
+
+## License
+
+This work is licensed under the terms of the MIT license. For a copy, see [LICENSE](LICENSE) or <https://opensource.org/licenses/MIT>.

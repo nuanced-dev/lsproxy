@@ -1,8 +1,16 @@
 {
-  "name": "@nuanced-dev/managed-lsp",
-  "description": "",
+  "name": "@nuanced-dev/lsp-morphcloud",
+  "version": "0.1.0",
+  "description": "CLI to run Nuanced LSP on Morphcloud",
+  "license": "MIT",
+  "author": "Nuanced",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nuanced-dev/lsp.git"
+  },
+  "type": "module",
   "bin": {
-    "nuanced-lsp-managed": "dist/cli.js"
+    "nuanced-lsp-morphcloud": "dist/cli.js"
   },
   "files": [
     "bin",
@@ -11,14 +19,18 @@
   "scripts": {
     "build": "tsc && chmod +x dist/cli.js",
     "clean": "rm -rf dist",
+    "dev": "tsx src/cli.ts",
     "lint": "eslint",
-    "lint:fix": "eslint --fix",
-    "run": "tsx src/cli.ts"
+    "lint:fix": "eslint --fix"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
+  "dependencies": {
+    "child-process-promise": "^2.2.1",
+    "commander": "^14.0.2",
+    "node-machine-id": "^1.1.12",
+    "node-ssh": "^13.2.1",
+    "proper-lockfile": "^4.1.2",
+    "ssh2": "^1.17.0"
+  },
   "devDependencies": {
     "@eslint/js": "^9.37.0",
     "@stylistic/eslint-plugin": "^5.4.0",
@@ -39,13 +51,10 @@
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.45.0"
   },
-  "dependencies": {
-    "child-process-promise": "^2.2.1",
-    "commander": "^14.0.2",
-    "node-machine-id": "^1.1.12",
-    "node-ssh": "^13.2.1",
-    "proper-lockfile": "^4.1.2",
-    "ssh2": "^1.17.0"
+  "engines": {
+    "node": ">=18"
   },
-  "version": "0.3.19"
+  "publishConfig": {
+    "access": "public"
+  }
 }
