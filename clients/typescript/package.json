@@ -1,6 +1,6 @@
 {
   "name": "@nuanced-dev/lsp",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "description": "TypeScript library and CLI for Nuanced LSP",
   "license": "MIT",
   "author": "Nuanced",

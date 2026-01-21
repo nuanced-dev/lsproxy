@@ -21,7 +21,7 @@ enum MessageType {
 
 class LspServer {
   private readonly client: NuancedLspClient;
-  private readonly workspace: string;
+  private readonly workspace: string | undefined;
   private readonly opts: ServerCommandOptions;
   private readonly input: Readable;
   private readonly output: Writable;
@@ -32,7 +32,7 @@ class LspServer {
 
   constructor(
     client: NuancedLspClient,
-    workspace: string,
+    workspace: string | undefined,
     opts: ServerCommandOptions,
     input: Readable,
     output: Writable,
@@ -66,6 +66,12 @@ class LspServer {
 
   private async startServer(): Promise<void> {
     if (!this.opts.containerName) {
+      if (!this.workspace) {
+        throw new Error(
+          "Workspace is required when not using an existing container",
+        );
+      }
+
       const res = await this.client.up(this.workspace, {
         containerRegistry: this.opts.containerRegistry,
         languageImageVersion: this.opts.languageImageVersion,
@@ -303,7 +309,7 @@ class LspServer {
  */
 export async function runLspServer(
   client: NuancedLspClient,
-  workspace: string,
+  workspace: string | undefined,
   opts: ServerCommandOptions,
   input: Readable = process.stdin,
   output: Writable = process.stdout,

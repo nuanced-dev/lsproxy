@@ -259,9 +259,20 @@ async function upCommand(
 }
 
 async function serverCommand(
-  workspace: string,
+  workspace: string | undefined,
   opts: ServerCommandOptions,
 ): Promise<void> {
+  // Validate that exactly one of workspace or containerName is provided
+  if (
+    (opts.containerName && workspace) ||
+    (!opts.containerName && !workspace)
+  ) {
+    log.err(
+      "Must specify either workspace or --container-name. Provide a workspace to start a new container, or --container-name to use an existing one.",
+    );
+    process.exit(1);
+  }
+
   const client = await lspClient({
     ...opts,
     containerName: opts.containerName ?? (await generateRandomContainerName()),
@@ -271,7 +282,7 @@ async function serverCommand(
   try {
     // Run the LSP server stdio loop
     const { runLspServer } = await import("./server.js");
-    await runLspServer(client, workspace, opts, process.stdin, process.stdout);
+    await runLspServer(client, workspace!, opts, process.stdin, process.stdout);
   } catch {
     // Fatal errors are already logged via window/logMessage
     process.exitCode = 1;
@@ -716,10 +727,13 @@ program
       "Start a stdio LSP server that forwards requests to the Nuanced LSP container.",
     ),
   )
-  .argument("<workspace>", "Host workspace directory to mount")
+  .argument(
+    "[workspace]",
+    "Host workspace directory to mount (required when starting a new container, omit when using --container-name)",
+  )
   .option(
     "--container-name <name>",
-    "Name of an already running container to use (default: start new container with random name).",
+    "Name of an already running container to use. When specified, workspace argument must be omitted.",
   )
   .option(
     "--host-port <n>",
