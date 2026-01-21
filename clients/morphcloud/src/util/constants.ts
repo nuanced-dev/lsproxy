@@ -1,18 +1,10 @@
-export const SOURCE_ARCHIVE = "nuanced-lsp-src.zip";
-export const SOURCE_DIR = "nuanced-lsp-src";
+export const LABEL_NUANCED_LSP_ROLE = "nuanced-lsp.role";
 
-export const BASE_DIGEST = "nuanced-lsp-base";
-export const BUILDER_DIGEST = "nuanced-lsp-builder";
-export const SOURCE_DIGEST = "nuanced-lsp-source";
-export const SERVICE_DIGEST = "nuanced-lsp-service";
+export const NUANCED_LSP_ROLE_SERVICE = "service";
 
-export const LABEL_NUANCED_ROLE = "nuanced.role";
+export const NUANCED_LSP_ROLE_WORKSPACE = "workspace";
 
-export const NUANCED_ROLE_BASE = "base";
-export const NUANCED_ROLE_BUILDER = "builder";
-export const NUANCED_ROLE_SOURCE = "source";
-export const NUANCED_ROLE_SERVICE = "service";
+export const LABEL_NUANCED_LSP_WORKSPACE_PATH = "nuanced-lsp.workspace.path";
 
-export const NUANCED_ROLE_WORKSPACE = "workspace";
-
-export const LABEL_NUANCED_WORKSPACE_DIGEST = "nuanced.workspace.digest";
+export const LABEL_NUANCED_LSP_WORKSPACE_MACHINE_ID =
+  "nuanced-lsp.workspace.machine_id";

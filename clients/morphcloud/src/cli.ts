@@ -12,10 +12,11 @@ program
 const service = program.command("service").description("Service management");
 
 service
-  .command("setup")
-  .description("Set up service snapshots")
+  .command("create")
+  .description("Create service snapshot")
   .action(async () => {
-    const { serviceSetup } = await import("./commands/service-setup");
+    const { serviceCreate: serviceSetup } =
+      await import("./commands/service-create");
     serviceSetup().catch(console.error);
   });
 
@@ -27,16 +28,25 @@ service
     serviceStatus().catch(console.error);
   });
 
+service
+  .command("delete")
+  .description("Delete service snapshot")
+  .action(async () => {
+    const { serviceDelete } = await import("./commands/service-delete");
+    serviceDelete().catch(console.error);
+  });
+
 const workspace = program
   .command("workspace")
   .description("Workspace management");
 
 workspace
-  .command("lsp")
+  .command("server")
   .description("Run LSP server for a workspace")
   .argument("<directory>", "Workspace directory")
   .action(async (directory: string) => {
-    const { workspaceLsp } = await import("./commands/workspace-lsp");
+    const { workspaceServer: workspaceLsp } =
+      await import("./commands/workspace-server");
     workspaceLsp(directory).catch(console.error);
   });
 
@@ -50,11 +60,12 @@ workspace
   });
 
 workspace
-  .command("stop")
-  .description("Stop a workspace")
+  .command("delete")
+  .description("Delete a workspace")
   .argument("<directory>", "Workspace directory")
   .action(async (directory: string) => {
-    const { workspaceStop } = await import("./commands/workspace-stop");
+    const { workspaceDelete: workspaceStop } =
+      await import("./commands/workspace-delete");
     workspaceStop(directory).catch(console.error);
   });
 

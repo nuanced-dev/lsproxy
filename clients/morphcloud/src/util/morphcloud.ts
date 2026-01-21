@@ -9,15 +9,17 @@ import {
   Snapshot,
 } from "morphcloud";
 
-export async function findSnapshotByDigest(
+export async function findSnapshot(
   client: MorphCloudClient,
-  digest: string,
+  opts?: {
+    metadata?: Record<string, string>;
+  },
 ): Promise<Snapshot | undefined> {
-  const snapshots = await client.snapshots.list({
-    digest,
-  });
-  const snapshot = snapshots[0];
-  return snapshot;
+  const snapshots = await client.snapshots.list(opts);
+  if (snapshots.length > 1) {
+    throw new Error("Multiple matching snapshots");
+  }
+  return snapshots[0];
 }
 
 export async function bootInstance(

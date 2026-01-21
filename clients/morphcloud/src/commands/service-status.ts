@@ -1,15 +1,12 @@
 import { MorphCloudClient } from "morphcloud";
 import {
-  SERVICE_DIGEST,
-  BUILDER_DIGEST,
-  LABEL_NUANCED_ROLE,
-  LABEL_NUANCED_WORKSPACE_DIGEST,
-  BASE_DIGEST,
-  NUANCED_ROLE_WORKSPACE,
-  SOURCE_DIGEST,
+  LABEL_NUANCED_LSP_ROLE,
+  LABEL_NUANCED_LSP_WORKSPACE_PATH,
+  NUANCED_LSP_ROLE_SERVICE,
+  NUANCED_LSP_ROLE_WORKSPACE,
 } from "../util/constants";
 import {
-  findSnapshotByDigest,
+  findSnapshot,
   formatInstanceStatus,
   listInstances,
 } from "../util/morphcloud";
@@ -18,24 +15,19 @@ export async function serviceStatus() {
   const client = new MorphCloudClient();
   try {
     console.log("System snapshots:");
-    for (const digest of [
-      BASE_DIGEST,
-      BUILDER_DIGEST,
-      SOURCE_DIGEST,
-      SERVICE_DIGEST,
-    ]) {
-      const snapshot = await findSnapshotByDigest(client, digest);
-      console.log(
-        `- ${digest.padEnd(20)} : ${snapshot ? snapshot.id : "<missing>"}`,
-      );
-    }
+    const serviceSnapshot = await findSnapshot(client, {
+      metadata: { [LABEL_NUANCED_LSP_ROLE]: NUANCED_LSP_ROLE_SERVICE },
+    });
+    console.log(
+      `- service${" ".repeat(13)} : ${serviceSnapshot ? serviceSnapshot.id : "<missing>"}`,
+    );
     console.log("Workspace instances:");
     for (const instance of await listInstances(client, {
-      metadata: { [LABEL_NUANCED_ROLE]: NUANCED_ROLE_WORKSPACE },
+      metadata: { [LABEL_NUANCED_LSP_ROLE]: NUANCED_LSP_ROLE_WORKSPACE },
     })) {
-      const digest = instance.metadata![LABEL_NUANCED_WORKSPACE_DIGEST]!;
+      const path = instance.metadata![LABEL_NUANCED_LSP_WORKSPACE_PATH]!;
       console.log(
-        `- ${digest.padEnd(20)} : ${instance.id} (${formatInstanceStatus(instance.status)})`,
+        `- ${path.padEnd(20)} : ${instance.id} (${formatInstanceStatus(instance.status)})`,
       );
     }
   } catch (error) {
