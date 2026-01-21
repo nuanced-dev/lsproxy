@@ -1,74 +1,93 @@
 #!/usr/bin/env bash
 
-set -e
+set -eu
 
-# Start Nuanced LSP proxy with container orchestration
-# Usage: ./scripts/start-proxy.sh [workspace_path] [options]
+SCRIPT_DIR="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")" && pwd)"
 
-# Colors
-GREEN='\033[0;32m'
-RED='\033[0;31m'
-BLUE='\033[0;34m'
-YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
+source "$SCRIPT_DIR/include/colors.sh"
+source "$SCRIPT_DIR/include/constants.sh"
+
+usage() {
+    echo "Usage: $0 [--auth] [--foreground] [--language-tag=TAG] [--logs] [--port=PORT] [--registry=REG] [--service-tag=TAG] WORKSPACE_DIR"
+}
+
+help() {
+    echo "Start Nuanced LSP proxy with container orchestration"
+    echo ""
+    echo "Usage: $0 [OPTIONS...] WORKSPACE_DIR"
+    echo ""
+    echo "Options:"
+    echo "  --auth                Enable JWT authentication"
+    echo "  --foreground, -f      Run in foreground (not detached)"
+    echo "  --language-tag=TAG    Tag of language images to use"
+    echo "  --logs, -l            Tail logs after starting"
+    echo "  --port=PORT           Use custom port (default: 4444)"
+    echo "  --registry=REG        Container registry for service images (default: none)"
+    echo "  --service-tag=TAG     Tag images with specified tag (default: $DEFAULT_SERVICE_TAG)"
+    echo "  --help, -h            Show this help"
+    echo ""
+    echo "Examples:"
+    echo "  $0 sample_project/python              # Start with Python workspace"
+    echo "  $0 sample_project/all --logs          # Start and tail logs"
+    echo "  $0 /path/to/workspace --port=5000     # Custom port"
+}
 
 # Default values
-WORKSPACE_PATH="${1:-sample_project/all}"
 USE_AUTH=false
-PORT=4444
 DETACHED=true
+LANGUAGE_TAG=""
 TAIL_LOGS=false
-
-# Use RUST_IMAGE_VERSION from environment, default to "latest"
-RUST_VERSION="${RUST_IMAGE_VERSION:-latest}"
+PORT=4444
+REGISTRY=""
+SERVICE_TAG=""
+WORKSPACE_PATH=
 
 # Parse options
-shift || true
-while [[ $# -gt 0 ]]; do
-    case $1 in
+for arg in "$@"; do
+    case $arg in
         --auth)
             USE_AUTH=true
-            shift
-            ;;
-        --port)
-            PORT="$2"
-            shift 2
             ;;
         --foreground|-f)
             DETACHED=false
-            shift
+            ;;
+        --language-tag=*)
+            LANGUAGE_TAG="${arg#*=}"
             ;;
         --logs|-l)
             TAIL_LOGS=true
-            shift
+            ;;
+        --port=*)
+            PORT="${arg#*=}"
+            ;;
+        --registry=*)
+            REGISTRY="${arg#*=}"
+            ;;
+        --service-tag=*)
+            SERVICE_TAG="${arg#*=}"
             ;;
         --help|-h)
-            echo "Usage: $0 [workspace_path] [options]"
-            echo ""
-            echo "Options:"
-            echo "  --auth              Enable JWT authentication"
-            echo "  --port PORT         Use custom port (default: 4444)"
-            echo "  --foreground, -f    Run in foreground (not detached)"
-            echo "  --logs, -l          Tail logs after starting"
-            echo "  --help, -h          Show this help"
-            echo ""
-            echo "Examples:"
-            echo "  $0                                    # Start with default workspace"
-            echo "  $0 sample_project/python              # Start with Python workspace"
-            echo "  $0 sample_project/all --logs          # Start and tail logs"
-            echo "  $0 /path/to/workspace --port 5000     # Custom port"
+            help
             exit 0
             ;;
-        *)
-            echo -e "${RED}Unknown option: $1${NC}"
+        -*)
+            echo -e "${RED}Unknown option: $arg${NC}"
             exit 1
+            ;;
+        *)
+            WORKSPACE_PATH="$arg"
             ;;
     esac
 done
 
-# Verify workspace exists
+# Verify workspace argument
+if [ -z "$WORKSPACE_PATH" ]; then
+    echo -e "${RED}Error: Workspace directory argument missing${NC}"
+    usage
+    exit 1
+fi
 if [ ! -d "$WORKSPACE_PATH" ]; then
-    echo -e "${RED}Error: Workspace directory not found: $WORKSPACE_PATH${NC}"
+    echo -e "${RED}Error: Workspace directory does not exist: $WORKSPACE_PATH${NC}"
     exit 1
 fi
 
@@ -101,39 +120,52 @@ if docker ps --filter "name=nuanced-lsp-proxy" --format "{{.Names}}" | grep -q "
     fi
 fi
 
-# Build docker run command
-DOCKER_RUN_CMD="docker run"
-
-if [ "$DETACHED" = true ]; then
-    DOCKER_RUN_CMD="$DOCKER_RUN_CMD -d"
-else
-    DOCKER_RUN_CMD="$DOCKER_RUN_CMD -it"
-fi
-
-DOCKER_RUN_CMD="$DOCKER_RUN_CMD \
-    --name nuanced-lsp-proxy \
-    -p ${PORT}:4444 \
-    -v /var/run/docker.sock:/var/run/docker.sock \
-    -v \"${WORKSPACE_PATH}:/mnt/workspace\" \
-    -e RUST_LOG=info,nuanced_lsp_proxy=debug,proxy=debug,nuanced_lsp_wrapper=debug,wrapper=debug \
-    -e WRAPPER_IMAGE=nuanced-lsp-wrapper:${RUST_VERSION} \
-    -e WATCHDOG_IMAGE=nuanced-lsp-watchdog:${RUST_VERSION} \
-    -e NUANCED_LSP_MAX_MEMORY=8192"
-
-if [ "$USE_AUTH" = false ]; then
-    DOCKER_RUN_CMD="$DOCKER_RUN_CMD -e USE_AUTH=false"
-fi
-
-# Pass through ENABLED_LANGUAGES if set
-if [ -n "$ENABLED_LANGUAGES" ]; then
-    DOCKER_RUN_CMD="$DOCKER_RUN_CMD -e ENABLED_LANGUAGES=\"${ENABLED_LANGUAGES}\""
-fi
-
-DOCKER_RUN_CMD="$DOCKER_RUN_CMD nuanced-lsp-proxy:${RUST_VERSION}"
-
 # Start the service
 echo -e "${BLUE}Starting service container...${NC}"
-eval $DOCKER_RUN_CMD
+
+DOCKER_ARGS=(
+    "-v" "/var/run/docker.sock:/var/run/docker.sock"
+    "-v" "${WORKSPACE_PATH}:/mnt/workspace"
+    "-e" "RUST_LOG=info,nuanced_lsp_proxy=debug,proxy=debug,nuanced_lsp_wrapper=debug,wrapper=debug"
+)
+if [ "$DETACHED" = true ]; then
+    DOCKER_ARGS+=("-d")
+else
+    DOCKER_ARGS+=("-it")
+fi
+if [ "$USE_AUTH" = false ]; then
+    DOCKER_ARGS+=("-e" "USE_AUTH=false")
+fi
+# If tags were set via flags, pass them on
+if [ -n "$LANGUAGE_TAG" ]; then
+    DOCKER_ARGS+=("-e" "LANGUAGE_IMAGE_VERSION=${LANGUAGE_TAG}")
+fi
+if [ -n "$SERVICE_TAG" ]; then
+    DOCKER_ARGS+=("-e" "SERVICE_IMAGE_VERSION=${SERVICE_TAG}")
+fi
+if [ -n "$REGISTRY" ]; then
+    DOCKER_ARGS+=("-e" "CONTAINER_REGISTRY=${REGISTRY}")
+fi
+# If images were set in the environment, pass them on
+if [ -n "${WATCHDOG_IMAGE:+x}" ]; then
+    DOCKER_ARGS+=("-e" "WATCHDOG_IMAGE=${WATCHDOG_IMAGE}")
+fi
+if [ -n "${WRAPPER_IMAGE:+x}" ]; then
+    DOCKER_ARGS+=("-e" "WRAPPER_IMAGE=${WRAPPER_IMAGE}")
+fi
+# If languages were set in the environment, pass them on
+if [ -n "${ENABLED_LANGUAGES:+x}" ]; then
+    DOCKER_ARGS+=("-e" "ENABLED_LANGUAGES=${ENABLED_LANGUAGES}")
+fi
+
+PROXY_IMAGE="${REGISTRY:+$REGISTRY/}${PROXY_IMAGE:-nuanced-lsp-proxy:${SERVICE_TAG:-$DEFAULT_SERVICE_TAG}}"
+
+docker run \
+    --name nuanced-lsp-proxy \
+    -p "${PORT}:4444" \
+    -e NUANCED_LSP_MAX_MEMORY=8192 \
+    "${DOCKER_ARGS[@]}" \
+    "$PROXY_IMAGE"
 
 if [ "$DETACHED" = true ]; then
     echo -e "${GREEN}✓ Service container started${NC}"
@@ -194,7 +226,6 @@ if [ "$DETACHED" = true ]; then
     echo -e "  View logs:        docker logs -f nuanced-lsp-proxy"
     echo -e "  Stop service:     docker rm -f nuanced-lsp-proxy"
     echo -e "  Test health:      curl http://localhost:${PORT}/v1/system/health | jq"
-    echo -e "  Run tests:        ./scripts/test-all-endpoints.sh"
     echo
 
     # Tail logs if requested

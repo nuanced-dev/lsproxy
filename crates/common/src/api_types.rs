@@ -58,7 +58,7 @@ pub struct HealthResponse {
     pub status: String,
     /// Version of the service
     pub version: String,
-    /// Map of supported languages and whether they are currently available
+    /// Map of supported languages and whether they are currently available (healthy)
     pub languages: HashMap<SupportedLanguages, bool>,
 }
 
@@ -267,7 +267,7 @@ impl SupportedLanguages {
         "3.4.0", "3.4.1", "3.4.2", "3.4.3", "3.4.4", "3.4.5", "3.4.6", "3.4.7",
     ];
 
-    /// Resolve a Ruby version string to a supported container version
+    /// Resolve a Ruby version string to a supported image version
     ///
     /// Strategy:
     /// 1. Supported versions (last 1 year of releases) are used as-is
@@ -783,8 +783,6 @@ pub struct FindReferencedSymbolsResponse {
     pub not_found: Vec<Identifier>,
 }
 
-pub type SymbolResponse = Vec<Symbol>;
-
 impl From<Location> for FilePosition {
     fn from(location: Location) -> Self {
         FilePosition {
@@ -843,6 +841,11 @@ pub struct ReadSourceCodeRequest {
     pub path: String,
     /// Optional range within the file to read
     pub range: Option<Range>,
+}
+
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+pub struct ReadSourceCodeResponse {
+    pub source_code: String,
 }
 
 /// Unified JSON-RPC message

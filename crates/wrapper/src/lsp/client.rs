@@ -18,10 +18,25 @@ use common::utils::workspace_documents::{
     DidOpenConfiguration, WorkspaceDocuments, WorkspaceDocumentsHandler,
 };
 
-use super::PendingRequests;
 use crate::lsp::json_rpc::JsonRpc;
 use crate::lsp::process::Process;
-use crate::lsp::{ExpectedMessageKey, JsonRpcHandler, ProcessHandler};
+use crate::lsp::{ExpectedMessageKey, JsonRpcHandler, PendingRequests, ProcessHandler};
+
+#[derive(Clone, Debug)]
+pub enum PostInitializeMessage {
+    Request {
+        method: String,
+        params: Option<serde_json::Value>,
+    },
+    Notification {
+        method: String,
+        params: Option<serde_json::Value>,
+    },
+    ExpectNotification {
+        method: String,
+        params: serde_json::Value,
+    },
+}
 
 #[async_trait]
 pub trait LspConfig: Send + Sync {
@@ -30,8 +45,8 @@ pub trait LspConfig: Send + Sync {
         root_path: String,
     ) -> Result<InitializeParams, Box<dyn Error + Send + Sync>>;
 
-    fn get_setup_workspace_method(&self) -> Option<String> {
-        None
+    fn get_post_initialize_messages(&self) -> Vec<PostInitializeMessage> {
+        vec![]
     }
 
     fn get_root_files(&mut self) -> Vec<String> {
@@ -129,6 +144,29 @@ impl LspClient {
         let init_result: InitializeResult = serde_json::from_value(result)?;
         debug!("Initialization successful: {:?}", init_result);
         self.send_initialized().await?;
+
+        for message in self.config.get_post_initialize_messages() {
+            match message {
+                PostInitializeMessage::Request { method, params } => {
+                    debug!("Post-init: calling request method: {}", method);
+                    self.send_request(&method, params).await?;
+                }
+                PostInitializeMessage::Notification { method, params } => {
+                    debug!("Post-init: sending notification: {}", method);
+                    self.send_notification(&method, params).await?;
+                }
+                PostInitializeMessage::ExpectNotification { method, params } => {
+                    debug!("Post-init: waiting for notification: {}", method);
+                    let mut notification_rx = self
+                        .expect_notification(ExpectedMessageKey { method, params })
+                        .await?;
+                    // Wait indefinitely for ServiceReady notification
+                    // The orchestrator health check and CLI timeout control overall timing
+                    notification_rx.recv().await?;
+                }
+            }
+        }
+        debug!("Post-init successful");
 
         Ok(init_result)
     }
@@ -425,17 +463,6 @@ impl LspClient {
         &self,
     ) -> tokio::sync::broadcast::Receiver<common::api_types::JsonRpcMessage> {
         self.unexpected_notifications_tx.subscribe()
-    }
-
-    pub async fn setup_workspace(
-        &mut self,
-        _root_path: &str,
-    ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        if let Some(method) = self.config.get_setup_workspace_method() {
-            info!("Calling setup workspace method: {}", method);
-            self.send_request(&method, None).await?;
-        }
-        Ok(())
     }
 
     pub async fn expect_notification(

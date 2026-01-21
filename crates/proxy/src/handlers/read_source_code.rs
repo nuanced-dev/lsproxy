@@ -1,15 +1,9 @@
 use crate::AppState;
 use actix_web::web::{Data, Json};
 use actix_web::HttpResponse;
-use common::api_types::{ErrorResponse, ReadSourceCodeRequest};
+use common::api_types::{ErrorResponse, ReadSourceCodeRequest, ReadSourceCodeResponse};
 use log::{error, info};
-use serde::Serialize;
 use std::path::PathBuf;
-
-#[derive(Serialize)]
-struct ReadSourceResponse {
-    source_code: String,
-}
 
 /// Read source code from a file
 #[utoipa::path(
@@ -18,7 +12,7 @@ struct ReadSourceResponse {
     tag = "file",
     request_body = ReadSourceCodeRequest,
     responses(
-        (status = 200, description = "Source code retrieved successfully"),
+        (status = 200, description = "Source code retrieved successfully", body = ReadSourceCodeResponse),
         (status = 400, description = "Bad request"),
         (status = 500, description = "Internal server error")
     )
@@ -79,9 +73,9 @@ pub async fn read_source_code(
                 let selected_lines = &lines[start_line..end_line];
                 let source_code = selected_lines.join("\n");
 
-                HttpResponse::Ok().json(ReadSourceResponse { source_code })
+                HttpResponse::Ok().json(ReadSourceCodeResponse { source_code })
             } else {
-                HttpResponse::Ok().json(ReadSourceResponse {
+                HttpResponse::Ok().json(ReadSourceCodeResponse {
                     source_code: content,
                 })
             }

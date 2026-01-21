@@ -1,5 +1,13 @@
 {
   "name": "@nuanced-dev/lsp",
+  "version": "0.5.0",
+  "description": "TypeScript library and CLI for Nuanced LSP",
+  "license": "MIT",
+  "author": "Nuanced",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nuanced-dev/lsp.git"
+  },
   "type": "module",
   "bin": {
     "nuanced-lsp": "dist/cli.cjs"
@@ -20,31 +28,27 @@
   ],
   "scripts": {
     "build": "npm run typecheck && npm run build:cli && npm run build:lib && npm run build:cjs",
-    "build:cjs": "script/build-cjs.mjs",
-    "build:cli": "script/build-esbuild.mjs",
+    "build:cjs": "scripts/build-cjs.mjs",
+    "build:cli": "scripts/build-esbuild.mjs",
     "build:lib": "tsc -p tsconfig.build.json",
-    "clean": "rm -rf dist obfuscated nuanced-dev-*.tgz",
+    "clean": "rm -rf dist nuanced-dev-*.tgz",
     "dev": "tsx src/cli.ts",
     "lint": "eslint",
     "lint:fix": "eslint --fix",
-    "obfuscate": "javascript-obfuscator dist --output dist --config obfuscator-config.json",
-    "postbuild": "cp src/languages.json dist/languages.json && chmod +x dist/cli.cjs",
-    "prebuild": "cp config/languages.json src/languages.json && script/generate-version.mjs",
-    "prepublishOnly": "npm run clean && npm run build && npm run obfuscate",
+    "postbuild": "chmod +x dist/cli.cjs",
+    "prebuild": "scripts/generate-version.mjs",
+    "prepublishOnly": "npm run clean && npm run build",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "commander": "^12.1.0",
-    "fastest-levenshtein": "^1.0.16",
-    "micromatch": "^4.0.8",
+    "commander": "^14.0.2",
     "ws": "^8.18.0",
     "zod": "^3.23.8"
   },
   "devDependencies": {
     "@eslint/js": "^9.37.0",
     "@stylistic/eslint-plugin": "^5.4.0",
-    "@types/micromatch": "^4.0.9",
     "@types/node": "^20.19.25",
     "@types/ws": "^8.5.13",
     "esbuild": "^0.25.9",
@@ -53,7 +57,6 @@
     "eslint-import-resolver-typescript": "^4.4.4",
     "eslint-plugin-import": "^2.32.0",
     "eslint-plugin-prettier": "^5.4.1",
-    "javascript-obfuscator": "^4.0.0",
     "tsx": "^4.20.6",
     "typescript": "^5.5.4",
     "typescript-eslint": "^8.45.0",
@@ -62,7 +65,6 @@
   "engines": {
     "node": ">=18"
   },
-  "version": "0.3.19",
   "publishConfig": {
     "access": "public"
   }

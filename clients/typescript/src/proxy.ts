@@ -17,14 +17,13 @@ import {
   DEFAULT_BIND_HOST,
   DEFAULT_CONTAINER_NAME,
   DEFAULT_CONTAINER_PORT,
+  DEFAULT_CONTAINER_REGISTRY,
   DEFAULT_HOST_PORT,
   DEFAULT_MOUNT_DIR,
-  DEFAULT_PROXY_IMAGE,
+  DEFAULT_SERVICE_IMAGE_VERSION,
   DEFAULT_TIMEOUT_SECS,
-  DEFAULT_WATCHDOG_IMAGE,
-  DEFAULT_WRAPPER_IMAGE,
+  PROXY_IMAGE_BASE,
 } from "./defaults.js";
-import { LANGUAGE_IMAGE_VERSION } from "./__generated/version.js";
 
 // Lazy import http module.
 type HttpModule = typeof import("./http.js");
@@ -39,6 +38,38 @@ function dockerCmd(sudo: boolean | undefined, args: string[]) {
   return sudo
     ? { cmd: "sudo", fullArgs: ["docker", ...args] as string[] }
     : { cmd: "docker", fullArgs: args as string[] };
+}
+
+/** Check if a Docker image exists locally */
+function imageExists(image: string, sudo?: boolean): boolean {
+  const r = runDockerCmd(["image", "inspect", image], { sudo });
+  return r.ok;
+}
+
+/**
+ * Find the right Docker image for a given image name:tag string
+ */
+async function findImage(
+  image: string,
+  registry: string,
+  sudo?: boolean,
+  stream?: boolean,
+): Promise<DockerResult<string>> {
+  // Check if local image exists
+  if (imageExists(image, sudo)) {
+    return ok(image);
+  }
+
+  // Build the registry-prefixed image name
+  const registryImage = image.includes("/") ? image : `${registry}/${image}`;
+
+  // Try to pull from registry
+  const pullRes = await pull(registryImage, sudo, stream);
+  if (!pullRes.ok) {
+    return pullRes;
+  }
+
+  return ok(registryImage);
 }
 
 type RunDockerOpts = {
@@ -182,10 +213,9 @@ export async function up(
   opts: {
     hostPort?: number;
     containerName?: string;
-    languageContainerVersion?: string;
-    proxyImage?: string;
-    watchdogImage?: string;
-    wrapperImage?: string;
+    containerRegistry?: string;
+    languageImageVersion?: string;
+    serviceImageVersion?: string;
     timeout?: number;
     sudo?: boolean;
     stream?: boolean;
@@ -198,10 +228,8 @@ export async function up(
 ): Promise<DockerResult<UpResult>> {
   const {
     containerName = DEFAULT_CONTAINER_NAME,
-    languageContainerVersion = LANGUAGE_IMAGE_VERSION,
-    proxyImage: proxyImage = DEFAULT_PROXY_IMAGE,
-    watchdogImage: watchdogImage = DEFAULT_WATCHDOG_IMAGE,
-    wrapperImage: wrapperImage = DEFAULT_WRAPPER_IMAGE,
+    serviceImageVersion = DEFAULT_SERVICE_IMAGE_VERSION,
+    containerRegistry = DEFAULT_CONTAINER_REGISTRY,
     timeout = DEFAULT_TIMEOUT_SECS,
     sudo = false,
     stream = false,
@@ -228,6 +256,18 @@ export async function up(
     : workspace;
   const abs = path.resolve(expanded);
   const mountMode = ro ? "ro" : "rw";
+
+  // Find the proxy image to use
+  const proxyImageResult = await findImage(
+    `${PROXY_IMAGE_BASE}:${serviceImageVersion}`,
+    containerRegistry,
+    sudo,
+    stream,
+  );
+  if (!proxyImageResult.ok) {
+    return proxyImageResult;
+  }
+  const proxyImage = proxyImageResult.data;
 
   const args = [
     "run",
@@ -256,13 +296,16 @@ export async function up(
     "-e",
     `RUST_LOG=info${debug ? ",nuanced_lsp_proxy=debug,proxy=debug,nuanced_lsp_wrapper=debug,wrapper=debug" : ""}`,
     "-e",
-    `WATCHDOG_IMAGE=${watchdogImage}`,
+    `CONTAINER_REGISTRY=${containerRegistry}`,
     "-e",
-    `WRAPPER_IMAGE=${wrapperImage}`,
-    "-e",
-    `LANGUAGE_IMAGE_VERSION=${languageContainerVersion}`,
+    `SERVICE_IMAGE_VERSION=${serviceImageVersion}`,
     // env flags inserted below
   ];
+
+  // Only set LANGUAGE_IMAGE_VERSION if provided
+  if (opts.languageImageVersion) {
+    args.push("-e", `LANGUAGE_IMAGE_VERSION=${opts.languageImageVersion}`);
+  }
 
   // Append env-file if provided
   if (opts.envFile && String(opts.envFile).trim()) {
@@ -630,12 +673,11 @@ export async function status(
 
 /** Pull image. Supports optional streaming. Never throws. */
 export async function pull(
-  image?: string,
+  image: string,
   sudo?: boolean,
   stream?: boolean,
 ): Promise<DockerResult<PullResult>> {
-  const img = image ?? DEFAULT_PROXY_IMAGE;
-  const args = ["pull", img];
+  const args = ["pull", image];
   const r = runDockerCmd(args, { sudo, stream });
   if (!r.ok) {
     return err<DockerErr>({
@@ -645,5 +687,5 @@ export async function pull(
       stderr: r.stderr.trim(),
     });
   }
-  return ok<PullResult>({ image: img, stdout: r.stdout.trim() });
+  return ok<PullResult>({ image, stdout: r.stdout.trim() });
 }

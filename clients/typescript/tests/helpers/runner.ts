@@ -2,11 +2,10 @@ import fs from "node:fs";
 import { spawnSync, SpawnSyncOptions } from "node:child_process";
 
 import {
-  LanguageSpec,
   TIMEOUT_SECONDS,
-  PROXY_IMAGE_OVERRIDE,
-  WATCHDOG_IMAGE_OVERRIDE,
-  WRAPPER_IMAGE_OVERRIDE,
+  CONTAINER_REGISTRY,
+  LANGUAGE_IMAGE_VERSION,
+  SERVICE_IMAGE_VERSION,
   SYMBOL_SCENARIO_DELAY,
   WORKSPACE_SCENARIO_DELAY,
   workspacePath,
@@ -19,18 +18,18 @@ import {
 import { LogFollower, startLogFollow, stopLogFollow } from "./logs.js";
 
 export interface RunnerOptions {
-  language: LanguageSpec;
+  workspace: string;
 }
 
 export class ClientRunner {
-  public readonly language: LanguageSpec;
+  public readonly language: string;
   public readonly workspace: string;
   public readonly containerName: string;
   public hostPort: number;
   public readonly timeoutSeconds: number;
-  public readonly proxyImage: string;
-  public readonly watchdogImage: string;
-  public readonly wrapperImage: string;
+  public readonly containerRegistry: string;
+  public readonly languageImageVersion: string;
+  public readonly serviceImageVersion: string;
   public readonly symbolDelay: number;
   public readonly workspaceDelay: number;
 
@@ -40,17 +39,17 @@ export class ClientRunner {
   private readonly requestedHostPort: number;
 
   constructor(private readonly options: RunnerOptions) {
-    this.language = options.language;
-    this.workspace = workspacePath(options.language.key);
+    this.language = options.workspace;
+    this.workspace = workspacePath(options.workspace);
     this.containerName = dockerSafe(
-      `nuanced-test-${options.language.key}-worker-${workerIndex()}`,
+      `nuanced-test-${options.workspace}-worker-${workerIndex()}`,
     );
-    this.requestedHostPort = fixedPort(options.language.key);
+    this.requestedHostPort = fixedPort(options.workspace);
     this.hostPort = this.requestedHostPort;
     this.timeoutSeconds = TIMEOUT_SECONDS;
-    this.proxyImage = PROXY_IMAGE_OVERRIDE;
-    this.watchdogImage = WATCHDOG_IMAGE_OVERRIDE;
-    this.wrapperImage = WRAPPER_IMAGE_OVERRIDE;
+    this.containerRegistry = CONTAINER_REGISTRY;
+    this.languageImageVersion = LANGUAGE_IMAGE_VERSION;
+    this.serviceImageVersion = SERVICE_IMAGE_VERSION;
     this.symbolDelay = SYMBOL_SCENARIO_DELAY;
     this.workspaceDelay = WORKSPACE_SCENARIO_DELAY;
   }
@@ -275,14 +274,14 @@ export class ClientRunner {
       "--json",
       ...extraArgs,
     ];
-    if (this.proxyImage) {
-      args.push("--proxy-image", this.proxyImage);
+    if (this.languageImageVersion) {
+      args.push("--language-image-version", this.languageImageVersion);
     }
-    if (this.watchdogImage) {
-      args.push("--watchdog-image", this.watchdogImage);
+    if (this.serviceImageVersion) {
+      args.push("--service-image-version", this.serviceImageVersion);
     }
-    if (this.wrapperImage) {
-      args.push("--wrapper-image", this.wrapperImage);
+    if (this.containerRegistry) {
+      args.push("--container-registry", this.containerRegistry);
     }
 
     const attempt = () => {
@@ -334,15 +333,20 @@ export class ClientRunner {
     }
   }
 
-  private pendingLanguages(
+  private checkLanguages(
     languages: Record<string, unknown> | undefined,
   ): string[] {
-    if (!languages || typeof languages !== "object") {
-      return ["<languages-unreported>"];
+    if (languages && typeof languages === "object") {
+      const failed: string[] = [];
+      for (const [key, value] of Object.entries(languages)) {
+        if (value === false) {
+          failed.push(key);
+        }
+      }
+      return failed;
     }
-    return Object.entries(languages)
-      .filter(([, value]) => value !== true)
-      .map(([key]) => key);
+
+    return [];
   }
 
   private checkHealthOnce(): Record<string, unknown> | null {
@@ -368,34 +372,39 @@ export class ClientRunner {
     let lastHealth: Record<string, unknown> | null = null;
 
     while (Date.now() < deadline) {
+      if (lastHealth !== null) {
+        this.sleepSync(1000);
+      }
+
       lastHealth = this.checkHealthOnce();
       const status =
         lastHealth && typeof lastHealth === "object"
           ? (lastHealth as any).status
           : undefined;
-      const languages =
-        lastHealth &&
-        typeof lastHealth === "object" &&
-        "languages" in lastHealth
-          ? (lastHealth as any).languages
-          : undefined;
-      const pending = this.pendingLanguages(languages);
 
-      if (status === "ok" && pending.length === 0) {
-        this.healthReady = true;
-        return;
+      if (status !== "ok") {
+        continue;
       }
 
-      this.sleepSync(1000);
+      const languages = (lastHealth as any).languages;
+      const failed = this.checkLanguages(languages);
+
+      if (failed.length > 0) {
+        throw new Error(
+          `Language containers failed to start (unhealthy): ${failed.join(", ")}`,
+        );
+      }
+
+      this.healthReady = true;
+      return;
     }
 
-    const pending =
+    const lastStatus =
       lastHealth && typeof lastHealth === "object"
-        ? this.pendingLanguages((lastHealth as any).languages)
-        : [];
-    const pendingList = pending.length > 0 ? pending.join(", ") : "unknown";
+        ? (lastHealth as any).status
+        : undefined;
     throw new Error(
-      `Service did not become healthy within ${this.timeoutSeconds}s (pending languages: ${pendingList})`,
+      `Service did not become healthy within ${this.timeoutSeconds}s (last status: ${lastStatus || "unknown"})`,
     );
   }
 

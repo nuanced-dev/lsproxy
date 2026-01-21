@@ -4,15 +4,15 @@
     "title": "nuanced-lsp",
     "description": "",
     "license": {
-      "name": "Apache-2.0",
-      "url": "https://www.apache.org/licenses/LICENSE-2.0"
+      "name": "MIT",
+      "url": "https://opensource.org/licenses/MIT"
     },
-    "version": "0.2.1"
+    "version": "0.5.0"
   },
   "servers": [
     {
       "url": "http://localhost:4444/v1",
-      "description": "Nuanced LSP API v1"
+      "description": "API server v1"
     }
   ],
   "paths": {
@@ -249,7 +249,17 @@
         "operationId": "list_files",
         "responses": {
           "200": {
-            "description": "Files listed successfully"
+            "description": "Files listed successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
           },
           "500": {
             "description": "Internal server error"
@@ -276,7 +286,14 @@
         },
         "responses": {
           "200": {
-            "description": "Source code retrieved successfully"
+            "description": "Source code retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadSourceCodeResponse"
+                }
+              }
+            }
           },
           "400": {
             "description": "Bad request"
@@ -585,7 +602,7 @@
         "properties": {
           "languages": {
             "type": "object",
-            "description": "Map of supported languages and whether they are currently available",
+            "description": "Map of supported languages and whether they are currently available (healthy)",
             "additionalProperties": {
               "type": "boolean"
             },
@@ -784,6 +801,17 @@
           }
         }
       },
+      "ReadSourceCodeResponse": {
+        "type": "object",
+        "required": [
+          "source_code"
+        ],
+        "properties": {
+          "source_code": {
+            "type": "string"
+          }
+        }
+      },
       "ReferenceWithSymbolDefinitions": {
         "type": "object",
         "description": "A reference to a symbol along with its definition(s) found in the workspace\n\ne.g. for a reference to `User` in `main.py`:\n```python\nuser = User(\"John\", 30)\n_______^\n```\nThis would contain:\n- The reference location and name (\"User\" at line 0)\n- The symbol definition(s) (e.g. \"class User\" in models.py)",
@@ -915,38 +943,6 @@
             "type": "string",
             "description": "The name of the symbol.",
             "example": "User"
-          }
-        }
-      },
-      "Vec": {
-        "type": "array",
-        "items": {
-          "type": "object",
-          "required": [
-            "name",
-            "kind",
-            "identifier_position",
-            "file_range"
-          ],
-          "properties": {
-            "file_range": {
-              "$ref": "#/components/schemas/FileRange",
-              "description": "The full range of the symbol."
-            },
-            "identifier_position": {
-              "$ref": "#/components/schemas/FilePosition",
-              "description": "The start position of the symbol's identifier."
-            },
-            "kind": {
-              "type": "string",
-              "description": "The kind of the symbol (e.g., function, class).",
-              "example": "class"
-            },
-            "name": {
-              "type": "string",
-              "description": "The name of the symbol.",
-              "example": "User"
-            }
           }
         }
       }

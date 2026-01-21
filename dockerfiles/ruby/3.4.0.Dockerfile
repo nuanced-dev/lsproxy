@@ -3,6 +3,7 @@
 
 # Builder stage: Install Ruby and ruby-lsp
 FROM debian:bookworm-slim AS builder
+LABEL org.opencontainers.image.source=https://github.com/nuanced-dev/lsp
 
 ENV DEBIAN_FRONTEND=noninteractive
 ARG RUBY_VERSION=3.4.0
@@ -33,8 +34,9 @@ RUN eval "$("$RBENV_ROOT"/bin/rbenv init -)" && \
     rbenv exec gem install ruby-lsp && \
     rbenv rehash
 
-# Runtime stage: Pure Debian base with build tools for native gems
-FROM debian:bookworm-slim
+# Runtime base stage: Pure Debian base with build tools for native gems
+FROM debian:bookworm-slim AS ruby-base
+LABEL org.opencontainers.image.source=https://github.com/nuanced-dev/lsp
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV HOME=/home/user
@@ -77,12 +79,6 @@ ENV RBENV_ROOT=/opt/rbenv
 ENV PATH="$RBENV_ROOT/bin:$RBENV_ROOT/shims:${PATH}"
 COPY --from=builder /opt/rbenv /opt/rbenv
 
-# Set language for lsp-wrapper configuration
-
-# Create symlinks in standard PATH location (following TypeScript/Golang pattern)
-RUN ln -s ${RBENV_ROOT}/shims/ruby-lsp /usr/local/bin/ruby-lsp && \
-    ln -s /opt/lsp-wrapper/bin/ast-grep /usr/local/bin/ast-grep || true
-ENV LSP_LANGUAGE="ruby"
 
 
 # Create workspace directory
@@ -92,5 +88,32 @@ WORKDIR /mnt/workspace
 # Use wrapper ENTRYPOINT (mounted from wrapper container)
 ENTRYPOINT ["/opt/lsp-wrapper/bin/lsp-wrapper"]
 
+
+# Ruby target: Standard ruby-lsp server
+FROM ruby-base AS ruby
+LABEL org.opencontainers.image.source=https://github.com/nuanced-dev/lsp
+
+# Create symlinks in standard PATH location (following TypeScript/Golang pattern)
+RUN ln -s ${RBENV_ROOT}/shims/ruby-lsp /usr/local/bin/ruby-lsp && \
+    ln -s /opt/lsp-wrapper/bin/ast-grep /usr/local/bin/ast-grep || true
+ENV LSP_LANGUAGE="ruby"
+
 # CMD provides the language-specific command to lsp-wrapper ENTRYPOINT
 CMD ["--lsp-command", "ruby-lsp", "--lsp-arg=--use-launcher"]
+
+# Ruby Sorbet target: Ruby with Sorbet type checker
+FROM ruby-base AS ruby-sorbet
+LABEL org.opencontainers.image.source=https://github.com/nuanced-dev/lsp
+
+# Install sorbet gem using the existing Ruby installation
+RUN eval "$("$RBENV_ROOT"/bin/rbenv init -)" && \
+    rbenv exec gem install sorbet && \
+    rbenv rehash
+
+# Create symlinks in standard PATH location (following TypeScript/Golang pattern)
+RUN ln -s ${RBENV_ROOT}/shims/srb /usr/local/bin/srb && \
+    ln -s /opt/lsp-wrapper/bin/ast-grep /usr/local/bin/ast-grep || true
+ENV LSP_LANGUAGE="ruby-sorbet"
+
+# CMD provides the language-specific command to lsp-wrapper ENTRYPOINT
+CMD ["--lsp-command", "srb", "--lsp-arg=tc", "--lsp-arg=--lsp", "--lsp-arg=--disable-watchman"]

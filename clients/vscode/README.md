@@ -2,6 +2,13 @@
 
 VSCode extension for Nuanced LSP server providing advanced language features.
 
+_This is not meant to be a full-featured language plugin! Merely a way to showcase the LSP capabilities and do interactive debugging._
+
+## Requirements
+
+- VSCode 1.75.0 or higher
+- `nuanced-lsp` command available in your PATH
+
 ## Development
 
 ### Building
@@ -11,16 +18,16 @@ npm install
 npm run build
 ```
 
-### Running from Command Line
+## Running from Command Line
 
 To start VSCode with the extension enabled for development:
 
 ```bash
 # From the vscode directory
-code --extensionDevelopmentPath="$(pwd)" /path/to/your/workspace
+scripts/code-with-nuanced-lsp
 ```
 
-### Packaging
+## Packaging
 
 To create a VSIX package for distribution:
 
@@ -33,8 +40,3 @@ This will create a `.vsix` file that can be installed in VSCode via:
 ```bash
 code --install-extension nuanced-lsp-vscode-0.1.0.vsix
 ```
-
-## Requirements
-
-- VSCode 1.75.0 or higher
-- `nuanced-lsp` command available in your PATH

@@ -9,16 +9,13 @@ mod handlers;
 mod lsp;
 mod managers;
 
-use lsp::client::LspClient;
-use lsp::languages::{GoplsConfig, SorbetConfig};
-use lsp::languages::{
-    CSHARP_CONFIG, C_AND_CPP_CONFIG, JAVA_CONFIG, PHP_CONFIG, PYTHON_CONFIG, RUBY_CONFIG,
-    RUST_CONFIG, TYPESCRIPT_AND_JAVASCRIPT_CONFIG,
+use crate::lsp::client::{LspClient, LspConfig};
+use crate::lsp::languages::{
+    GoplsConfig, SorbetConfig, CSHARP_CONFIG, C_AND_CPP_CONFIG, JAVA_CONFIG, PHP_CONFIG,
+    PYTHON_CONFIG, RUBY_CONFIG, RUST_CONFIG, TYPESCRIPT_AND_JAVASCRIPT_CONFIG,
 };
-use lsp::ProcessHandler;
-use managers::api::ApiManager;
-
-use crate::lsp::client::LspConfig;
+use crate::lsp::process::ProcessHandler;
+use crate::managers::api::ApiManager;
 
 /// HTTP wrapper for LSP servers
 /// Provides HTTP endpoints for LSP JSON-RPC communication
@@ -48,7 +45,9 @@ pub struct AppState {
     pub api_manager: ApiManager,
 }
 
-/// Health check endpoint - simple version that just returns OK
+/// Health check endpoint
+///
+/// The HTTP server only starts after the LSP server has initialized, so it simply returns OK.
 async fn health() -> impl Responder {
     HttpResponse::Ok().body("ok")
 }
@@ -215,44 +214,6 @@ async fn main() -> std::io::Result<()> {
             std::io::Error::new(std::io::ErrorKind::Other, e)
         })?;
 
-    // Java-specific: Wait for ServiceReady notification
-    if language.as_str() == "java" {
-        use lsp::ExpectedMessageKey;
-        info!("Java: waiting for ServiceReady notification (no timeout - caller controls overall timeout)...");
-
-        let mut notification_rx = client
-            .expect_notification(ExpectedMessageKey {
-                method: "language/status".to_string(),
-                params: serde_json::json!({
-                    "type": "ServiceReady",
-                    "message": "ServiceReady"
-                }),
-            })
-            .await
-            .map_err(|e| {
-                error!("Failed to add ServiceReady notification listener: {}", e);
-                std::io::Error::new(std::io::ErrorKind::Other, e)
-            })?;
-
-        // Wait indefinitely for ServiceReady notification
-        // The orchestrator health check and CLI timeout control overall timing
-        notification_rx.recv().await.map_err(|e| {
-            error!("Error receiving ServiceReady notification: {}", e);
-            std::io::Error::new(std::io::ErrorKind::Other, e)
-        })?;
-
-        info!("Java: ServiceReady notification received!");
-    }
-
-    // Setup workspace (e.g., rust-analyzer/reloadWorkspace)
-    client
-        .setup_workspace(&args.workspace_path)
-        .await
-        .map_err(|e| {
-            error!("Failed to setup workspace: {}", e);
-            std::io::Error::new(std::io::ErrorKind::Other, e)
-        })?;
-
     info!("LSP server started and initialized successfully");
 
     let lsp_client = Arc::new(tokio::sync::Mutex::new(client));
@@ -264,7 +225,6 @@ async fn main() -> std::io::Result<()> {
     HttpServer::new(move || {
         App::new()
             .app_data(app_state.clone())
-            .route("/lsp", web::post().to(handlers::lsp::lsp))
             .route("/lsp/ws", web::get().to(handlers::lsp_ws::lsp_ws))
             .route(
                 "/symbol/definitions-in-file",

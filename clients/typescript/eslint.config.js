@@ -106,10 +106,11 @@ export default [
   },
   {
     ignores: [
+      "*.config.js",
       "coverage/",
       "dist/",
-      "*.config.js",
       "node_modules/",
+      "src/__generated/",
       "tests/workspaces/*/",
     ],
   },

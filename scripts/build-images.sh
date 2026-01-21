@@ -1,0 +1,617 @@
+#!/usr/bin/env bash
+
+set -eu
+
+SCRIPT_DIR="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")" && pwd)"
+
+source "$SCRIPT_DIR/include/colors.sh"
+source "$SCRIPT_DIR/include/constants.sh"
+source "$SCRIPT_DIR/include/lib.sh"
+
+usage() {
+    echo "Usage: $0 [--all-languages] [--all-services] [--cache=MODE] [--jobs=N] [--language-tag=TAG] [--languages=LANG...] [--publish] [--registry=REG] [--sequential] [--service-tag=TAG] [--services=SVC...]"
+}
+
+help() {
+    echo "Build Docker images for services and language servers"
+    echo ""
+    echo "Usage: $0 [OPTIONS...]"
+    echo ""
+    echo "Options:"
+    echo "  --all-languages       Build all language images (shorthand for --languages=<all>)"
+    echo "  --all-services        Build all service images (shorthand for --services=<all>)"
+    echo "  --cache=MODE          Docker build cache mode: none, docker, gha (default: none)"
+    echo "                        - none: disable all caching"
+    echo "                        - docker: use default Docker layer caching"
+    echo "                        - gha: build without Docker cache to ensure fresh Docker layers,"
+    echo "                               but use GitHub Actions cache backend for BuildKit cache"
+    echo "                               mounts (Cargo registry and build artifacts). This gives us"
+    echo "                               reproducible builds while still caching Rust compilation."
+    echo "  --jobs=N, -j=N        Max parallel builds (default: 4, prevents Docker daemon overload)"
+    echo "  --language-tag=TAG    Tag language images with specified semver tag"
+    echo "                        Language images use semver (e.g., 1.0.0) for API compatibility"
+    echo "  --languages=LANG...   Build specific language(s) - comma-separated (default: none)"
+    echo "                        Supports versioned Ruby: ruby-3.2.2, ruby-sorbet-3.2.2"
+    echo "  --publish             Build multi-platform images (linux/amd64 and linux/arm64) and push to registry"
+    echo "                        Requires docker login to the registry"
+    echo "                        (default: build for local platform only, no push)"
+    echo "  --registry=REG        Container registry used by proxy and for publishing"
+    echo "                        (default: $DEFAULT_REGISTRY)"
+    echo "  --sequential          Build images sequentially (shorthand for --jobs=1)"
+    echo "  --service-tag=TAG     Tag service images with specified tag (default: $DEFAULT_SERVICE_TAG)"
+    echo "  --services=SVC...     Build specific service(s) - comma-separated (default: none)"
+    echo "  --help, -h            Show this help message"
+    echo ""
+    echo "At least one of --services, --all-services, --languages, or --all-languages must be specified."
+    echo ""
+    echo "Versioning:"
+    echo "  Service images (wrapper, proxy, watchdog) use release version tags (e.g. 0.4.0)"
+    echo "  Language images use independent semver for API/protocol compatibility (e.g. 1.0.0)"
+    echo "  MAJOR = API/protocol compatibility version"
+    echo "  MINOR = New LSP features, language server updates"
+    echo "  PATCH = Bug fixes, dependency updates"
+    echo ""
+    echo "Note: Language images use binary injection at runtime via --volumes-from. They only"
+    echo "need to be rebuilt when language server versions change or when base dependencies change."
+    echo ""
+    echo "Publishing:"
+    echo "  Use --publish to build multi-platform images and push them to the registry."
+    echo "  Local builds (without --publish) are for development/testing only."
+    echo ""
+    echo "Available services: ${ALL_SERVICES[*]}"
+    echo "Available languages: ${ALL_LANGUAGES[*]}"
+    echo "Available Ruby versions: ${SUPPORTED_RUBY_VERSIONS[*]}"
+    echo ""
+    echo "Examples:"
+    echo "  $0 --all-services --all-languages"
+    echo "  $0 --services=proxy,watchdog --service-tag=0.4.8"
+    echo "  $0 --languages=python,typescript --language-tag=1.0.0"
+    echo "  $0 --all-services --service-tag=0.4.8 --publish"
+    echo "  $0 --cache=gha --all-services --service-tag=0.4.8"
+    echo "  $0 --languages=ruby-3.2.2,ruby-sorbet-3.2.2 --language-tag=1.0.0"
+}
+
+# Defaults
+CACHE_MODE=none
+JOBS=4
+LANGUAGE_TAG=""
+LANGUAGES=()
+PUBLISH=false
+REGISTRY=""
+SERVICE_TAG=""
+SERVICES=()
+
+# Parse arguments
+for arg in "$@"; do
+    case $arg in
+        --help|-h)
+            help
+            exit 0
+            ;;
+        --all-languages)
+            LANGUAGES=("${ALL_LANGUAGES[@]}")
+            ;;
+        --all-services)
+            SERVICES=("${ALL_SERVICES[@]}")
+            ;;
+        --cache=*)
+            CACHE_MODE="${arg#*=}"
+            if [[ ! "$CACHE_MODE" =~ ^(none|docker|gha)$ ]]; then
+                echo -e "${RED}Invalid cache mode: $CACHE_MODE. Must be none, docker, or gha${NC}"
+                exit 1
+            fi
+            ;;
+        --jobs=*|-j=*)
+            JOBS="${arg#*=}"
+            if ! [[ "$JOBS" =~ ^[0-9]+$ ]] || [ "$JOBS" -lt 1 ]; then
+                echo -e "${RED}Invalid jobs value: $JOBS. Must be a positive integer${NC}"
+                exit 1
+            fi
+            ;;
+        --language-tag=*)
+            LANGUAGE_TAG="${arg#*=}"
+            ;;
+        --languages=*)
+            IFS=',' read -ra LANGUAGES <<< "${arg#*=}"
+            ;;
+        --publish)
+            PUBLISH=true
+            ;;
+        --registry=*)
+            REGISTRY="${arg#*=}"
+            ;;
+        --sequential)
+            JOBS=1
+            ;;
+        --service-tag=*)
+            SERVICE_TAG="${arg#*=}"
+            ;;
+        --services=*)
+            IFS=',' read -ra SERVICES <<< "${arg#*=}"
+            ;;
+        *)
+            echo -e "${YELLOW}Unknown argument: $arg${NC}"
+            usage
+            exit 1
+            ;;
+    esac
+done
+
+# Check that at least one of services or languages is specified
+if [ ${#SERVICES[@]} -eq 0 ] && [ ${#LANGUAGES[@]} -eq 0 ]; then
+    echo -e "${RED}Error: At least one of --services, --all-services, --languages, or --all-languages must be specified${NC}"
+    echo ""
+    usage
+    exit 1
+fi
+
+# Language tag is required if building languages
+if [ ${#LANGUAGES[@]} -gt 0 ] && [ -z "$LANGUAGE_TAG" ]; then
+    echo -e "${RED}Error: --language-tag is required when building language images${NC}"
+    exit 1
+fi
+
+# Fall back to defaults
+SERVICE_TAG="${SERVICE_TAG:-$DEFAULT_SERVICE_TAG}"
+REGISTRY="${REGISTRY:-$DEFAULT_REGISTRY}"
+
+if [ ${#SERVICES[@]} -gt 0 ] && [ ${#LANGUAGES[@]} -gt 0 ] && is_semver "$LANGUAGE_TAG"; then
+    echo
+    echo -e "${YELLOW}=========================================${NC}"
+    echo -e "${YELLOW}  WARNING${NC}"
+    echo -e "${YELLOW}=========================================${NC}"
+    echo -e "${YELLOW}Service images were built with LANGUAGE_IMAGE_VERSION=${LANGUAGE_TAG}${NC}"
+    echo -e "${YELLOW}They will depend on the specific version ${LANGUAGE_TAG}, not just major version $(extract_major_version "$LANGUAGE_TAG")${NC}"
+    echo -e "${YELLOW}${NC}"
+    echo -e "${YELLOW}To avoid this, build service and language images separately:${NC}"
+    echo -e "${YELLOW}  1. Build service images:  $0 --all-services --service-tag=${SERVICE_TAG}${NC}"
+    echo -e "${YELLOW}  2. Build language images: $0 --all-languages --language-tag=${LANGUAGE_TAG}${NC}"
+    echo -e "${YELLOW}=========================================${NC}"
+    echo
+    if [ "${CI-}" == true ]; then
+        echo -e "${RED}Prevented in CI because it is too error-prone.${NC}"
+        exit 1
+    else
+        read -p "Do you want to continue? [y/N] " -r
+        echo
+        if [[ $REPLY =~ ^[Yy] ]]; then
+            echo "Proceeding..."
+        else
+            exit 1
+        fi
+    fi
+fi
+
+# ---------------------------------------
+# Build Commands
+# ---------------------------------------
+
+if [ "$PUBLISH" = true ]; then
+    echo -e "${BLUE}=========================================${NC}"
+    echo -e "${BLUE}  Publishing Multi-Platform Images${NC}"
+    echo -e "${BLUE}  Platforms: linux/amd64, linux/arm64${NC}"
+    echo -e "${BLUE}  Registry: $REGISTRY${NC}"
+else
+    echo -e "${BLUE}=========================================${NC}"
+    echo -e "${BLUE}  Building Images (Local Platform)${NC}"
+fi
+if [ ${#SERVICES[@]} -gt 0 ]; then
+    echo -e "${BLUE}  Service images: $SERVICE_TAG${NC}"
+fi
+if [ ${#LANGUAGES[@]} -gt 0 ]; then
+    echo -e "${BLUE}  Language images: $LANGUAGE_TAG${NC}"
+fi
+echo -e "${BLUE}  Jobs: $JOBS${NC}"
+echo -e "${BLUE}  Cache: $CACHE_MODE${NC}"
+echo -e "${BLUE}=========================================${NC}"
+echo
+
+# Add service build arguments
+BUILD_FLAGS=()
+BUILD_FLAGS+=(
+    "--build-arg" "CONTAINER_REGISTRY=$REGISTRY"
+    "--build-arg" "SERVICE_IMAGE_VERSION=$SERVICE_TAG"
+)
+if [ -n "$LANGUAGE_TAG" ]; then
+    BUILD_FLAGS+=("--build-arg" "LANGUAGE_IMAGE_VERSION=$LANGUAGE_TAG")
+fi
+
+compute_cache_flags() {
+    local name="$1"
+    case "$CACHE_MODE" in
+        none)
+            echo "--no-cache"
+            ;;
+        docker)
+            echo ""
+            ;;
+        gha)
+            echo "--no-cache --cache-from type=gha,scope=$name --cache-to type=gha,mode=max,scope=$name"
+            ;;
+    esac
+}
+
+build_image() {
+    local dockerfile="$1"
+    local target="$2"
+    local cache_name="$3"
+    local image_tag="$4"
+    local additional_image_tags=("${@:5}")
+
+    echo -e "${BLUE}Building ${image_tag}...${NC}"
+
+    if [ ! -f "$dockerfile" ]; then
+        echo -e "${RED}Error: $dockerfile not found${NC}"
+        return 1
+    fi
+
+    local CACHE_FLAGS
+    CACHE_FLAGS="$(compute_cache_flags "$cache_name")"
+
+    local TARGET_FLAGS=()
+    if [ -n "$target" ]; then
+        TARGET_FLAGS=("--target" "$target")
+    fi
+
+    local log_file="/tmp/build-${cache_name}.log"
+
+
+    if [ "$PUBLISH" = true ]; then
+        build_tag="${REGISTRY}/${image_tag}"
+        if ! docker buildx build --platform linux/amd64,linux/arm64 --push "${BUILD_FLAGS[@]}" $CACHE_FLAGS "${TARGET_FLAGS[@]}" -f "$dockerfile" -t "${build_tag}" . > "$log_file" 2>&1; then
+            echo -e "${RED}✗ ${build_tag} failed to build${NC}"
+            echo -e "${YELLOW}See ${log_file} for details${NC}"
+            tail -20 "${log_file}" || true
+            return 1
+        fi
+
+        echo -e "${GREEN}✓ ${build_tag} built and pushed successfully (multi-platform)${NC}"
+
+        for additional_image_tag in "${additional_image_tags[@]}"; do
+            local additional_build_tag="${REGISTRY}/${additional_image_tag}"
+            if docker buildx imagetools create --tag "$additional_build_tag" "$build_tag" >> "$log_file" 2>&1; then
+                echo -e "${GREEN}  Also tagged: ${additional_build_tag}${NC}"
+            else
+                echo -e "${YELLOW}  Warning: Failed to create additional tag ${additional_build_tag}${NC}"
+            fi
+        done
+    else
+        if ! docker build "${BUILD_FLAGS[@]}" $CACHE_FLAGS "${TARGET_FLAGS[@]}" -f "$dockerfile" -t "${image_tag}" . > "$log_file" 2>&1; then
+            echo -e "${RED}✗ ${image_tag} failed to build${NC}"
+            echo -e "${YELLOW}See ${log_file} for details${NC}"
+            tail -20 "${log_file}" || true
+            return 1
+        fi
+
+        local size
+        size=$(docker images "${image_tag}" --format "{{.Size}}")
+        echo -e "${GREEN}✓ ${image_tag} built successfully ($size)${NC}"
+
+        for additional_image_tag in "${additional_image_tags[@]}"; do
+            docker tag "$image_tag" "$additional_image_tag" >> "$log_file" 2>&1
+            echo -e "${GREEN}  Also tagged: ${additional_image_tag}${NC}"
+        done
+    fi
+
+
+}
+
+# ---------------------------------------
+# Service Images
+# ---------------------------------------
+
+build_service_image() {
+    local name="$1"
+
+    local docker_file="dockerfiles/${name}.Dockerfile"
+    local image_tag="nuanced-lsp-${name}:${SERVICE_TAG}"
+    local cache_name="$name"
+
+    build_image "$docker_file" "" "$cache_name" "$image_tag"
+}
+
+# Build service images (proxy, watchdog, wrapper)
+if [ ${#SERVICES[@]} -eq 0 ]; then
+    echo -e "${YELLOW}No service images to build${NC}"
+else
+    echo -e "${YELLOW}Building service images: ${SERVICES[*]}${NC}"
+
+    if [ "$JOBS" -gt 1 ]; then
+        echo -e "${BLUE}Building in parallel (logs: /tmp/build-*.log)...${NC}"
+        declare -a pids names
+
+        for service in "${SERVICES[@]}"; do
+            (build_service_image "$service") &
+            pids+=($!)
+            names+=("$service")
+        done
+
+        failed=0
+        for i in "${!pids[@]}"; do
+            if ! wait "${pids[$i]}"; then
+                failed=1
+            fi
+        done
+
+        if [ $failed -ne 0 ]; then
+            echo -e "${RED}One or more service images failed to build${NC}"
+            exit 1
+        fi
+    else
+        for service in "${SERVICES[@]}"; do
+            build_service_image "$service" || exit 1
+        done
+    fi
+    echo
+fi
+
+# ---------------------------------------
+# Language Images
+# ---------------------------------------
+
+build_language_image() {
+    local lang_base="$1" # Optional
+    local lang_or_version="$2" # Language if lang_base is empty, otherwise a version
+
+    local dockerfile
+    local target=""
+    local image_name
+    local cache_name
+    if [ -n "$lang_base" ]; then
+        dockerfile="dockerfiles/${lang_base}/${lang_or_version}.Dockerfile"
+        image_name="nuanced-lsp-${lang_base}-${lang_or_version}"
+        cache_name="${lang_base}-${lang_or_version}"
+    else
+        dockerfile="dockerfiles/${lang_or_version}.Dockerfile"
+        image_name="nuanced-lsp-${lang_or_version}"
+        cache_name="${lang_or_version}"
+    fi
+
+    # Override dockerfile and target for Ruby images
+    if [ "$lang_base" = "ruby" ] || [ "$lang_base" = "ruby-sorbet" ]; then
+        dockerfile="dockerfiles/ruby/${lang_or_version}.Dockerfile"
+        target="$lang_base"
+    fi
+
+    local image_tags=("${image_name}:${LANGUAGE_TAG}")
+
+    # Also tag with major version
+    local major_version
+    if major_version="$(extract_major_version "$LANGUAGE_TAG")"; then
+        image_tags+=("${image_name}:${major_version}")
+    fi
+
+    build_image "$dockerfile" "$target" "$cache_name" "${image_tags[@]}"
+}
+
+# Throttled parallel build function
+# Runs builds in parallel but limits concurrency to JOBS
+# Arguments:
+#   $1 - lang_base (empty string for unversioned languages, or language name like "ruby"/"ruby-sorbet")
+#   $2... - items to build
+# If lang_base is empty, the items are language names (no versions).
+# If lang is non-empty, the items are versions for that language.
+build_language_images_parallel() {
+    local lang_base="$1" # Optional
+    local items=("${@:2}") # Languages if lang_base is empty, otherwise versions
+
+    local pids=()
+    local failed=0
+    local running=0
+
+    for item in "${items[@]}"; do
+        # Wait if we've hit the max concurrent jobs
+        while [ $running -ge "$JOBS" ]; do
+            # Wait for any job to finish
+            for i in "${!pids[@]}"; do
+                if ! kill -0 "${pids[$i]}" 2>/dev/null; then
+                    # Job finished, check its exit status
+                    if ! wait "${pids[$i]}"; then
+                        failed=$((failed + 1))
+                    fi
+                    unset 'pids[i]'
+                    running=$((running - 1))
+                    break
+                fi
+            done
+            # Small sleep to avoid busy waiting
+            sleep 0.1
+        done
+
+        # Start new build
+        build_language_image "$lang_base" "$item" &
+        pids+=($!)
+        running=$((running + 1))
+    done
+
+    # Wait for remaining jobs
+    for pid in "${pids[@]}"; do
+        if [ -n "$pid" ]; then
+            if ! wait "$pid"; then
+                failed=$((failed + 1))
+            fi
+        fi
+    done
+
+    return $failed
+}
+
+# Separate languages into categories (ruby-sorbet must be built after ruby)
+UNVERSIONED_LANGUAGES=()
+RUBY_VERSIONS=()
+RUBY_SORBET_VERSIONS=()
+
+for lang in "${LANGUAGES[@]}"; do
+    if [[ "$lang" == "ruby" ]]; then
+        RUBY_VERSIONS+=("${SUPPORTED_RUBY_VERSIONS[@]}")
+    elif [[ "$lang" =~ ^ruby-[0-9] ]]; then
+        version="${lang#ruby-}"
+        RUBY_VERSIONS+=("$version")
+    elif [[ "$lang" == "ruby-sorbet" ]]; then
+        RUBY_SORBET_VERSIONS+=("${SUPPORTED_RUBY_VERSIONS[@]}")
+    elif [[ "$lang" =~ ^ruby-sorbet-[0-9] ]]; then
+        version="${lang#ruby-sorbet-}"
+        RUBY_SORBET_VERSIONS+=("$version")
+    else
+        UNVERSIONED_LANGUAGES+=("$lang")
+    fi
+done
+
+# Build unversioned languages
+if [ ${#UNVERSIONED_LANGUAGES[@]} -eq 0 ]; then
+    echo -e "${YELLOW}No unversioned language images to build${NC}"
+else
+    echo -e "${YELLOW}Building ${#UNVERSIONED_LANGUAGES[@]} unversioned language images${NC}"
+
+    if [ "$JOBS" -gt 1 ]; then
+        echo -e "${BLUE}Building in parallel (max $JOBS concurrent, see /tmp/build-*.log for progress)${NC}"
+
+        if ! build_language_images_parallel "" "${UNVERSIONED_LANGUAGES[@]}"; then
+            failed=$?
+        else
+            failed=0
+        fi
+
+        if [ $failed -gt 0 ]; then
+            echo -e "${RED}$failed unversioned language images failed to build${NC}"
+            exit 1
+        fi
+    else
+        for lang in "${UNVERSIONED_LANGUAGES[@]}"; do
+            build_language_image "" "$lang" || exit 1
+        done
+    fi
+
+    echo
+fi
+
+# Build Ruby images
+if [ ${#RUBY_VERSIONS[@]} -eq 0 ]; then
+    echo -e "${YELLOW}No Ruby images to build${NC}"
+else
+    echo -e "${YELLOW}Building Ruby images (${#RUBY_VERSIONS[@]} versions)${NC}"
+
+    if [ "$JOBS" -gt 1 ]; then
+        echo -e "${BLUE}Building in parallel (max $JOBS concurrent, see /tmp/build-ruby-*.log for progress)${NC}"
+
+        if ! build_language_images_parallel "ruby" "${RUBY_VERSIONS[@]}"; then
+            failed=$?
+        else
+            failed=0
+        fi
+
+        if [ $failed -gt 0 ]; then
+            echo -e "${RED}$failed Ruby images failed to build${NC}"
+            exit 1
+        fi
+    else
+        for version in "${RUBY_VERSIONS[@]}"; do
+            build_language_image "ruby" "$version" || exit 1
+        done
+    fi
+
+    echo
+fi
+
+# Build Ruby Sorbet variants
+if [ ${#RUBY_SORBET_VERSIONS[@]} -eq 0 ]; then
+    echo -e "${YELLOW}No Ruby Sorbet images to build${NC}"
+else
+    echo -e "${YELLOW}Building Ruby Sorbet images (${#RUBY_SORBET_VERSIONS[@]} versions)${NC}"
+
+    if [ "$JOBS" -gt 1 ]; then
+        echo -e "${BLUE}Building in parallel (max $JOBS concurrent, see /tmp/build-ruby-sorbet-*.log for progress)${NC}"
+
+        if ! build_language_images_parallel "ruby-sorbet" "${RUBY_SORBET_VERSIONS[@]}"; then
+            failed=$?
+        else
+            failed=0
+        fi
+
+        if [ $failed -gt 0 ]; then
+            echo -e "${RED}$failed Ruby Sorbet images failed to build${NC}"
+            exit 1
+        fi
+    else
+        for version in "${RUBY_SORBET_VERSIONS[@]}"; do
+            build_language_image "ruby-sorbet" "$version" || exit 1
+        done
+    fi
+
+    echo
+fi
+
+echo
+echo -e "${GREEN}=========================================${NC}"
+echo -e "${GREEN}  All Images Built Successfully${NC}"
+echo -e "${GREEN}=========================================${NC}"
+echo
+
+if [ "$PUBLISH" = true ]; then
+    echo -e "${BLUE}Multi-platform images built and pushed to: ${REGISTRY}${NC}"
+    echo
+
+    if [ ${#SERVICES[@]} -gt 0 ]; then
+        echo -e "${BLUE}Service Images:${NC}"
+        for service in "${SERVICES[@]}"; do
+            echo -e "  ${REGISTRY}/nuanced-lsp-${service}:${SERVICE_TAG}"
+        done
+        echo
+    fi
+
+    if [ ${#LANGUAGES[@]} -gt 0 ]; then
+        echo -e "${BLUE}Language Images:${NC}"
+        # Show unversioned languages
+        for lang in "${UNVERSIONED_LANGUAGES[@]}"; do
+            echo -e "  ${REGISTRY}/nuanced-lsp-${lang}:${LANGUAGE_TAG}"
+            if major_version="$(extract_major_version "$LANGUAGE_TAG")"; then
+                echo -e "  ${REGISTRY}/nuanced-lsp-${lang}:${major_version}"
+            fi
+        done
+        # Show Ruby versions
+        for version in "${RUBY_VERSIONS[@]}"; do
+            echo -e "  ${REGISTRY}/nuanced-lsp-ruby-${version}:${LANGUAGE_TAG}"
+            if major_version="$(extract_major_version "$LANGUAGE_TAG")"; then
+                echo -e "  ${REGISTRY}/nuanced-lsp-ruby-${version}:${major_version}"
+            fi
+        done
+        # Show Ruby Sorbet versions
+        for version in "${RUBY_SORBET_VERSIONS[@]}"; do
+            echo -e "  ${REGISTRY}/nuanced-lsp-ruby-sorbet-${version}:${LANGUAGE_TAG}"
+            if major_version="$(extract_major_version "$LANGUAGE_TAG")"; then
+                echo -e "  ${REGISTRY}/nuanced-lsp-ruby-sorbet-${version}:${major_version}"
+            fi
+        done
+        echo
+    fi
+    echo
+else
+    if [ ${#SERVICES[@]} -gt 0 ]; then
+        echo -e "${BLUE}Service Images (Local):${NC}"
+        docker images | grep "nuanced-lsp-" | grep -E "(proxy|watchdog|wrapper)" | grep -F "$SERVICE_TAG" | awk '{printf "  %-30s %10s\n", $1":"$2, $7}'
+        echo
+    fi
+
+    if [ ${#LANGUAGES[@]} -gt 0 ]; then
+        echo -e "${BLUE}Language Images (Local):${NC}"
+        docker images | grep "nuanced-lsp-" | grep -v -E "(proxy|watchdog|wrapper)" | grep -F "$LANGUAGE_TAG" | awk '{printf "  %-40s %10s\n", $1":"$2, $7}'
+        echo
+    fi
+
+    if [ ${#SERVICES[@]} -gt 0 ] || [ ${#LANGUAGES[@]} -gt 0 ]; then
+        echo -e "${BLUE}Total size:${NC}"
+        (
+            if [ ${#SERVICES[@]} -gt 0 ]; then
+                docker images | grep "nuanced-lsp-" | grep -E "(proxy|watchdog|wrapper)" | grep -F "$SERVICE_TAG"
+            fi
+            if [ ${#LANGUAGES[@]} -gt 0 ]; then
+                docker images | grep "nuanced-lsp-" | grep -v -E "(proxy|watchdog|wrapper)" | grep -F "$LANGUAGE_TAG"
+            fi
+        ) | awk '{size+=$7} END {print "  ~" size " (approximate)"}'
+        echo
+    fi
+
+    echo -e "${YELLOW}Note: Local images are for development/testing only.${NC}"
+    echo -e "${YELLOW}To publish to a registry, rebuild with --publish${NC}"
+    echo
+fi

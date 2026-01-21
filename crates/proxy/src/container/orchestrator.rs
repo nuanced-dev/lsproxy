@@ -1,4 +1,4 @@
-use crate::container::language_image;
+use crate::container::{find_image, language_image};
 
 use super::{ContainerHealthStatus, ContainerInfo, ContainerOrchestrator, OrchestratorError};
 use bollard::container::{Config, CreateContainerOptions};
@@ -19,7 +19,7 @@ impl ContainerOrchestrator {
     /// - `OrchestratorError::Docker`: Docker daemon not accessible or image doesn't exist
     /// - `OrchestratorError::Io`: Port binding failure or workspace path invalid
     /// - `OrchestratorError::Docker`: Container fails to start (resource limits, LSP crash)
-    pub async fn spawn_container(
+    pub async fn spawn_language_container(
         &self,
         language: SupportedLanguages,
     ) -> Result<ContainerInfo, OrchestratorError> {
@@ -62,8 +62,56 @@ impl ContainerOrchestrator {
             }
         }
 
-        // Ensure wrapper container is running before spawning language containers
-        let wrapper_container_id = self.ensure_wrapper_container().await?;
+        // Set health status to Pending at the start of spawn attempt
+        self.set_container_health(language.clone(), ContainerHealthStatus::Pending)
+            .await;
+
+        // Call implementation and handle health status updates
+        let info = match self.spawn_language_container_impl(language.clone()).await {
+            Ok(info) => info,
+            Err(e) => {
+                self.set_container_health(language, ContainerHealthStatus::Unhealthy)
+                    .await;
+                return Err(e);
+            }
+        };
+
+        match self.check_container_health(&info).await {
+            Ok(_) => {
+                log::info!("{} is now healthy and ready", info.image_name);
+                self.set_container_health(language.clone(), ContainerHealthStatus::Healthy)
+                    .await;
+            }
+            Err(e) => {
+                log::error!("{} health check failed: {}", info.image_name, e);
+                self.set_container_health(language.clone(), ContainerHealthStatus::Unhealthy)
+                    .await;
+                return Err(OrchestratorError::HealthCheck(format!(
+                    "{}: {}",
+                    info.image_name, e
+                )));
+            }
+        }
+
+        Ok(info)
+    }
+
+    /// Internal implementation of container spawning
+    /// All errors are handled by the wrapper `spawn_language_container` method
+    async fn spawn_language_container_impl(
+        &self,
+        language: SupportedLanguages,
+    ) -> Result<ContainerInfo, OrchestratorError> {
+        let wrapper_container_id =
+            self.wrapper_container_id
+                .lock()
+                .await
+                .clone()
+                .ok_or_else(|| {
+                    OrchestratorError::Configuration(
+                        "Wrapper container not initialized".to_string(),
+                    )
+                })?;
         log::debug!("Using wrapper container: {}", wrapper_container_id);
 
         let image_name = language_image(&language);
@@ -146,10 +194,10 @@ impl ContainerOrchestrator {
             self.instance_id_short().clone(),
         );
 
-        // Build CMD override for Sorbet containers with a config directory
+        // Compute working directory for Sorbet containers with a config directory
         // Sorbet reads sorbet/config which contains "--dir ." (current directory).
         // We need to change the working directory so "." resolves to the right place.
-        let cmd = if let Some(sorbet_dir) = language.sorbet_config_dir() {
+        let working_dir = if let Some(sorbet_dir) = language.sorbet_config_dir() {
             // The sorbet_dir could be either:
             // 1. A container path (starts with /mnt/workspace) - use directly
             // 2. A host path - strip mount_source prefix and prepend /mnt/workspace
@@ -171,24 +219,22 @@ impl ContainerOrchestrator {
                 mount_source
             );
 
-            // Use shell to cd to the correct directory before running srb
-            // This ensures sorbet/config's "--dir ." resolves correctly
-            Some(vec![
-                "--lsp-command".to_string(),
-                "sh".to_string(),
-                "--lsp-arg=-c".to_string(),
-                format!(
-                    "--lsp-arg=cd {} && exec srb tc --lsp --disable-watchman",
-                    container_sorbet_path
-                ),
-            ])
+            // Only set working_dir if it differs from the default
+            if container_sorbet_path != "/mnt/workspace" {
+                Some(container_sorbet_path)
+            } else {
+                None
+            }
         } else {
             None
         };
 
+        // Find the right image to use
+        let image = find_image(&self.docker, image_name.clone()).await?;
+
         let config = Config {
-            image: Some(image_name.clone()),
-            cmd,
+            image: Some(image),
+            working_dir,
             env: Some(env),
             host_config: Some(host_config),
             labels: Some(labels),
@@ -207,66 +253,7 @@ impl ContainerOrchestrator {
 
         // Create the container
         log::info!("Creating container {} for {:?}", container_name, language);
-        let container_result = self
-            .docker
-            .create_container(Some(options.clone()), config.clone())
-            .await;
-
-        let container = match container_result {
-            Ok(c) => c,
-            Err(e) => {
-                // If image not found locally, check if GHCR image exists or pull it
-                let err_msg = e.to_string();
-                if err_msg.contains("404") || err_msg.contains("No such image") {
-                    use super::language_image_ghcr;
-                    let ghcr_image = language_image_ghcr(&language);
-
-                    // Check if GHCR image already exists locally
-                    let image_exists = self.docker.inspect_image(&ghcr_image).await.is_ok();
-
-                    if !image_exists {
-                        log::info!(
-                            "{} not found locally, pulling from GHCR: {}",
-                            image_name,
-                            ghcr_image
-                        );
-
-                        use bollard::image::CreateImageOptions;
-                        use futures_util::stream::StreamExt;
-
-                        let create_options = CreateImageOptions {
-                            from_image: ghcr_image.clone(),
-                            ..Default::default()
-                        };
-
-                        let mut stream = self.docker.create_image(Some(create_options), None, None);
-                        while let Some(info) = stream.next().await {
-                            match info {
-                                Ok(_) => {}
-                                Err(e) => {
-                                    log::error!("Failed to pull language image from GHCR: {}", e);
-                                    return Err(e.into());
-                                }
-                            }
-                        }
-
-                        log::info!("{:?} image successfully pulled from GHCR", language);
-                    } else {
-                        log::info!("{:?} using existing GHCR image: {}", language, ghcr_image);
-                    }
-
-                    // Create container using GHCR image name
-                    let mut config_ghcr = config.clone();
-                    config_ghcr.image = Some(ghcr_image);
-
-                    self.docker
-                        .create_container(Some(options), config_ghcr)
-                        .await?
-                } else {
-                    return Err(e.into());
-                }
-            }
-        };
+        let container = self.docker.create_container(Some(options), config).await?;
 
         let container_id = container.id;
 
@@ -328,32 +315,12 @@ impl ContainerOrchestrator {
             let mut containers_guard = self.containers.lock().await;
             containers_guard.insert(language.clone(), info.clone());
         }
-        // Track health as pending until background checks complete
-        self.set_container_health(language.clone(), ContainerHealthStatus::Pending)
-            .await;
         log::info!(
             "Container {} for {:?} started at {}, health checks will run in background",
             container_id,
             language,
             endpoint
         );
-
-        match self.check_container_health(&info).await {
-            Ok(_) => {
-                log::info!("{} is now healthy and ready", info.image_name);
-                self.set_container_health(language.clone(), ContainerHealthStatus::Healthy)
-                    .await;
-            }
-            Err(e) => {
-                log::error!("{} health check failed: {}", info.image_name, e);
-                self.set_container_health(language.clone(), ContainerHealthStatus::Unhealthy)
-                    .await;
-                return Err(OrchestratorError::HealthCheck(format!(
-                    "{}: {}",
-                    info.image_name, e
-                )));
-            }
-        }
 
         Ok(info)
     }
@@ -387,6 +354,32 @@ impl ContainerOrchestrator {
         const MAX_BACKOFF_SECS: u64 = 15;
 
         loop {
+            // Check container status before attempting health check
+            match self
+                .docker
+                .inspect_container(&info.container_id, None)
+                .await
+            {
+                Ok(details) => {
+                    if let Some(state) = &details.state {
+                        if !state.running.unwrap_or(false) {
+                            let exit_code = state.exit_code.unwrap_or(-1);
+                            let error_msg = state.error.as_deref().unwrap_or("");
+                            return Err(OrchestratorError::HealthCheck(format!(
+                                "Container {} exited with code {}: {}",
+                                info.image_name, exit_code, error_msg
+                            )));
+                        }
+                    }
+                }
+                Err(e) => {
+                    return Err(OrchestratorError::HealthCheck(format!(
+                        "Failed to inspect container {}: {}",
+                        info.image_name, e
+                    )));
+                }
+            }
+
             match client
                 .get(&health_url)
                 .timeout(Duration::from_secs(2))
@@ -572,10 +565,8 @@ mod tests {
         );
     }
 
-    // Integration tests - these require Docker to be running
-    // Run with: cargo test --test container_tests -- --ignored
-
     #[tokio::test]
+    #[cfg_attr(not(feature = "docker-tests"), ignore)]
     async fn test_store_and_get_container() -> Result<(), OrchestratorError> {
         let orchestrator = ContainerOrchestrator::new().await?;
 
@@ -608,6 +599,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[cfg_attr(not(feature = "docker-tests"), ignore)]
     async fn test_remove_container_from_map() -> Result<(), OrchestratorError> {
         let orchestrator = ContainerOrchestrator::new().await?;
 
@@ -643,6 +635,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[cfg_attr(not(feature = "docker-tests"), ignore)]
     async fn test_all_containers() -> Result<(), OrchestratorError> {
         let orchestrator = ContainerOrchestrator::new().await?;
 
@@ -677,8 +670,8 @@ mod tests {
     }
 
     #[tokio::test]
-    #[ignore] // Requires Docker and images to be built
-    async fn test_spawn_container_returns_existing() -> Result<(), OrchestratorError> {
+    #[cfg_attr(not(feature = "docker-tests"), ignore)]
+    async fn test_spawn_language_container_returns_existing() -> Result<(), OrchestratorError> {
         let orchestrator = ContainerOrchestrator::new().await?;
 
         // Pre-populate with a "container"
@@ -695,7 +688,7 @@ mod tests {
 
         // Try to spawn - should return existing
         let result = orchestrator
-            .spawn_container(SupportedLanguages::Python)
+            .spawn_language_container(SupportedLanguages::Python)
             .await?;
         assert_eq!(result.container_id, "existing-123");
         assert_eq!(result.port, 9000);
@@ -703,7 +696,7 @@ mod tests {
         Ok(())
     }
 
-    // Note: Full spawn_container test would require:
+    // Note: Full spawn_language_container test would require:
     // 1. Docker images to be built (nuanced-lsp-golang:1.0.0, etc.)
     // 2. Valid workspace path
     // 3. Cleanup of created containers

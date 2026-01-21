@@ -2,15 +2,29 @@
 
 set -e
 
-# Emergency cleanup script - removes ALL Nuanced LSP related containers
-# Usage: ./scripts/cleanup-all.sh
+SCRIPT_DIR="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")" && pwd)"
 
-# Colors
-GREEN='\033[0;32m'
-RED='\033[0;31m'
-BLUE='\033[0;34m'
-YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
+source "$SCRIPT_DIR/include/colors.sh"
+
+help() {
+    echo "Emergency cleanup script - removes ALL Nuanced LSP related containers"
+    echo ""
+    echo "Usage: $0"
+}
+
+# Parse options
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --help|-h)
+            help
+            exit 0
+            ;;
+        *)
+            echo -e "${RED}Unknown option: $1${NC}"
+            exit 1
+            ;;
+    esac
+done
 
 echo -e "${BLUE}=========================================${NC}"
 echo -e "${BLUE}  Nuanced LSP Emergency Cleanup${NC}"
@@ -42,7 +56,7 @@ echo
 echo -e "${BLUE}Removing containers...${NC}"
 CONTAINERS=$(docker ps -aq --filter "name=nuanced-lsp-")
 if [ -n "$CONTAINERS" ]; then
-    echo "$CONTAINERS" | while read container; do
+    echo "$CONTAINERS" | while read -r container; do
         NAME=$(docker ps -a --filter "id=$container" --format "{{.Names}}" 2>/dev/null || echo "unknown")
         echo -n "  Removing $NAME... "
         if docker rm -f "$container" > /dev/null 2>&1; then

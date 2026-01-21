@@ -12,7 +12,7 @@ use std::sync::{Arc, Mutex};
     path = "/workspace/list-files",
     tag = "file",
     responses(
-        (status = 200, description = "Files listed successfully"),
+        (status = 200, description = "Files listed successfully", body = Vec<String>),
         (status = 500, description = "Internal server error")
     )
 )]

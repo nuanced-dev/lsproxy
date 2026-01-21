@@ -1,17 +1,18 @@
-use crate::lsp::client::{LspConfig, CLIENT_CAPABILITES};
+use crate::lsp::client::{LspConfig, PostInitializeMessage, CLIENT_CAPABILITES};
 
 use async_trait::async_trait;
 use common::utils::file_utils::{search_paths, FileType};
 use common::utils::workspace_documents::{DidOpenConfiguration, DEFAULT_EXCLUDE_PATTERNS};
 use log::warn;
-use lsp_types::{InitializeParams, Url, WorkspaceFolder};
+use lsp_types::{InitializeParams, WorkspaceFolder};
 use std::error::Error;
 use std::path::Path;
+use url::Url;
 
 #[derive(Clone)]
 pub struct GenericConfig {
     initialization_options: Option<serde_json::Value>,
-    setup_workspace_method: Option<String>,
+    post_initialize_messages: Vec<PostInitializeMessage>,
     file_patterns: Vec<String>,
     exclude_patterns: Vec<String>,
     did_open_configuration: DidOpenConfiguration,
@@ -34,8 +35,8 @@ impl LspConfig for GenericConfig {
         })
     }
 
-    fn get_setup_workspace_method(&self) -> Option<String> {
-        self.setup_workspace_method.clone()
+    fn get_post_initialize_messages(&self) -> Vec<PostInitializeMessage> {
+        self.post_initialize_messages.clone()
     }
 
     fn get_root_files(&mut self) -> Vec<String> {
@@ -63,7 +64,7 @@ impl GenericConfig {
     ) -> Self {
         Self {
             initialization_options: None,
-            setup_workspace_method: None,
+            post_initialize_messages: vec![],
             file_patterns,
             exclude_patterns,
             did_open_configuration,
@@ -128,8 +129,8 @@ impl GenericConfig {
         self
     }
 
-    pub fn with_setup_workspace_method(mut self, method: String) -> Self {
-        self.setup_workspace_method = Some(method);
+    pub fn with_post_initialize_messages(mut self, messages: Vec<PostInitializeMessage>) -> Self {
+        self.post_initialize_messages = messages;
         self
     }
 }

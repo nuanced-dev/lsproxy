@@ -44,9 +44,7 @@ export async function workspaceFiles(runner: ClientRunner): Promise<string[]> {
   const files = await runner.listFiles();
   const filtered = files.filter((file) => {
     const rel = relToWorkspace(runner.workspace, file);
-    return (
-      !isGeneratedPath(rel) && isSupportedSourceFile(runner.language.key, rel)
-    );
+    return !isGeneratedPath(rel) && isSupportedSourceFile(runner.language, rel);
   });
   filteredFilesCache.set(key, filtered);
   return filtered;

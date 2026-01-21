@@ -1,11 +1,12 @@
 use actix_cors::Cors;
 mod middleware;
 use actix_web::{
-    web::{get, post, resource, scope, Data},
+    web::{get, post, scope, Data},
     App, HttpServer,
 };
 use log::{error, info, warn};
 use middleware::JwtMiddleware;
+use std::env;
 use std::fs;
 use std::fs::File;
 use std::io::Write;
@@ -21,14 +22,15 @@ mod handlers;
 
 use crate::handlers::{
     definitions_in_file, find_definition, find_identifier, find_referenced_symbols,
-    find_references, health_check, list_files, lsp, lsp_ws, read_source_code,
+    find_references, health_check, list_files, lsp_ws, read_source_code,
 };
 use common::api_types::{
     get_mount_dir, set_global_mount_dir, CodeContext, DefinitionsInFileRequest, ErrorResponse,
     FilePosition, FileRange, FindDefinitionRequest, FindDefinitionResponse, FindIdentifierRequest,
     FindIdentifierResponse, FindReferencedSymbolsRequest, FindReferencedSymbolsResponse,
-    FindReferencesRequest, FindReferencesResponse, HealthResponse, Position,
-    ReferenceWithSymbolDefinitions, SupportedLanguages, Symbol, SymbolResponse,
+    FindReferencesRequest, FindReferencesResponse, HealthResponse, Identifier, Position, Range,
+    ReadSourceCodeRequest, ReadSourceCodeResponse, ReferenceWithSymbolDefinitions,
+    SupportedLanguages, Symbol,
 };
 
 pub fn check_mount_dir() -> std::io::Result<()> {
@@ -40,11 +42,11 @@ pub fn check_mount_dir() -> std::io::Result<()> {
 #[openapi(
     info(
         title = "nuanced-lsp",
-        version = "0.2.1",
+        version = env!("CARGO_PKG_VERSION"),
         license(
-            name = "Apache-2.0",
-            url = "https://www.apache.org/licenses/LICENSE-2.0"
-        )
+            name = "MIT",
+            url = "https://opensource.org/licenses/MIT",
+        ),
     ),
     security(
         ("bearer_auth" = [])
@@ -65,11 +67,14 @@ pub fn check_mount_dir() -> std::io::Result<()> {
             FindReferencesRequest,
             FindReferencesResponse,
             HealthResponse,
+            Identifier,
             Position,
+            Range,
+            ReadSourceCodeRequest,
+            ReadSourceCodeResponse,
             ReferenceWithSymbolDefinitions,
             SupportedLanguages,
             Symbol,
-            SymbolResponse,
         )
     ),
     paths(
@@ -138,9 +143,10 @@ pub async fn initialize_app_state_with_mount_dir(
     // Spawn watchdog container to monitor this service
     // The watchdog will cleanup language containers if this service dies unexpectedly
     info!("Spawning watchdog container...");
-    if let Err(e) = orchestrator.spawn_watchdog().await {
-        warn!("Failed to spawn watchdog (will continue without it): {}", e);
-    }
+    orchestrator.spawn_watchdog_container().await?;
+
+    info!("Spawning wrapper container...");
+    orchestrator.spawn_wrapper_container().await?;
 
     let initialization_complete = Arc::new(AtomicBool::new(false));
 
@@ -172,13 +178,6 @@ pub async fn initialize_app_state_with_mount_dir(
         workspace_path,
         initialization_complete,
     }))
-}
-
-// Helper enum for cleaner matching
-#[derive(Debug)]
-enum Method {
-    Get,
-    Post,
 }
 
 pub async fn run_server(app_state: Data<AppState>) -> std::io::Result<()> {
@@ -231,74 +230,37 @@ pub async fn run_server_with_port_and_host(
     // Initialize JWT middleware once before creating workers to fail fast
     // If this panics, it happens in the main thread before any workers start
     let jwt_middleware = if middleware::is_auth_enabled() {
-        match JwtMiddleware::from_env() {
-            Ok(middleware) => Some(middleware),
-            Err(e) => {
-                error!("Failed to initialize JWT middleware: {}", e);
-                std::process::exit(1);
-            }
-        }
+        JwtMiddleware::from_env().unwrap_or_else(|e| {
+            error!("Failed to initialize JWT middleware: {}", e);
+            std::process::exit(1);
+        })
     } else {
-        None
+        JwtMiddleware::disabled()
     };
 
     HttpServer::new(move || {
-        let mut api_scope = scope(format!("/{}", server_path).as_str());
-
-        // Add routes based on OpenAPI paths
-        for (path, path_item) in openapi.paths.paths.iter() {
-            let method = if path_item.get.is_some() {
-                Some(Method::Get)
-            } else if path_item.post.is_some() {
-                Some(Method::Post)
-            } else {
-                None
-            };
-
-            api_scope = match (path.as_str(), method) {
-                ("/symbol/definitions-in-file", Some(Method::Get)) =>
-                    api_scope.service(resource(path).route(get().to(definitions_in_file))),
-                ("/symbol/find-definition", Some(Method::Post)) =>
-                    api_scope.service(resource(path).route(post().to(find_definition))),
-                ("/symbol/find-identifier", Some(Method::Post)) =>
-                    api_scope.service(resource(path).route(post().to(find_identifier))),
-                ("/symbol/find-referenced-symbols", Some(Method::Post)) =>
-                    api_scope.service(resource(path).route(post().to(find_referenced_symbols))),
-                ("/symbol/find-references", Some(Method::Post)) =>
-                    api_scope.service(resource(path).route(post().to(find_references))),
-                ("/system/health", Some(Method::Get)) =>
-                    api_scope.service(resource(path).route(get().to(health_check))),
-                ("/workspace/list-files", Some(Method::Get)) =>
-                    api_scope.service(resource(path).route(get().to(list_files))),
-                ("/workspace/read-source-code", Some(Method::Post)) =>
-                    api_scope.service(resource(path).route(post().to(read_source_code))),
-                (p, m) => panic!(
-                    "Invalid path configuration for {}: {:?}. Ensure the OpenAPI spec matches your handlers.",
-                    p,
-                    m
-                )
-            };
-        }
-
         App::new()
             .wrap(Cors::permissive())
+            .wrap(jwt_middleware.clone())
             .app_data(app_state.clone())
             .configure(|cfg| {
-                if let Some(ref middleware) = jwt_middleware {
-                    cfg
-                        .service(api_scope.wrap(middleware.clone()))
-                        .route("/lsp", post().to(lsp).wrap(middleware.clone()))
-                        .route("/lsp/ws", get().to(lsp_ws).wrap(middleware.clone()));
-                } else {
-                    cfg
-                        .service(api_scope)
-                        .route("/lsp", post().to(lsp))
-                        .route("/lsp/ws", get().to(lsp_ws));
-                }
+                cfg.route("/lsp/ws", get().to(lsp_ws)).service(
+                    scope(format!("/{}", server_path).as_str())
+                        .route("/symbol/definitions-in-file", get().to(definitions_in_file))
+                        .route("/symbol/find-definition", post().to(find_definition))
+                        .route("/symbol/find-identifier", post().to(find_identifier))
+                        .route(
+                            "/symbol/find-referenced-symbols",
+                            post().to(find_referenced_symbols),
+                        )
+                        .route("/symbol/find-references", post().to(find_references))
+                        .route("/system/health", get().to(health_check))
+                        .route("/workspace/list-files", get().to(list_files))
+                        .route("/workspace/read-source-code", post().to(read_source_code)),
+                );
             })
             .service(
-                SwaggerUi::new("/swagger-ui/{_:.*}")
-                    .url("/api-docs/openapi.json", openapi.clone())
+                SwaggerUi::new("/swagger-ui/{_:.*}").url("/api-docs/openapi.json", openapi.clone()),
             )
     })
     .bind(format!("{}:{}", host, port))?

@@ -4,7 +4,6 @@ pub mod find_definition;
 pub mod find_identifier;
 pub mod find_referenced_symbols;
 pub mod find_references;
-pub mod lsp;
 pub mod lsp_ws;
 
 pub mod utils;
