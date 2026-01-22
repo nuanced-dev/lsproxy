@@ -69,4 +69,14 @@ workspace
     workspaceStop(directory).catch(console.error);
   });
 
+program
+  .command("mutagen", { hidden: true })
+  .description("Run mutagen command")
+  .allowUnknownOption()
+  .argument("[args...]", "Mutagen arguments")
+  .action(async (args: string[]) => {
+    const { mutagenCommand } = await import("./commands/mutagen.js");
+    mutagenCommand(args).catch(console.error);
+  });
+
 program.parse();

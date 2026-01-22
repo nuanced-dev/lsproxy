@@ -24,6 +24,7 @@
     "lint:fix": "eslint --fix"
   },
   "dependencies": {
+    "@nuanced-dev/mutagen": "^0.19",
     "child-process-promise": "^2.2.1",
     "commander": "^14.0.2",
     "node-machine-id": "^1.1.12",

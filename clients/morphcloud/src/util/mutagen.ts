@@ -1,8 +1,8 @@
 import { join } from "path";
-import { platform, arch } from "os";
-import { mkdir, access } from "fs/promises";
+import process from "process";
+import { mkdir } from "fs/promises";
 import { Instance } from "morphcloud";
-import { spawn } from "child-process-promise";
+import { mutagen } from "@nuanced-dev/mutagen";
 import { ensureConfigDirectory } from "./config.js";
 import { getSshConfig, removeSshConfig } from "./ssh.js";
 
@@ -22,7 +22,7 @@ export class MutagenClient {
   async createSync(localDirectory: string): Promise<void> {
     try {
       const sshConfig = await getSshConfig(this.instance);
-      await this.spawnMutagen(
+      await spawnMutagen(
         [
           "sync",
           "create",
@@ -42,7 +42,7 @@ export class MutagenClient {
 
   async findSync(_opts?: { ensureReady?: boolean }): Promise<boolean> {
     try {
-      await this.spawnMutagen(["sync", "list", this.syncName()]);
+      await spawnMutagen(["sync", "list", this.syncName()]);
       // TODO implement waiting on ready status
       return true;
     } catch (e) {
@@ -57,7 +57,7 @@ export class MutagenClient {
 
   async flushSync(): Promise<void> {
     try {
-      await this.spawnMutagen(["sync", "flush", this.syncName()]);
+      await spawnMutagen(["sync", "flush", this.syncName()]);
     } catch (e) {
       throw new Error(`Failed to flush sync: ${(e as any).stderr}`);
     }
@@ -65,7 +65,7 @@ export class MutagenClient {
 
   async pauseSync(): Promise<void> {
     try {
-      await this.spawnMutagen(["sync", "pause", this.syncName()]);
+      await spawnMutagen(["sync", "pause", this.syncName()]);
     } catch (e) {
       throw new Error(`Failed to pause sync: ${(e as any).stderr}`);
     }
@@ -74,7 +74,7 @@ export class MutagenClient {
   async resumeSync(): Promise<void> {
     try {
       const sshConfig = await getSshConfig(this.instance);
-      await this.spawnMutagen(["sync", "resume", this.syncName()], {
+      await spawnMutagen(["sync", "resume", this.syncName()], {
         env: { MUTAGEN_SSH_CONFIG_BETA: sshConfig.configPath },
       });
     } catch (e) {
@@ -84,7 +84,7 @@ export class MutagenClient {
 
   async stopSync(): Promise<void> {
     try {
-      await this.spawnMutagen(["sync", "terminate", this.syncName()]);
+      await spawnMutagen(["sync", "terminate", this.syncName()]);
     } catch (e) {
       const stderr = (e as any).stderr.toLowerCase();
       if (stderr.includes(MISSING_SESSION_ERROR)) {
@@ -96,50 +96,19 @@ export class MutagenClient {
       await removeSshConfig(this.instance);
     }
   }
-
-  private async spawnMutagen(
-    args: string[],
-    opts?: { env?: Record<string, string> },
-  ): Promise<void> {
-    const mutagenDataDir = join(await ensureConfigDirectory(), "mutagen");
-    await mkdir(mutagenDataDir, { recursive: true });
-
-    const spawnCommand = await getMutagenBinaryPath();
-    const spawnArgs = [...args];
-    const spawnEnv = {
-      ...opts?.env,
-      MUTAGEN_DATA_DIRECTORY: mutagenDataDir,
-    };
-    await spawn(spawnCommand, spawnArgs, {
-      capture: ["stderr"],
-      env: {
-        ...process.env,
-        ...spawnEnv,
-      },
-    });
-  }
 }
 
-async function getMutagenBinaryPath(): Promise<string> {
-  const platformArch = `${platform()}_${arch()}`;
-  const binaryName = platform() === "win32" ? "mutagen.exe" : "mutagen";
-  const binPath = join(
-    import.meta.dirname,
-    "..",
-    "..",
-    "bin",
-    "mutagen",
-    platformArch,
-    binaryName,
-  );
-
-  try {
-    await access(binPath);
-  } catch {
-    throw new Error(
-      `Mutagen not supported for platform ${platform()} and architecture ${arch()}. Missing ${binPath}.`,
-    );
-  }
-
-  return binPath;
+export async function spawnMutagen(
+  args: string[],
+  opts?: { env?: Record<string, string> },
+): Promise<void> {
+  const mutagenDataDir = join(await ensureConfigDirectory(), "mutagen");
+  await mkdir(mutagenDataDir, { recursive: true });
+  await mutagen(args, {
+    env: {
+      ...process.env,
+      ...opts?.env,
+      MUTAGEN_DATA_DIRECTORY: mutagenDataDir,
+    },
+  });
 }
