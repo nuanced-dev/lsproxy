@@ -2,6 +2,7 @@ import { Instance, MorphCloudClient } from "morphcloud";
 import {
   LABEL_NUANCED_LSP_ROLE,
   NUANCED_LSP_ROLE_SERVICE,
+  NUANCED_LSP_VERSION,
 } from "../util/constants.js";
 import {
   execOrThrow,
@@ -76,10 +77,14 @@ export async function serviceCreate() {
     console.log(`  Installed ${dockerVersion.trim()}`);
 
     console.log("- Installing Nuanced LSP...");
-    await execOrThrow(serviceInstance, "npm install -g @nuanced-dev/lsp", {
-      verbose: VERBOSE,
-      prefix: "  | ",
-    });
+    await execOrThrow(
+      serviceInstance,
+      `npm install -g @nuanced-dev/lsp${NUANCED_LSP_VERSION}`,
+      {
+        verbose: VERBOSE,
+        prefix: "  | ",
+      },
+    );
     const nuancedVersion = await execOrThrow(
       serviceInstance,
       "nuanced-lsp --version",

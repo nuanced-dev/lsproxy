@@ -7,6 +7,7 @@ import { ensureConfigDirectory } from "./config.js";
 import { getSshConfig, removeSshConfig } from "./ssh.js";
 
 const MISSING_SESSION_ERROR = "unable to locate requested session";
+const SYNC_READY_STATUS = "Status: Watching for changes";
 
 export class MutagenClient {
   constructor(private readonly instance: Instance) {}
@@ -41,7 +42,7 @@ export class MutagenClient {
     }
   }
 
-  async findSync(_opts?: { ensureReady?: boolean }): Promise<boolean> {
+  async findSync(): Promise<boolean> {
     try {
       await spawnMutagen(["sync", "list", this.syncName()]);
       // TODO implement waiting on ready status
@@ -88,6 +89,20 @@ export class MutagenClient {
     }
   }
 
+  async waitForSyncReady(): Promise<void> {
+    while (true) {
+      try {
+        const res = await spawnMutagen(["sync", "list", this.syncName()]);
+        if (res.stdout.includes(SYNC_READY_STATUS)) {
+          return;
+        }
+      } catch (e) {
+        const me = e as MutagenError;
+        throw new Error(`Error waiting for sync: ${me.stderr}`);
+      }
+    }
+  }
+
   async stopSync(): Promise<void> {
     try {
       await spawnMutagen(["sync", "terminate", this.syncName()]);
@@ -111,11 +126,12 @@ export async function spawnMutagen(
 ): Promise<MutagenResult> {
   const mutagenDataDir = join(await ensureConfigDirectory(), "mutagen");
   await mkdir(mutagenDataDir, { recursive: true });
+  const env = {
+    ...process.env,
+    ...opts?.env,
+    MUTAGEN_DATA_DIRECTORY: mutagenDataDir,
+  };
   return mutagen(args, {
-    env: {
-      ...process.env,
-      ...opts?.env,
-      MUTAGEN_DATA_DIRECTORY: mutagenDataDir,
-    },
+    env,
   });
 }

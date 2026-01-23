@@ -12,6 +12,7 @@ _Note that this client is experimental and not considered stable!_
 
 **Known issues:**
 
+- Mutagen easily gets into error states, where resuming syncs hangs or setting up syncs fails. Often the only way to recover is removing the mutagen data directory (`~/.nuanced/mutagen`).
 - File syncs are sometimes not properly resumed, in which case the workspace instance needs to be recreated.
 - Morph Cloud retains snapshots for instances that have been deleted. These snapshots do not inherit the metadata of the instance and we currently cannot clean them up.
 
@@ -68,6 +69,25 @@ nuanced-lsp-morphcloud workspace delete /path/to/workspace
 ```
 
 This can be useful if you want to recreate the workspace instance.
+
+**List workspaces:**
+
+```bash
+nuanced-lsp-morphcloud workspace list
+```
+
+## Troubleshooting
+
+**Mutagen sync setup fails:**
+
+Starting a workspace server fails with an error like the following:
+
+```
+Connecting to agent (POSIX)...
+Error: unable to connect to beta: unable to connect to endpoint: unable to dial agent endpoint: unable to handshake with agent process: unable to receive server magic number: EOF (error output: No user exists for uid 504)
+```
+
+Mutagen got in a bad state. Remove `~/.nuanced/mutagen` to have syncs recreated.
 
 ## License
 
