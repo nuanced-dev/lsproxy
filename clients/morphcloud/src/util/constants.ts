@@ -1,5 +1,7 @@
 import nodeMachineId from "node-machine-id";
 
+export const NUANCED_LSP_VERSION = "@^0.5";
+
 export const MACHINE_ID = nodeMachineId.machineIdSync();
 
 export const LABEL_NUANCED_LSP_ROLE = "nuanced-lsp.role";

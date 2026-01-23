@@ -24,64 +24,33 @@ import { ProcessRc } from "../util/process-rc.js";
 async function ensureWorkspaceInstance(
   client: MorphCloudClient,
   metadata: Record<string, string>,
-  workspaceRealDir: string,
-): Promise<{ instance: Instance; mutagen: MutagenClient }> {
+): Promise<void> {
   let workspaceInstance = await findInstance(client, {
     metadata,
     ensureReady: true,
   });
-
-  let mutagen: MutagenClient;
-
-  if (!workspaceInstance) {
-    console.error("Creating workspace instance...");
-    const serviceSnapshot = await findSnapshot(client, {
-      metadata: { [LABEL_NUANCED_LSP_ROLE]: NUANCED_LSP_ROLE_SERVICE },
-    });
-    if (!serviceSnapshot) {
-      throw new Error("Missing service snapshot. Run setup.ts first.");
-    }
-    workspaceInstance = await startInstance(client, serviceSnapshot, {
-      metadata,
-    });
-
-    console.error("Starting Nuanced LSP container...");
-    await execOrThrow(
-      workspaceInstance,
-      "nuanced-lsp up --container-name nuanced-lsp workspace",
-    );
-
-    console.error(`Workspace instance: ${workspaceInstance.id}`);
-
-    mutagen = new MutagenClient(workspaceInstance);
-
-    console.error("Creating file sync...");
-    try {
-      await mutagen.createSync(workspaceRealDir);
-      await mutagen.flushSync();
-    } catch (e) {
-      throw new Error(`Failed to setup file sync: ${e}`);
-    }
-  } else {
-    console.error(`Workspace instance: ${workspaceInstance.id}`);
-
-    mutagen = new MutagenClient(workspaceInstance);
-
-    if (!(await mutagen.findSync({ ensureReady: true }))) {
-      throw new Error(
-        "File sync not found for existing workspace. Delete the workspace and start over.",
-      );
-    }
-
-    console.error("Resuming file sync...");
-    try {
-      await mutagen.resumeSync();
-    } catch (e) {
-      throw new Error(`Failed to resume file sync: ${e}`);
-    }
+  if (workspaceInstance) {
+    return;
   }
 
-  return { instance: workspaceInstance, mutagen };
+  console.error("Creating workspace instance...");
+  const serviceSnapshot = await findSnapshot(client, {
+    metadata: { [LABEL_NUANCED_LSP_ROLE]: NUANCED_LSP_ROLE_SERVICE },
+  });
+  if (!serviceSnapshot) {
+    throw new Error("Missing service snapshot. Run setup.ts first.");
+  }
+  workspaceInstance = await startInstance(client, serviceSnapshot, {
+    metadata,
+  });
+
+  console.error("Starting Nuanced LSP container...");
+  await execOrThrow(
+    workspaceInstance,
+    "nuanced-lsp up --container-name nuanced-lsp workspace",
+  );
+
+  console.error(`Created workspace instance: ${workspaceInstance.id}`);
 }
 
 export async function workspaceServer(workspaceDir: string) {
@@ -102,27 +71,37 @@ export async function workspaceServer(workspaceDir: string) {
   let mutagen: MutagenClient | undefined;
   try {
     await processRc.acquire(async () => {
-      const result = await ensureWorkspaceInstance(
-        client,
-        metadata,
-        workspaceRealDir,
-      );
-      workspaceInstance = result.instance;
-      mutagen = result.mutagen;
+      await ensureWorkspaceInstance(client, metadata);
     });
 
+    workspaceInstance = await findInstance(client, {
+      metadata,
+      ensureReady: true,
+    });
     if (!workspaceInstance) {
-      workspaceInstance = await findInstance(client, {
-        metadata,
-        ensureReady: true,
-      });
-      if (!workspaceInstance) {
-        throw new Error("Workspace instance not found after acquire");
+      throw new Error("Workspace instance not found after acquire");
+    }
+    console.error(`Workspace instance: ${workspaceInstance.id}`);
+
+    mutagen = new MutagenClient(workspaceInstance);
+
+    console.error("Setting up file sync...");
+    try {
+      if (!(await mutagen.findSync())) {
+        console.error("Creating file sync...");
+        await mutagen.createSync(workspaceRealDir);
+      } else {
+        console.error("Resuming file sync...");
+        await mutagen.resumeSync();
+        await mutagen.flushSync();
       }
-      console.error(`Workspace instance: ${workspaceInstance.id}`);
+      console.error("Waiting for file sync...");
+      await mutagen.waitForSyncReady();
+    } catch (e) {
+      throw new Error(`File sync failure: ${e}`);
     }
 
-    console.error("Executing nuanced-lsp server...");
+    console.error("Starting nuanced-lsp server...");
     const ssh = await workspaceInstance.ssh();
     const cmd = "nuanced-lsp";
     const args = ["server", "--container-name", "nuanced-lsp"];

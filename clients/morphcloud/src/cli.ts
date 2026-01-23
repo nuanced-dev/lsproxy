@@ -45,9 +45,16 @@ workspace
   .description("Run LSP server for a workspace")
   .argument("<directory>", "Workspace directory")
   .action(async (directory: string) => {
-    const { workspaceServer: workspaceLsp } =
-      await import("./commands/workspace-server.js");
-    workspaceLsp(directory).catch(console.error);
+    const { workspaceServer } = await import("./commands/workspace-server.js");
+    workspaceServer(directory).catch(console.error);
+  });
+
+workspace
+  .command("list")
+  .description("Show workspace instances")
+  .action(async () => {
+    const { workspaceList } = await import("./commands/workspace-list.js");
+    workspaceList().catch(console.error);
   });
 
 workspace
@@ -67,6 +74,16 @@ workspace
     const { workspaceDelete: workspaceStop } =
       await import("./commands/workspace-delete.js");
     workspaceStop(directory).catch(console.error);
+  });
+
+program
+  .command("mutagen", { hidden: true })
+  .description("Run mutagen command")
+  .allowUnknownOption()
+  .argument("[args...]", "Mutagen arguments")
+  .action(async (args: string[]) => {
+    const { mutagenCommand } = await import("./commands/mutagen.js");
+    mutagenCommand(args).catch(console.error);
   });
 
 program.parse();

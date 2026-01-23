@@ -39,18 +39,13 @@ npm run dev
 
 This project uses Mutagen for file syncing. It uses an isolated configuration so it does not interfere with other uses of Mutagen on the system.
 
-To run `mutagen` with the right configuration to see the file syncs created by this project, run:
+The CLI has a hidden `mutagen` command that allows you to run Mutagen with the right configuration. For example:
 
 ```bash
-scripts/mutagen.sh
+npm run dev mutagen sync list
 ```
 
-We use a [modified](https://github.com/nuanced-dev/mutagen/tree/hendrikvanantwerpen/custom-ssh-config) Mutagen version. The binaries are shipped as part of the NPM package.
-
-If these need changing:
-
-- Run `go run scripts/build.go --mode=release-slim` in a Mutagen checkout
-- Run `scripts/updarte-mutagen-assets.sh /path/to/mutagen/checkout`
+We use a [modified](https://github.com/nuanced-dev/mutagen/) Mutagen version which is published as [@nuanced-dev/mutagen](https://www.npmjs.com/package/@nuanced-dev/mutagen).
 
 ## Release
 

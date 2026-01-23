@@ -8,6 +8,7 @@ import {
   MACHINE_ID,
 } from "../util/constants.js";
 import { findInstance } from "../util/morphcloud.js";
+import { getSshConfig } from "../util/ssh.js";
 
 export async function workspaceStatus(workspaceDir: string) {
   const client = new MorphCloudClient();
@@ -25,6 +26,10 @@ export async function workspaceStatus(workspaceDir: string) {
     console.log(
       `${workspaceRealDir.padEnd(2)} : ${workspaceInstance?.id ?? "<missing>"}`,
     );
+    if (workspaceInstance) {
+      // refreshed the SSH config--can be useful when manually debugging Mutagen issues
+      await getSshConfig(workspaceInstance);
+    }
   } catch (error) {
     throw new Error(`Workspace status failed: ${error}`);
   }
