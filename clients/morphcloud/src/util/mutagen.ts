@@ -2,7 +2,7 @@ import { join } from "path";
 import process from "process";
 import { mkdir } from "fs/promises";
 import { Instance } from "morphcloud";
-import { mutagen } from "@nuanced-dev/mutagen";
+import { mutagen, MutagenError, MutagenResult } from "@nuanced-dev/mutagen";
 import { ensureConfigDirectory } from "./config.js";
 import { getSshConfig, removeSshConfig } from "./ssh.js";
 
@@ -36,7 +36,8 @@ export class MutagenClient {
         { env: { MUTAGEN_SSH_CONFIG_BETA: sshConfig.configPath } },
       );
     } catch (e) {
-      throw new Error(`Failed to create sync: ${(e as any).stderr}`);
+      const me = e as MutagenError;
+      throw new Error(`Failed to create sync: ${me.stderr}`);
     }
   }
 
@@ -46,11 +47,13 @@ export class MutagenClient {
       // TODO implement waiting on ready status
       return true;
     } catch (e) {
-      const stderr = (e as any).stderr.toLowerCase();
+      const me = e as MutagenError;
+
+      const stderr = me.stderr.toLowerCase();
       if (stderr.includes(MISSING_SESSION_ERROR)) {
         return false;
       } else {
-        throw new Error(`Failed to find sync: ${(e as any).stderr}`);
+        throw new Error(`Failed to find sync: ${me.stderr}`);
       }
     }
   }
@@ -59,7 +62,8 @@ export class MutagenClient {
     try {
       await spawnMutagen(["sync", "flush", this.syncName()]);
     } catch (e) {
-      throw new Error(`Failed to flush sync: ${(e as any).stderr}`);
+      const me = e as MutagenError;
+      throw new Error(`Failed to flush sync: ${me.stderr}`);
     }
   }
 
@@ -67,7 +71,8 @@ export class MutagenClient {
     try {
       await spawnMutagen(["sync", "pause", this.syncName()]);
     } catch (e) {
-      throw new Error(`Failed to pause sync: ${(e as any).stderr}`);
+      const me = e as MutagenError;
+      throw new Error(`Failed to pause sync: ${me.stderr}`);
     }
   }
 
@@ -78,7 +83,8 @@ export class MutagenClient {
         env: { MUTAGEN_SSH_CONFIG_BETA: sshConfig.configPath },
       });
     } catch (e) {
-      throw new Error(`Failed to resume sync: ${(e as any).stderr}`);
+      const me = e as MutagenError;
+      throw new Error(`Failed to resume sync: ${me.stderr}`);
     }
   }
 
@@ -86,11 +92,12 @@ export class MutagenClient {
     try {
       await spawnMutagen(["sync", "terminate", this.syncName()]);
     } catch (e) {
-      const stderr = (e as any).stderr.toLowerCase();
+      const me = e as MutagenError;
+      const stderr = me.stderr.toLowerCase();
       if (stderr.includes(MISSING_SESSION_ERROR)) {
         return;
       } else {
-        throw new Error(`Failed to stop sync: ${(e as any).stderr}`);
+        throw new Error(`Failed to stop sync: ${me.stderr}`);
       }
     } finally {
       await removeSshConfig(this.instance);
@@ -101,10 +108,10 @@ export class MutagenClient {
 export async function spawnMutagen(
   args: string[],
   opts?: { env?: Record<string, string> },
-): Promise<void> {
+): Promise<MutagenResult> {
   const mutagenDataDir = join(await ensureConfigDirectory(), "mutagen");
   await mkdir(mutagenDataDir, { recursive: true });
-  await mutagen(args, {
+  return mutagen(args, {
     env: {
       ...process.env,
       ...opts?.env,
