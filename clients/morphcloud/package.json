@@ -1,6 +1,6 @@
 {
   "name": "@nuanced-dev/lsp-morphcloud",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "CLI to run Nuanced LSP on Morphcloud",
   "license": "MIT",
   "author": "Nuanced",
@@ -13,7 +13,6 @@
     "nuanced-lsp-morphcloud": "dist/cli.js"
   },
   "files": [
-    "bin",
     "dist"
   ],
   "scripts": {
