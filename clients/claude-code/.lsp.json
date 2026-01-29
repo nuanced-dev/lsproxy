@@ -1,0 +1,27 @@
+{
+    "nuanced-lsp": {
+        "command": "nuanced-lsp",
+        "args": ["server", "."],
+        "extensionToLanguage": {
+            ".c": "c",
+            ".h": "c",
+            ".cpp": "cpp",
+            ".cc": "cpp",
+            ".cxx": "cpp",
+            ".hpp": "cpp",
+            ".hxx": "cpp",
+            ".C": "cpp",
+            ".H": "cpp",
+            ".cs": "csharp",
+            ".go": "go",
+            ".java": "java",
+            ".php": "php",
+            ".py": "python",
+            ".pyi": "python",
+            ".rb": "ruby",
+            ".rs": "rust",
+            ".js": "javascript",
+            ".ts": "typescript"
+        }
+    }
+}
