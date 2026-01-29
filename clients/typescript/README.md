@@ -176,9 +176,15 @@ nuanced-lsp up /path/to/workspace \
   --language-image-version 1.0.0
 ```
 
-**Environment variables** (when used via Nuanced MCP):
+**Environment variables**:
 
-When Nuanced LSP is run through the Nuanced MCP server, you can override images using environment variables:
+It is also possible to override some aspects of the containers with the following environment variables:
+
+- `NUANCED_LSP_CONTAINER_NAME` - Set the name of the container to start or use
+- `NUANCED_LSP_PORT` - Set the port at which the Nuanced LSP API is exposed
+- `NUANCED_LSP_TIMEOUT` - Set the timeout for API requests
+
+The following variables can be used to override the service and language images that are used:
 
 - `CONTAINER_REGISTRY` - Override the container registry
 - `LANGUAGE_IMAGE_VERSION` - Override the language image version

@@ -26,6 +26,7 @@ class LspServer {
   private readonly input: Readable;
   private readonly output: Writable;
   private readonly logLevel: MessageType;
+  private wasStarted = false;
   private shutdownReceived = false;
   private isShuttingDown = false;
   private ws: WebSocket | null = null;
@@ -65,14 +66,20 @@ class LspServer {
   }
 
   private async startServer(): Promise<void> {
-    if (!this.opts.containerName) {
+    // start container if it isn't running yet
+    if (isErr(await this.client.status())) {
       if (!this.workspace) {
         throw new Error(
           "Workspace is required when not using an existing container",
         );
       }
 
-      const res = await this.client.up(this.workspace, {
+      await this.sendLogMessage(
+        MessageType.Info,
+        "Starting LSP server container",
+      );
+
+      const upRes = await this.client.up(this.workspace, {
         containerRegistry: this.opts.containerRegistry,
         languageImageVersion: this.opts.languageImageVersion,
         serviceImageVersion: this.opts.serviceImageVersion,
@@ -84,13 +91,15 @@ class LspServer {
         envFile: this.opts.envFile,
       });
 
-      if (isErr(res)) {
+      if (isErr(upRes)) {
         await this.sendLogMessage(
           MessageType.Error,
-          `Failed to start LSP server container: ${JSON.stringify(res.data)}`,
+          `Failed to start LSP server container: ${JSON.stringify(upRes.data)}`,
         );
         throw new Error("Failed to start container");
       }
+
+      this.wasStarted = true;
     }
 
     await this.waitUntilServerIsHealthy();
@@ -188,7 +197,7 @@ class LspServer {
       this.ws = null;
     }
 
-    if (!this.opts.containerName) {
+    if (this.wasStarted) {
       await this.client.down();
     }
   }

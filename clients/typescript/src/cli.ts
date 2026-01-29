@@ -262,27 +262,35 @@ async function serverCommand(
   workspace: string | undefined,
   opts: ServerCommandOptions,
 ): Promise<void> {
+  let containerName =
+    opts.containerName ?? process.env.NUANCED_LSP_CONTAINER_NAME;
+  let lspPort =
+    opts.hostPort ??
+    (process.env.NUANCED_LSP_PORT
+      ? parseInt(process.env.NUANCED_LSP_PORT)
+      : undefined);
+
   // Validate that exactly one of workspace or containerName is provided
-  if (
-    (opts.containerName && workspace) ||
-    (!opts.containerName && !workspace)
-  ) {
+  if ((containerName && workspace) || (!containerName && !workspace)) {
     log.err(
       "Must specify either workspace or --container-name. Provide a workspace to start a new container, or --container-name to use an existing one.",
     );
     process.exit(1);
   }
 
+  containerName ??= await generateRandomContainerName();
+  lspPort ??= 0;
+
   const client = await lspClient({
     ...opts,
-    containerName: opts.containerName ?? (await generateRandomContainerName()),
-    lspPort: opts.hostPort ?? 0,
+    containerName,
+    lspPort,
   });
 
   try {
     // Run the LSP server stdio loop
     const { runLspServer } = await import("./server.js");
-    await runLspServer(client, workspace!, opts, process.stdin, process.stdout);
+    await runLspServer(client, workspace, opts, process.stdin, process.stdout);
   } catch {
     // Fatal errors are already logged via window/logMessage
     process.exitCode = 1;
