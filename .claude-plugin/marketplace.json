@@ -9,9 +9,7 @@
             "description": "Nuanced LSP plugin for Claude Code",
             "version": "0.5.3",
             "homepage": "https://github.com/nuanced-dev/lsp",
-            "category": "development",
-            "source": "./clients/claude-code",
-            "strict": false
+            "source": "./clients/claude-code"
         }
     ]
 }
