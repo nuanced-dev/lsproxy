@@ -130,7 +130,7 @@ We aim to support the Ruby versioned released in the last year.
 
 Below is a high-level overview of available API (arguments/options omitted here for brevity).
 
-**Lifecycle [(reference docs)](https://docs.nuanced.dev/lsp/api-reference/container-lifecycle):**
+**Lifecycle [(reference docs)](../../docs/api-reference/container-lifecycle.md):**
 
 - `up` – Start the Nuanced LSP Docker container
 - `down` – Stop the container
@@ -139,16 +139,16 @@ Below is a high-level overview of available API (arguments/options omitted here 
 - `run` – Run a script inside the container
 - `status` – Show Docker lifecycle status
 
-**System [(reference docs)](https://docs.nuanced.dev/lsp/api-reference/system):**
+**System [(reference docs)](../../docs/api-reference/system.md):**
 
 - `health` – Check server health and language readiness flags
 
-**Workspace [(reference docs)](https://docs.nuanced.dev/lsp/api-reference/workspace):**
+**Workspace [(reference docs)](../../docs/api-reference/workspace.md):**
 
 - `list-files` – List files detected in the workspace
 - `read-source` – Read file contents (optionally a range)
 
-**Symbols [(reference docs)](https://docs.nuanced.dev/lsp/api-reference/symbols):**
+**Symbols [(reference docs)](../../docs/api-reference/symbols.md):**
 
 - `definitions-in-file` – List symbol definitions in a file
 - `find-definition` – Find the definition at a given position
