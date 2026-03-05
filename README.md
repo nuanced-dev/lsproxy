@@ -4,7 +4,7 @@
 
 Originally forked from [agentic-labs/lsproxy](https://github.com/agentic-labs/lsproxy).
 
-[Reference Documentation](https://docs.nuanced.dev/lsp/overview)
+[Reference Documentation](docs/overview.md)
 
 </div>
 
